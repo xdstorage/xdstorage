@@ -754,9 +754,18 @@ public final class XdStorageCacheRecord {
      * Для мок-транзакций (без снапшот-номера) и незакоммиченных (locked) записей границей
      * остается timestart владельца. READ_COMMITTED: гейт выключен — всегда последнее
      * закоммиченное состояние.
+     *
+     * <p>ИНФРАСТРУКТУРА (граф B+дерева: записи XdStorageBTree/XdStorageBTreeNode) —
+     * READ COMMITTED ВСЕГДА, независимо от уровня изоляции хранилища: индекс обязан
+     * разрешать ключи по последней ЗАКОММИЧЕННОЙ структуре. Снапшот-замороженное
+     * дерево скрывает ключи, закоммиченные после начала читателя, и превращает
+     * поиск по индексу в ложное «does not exist» / «cannot load by reference»
+     * (класс отказов planet-3, прогон мульпоточных стрессов 2026-10-24). Данные
+     * сущности сохраняют свое снапшотное представление — гейт выключен только
+     * для инфраструктурных кэшей.
      */
     private boolean servesCommittedVersion(XdStorageTransaction transaction) {
-        if (cache.getIsolationLevel() == XdStorageIsolationLevel.READ_COMMITTED) {
+        if (cache.isInfrastructureCache() || cache.getIsolationLevel() == XdStorageIsolationLevel.READ_COMMITTED) {
             return false;
         }
         if (this.state == State.committed) {
@@ -772,9 +781,11 @@ public final class XdStorageCacheRecord {
     /**
      * SNAPSHOT: читатель с timestart < версии видит предыдущую закоммиченную версию.
      * READ_COMMITTED: читатель всегда видит последнее закоммиченное состояние (object).
+     * Инфраструктура (граф B+дерева): READ COMMITTED всегда — см. {@link #servesCommittedVersion}.
      */
     private boolean servesSnapshotVersion(final XdStorageTransaction transaction) {
-        return cache.getIsolationLevel() != XdStorageIsolationLevel.READ_COMMITTED
+        return !cache.isInfrastructureCache()
+                && cache.getIsolationLevel() != XdStorageIsolationLevel.READ_COMMITTED
                 && transaction.getTimestart() < this.timestamp;
     }
 }

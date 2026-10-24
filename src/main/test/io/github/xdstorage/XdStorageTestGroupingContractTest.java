@@ -46,9 +46,12 @@ public class XdStorageTestGroupingContractTest {
      * only with a comment saying why the name cannot change.
      */
     private static final java.util.Set<String> STRESS_TAG_NAMING_EXCEPTIONS =
-            new java.util.HashSet<>(java.util.Collections.singletonList(
+            new java.util.HashSet<>(java.util.Arrays.asList(
                     // pre-2.0 multithread XML stress; name frozen by the ledger + backstop patterns
-                    "XmlDataStorageMultithreadsTest"));
+                    "XmlDataStorageMultithreadsTest",
+                    // the YAML twin of the same pre-2.0 pair (added with the pair, same
+                    // ledger/backstop rationale as its XML sibling)
+                    "YamlDataStorageMultithreadsTest"));
 
     @Test
     public void stressNamingAndTagArePairedInBothDirections() throws IOException {

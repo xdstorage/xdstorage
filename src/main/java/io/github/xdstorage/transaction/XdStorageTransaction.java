@@ -95,6 +95,9 @@ public class XdStorageTransaction implements IXdStorageTransaction {
     // подлежат КОМПЕНСИРУЮЩЕМУ удалению при откате (деревья мутируются ин-плейс и
     // не откатываются record-механизмом; без компенсации индекс вечно указывает на
     // несуществующие записи — "cannot load by reference" у читателей сканов).
+    private final java.util.List<Object[]> indexKeyDeletesForRollback =
+            new java.util.ArrayList<>();
+
     private final java.util.List<Object[]> indexKeysForRollback =
             java.util.Collections.synchronizedList(new java.util.ArrayList<>());
 
@@ -579,6 +582,42 @@ public class XdStorageTransaction implements IXdStorageTransaction {
     }
 
     @Override
+    public void registerIndexKeyDeleteForRollback(final Object tree, final Comparable key, final Object value) {
+        if (tree != null && key != null) {
+            synchronized (indexKeyDeletesForRollback) {
+                indexKeyDeletesForRollback.add(new Object[]{tree, key, value});
+            }
+        }
+    }
+
+    @Override
+    public void rollbackIndexKeyDeletes() {
+        final java.util.List<Object[]> pending;
+        synchronized (indexKeyDeletesForRollback) {
+            if (indexKeyDeletesForRollback.isEmpty()) {
+                return;
+            }
+            pending = new java.util.ArrayList<>(indexKeyDeletesForRollback);
+            indexKeyDeletesForRollback.clear();
+        }
+        // Обратный порядок регистрации: последнее удаление восстанавливается первым.
+        for (int i = pending.size() - 1; i >= 0; --i) {
+            final Object[] triple = pending.get(i);
+            try {
+                ((io.github.xdstorage.btree.XdStorageBTree) triple[0])
+                        .insert((Comparable) triple[1], triple[2], getStorage(), this);
+            } catch (final Throwable t) {
+                // Ключ мог вернуться в дерево параллельной транзакцией (ин-плейс мутации
+                // видны всем) — тогда двойная вставка штатно отклоняется. Более серьезный
+                // сбой восстановления ключа — это дыра в индексе: WARN, не тишина.
+                org.slf4j.LoggerFactory.getLogger(XdStorageTransaction.class)
+                        .warn("rollback index-key DELETE compensation failed for {} (index may miss the key): {}",
+                                triple[1], t.getMessage());
+            }
+        }
+    }
+
+    @Override
     public void rollbackIndexKeyInserts() {
         final java.util.List<Object[]> pending;
         synchronized (indexKeysForRollback) {
@@ -646,8 +685,10 @@ public class XdStorageTransaction implements IXdStorageTransaction {
     public void rollbackInternal() {
         // R-57: компенсация ин-плейс индексных мутаций ДО отката record-состояний —
         // компенсирующие delete сами регистрируют свои изменения в этой транзакции
-        // и убираются общим откатом ниже.
+        // и убираются общим откатом ниже. Зеркало для УДАЛЕННЫХ ключей: возврат ключа
+        // держит дерево в read-committed состоянии после отката.
         rollbackIndexKeyInserts();
+        rollbackIndexKeyDeletes();
         for (final IXdStorageResourceObject resource : resources.values()) {
             try {
                 resource.rollback(this);

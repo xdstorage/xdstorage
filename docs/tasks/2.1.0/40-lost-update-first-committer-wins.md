@@ -1,0 +1,85 @@
+---
+title: "[2.1.0][LOSTUPD] First-committer-wins is not enforced on domain records — a stale write can resurrect deleted references under SNAPSHOT isolation"
+labels: [2.1.0-train, P1, engine, bug]
+status: open
+---
+
+## Summary
+
+A P1 engine defect proven by the 2026-10-24 multithreads-stability investigation
+(`XmlDataStorageMultithreadsTest`/`YamlDataStorageMultithreadsTest` 10x run, probe-instrumented
+repro). Under the default SNAPSHOT isolation, a transaction that read a record BEFORE another
+transaction's commit can still write its stale version AFTER that commit — the write passes the
+conflict check and the stale state becomes durable. Observed end state: a committed universe
+collection referencing a galaxy whose committed deletion happened in between — a dangling
+reference ("cannot load by reference" at the next indexed read).
+
+## The evidence chain (probe-4, 2026-10-24 23:18)
+
+1. `23:18:49.234` — tx `a8f785bf` (DeleteUniverseOperation) commits: deletes 4 galaxy keys +
+   95 planet keys (btree id-index) and the universe's record/subtree. Durable.
+2. The LAST worker event: `InsertGalaxyOperation Commited` — it read the universe collection
+   (its snapshot predates the delete), appended a new galaxy, and wrote the WHOLE collection
+   back — **including the just-deleted galaxy id**. The write was not rejected.
+3. The storage now holds a universe collection referencing a deleted galaxy. The next indexed
+   read fails: `cannot load by reference object of class XdGalaxySimpleWrapper`.
+
+## The hole
+
+`XdStorageCacheRecord.canBeChangedByTransaction(tx, readObjectByTransactionTimestamp)` compares
+the READER's read timestamp against `record.timestamp` — but `markUpdate` stamps
+`record.timestamp` with the CONFLICTING WRITER'S **START** time, not its COMMIT time. So the
+check effectively answers "did I read after the other writer *began*?" instead of "did I read
+before the other writer *committed*?". Any transaction that started after the conflicting
+writer began — but read the record before it committed — passes and commits its stale version
+(last-committer-wins inside the writer's whole duration window). The 1-arg overload has the
+same shape (`transaction.getTimestart() > timestamp`).
+
+## The fix direction
+
+True first-committer-wins (PostgreSQL repeatable-read semantics):
+
+1. stamp the record's version timestamp with the COMMIT time at commit finalization
+   (`XdStorageCacheRecord.commit()` — the commitSerial is already assigned there, R-45);
+2. the conflict check compares MY READ timestamp against the record's LAST COMMIT timestamp —
+   older read + foreign commit in between = the update/delete is rejected loudly
+   (the existing "can not be updated"/"concurrent modification" failures are the right
+   answer; the operation rolls back and retries);
+3. keep the R-40/R-42 relaxations (nested chains, infrastructure nodes) exactly as they are.
+
+## Cautions
+
+- This is the hottest machinery in the engine (the R-40..R-58 rollback-corruption lessons all
+  live here). Every isolation/phantom/rollback suite
+  (`XdStorageCacheMvccIsolationTest`, `XdStorageResourceCachePhantomReadTest`,
+  `XdStorageResourceCacheReadIsolationTest`, `XdStorageGraphPhantomReadStressTest`,
+  `XdStorageNestedTransactionIsolationStressTest`, `XdStorageCacheConcurrencyTest`) must stay
+  green, and the change needs a dedicated repro test: two txs, read same record, one commits,
+  the other's write must be rejected.
+- The READ_COMMITTED isolation level must keep its current permissive semantics (stale
+  overwrite allowed by design there? — decide and document).
+- Related but separate (filed in 38): the search-tree key deletes lack rollback compensation.
+
+## Already fixed in the same investigation (context, not part of this task)
+
+- B+tree caches are now READ COMMITTED always (`XdStorageCacheRecord.servesCommittedVersion` /
+  `servesSnapshotVersion` gate on `isInfrastructureCache()`) — snapshot-frozen trees hid
+  committed keys ("cannot load by reference" for EXISTING records);
+- R-57-mirror compensation for index-key DELETES (`registerIndexKeyDeleteForRollback` /
+  `rollbackIndexKeyDeletes`) — a rolled-back delete no longer consumes the key forever.
+
+## Acceptance criteria
+
+- [ ] The repro test (read → foreign commit → write must fail) is red before, green after.
+- [ ] The two multithreads stress classes pass 10/10 runs on the ORIGINAL test code.
+- [ ] All isolation/phantom/rollback suites green; full suite green x2.
+
+Estimate: 2-3 d (the semantics change is small; the regression surface is the whole
+isolation estate).
+
+## References
+
+- [28-javadoc-coverage](28-javadoc-coverage.md) — the campaign whose fresh-eyes pass started
+  the investigation
+- `resource/cache/XdStorageCacheRecord.java` (`canBeChangedByTransaction`, `markUpdate`,
+  `commit()`), `resource/cache/XdStorageCacheMutator.java` (the update/delete conflict gates)

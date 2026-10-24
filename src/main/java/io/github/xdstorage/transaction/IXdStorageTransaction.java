@@ -105,4 +105,28 @@ public interface IXdStorageTransaction {
      * back.
      */
     void rollbackIndexKeyInserts();
+
+    /**
+     * The mirror of {@link #registerIndexKeyForRollback} for DELETED keys: the tree
+     * key removal is in-place and immediate, so a transaction that deletes an indexed
+     * object and then rolls back would otherwise leave the key consumed forever — the
+     * record and every reference to it come back with the record-state rollback, but
+     * the index can no longer resolve the id ("cannot load by reference" at the next
+     * indexed read). The (key, value) pair is re-inserted on rollback, which is what
+     * keeps the B+tree READ COMMITTED always: after the rollback the index reflects
+     * exactly the committed state.
+     *
+     * @param tree  the index tree the key was deleted from
+     * @param key   the deleted key
+     * @param value the index value to restore the key with (for the id-index tree: the
+     *              data-fragment resource id the record lived in)
+     */
+    void registerIndexKeyDeleteForRollback(Object tree, Comparable key, Object value);
+
+    /**
+     * Compensating re-insert of every registered deleted index key (in reverse
+     * registration order). A failing re-insert is logged with a WARN and never blocks
+     * the rollback.
+     */
+    void rollbackIndexKeyDeletes();
 }

@@ -784,6 +784,12 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
         resource.delete(object, transaction);
 
         tree.delete((Comparable) objectId, storage, transaction);
+        // R-57 (зеркало): удаление ключа — ин-плейс мутация живого дерева. При откате
+        // транзакции record-состояния вернут запись и ссылки, но ключ остался бы
+        // поглощенным навсегда ("cannot load by reference" на следующем индексном
+        // чтении). Регистрируем пару для компенсирующей вставки при откате — дерево
+        // обязано оставаться read-committed всегда.
+        transaction.registerIndexKeyDeleteForRollback(tree, (Comparable) objectId, resourceId);
 
         // БАРЬЕР СТРУКТУРНОЙ ЦЕЛОСТНОСТИ: слияния листьев (join/borrow) — самый опасный
         // контур ребалансировки, валидируем цепочку сразу после удаления

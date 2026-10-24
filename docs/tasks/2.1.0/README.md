@@ -49,6 +49,7 @@ there for the full decision record before starting an item.
 | 37 | [yaml-reader-strictness](37-yaml-reader-strictness.md) | YAMLREAD | P2, engine, bug | 1–1.5 d | — (found by 28: corruption must fail loudly) |
 | 38 | [index-resource-contracts](38-index-resource-contracts.md) | IDXCONTRACT | P2, engine, tech-debt | 1 d | — (found by 28: implementations vs declared contracts) |
 | 39 | [message-hygiene-dead-params](39-message-hygiene-dead-params.md) | MSGHYGIENE | P2, chore, tech-debt | 0.5 d | — (found by 28; grep tests before touching asserted messages) |
+| 40 | [lost-update-first-committer-wins](40-lost-update-first-committer-wins.md) | LOSTUPD | P1, engine, bug | 2–3 d | — (PROVEN by the 2026-10-24 stress investigation: conflict check compares writer-start, not read-vs-commit; blocks a reliable full-suite gate until landed) |
 
 **The field-feedback track (added 2026-10-23 — "more important than new features"):**
 the P0 docs track executes in order **29 → 30**, with **31 (P1, ASAP)** running in
