@@ -122,6 +122,66 @@ class XdStorageCacheCommitProtocolInvariantTest extends CacheInvariantTestSuppor
     }
 
     @Test
+    void bothPhasesSetFlagsOnEveryRecordInOrder() throws Exception {
+        // CACHE2PC: обе фазы проходят по ВСЕМУ write-set — после prepare у каждой записи
+        // firstPhase=true/secondPhase=false, после perform — оба флага; коллектор получает
+        // по одной подаче на фазу на запись (двойная подача = механизм обновления).
+        XdStorageCacheRecord r1 = context.createReadRecord(entity(1L, "a"));
+        XdStorageCacheRecord r2 = context.createReadRecord(entity(2L, "b"));
+        context.records.put(1L, r1);
+        context.records.put(2L, r2);
+        XdStorageTransaction tx = mkTx("t1", 100L);
+        mutator.update(entity(1L, "a-upd"), tx);
+        mutator.update(entity(2L, "b-upd"), tx);
+        XdStorageTransactionResourceChanges collector = newCollector();
+
+        protocol.prepareCommit(tx, collector);
+
+        assertFalse(r1.isCommitedState());
+        assertFalse(r2.isCommitedState());
+        assertEquals(2, collector.getChangesObjects().size(), "фаза 1: по подаче на запись");
+
+        protocol.performCommit(tx, collector);
+
+        assertEquals(4, collector.getChangesObjects().size(), "фаза 2: вторая подача на запись (обновление коллектора)");
+
+        // обе фазы установлены — финализация делает записи перманентными
+        protocol.commit(tx);
+        assertTrue(r1.isCommitedState());
+        assertTrue(r2.isCommitedState());
+        assertTrue(context.records.get(1L).getObject() instanceof TestEntity);
+    }
+
+    @Test
+    void legacyNoJournalContourStillRollsBackEveryRecord() throws Exception {
+        // CACHE2PC: контур БЕЗ журнала отката достижим только из сторонних/моковых
+        // транзакций (все транзакции движка пишут журнал при первой мутации). Симулируем
+        // его: две мутации создают И карту, и журнал — журнал изымаем вручную, откат
+        // обязан пройти по карте и вернуть обе записи в read-состояние.
+        TestEntity v1 = entity(1L, "v1");
+        TestEntity v2 = entity(2L, "v2");
+        XdStorageCacheRecord r1 = context.createReadRecord(v1);
+        XdStorageCacheRecord r2 = context.createReadRecord(v2);
+        context.records.put(1L, r1);
+        context.records.put(2L, r2);
+
+        XdStorageTransaction tx = mkTx("t1", 100L);
+        mutator.update(entity(1L, "v1-upd"), tx);
+        mutator.update(entity(2L, "v2-upd"), tx);
+        assertNotNull(context.workspace.peekUndoLog("t1"), "движковые мутации обязаны иметь журнал");
+
+        context.workspace.removeUndoLog("t1"); // симуляция стороннего контура без журнала
+
+        protocol.rollback(tx);
+
+        assertTrue(r1.isReadChange());
+        assertSame(v1, r1.getObject());
+        assertTrue(r2.isReadChange());
+        assertSame(v2, r2.getObject());
+        assertFalse(context.workspace.hasChanges("t1"));
+    }
+
+    @Test
     void rollbackOfInsertRemovesDomainRecord() throws Exception {
         XdStorageTransaction tx = mkTx("t1", 100L);
         mutator.insertInternal(entity(1L, "a"), tx);

@@ -20,6 +20,19 @@ import java.util.Map.Entry;
  * Протокол завершения транзакции кэша ресурсов: двухфазный коммит (prepare/perform),
  * финализация, откат по журналу мутаций и откат упавшего коммита (вынесен из
  * XdStorageResourceCache при разделении класса).
+ *
+ * <p>CACHE2PC (docs/tasks/2.1.0/34) — решение по аудиту двух фаз: тела prepare/perform
+ * НАМЕРЕННО идентичны (один общий {@link #runCommitPhase}); фазы отличаются ТОЛЬКО
+ * флагом записи ({@code prepareCommit()} / {@code performCommit()}). Двойная подача
+ * изменений в коллектор — не дублирование, а механизм обновления: вторая фаза кладет
+ * в коллектор состояние, ДОГНАВШЕЕ фазу prepare (отложенные идентификаторы, долетевшие
+ * до необнаруженных оберток, и продвинутые состояния записей), поэтому каждая фаза
+ * обязана кормить коллектор сама.
+ *
+ * <p>Откат: живой контур (все транзакции движка) играет журнал мутаций в обратном
+ * порядке. Контур БЕЗ журнала (карта write-set без журнала) достижим только из
+ * сторонних/моковых транзакций, у которых нет хронологии — в нем откат идет в порядке
+ * итерации карты (см. {@link #rollback}).
  */
 public final class XdStorageCacheCommitProtocol {
 
@@ -48,75 +61,37 @@ public final class XdStorageCacheCommitProtocol {
      * @param collector   the per-resource change buffer that receives the prepared change objects
      */
     public void prepareCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges collector) {
-        final String transactionId = transaction.getTransactionId();
-
-        final Map<Object, XdStorageCacheObjectChange> readObjects = cache.workspace().readObjectsOf(transaction);
-
-        final Map<Object, XdStorageCacheRecord> map = cache.workspace().changes(transactionId);
-        if (map != null) {
-            final Iterator<Entry<Object, XdStorageCacheRecord>> it = map.entrySet().iterator();
-            while (it.hasNext()) {
-                final XdStorageCacheRecord record = it.next().getValue();
-                Object oldObject = null, newObject = null;
-                XdStorageObjectOperationType type = null;
-                synchronized (record) {
-                    if (record.isInsertChange()) {
-                        newObject = record.getNewObject();
-                        type = XdStorageObjectOperationType.Insert;
-
-                        if (newObject != null) {
-                            Object insertId = cache.idField().get(newObject);
-                            if (insertId != null && readObjects != null && readObjects.containsKey(insertId)) {
-                                newObject = readObjects.get(insertId).object;
-                            }
-                        }
-                    } else if (record.isUpdateChange()) {
-                        oldObject = record.getObject();
-                        type = XdStorageObjectOperationType.Update;
-
-                        if (oldObject != null) {
-                            Object updateId = cache.idField().get(oldObject);
-                            if (updateId != null && readObjects != null && readObjects.containsKey(updateId)) {
-                                newObject = readObjects.get(updateId).object;
-                            }
-                        }
-                    } else if (record.isDeleteChange()) {
-                        oldObject = record.getObject();
-                        type = XdStorageObjectOperationType.Delete;
-                    }
-
-                    if (log.isDebugEnabled()) {
-                        log.debug("PREPARE COMMIT " + type + " by transaction " + transaction.getTransactionId() + "\r\n OLD OBJECT: " + oldObject + "\r\n NEW OBJECT: " + newObject);
-                    }
-
-                    collector.addChangeObject(type, record.getId(),
-                            oldObject != null ? XdStorageObjectUtils.cloneObject(oldObject) : null,
-                            newObject != null ? newObject : null);
-
-                    record.prepareCommit();
-                }
-            }
-        }
-
-        final Map<Object, IXdStorageIdObservableWrapper> wrappers = cache.workspace().unidentified(transactionId);
-        if (wrappers != null) {
-            for (final IXdStorageIdObservableWrapper wrapper : wrappers.values()) {
-                collector.addChangeObject(XdStorageObjectOperationType.Insert, null, null, wrapper);
-            }
-        }
+        runCommitPhase(transaction, collector, true);
     }
 
     /**
-     * Phase 2 of the two-phase commit: feeds the collector the same change objects as
-     * {@code prepareCommit} and marks every record perform-committed. Running it after the
-     * prepare phase sets both two-phase flags on each record, which is the precondition the
-     * record's later {@code commit} requires; unidentified observable wrappers are again
-     * contributed as inserts without an id.
+     * Phase 2 of the two-phase commit: see {@link #prepareCommit} — the bodies are
+     * deliberately identical (CACHE2PC); only the record flag differs. The second feed
+     * refreshes the collector with state that advanced after the prepare phase.
      *
      * @param transaction the committing transaction whose write-set is contributed
      * @param collector   the per-resource change buffer receiving the final change objects
      */
     public void performCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges collector) {
+        runCommitPhase(transaction, collector, false);
+    }
+
+    /**
+     * The single implementation of both commit phases (CACHE2PC: the duplication collapse —
+     * the bodies were byte-identical except the flag and the debug label). For every
+     * write-set record: compute the operation type and the old/new pair (preferring the
+     * transaction's materialized instance for inserts and updates), feed the collector,
+     * and set the record's phase flag. Unidentified observable wrappers are contributed as
+     * inserts without an id — in BOTH phases, because the deferred id may land between
+     * them and the second feed must carry the wrapper state forward.
+     *
+     * @param transaction the committing transaction
+     * @param collector   the per-resource change buffer
+     * @param prepare     {@code true} for phase 1 (marks records prepare-committed),
+     *                    {@code false} for phase 2 (marks them perform-committed)
+     */
+    private void runCommitPhase(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges collector,
+                                final boolean prepare) {
         final String transactionId = transaction.getTransactionId();
 
         final Map<Object, XdStorageCacheObjectChange> readObjects = cache.workspace().readObjectsOf(transaction);
@@ -134,9 +109,9 @@ public final class XdStorageCacheCommitProtocol {
                         type = XdStorageObjectOperationType.Insert;
 
                         if (newObject != null) {
-                            Object commitId = cache.idField().get(newObject);
-                            if (commitId != null && readObjects != null && readObjects.containsKey(commitId)) {
-                                newObject = readObjects.get(commitId).object;
+                            final Object objectId = cache.idField().get(newObject);
+                            if (objectId != null && readObjects != null && readObjects.containsKey(objectId)) {
+                                newObject = readObjects.get(objectId).object;
                             }
                         }
                     } else if (record.isUpdateChange()) {
@@ -144,9 +119,9 @@ public final class XdStorageCacheCommitProtocol {
                         type = XdStorageObjectOperationType.Update;
 
                         if (oldObject != null) {
-                            Object commitId = cache.idField().get(oldObject);
-                            if (commitId != null && readObjects != null && readObjects.containsKey(commitId)) {
-                                newObject = readObjects.get(commitId).object;
+                            final Object objectId = cache.idField().get(oldObject);
+                            if (objectId != null && readObjects != null && readObjects.containsKey(objectId)) {
+                                newObject = readObjects.get(objectId).object;
                             }
                         }
                     } else if (record.isDeleteChange()) {
@@ -155,14 +130,19 @@ public final class XdStorageCacheCommitProtocol {
                     }
 
                     if (log.isDebugEnabled()) {
-                        log.debug("PERFORM COMMIT " + type + " by transaction " + transaction.getTransactionId() + "\r\n OLD OBJECT: " + oldObject + "\r\n NEW OBJECT: " + newObject);
+                        log.debug((prepare ? "PREPARE COMMIT " : "PERFORM COMMIT ") + type + " by transaction "
+                                + transaction.getTransactionId() + "\r\n OLD OBJECT: " + oldObject + "\r\n NEW OBJECT: " + newObject);
                     }
 
                     collector.addChangeObject(type, record.getId(),
                             oldObject != null ? XdStorageObjectUtils.cloneObject(oldObject) : null,
                             newObject != null ? newObject : null);
 
-                    record.performCommit();
+                    if (prepare) {
+                        record.prepareCommit();
+                    } else {
+                        record.performCommit();
+                    }
                 }
             }
         }
@@ -283,7 +263,10 @@ public final class XdStorageCacheCommitProtocol {
                 }
             }
         } else if (map != null) {
-            // Журнал отсутствует (транзакция из старого кода/мока) — прежний порядок по карте
+            // Журнал отсутствует (контур старого кода/мока: все транзакции движка пишут
+            // журнал при первой мутации записи — CACHE2PC). Хронологии в этом контуре нет,
+            // поэтому откат идет в порядке итерации карты: детерминизм недостижим и не
+            // требуется — сторонний контур по определению не несет движковых мутаций.
             final Iterator<Entry<Object, XdStorageCacheRecord>> it = map.entrySet().iterator();
             while (it.hasNext()) {
                 final XdStorageCacheRecord record = it.next().getValue();

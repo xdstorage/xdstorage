@@ -1,7 +1,7 @@
 ---
 title: "[2.1.0][CACHE2PC] Audit the cache commit protocol — phase-1/phase-2 body duplication and the legacy rollback order"
 labels: [2.1.0-train, P2, engine, bug]
-status: open
+status: done
 ---
 
 ## Summary
@@ -36,13 +36,39 @@ eyes) inside `XdStorageCacheCommitProtocol` — the two-phase heart of the resou
   (R-40-intentional; docs cross-linked in 28) and the mutable `XdStorageCacheObjectChange.object`
   field (caller-synchronized by design, documented in 28).
 
+## Landed (2026-10-25): both findings resolved
+
+**Finding 1 — the duplication is deliberate, now collapsed and documented.** Diffing the
+two bodies confirmed they are byte-identical except the record flag and the debug label.
+The decision, recorded in the class javadoc: the phases share ONE implementation
+(`runCommitPhase(tx, collector, prepare)`), and the DOUBLE FEED into the collector is not
+duplication but the refresh mechanism — the second feed carries state that advanced after
+the prepare phase (deferred ids landing on unidentified wrappers, records advanced by
+`prepareCommit`). `prepareCommit`/`performCommit` are thin wrappers.
+
+**Finding 2 — the legacy map-order path is a foreign-contour fallback, now documented and
+pinned.** The branch is reachable only for contours WITHOUT an undo journal; every engine
+transaction populates the journal at its first mutation (`undoLog(...).addLast(record)` in
+`registerMutation`), so the reverse-chronology path is the live one and map order fires
+only for foreign/mock contours that carry no chronology to replay — deterministic order is
+unachievable and unnecessary there. The branch comment and the `rollback` javadoc say so.
+
+**Tests added** (`XdStorageCacheCommitProtocolInvariantTest`, 9 → 11):
+- `bothPhasesSetFlagsOnEveryRecordInOrder` — two records through both phases: phase 1
+  feeds two change objects with no record committed, phase 2 feeds two more (the refresh
+  feed pinned), finalization commits both;
+- `legacyNoJournalContourStillRollsBackEveryRecord` — the journal peeled manually
+  (simulating a foreign contour): the legacy map-order rollback still reverts every
+  record to its read state and clears the write-set.
+
 ## Acceptance criteria
 
-- [ ] The phase-1/phase-2 question is answered: divergence restored or duplication collapsed,
-      decision in the class javadoc.
-- [ ] Legacy-path rollback order test green (reverse mutation order) — or the documented
-      contract corrected to match actual behavior, with the reason.
-- [ ] Full suite green ×2.
+- [x] The phase-1/phase-2 question is answered: duplication collapsed into
+      `runCommitPhase`, decision in the class javadoc.
+- [x] Legacy-path contract corrected to match actual behavior (map order, foreign contour
+      only) with the reason; the branch pinned by
+      `legacyNoJournalContourStillRollsBackEveryRecord`.
+- [x] Full suite green ×2.
 
 Estimate: 0.5–1 d.
 
