@@ -89,6 +89,29 @@ the tree mutations must either become compensable or become rollback-safe:
   under the folder lock).
 - The R-55 retention (resources survive release) must not be broken by the sweep.
 
+## The deterministic repro is landed (2026-10-25): `XdStorageTreeStructureRollbackTest`
+
+Two scenarios (single-threaded, fully deterministic — no concurrency needed):
+- `rollbackOfFullCollapse_RestoresTheTree` — **DISABLED: RED by design until the
+  structural compensation lands.** 40 entities into a t=4 tree, all deleted in one
+  transaction (the collapse empties the tree), a phantom delete fails inside the
+  transaction, rollback — then EVERY entity must be loadable by id again through the
+  id-index and the tree must accept growth. Red for exactly the defect: the in-place
+  collapse survives the rollback and the index reads as empty.
+- `rolledBackCollapse_ReopensConsistently` — **enabled and green today**: the rolled-back
+  purge followed by shutdown/reopen serves the pre-transaction entities (the FILE state
+  is the last-committed one — the rolled-back tx never wrote), pinning the on-disk
+  half of the contract while the structural fix is pending.
+
+The 2026-10-25 compensation attempt (structure triples + key compensation reorder +
+fresh-parse re-inserts) got one step further — the "was deleted this transaction"
+refusals disappeared — and then exposed the next layer: the re-inserts descend the
+IN-MEMORY mutated node graph (cache clearing does not unlink the linked node objects)
+and burn the rebalance retry budgets on emptied leaves. The sound fix needs the
+persistence-faithful re-parse semantics described above (fresh parse per compensation
+against invalidated caches AND a re-parse-backed root — the in-memory root instance is
+the mutated one and cannot be repaired in place).
+
 ## Acceptance criteria
 
 - [ ] A repro test: transaction mutates a tree (delete causing collapse) → rollback → assert
