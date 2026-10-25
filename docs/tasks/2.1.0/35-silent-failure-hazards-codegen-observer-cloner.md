@@ -65,6 +65,34 @@ far from its cause (or never):
 The R-42-style caveat: infrastructural btree caches keep their own rollback semantics —
 untouched here (this task's three paths are domain-side only).
 
+## Extended (2026-10-25, user-directed): the non-instantiable-container fallback ladder
+
+The user's follow-up fix in `XdStorageCollectionCloner` added `newCollectionInstance(src)` —
+collections whose class cannot be reflectively re-instantiated (immutable/wrapper/foreign
+containers) now clone into the closest MUTABLE semantic equivalent instead of failing.
+Extended it into a full semantic ladder and mirrored it for maps:
+
+- **collection fallback**: exact `Collections.synchronizedList/Set` wrapper classes
+  (the user's precision checks, extended to the non-RandomAccess synchronized list),
+  then SortedSet → TreeSet, Set → HashSet, Queue/Deque → LinkedList, everything else →
+  ArrayList — EMPTY containers every time (the caller's element loop fills the clone;
+  pre-populating duplicates every element — caught by the regression test);
+- **map fallback**: `newMapInstance(src)` — the synchronized-map wrapper, SortedMap →
+  TreeMap (natural order), everything else → HashMap — wired into BOTH the empty and the
+  non-empty branches (the non-empty branch previously still threw on non-instantiable
+  sources);
+- the recorded class-coarsening contract: the clone's CLASS may be coarser than the
+  source's; its CONTENTS and iteration semantics are what the snapshot preserves. A
+  comparator-bearing SortedSet/SortedMap degrades to natural ordering (the comparator is
+  not recoverable from the collection) — loud ClassCastException on non-comparable
+  elements rather than silent loss.
+
+Tests: 6 fallback cases in `XdStorageSilentFailureFixTest` (unmodifiable list/set/sorted
+set/synchronized linked list/unmodifiable map/unmodifiable sorted map), the loud
+element-failure tests re-targeted to the real failure path (a pojo without a no-arg
+constructor inside the collection — PojoCloner's `cl.newInstance()` throws), and the
+null-source semantics pinned.
+
 ## Acceptance criteria
 
 - [x] Each of the three has a failing-first test that passes after the fix (the

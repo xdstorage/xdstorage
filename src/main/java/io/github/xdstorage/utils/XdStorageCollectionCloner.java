@@ -66,10 +66,13 @@ public final class XdStorageCollectionCloner {
         try {
             if (collection == null) return null;
             final Collection<Object> src = (Collection<Object>) collection;
-            if (src.isEmpty()) return src.getClass().newInstance();
+            if (src.isEmpty()) {
+                return newCollectionInstance(src);
+            }
 
-            final Collection<Object> clone = (Collection<Object>) collection.getClass().newInstance();
-            for (final Object object : src) {
+            final Collection<Object> clone = newCollectionInstance((Collection<Object>)collection);
+            Object[] arr = src.toArray(new Object[0]);
+            for (final Object object : arr) {
                 final Class<?> cl = object != null ? object.getClass() : null;
                 if (object == null || cl.isEnum() || XdStorageObjectUtils.isSimpleType(cl, object)) {
                     clone.add(object);
@@ -96,6 +99,65 @@ public final class XdStorageCollectionCloner {
     }
 
     /**
+     * materializes the clone container for a source collection whose class cannot be
+     * reflectively re-instantiated (immutable/wrapper/foreign containers): the closest
+     * MUTABLE semantic equivalent is chosen — the exact {@code Collections.synchronized*}
+     * wrapper classes when recognized, then the source's semantic interface
+     * (SortedSet → TreeSet preserving natural order, Set → HashSet, Queue/Deque →
+     * LinkedList, everything else → ArrayList/LinkedList per {@link RandomAccess}).
+     * The clone's CLASS may therefore be coarser than the source's — its CONTENTS and
+     * iteration semantics are what the snapshot preserves.
+     */
+    private static Collection<Object> newCollectionInstance(final Collection<Object> src) {
+        final Class<? extends Collection> collectionClass = src.getClass();
+        try {
+            return collectionClass.newInstance();
+        } catch (final Exception e) {
+            if (collectionClass == Collections.synchronizedList(new ArrayList<>()).getClass()
+                    || collectionClass == Collections.synchronizedList(new LinkedList<>()).getClass()) {
+                // EMPTY containers: the caller's element loop fills the clone —
+                // pre-populating from src would duplicate every element.
+                return Collections.synchronizedList(
+                        src instanceof LinkedList<?> ? new LinkedList<>() : new ArrayList<>());
+            }
+            if (collectionClass == Collections.synchronizedSet(new HashSet<>()).getClass()) {
+                return Collections.synchronizedSet(new HashSet<>());
+            }
+            if (src instanceof SortedSet<?>) {
+                return new TreeSet<>();
+            }
+            if (src instanceof Set<?>) {
+                return new HashSet<>();
+            }
+            if (src instanceof Deque<?> || src instanceof Queue<?>) {
+                return new LinkedList<>();
+            }
+            return new ArrayList<>();
+        }
+    }
+
+    /**
+     * materializes the clone container for a source MAP whose class cannot be reflectively
+     * re-instantiated: the synchronized-map wrapper when recognized, SortedMap → TreeMap
+     * (natural order), everything else → HashMap. See {@link #newCollectionInstance}.
+     */
+    @SuppressWarnings("unchecked")
+    private static Map<Object, Object> newMapInstance(final Map<Object, Object> src) {
+        final Class<?> mapClass = src.getClass();
+        try {
+            return (Map<Object, Object>) mapClass.newInstance();
+        } catch (final Exception e) {
+            if (mapClass == Collections.synchronizedMap(new HashMap<Object, Object>()).getClass()) {
+                return Collections.synchronizedMap(new HashMap<>());
+            }
+            if (src instanceof SortedMap<?, ?>) {
+                return new TreeMap<>();
+            }
+            return new HashMap<>();
+        }
+    }
+
+    /**
      * Clones a map into a fresh instance of the same class: keys and values are copied with the
      * same simple/Date/entity rules (keys only ever delegate to {@link XdStoragePojoCloner}),
      * entries with a null key are dropped, cycles resolve through the visited map. Any failure
@@ -113,9 +175,11 @@ public final class XdStorageCollectionCloner {
         try {
             if (map == null) return null;
             final Map<Object, Object> src = (Map<Object, Object>) map;
-            if (src.isEmpty()) return src.getClass().newInstance();
+            if (src.isEmpty()) {
+                return newMapInstance(src);
+            }
 
-            final Map<Object, Object> clone = (Map<Object, Object>) map.getClass().newInstance();
+            final Map<Object, Object> clone = newMapInstance(src);
             for (final Map.Entry<?, ?> entry : src.entrySet()) {
                 final Object keytmp = entry.getKey(), key;
                 Class<?> cl = keytmp != null ? keytmp.getClass() : null;

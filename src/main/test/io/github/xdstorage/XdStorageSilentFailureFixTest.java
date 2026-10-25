@@ -13,6 +13,10 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.Deque;
+import java.util.Queue;
+import java.util.SortedMap;
+import java.util.SortedSet;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -116,29 +120,118 @@ public class XdStorageSilentFailureFixTest {
         public NoCtorList(final String poison) { this.poison = poison; }
     }
 
+    // a pojo the reflective cloner cannot instantiate (no no-arg constructor)
+    public static final class NoNoArgPojo {
+        private final String payload;
+        public NoNoArgPojo(final String payload) { this.payload = payload; }
+        public String getPayload() { return payload; }
+    }
+
     @Test
-    public void cloneCollection_FailureIsLoud_NeverANullSnapshot() {
-        final NoCtorList poisoned = new NoCtorList("poison");
-        poisoned.add("element");
+    public void collection_WithUninstantiableElement_FailsLoud_NeverANullSnapshot() {
+        // PojoCloner instantiates element clones via cl.newInstance(): a pojo without a
+        // no-arg constructor throws, and the cloner must propagate it LOUDLY — the old
+        // code swallowed it and returned a null snapshot (silent data loss, R-44 family).
+        final List<NoNoArgPojo> poisoned = new ArrayList<>();
+        poisoned.add(new NoNoArgPojo("boom"));
 
         final XdStorageRuntimeException x = assertThrows(XdStorageRuntimeException.class,
                 () -> XdStorageCollectionCloner.cloneCollection(null, poisoned, new java.util.HashMap<>()),
-                "a clone failure must fail the snapshot, never silently drop the collection");
-        assertTrue(x.getMessage().contains("NoCtorList"), "the message names the offending type");
+                "an element clone failure must fail the snapshot, never silently drop the collection");
+        assertTrue(x.getMessage().contains("ArrayList"), "the message names the offending collection type");
         assertNotNull(x.getCause());
     }
 
     @Test
-    public void cloneMap_FailureIsLoud_NeverANullSnapshot() {
-        final Map<String, String> source = new java.util.LinkedHashMap<>();
-        source.put("k", "v");
-        // cloneMap clones INTO a fresh instance of the SOURCE class: make the source class
-        // itself the poison — a Map subtype that is not reflectively instantiable.
-        final Map<String, String> uninjectable = java.util.Collections.unmodifiableMap(source);
+    public void nonInstantiableCollection_FallsBackToSemanticEquivalent() {
+        // the fallback ladder: NoCtorList cannot be re-instantiated — the clone becomes
+        // the closest mutable semantic equivalent (an ArrayList) with contents preserved.
+        final NoCtorList poisoned = new NoCtorList("poison");
+        poisoned.add("element");
 
-        assertThrows(XdStorageRuntimeException.class,
-                () -> XdStorageCollectionCloner.cloneMap(null, uninjectable, new java.util.HashMap<>()),
-                "a map clone failure must fail the snapshot, never silently drop the map");
+        final Object clone = XdStorageCollectionCloner.cloneCollection(null, poisoned, new java.util.HashMap<>());
+        assertTrue(clone instanceof List, "the fallback keeps list semantics");
+        assertEquals(poisoned, clone, "contents preserved across the class coarsening");
+    }
+
+    @Test
+    public void nonInstantiableMap_FallsBackToSemanticEquivalent() {
+        // the map mirror: an unmodifiable map cannot be re-instantiated — the clone
+        // becomes a mutable semantic equivalent (a HashMap) with contents preserved.
+        final Map<String, String> inner = new java.util.LinkedHashMap<>();
+        inner.put("k1", "v1");
+        final Map<String, String> source = java.util.Collections.unmodifiableMap(inner);
+
+        final Object clone = XdStorageCollectionCloner.cloneMap(null, source, new java.util.HashMap<>());
+        assertTrue(clone instanceof Map, "the fallback keeps map semantics");
+        assertEquals(source, clone, "contents preserved across the class coarsening");
+    }
+
+    // =====================================================================
+    // EXTENSION (the fallback ladder): non-instantiable containers clone into the
+    // closest MUTABLE semantic equivalent — contents preserved, class coarsened.
+    // =====================================================================
+
+    @Test
+    public void unmodifiableList_ClonesIntoRandomAccessList() {
+        final List<String> source = java.util.Collections.unmodifiableList(new java.util.ArrayList<>(java.util.Arrays.asList("a", "b")));
+        final Object clone = XdStorageCollectionCloner.cloneCollection(null, source, new java.util.HashMap<>());
+        assertTrue(clone instanceof List, "the clone stays a List");
+        assertEquals(source, clone, "contents and order preserved");
+        assertTrue(clone instanceof java.util.RandomAccess, "the RandomAccess fallback keeps list access traits");
+    }
+
+    @Test
+    public void unmodifiableSet_ClonesIntoASet_NotAList() {
+        final java.util.Set<String> source = java.util.Collections.unmodifiableSet(new java.util.HashSet<>(java.util.Arrays.asList("x", "y")));
+        final Object clone = XdStorageCollectionCloner.cloneCollection(null, source, new java.util.HashMap<>());
+        assertTrue(clone instanceof java.util.Set, "set semantics must survive (a List fallback would admit duplicates)");
+        assertEquals(source, clone);
+    }
+
+    @Test
+    public void unmodifiableSortedSet_ClonesWithOrderingPreserved() {
+        final java.util.SortedSet<String> source = java.util.Collections.unmodifiableSortedSet(new java.util.TreeSet<>(java.util.Arrays.asList("c", "a", "b")));
+        final Object clone = XdStorageCollectionCloner.cloneCollection(null, source, new java.util.HashMap<>());
+        assertTrue(clone instanceof java.util.SortedSet, "sorted-set ordering must survive the fallback");
+        assertEquals(source.first(), ((java.util.SortedSet<?>) clone).first());
+        assertEquals(source.last(), ((java.util.SortedSet<?>) clone).last());
+        assertEquals(source, clone);
+    }
+
+    @Test
+    public void synchronizedLinkedList_ClonesIntoALinkedList() {
+        final java.util.LinkedList<String> inner = new java.util.LinkedList<>();
+        inner.add("q1");
+        final List<String> source = java.util.Collections.synchronizedList(inner);
+        final Object clone = XdStorageCollectionCloner.cloneCollection(null, source, new java.util.HashMap<>());
+        assertTrue(clone instanceof List);
+        assertEquals(source, clone);
+    }
+
+    @Test
+    public void unmodifiableMap_NonEmpty_ClonesIntoAMap_WithContentsPreserved() {
+        final java.util.Map<String, String> inner = new java.util.LinkedHashMap<>();
+        inner.put("k1", "v1");
+        inner.put("k2", "v2");
+        final java.util.Map<String, String> source = java.util.Collections.unmodifiableMap(inner);
+        final Object clone = XdStorageCollectionCloner.cloneMap(null, source, new java.util.HashMap<>());
+        assertTrue(clone instanceof java.util.Map);
+        assertEquals(source, clone, "the non-empty unmodifiable map must clone with contents preserved");
+    }
+
+    @Test
+    public void unmodifiableSortedMap_ClonesWithOrderingPreserved() {
+        final java.util.SortedMap<String, String> innerSorted = new java.util.TreeMap<>();
+        innerSorted.put("m3", "v3");
+        innerSorted.put("m1", "v1");
+        innerSorted.put("m2", "v2");
+        final java.util.SortedMap<String, String> source = java.util.Collections.unmodifiableSortedMap(innerSorted);
+        final Object clone = XdStorageCollectionCloner.cloneMap(null, source, new java.util.HashMap<>());
+        assertTrue(clone instanceof java.util.SortedMap, "sorted-map ordering must survive the fallback");
+        assertEquals(source.firstKey(), ((java.util.SortedMap<?, ?>) clone).firstKey());
+        assertEquals(source.lastKey(), ((java.util.SortedMap<?, ?>) clone).lastKey());
+        assertEquals(source, clone);
     }
 
     @Test
