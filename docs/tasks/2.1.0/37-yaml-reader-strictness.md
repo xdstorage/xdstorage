@@ -1,7 +1,7 @@
 ---
 title: "[2.1.0][YAMLREAD] YAML reader strictness — corruption must fail loudly, never masquerade as empty data"
 labels: [2.1.0-train, P2, engine, bug]
-status: open
+status: done
 ---
 
 ## Summary
@@ -16,9 +16,13 @@ the failure class the S-1 EOF-sentinel work (2.0) was built to eliminate.
    error). Accept one format, refuse the other loudly.
 2. **`XdStorageYamlBlockObjectsReader.parseAndSetField`** silently skips `null` values even for
    known properties (the field keeps its default instead of being assigned null — a loaded
-   record can differ from the stored one), and its fallback `idField.set(...)` branch is dead
-   (reachable only for field names unknown to the class — which should be a loud refusal, not
-   an id overwrite).
+   record can differ from the stored one). ⚠ premise corrected during implementation: the
+   `idField.set(...)` branch is NOT dead — the id field is not in the properties map, so that
+   branch is the legitimate id-handling path; and unknown fields have a PINNED
+   ignore-and-continue forward-compat contract
+   (`XdStorageYamlBlockObjectsReaderTest.testReadObject_UnknownFieldInMetaModel`) — the loud
+   refusal for unknown fields was attempted and rejected by the estate the same day. Only the
+   honest null assignment is the fix.
 3. **`XdStorageYamlBlockObjectsReader.readReference`** returns `null` when the id value is
    absent — callers cannot distinguish "no reference" from a corrupt block (corruption
    masking).
@@ -39,6 +43,30 @@ the failure class the S-1 EOF-sentinel work (2.0) was built to eliminate.
 - `IXdStorageObjectsReader.read(Reader, tx)`'s unused transaction parameter (carried for cache
   identity per the in-code comment; documented in 28);
 - `appendCompensation` writing serial `0` (by design; documented).
+
+## Landed (2026-10-25) + the recorded null-property decision
+
+**The decision: a stored `null` IS a legal value for a known property — the reader assigns
+it honestly.** The writer serializes null fields as `value:` with no content; the loaded
+record must reproduce the stored state, not the field's construction default. Round-trip
+pinned by `storedNullProperty_LoadsAsNull_NotAsConstructionDefault` (the fixture's
+construction default `"CONSTRUCTION-DEFAULT"` vs the stored null — red-before proven by
+temporarily restoring the skip).
+
+Landed in `XdStorageYamlBlockObjectsReader`/`XdStorageDefaultObjectsReader`/
+`XdStorageIOFactory`:
+- `parseAndSetField` assigns the null honestly for known properties (the unknown-field
+  ignore contract and the id branch are unchanged — see the corrected premise above);
+- `readReferences`/`read` refuse wrong-kind elements (`object` in a references file,
+  `reference` in a data file) with `XdStorageIOException`;
+- `readReference` refuses an id-less/class-less reference block (corruption, not
+  "no reference" — safe because the writer never writes null references);
+- `instanceIOFactory(null)` refuses with an actionable `FilesFormat` message.
+
+All five pinned by `XdStorageReaderStrictnessTest` (the null-assignment test red-before
+proven the same way). The resource routing (`XdStorageResource.readAsObjects`) is
+kind-separated (`isReferences`), so the wrong-kind refusals cannot fire on well-formed
+storages.
 
 ## Acceptance criteria
 

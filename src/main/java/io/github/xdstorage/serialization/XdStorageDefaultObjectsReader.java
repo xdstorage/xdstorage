@@ -127,6 +127,10 @@ public class XdStorageDefaultObjectsReader implements IXdStorageObjectsReader {
         Object result = null;
         final String[] fn = new String[]{null};
         final String name = xmlReader.getLocalName();
+        // YAMLREAD: the mirror refusal — a `reference` element in a data-object file.
+        if (name.equals("reference")) {
+            throw new XdStorageIOException("a data resource must contain object elements, got a reference element (corrupt or wrong-kind file)");
+        }
         if (name.equals("object")) {
             result = read(fn, xmlReader);
         }
@@ -137,6 +141,11 @@ public class XdStorageDefaultObjectsReader implements IXdStorageObjectsReader {
         Object result = null;
         final String[] fn = new String[]{null};
         final String name = xmlReader.getLocalName();
+        // YAMLREAD (docs/tasks/2.1.0/37): an `object` element in a references file is a
+        // wrong-format/corrupt file — refuse loudly instead of silently yielding nothing.
+        if (name.equals("object")) {
+            throw new XdStorageIOException("a references resource must contain reference elements, got an object element (corrupt or wrong-kind file)");
+        }
         if (name.equals("reference")) {
             result = readReference(fn, xmlReader, field);
         }

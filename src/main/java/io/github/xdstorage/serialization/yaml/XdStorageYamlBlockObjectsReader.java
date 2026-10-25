@@ -165,10 +165,17 @@ public class XdStorageYamlBlockObjectsReader {
             }
         }
 
-        if (property != null && finalValue != null) {
+        // YAMLREAD (docs/tasks/2.1.0/37): a stored null IS a legal value for a known
+        // property — the field must reflect the stored state, not silently keep its
+        // construction default. Unknown fields keep the pinned ignore-and-continue
+        // forward-compat contract (XdStorageYamlBlockObjectsReaderTest); the id field
+        // is not in the properties map and keeps its separate id-only branch.
+        if (property != null) {
             property.set(result, finalValue);
-        } else if (idField != null && fieldName.equals(idField.getName()) && finalValue != null) {
-            idField.set(result, finalValue);
+        } else if (idField != null && fieldName.equals(idField.getName())) {
+            if (finalValue != null) {
+                idField.set(result, finalValue);
+            }
         }
     }
 
@@ -216,7 +223,10 @@ public class XdStorageYamlBlockObjectsReader {
             }
         }
 
-        if (className == null) return null;
+        // YAMLREAD: a reference block without a class is corruption, not "no reference".
+        if (className == null) {
+            throw new io.github.xdstorage.exceptions.XdStorageIOException("a reference block without a class key cannot be resolved (corrupt block)");
+        }
 
         final Class<?> entityClass = XdStorageClassMetadataRegistry.resolveOrThrow(className);
         final Object result = entityClass.newInstance();
@@ -228,7 +238,11 @@ public class XdStorageYamlBlockObjectsReader {
         if (idObject != null) {
             objectId = idObject;
         } else {
-            if (idValue == null) return null;
+            // YAMLREAD: a reference block whose id value is absent is corruption —
+            // returning null made it indistinguishable from "no reference".
+            if (idValue == null) {
+                throw new io.github.xdstorage.exceptions.XdStorageIOException("a reference block without an id value cannot be resolved (corrupt block)");
+            }
             Class<?> idClass = idField.getFieldInfo().getClazz();
             if (idClass == String.class) {
                 objectId = idValue;

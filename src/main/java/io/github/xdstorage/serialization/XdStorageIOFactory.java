@@ -27,6 +27,11 @@ public class XdStorageIOFactory {
      * @return a fresh {@link IXdStorageIOFactory} for {@code format}
      */
     public static IXdStorageIOFactory instanceIOFactory(XdStorageServicesLocator serviceLocator, IXdStorageIdGenerator idGenerator, FilesFormat format) {
+        // YAMLREAD: a null format NPEd at the switch — refuse with an actionable message.
+        if (format == null) {
+            throw new io.github.xdstorage.exceptions.XdStorageRuntimeException(
+                    "format must be a FilesFormat value (XML or YAML), got null");
+        }
         IXdStorageIOFactory ioFactory;
         switch (format) {
             case XML:
