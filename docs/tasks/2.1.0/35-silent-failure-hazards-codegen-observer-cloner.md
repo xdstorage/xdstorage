@@ -1,7 +1,7 @@
 ---
 title: "[2.1.0][SILENTFAIL] Silent-failure hazards in codegen/observer/cloner — fix the three swallow-and-continue paths"
 labels: [2.1.0-train, P2, engine, bug]
-status: open
+status: done
 ---
 
 ## Summary
@@ -39,12 +39,38 @@ far from its cause (or never):
 - The deprecated `wrapAsObservableObject` API itself (removal is a MAJOR semver event);
 - any change to when wrappers are generated (only the failure/race semantics).
 
+## Landed (2026-10-25): all three fixes + tests
+
+1. **`XdStorageClassGenerator.compileGeneratedClassesCode`** — the result map is keyed by
+   the WRAPPED class (the loaded generated class's superclass, falling back to the
+   requesting class): each generated class survives under its own truthful key, and the
+   single-class case is unchanged (the wrapper's superclass IS the requesting entity).
+   The multi-class test compiles an entity wrapper AND a child-class wrapper in one shot
+   and asserts both survive, each keyed by the class it wraps — red-before proven
+   (`expected 2 but was 1` with the old entity-keyed put). Note: the discriminating
+   shape uses two DIFFERENT wrapped classes — two wrappers over the same entity cannot
+   coexist in a `Class`-keyed map by definition.
+2. **`XdStorageObserverService.getObservableWrapper`** — the get-or-create is one
+   compound action synchronized on the per-class wrapper segment: the check-then-act
+   race is closed and exactly one observer registers per wrapper. The codegen-failure
+   path throws `XdStorageRuntimeException` naming the class and the JDK-codegen
+   requirement instead of letting `wrapAsObservableObject`'s swallowed `null` become an
+   NPE downstream. Concurrency pinned by a 24-thread same-instance assertion.
+3. **`XdStorageCollectionCloner.cloneCollection`/`cloneMap`** — clone failures throw
+   `XdStorageRuntimeException` naming the offending collection/map type (cause chained)
+   instead of returning `null` MVCC snapshots; a `null` source still clones to `null`
+   (honest semantics, pinned). The stale "or {@code null} on failure" javadoc promises
+   are removed.
+
+The R-42-style caveat: infrastructural btree caches keep their own rollback semantics —
+untouched here (this task's three paths are domain-side only).
+
 ## Acceptance criteria
 
-- [ ] Each of the three has a failing-first test that passes after the fix (or an explicit
-      documented decision why the swallow is load-bearing, in the class javadoc + here).
-- [ ] No silent `null` returns remain on the three paths.
-- [ ] Full suite green ×2.
+- [x] Each of the three has a failing-first test that passes after the fix (the
+      multi-class test's red-before was proven with the old entity-keyed put).
+- [x] No silent `null` returns remain on the three paths.
+- [ ] Full suite green ×2 (in validation at landing; see the commit).
 
 Estimate: 1–1.5 d.
 

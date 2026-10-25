@@ -47,29 +47,47 @@ public class XdStorageObserverService {
         final Class<?> cl = object.getClass();
 
         // Атомарно инициализируем потокобезопасный сегмент Weak-ссылок для конкретного доменного класса
-        Map<Object, IXdStorageIdObservableWrapper> clWrappers = wrappers.computeIfAbsent(cl,
+        final Map<Object, IXdStorageIdObservableWrapper> clWrappers = wrappers.computeIfAbsent(cl,
                 k -> Collections.synchronizedMap(new WeakHashMap<>()));
 
-        // Быстрый синхронизированный поиск уже существующего прокси в Weak-сегменте
+        // SILENTFAIL (docs/tasks/2.1.0/35): проверка-генерация-вставка — КОМПОЗИТНОЕ
+        // действие. Быстрый путь (обертка уже есть) — без блокировки: горячий контур
+        // записи не должен оплачивать сегментную блокировку на каждый вызов. Промах
+        // берет сегментную блокировку и повторно проверяет внутри — гонка
+        // check-then-act (два потока генерировали две обертки, побеждала последняя,
+        // наблюдатели дублировались) закрыта для контура создания.
         IXdStorageIdObservableWrapper wrapper = clWrappers.get(object);
         if (wrapper != null) {
             return wrapper;
         }
 
-        // Если прокси еще нет — генерируем реактивную Observable-обертку
-        wrapper = XdStorageObjectUtils.wrapAsObservableObject(object);
-        clWrappers.put(object, wrapper);
-
-        final Map<Object, IXdStorageIdObservableWrapper> finalClWrappers = clWrappers;
-        wrapper.addObserver(new XdStorageAbstractIdObserver() {
-            @Override
-            public void onNewIdIsSet(final IXdStorageIdObservableWrapper wrapper, final Object id) {
-                // Fail-safe очистка сегмента: если из-за параллельных гонок потоков
-                // объект уже был вытеснен или удален, метод отработает без побочных эффектов
-                finalClWrappers.remove(object);
+        synchronized (clWrappers) {
+            wrapper = clWrappers.get(object);
+            if (wrapper != null) {
+                return wrapper;
             }
-        });
 
-        return wrapper;
+            // Генерируем реактивную Observable-обертку. SILENTFAIL: отказ генерации не
+            // имеет права маскироваться под "нет обертки": wrapAsObservableObject глотает
+            // все исключения и отвечает null — говорим громко.
+            wrapper = XdStorageObjectUtils.wrapAsObservableObject(object);
+            if (wrapper == null) {
+                throw new io.github.xdstorage.exceptions.XdStorageRuntimeException(
+                        "cannot create the id-observable wrapper for " + cl.getName()
+                                + " — wrapper generation failed (a JDK at runtime is required for codegen)");
+            }
+
+            wrapper.addObserver(new XdStorageAbstractIdObserver() {
+                @Override
+                public void onNewIdIsSet(final IXdStorageIdObservableWrapper wrapper, final Object id) {
+                    // Fail-safe очистка сегмента: если объект вытеснен или удален, метод
+                    // отработает без побочных эффектов
+                    clWrappers.remove(object);
+                }
+            });
+
+            clWrappers.put(object, wrapper);
+            return wrapper;
+        }
     }
 }

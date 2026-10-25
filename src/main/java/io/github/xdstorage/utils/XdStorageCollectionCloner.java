@@ -57,7 +57,9 @@ public final class XdStorageCollectionCloner {
      * @param parent the clone of the collection's owner (used to rewire back-references), may be {@code null}
      * @param collection the source collection, may be {@code null}
      * @param visited the identity map of already-cloned sources to their clones
-     * @return the cloned collection (empty when the source is empty), or {@code null} on failure
+     * @return the cloned collection (empty when the source is empty)
+     * @throws io.github.xdstorage.exceptions.XdStorageRuntimeException when a source
+     *         element cannot be cloned (never a silent {@code null})
      */
     @SuppressWarnings("unchecked")
     public static Object cloneCollection(final Object parent, final Object collection, final Map<Object, Object> visited) {
@@ -84,7 +86,13 @@ public final class XdStorageCollectionCloner {
                 }
             }
             return clone;
-        } catch (Exception e) { return null; }
+        } catch (final Exception e) {
+            // SILENTFAIL (docs/tasks/2.1.0/35): проглоченная ошибка клонирования делала
+            // MVCC-снимок молча теряющим коллекцию (семейство R-44) — говорим громко.
+            throw new io.github.xdstorage.exceptions.XdStorageRuntimeException(
+                    "cannot clone a collection of " + collection.getClass().getName()
+                            + " — a snapshot that silently drops it would be data loss", e);
+        }
     }
 
     /**
@@ -96,7 +104,9 @@ public final class XdStorageCollectionCloner {
      * @param parent the clone of the map's owner (used to rewire back-references), may be {@code null}
      * @param map the source map, may be {@code null}
      * @param visited the identity map of already-cloned sources to their clones
-     * @return the cloned map (empty when the source is empty), or {@code null} on failure
+     * @return the cloned map (empty when the source is empty)
+     * @throws io.github.xdstorage.exceptions.XdStorageRuntimeException when a key or value
+     *         cannot be cloned (never a silent {@code null})
      */
     @SuppressWarnings("unchecked")
     public static Object cloneMap(final Object parent, final Object map, final Map<Object, Object> visited) {
@@ -122,6 +132,11 @@ public final class XdStorageCollectionCloner {
                 if (key != null) clone.put(key, value);
             }
             return clone;
-        } catch (Exception e) { return null; }
+        } catch (final Exception e) {
+            // SILENTFAIL: см. cloneCollection — молчаливая потеря карты в снимке недопустима.
+            throw new io.github.xdstorage.exceptions.XdStorageRuntimeException(
+                    "cannot clone a map of " + map.getClass().getName()
+                            + " — a snapshot that silently drops it would be data loss", e);
+        }
     }
 }

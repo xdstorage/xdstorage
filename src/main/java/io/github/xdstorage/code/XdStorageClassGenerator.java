@@ -168,7 +168,13 @@ public class XdStorageClassGenerator {
                 for (final Map.Entry<String, String> entry : generatedCode.entrySet()) {
                     // Используем наш единый разделяемый sharedClassLoader СУБД
                     Class<?> clazz = Class.forName(entry.getKey(), true, sharedClassLoader);
-                    result.put(cl, clazz);
+                    // SILENTFAIL (docs/tasks/2.1.0/35): ключом служит КЛАСС, КОТОРЫЙ
+                    // обертывает сгенерированный класс (его суперкласс), а не сущность-заказчик:
+                    // прежний result.put(cl, clazz) затирал ключ один раз за сгенерированный
+                    // класс, и мульти-классовый граф генерации терял все классы, кроме
+                    // последнего загруженного.
+                    final Class<?> wrapped = clazz.getSuperclass() != null ? clazz.getSuperclass() : cl;
+                    result.put(wrapped, clazz);
                 }
                 return result;
             } catch (ClassNotFoundException e) {
