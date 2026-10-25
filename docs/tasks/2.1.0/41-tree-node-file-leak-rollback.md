@@ -103,14 +103,34 @@ Two scenarios (single-threaded, fully deterministic — no concurrency needed):
   is the last-committed one — the rolled-back tx never wrote), pinning the on-disk
   half of the contract while the structural fix is pending.
 
-The 2026-10-25 compensation attempt (structure triples + key compensation reorder +
-fresh-parse re-inserts) got one step further — the "was deleted this transaction"
-refusals disappeared — and then exposed the next layer: the re-inserts descend the
-IN-MEMORY mutated node graph (cache clearing does not unlink the linked node objects)
-and burn the rebalance retry budgets on emptied leaves. The sound fix needs the
-persistence-faithful re-parse semantics described above (fresh parse per compensation
-against invalidated caches AND a re-parse-backed root — the in-memory root instance is
-the mutated one and cannot be repaired in place).
+### Attempt record (2026-10-25, TWO full compensation attempts, both reverted)
+
+**Attempt 1** (structure triples at split/last-key/collapse + reorder + fresh-parse
+re-inserts): fixed the "was deleted this transaction" refusals (the reorder — resource
+rollback must precede the key/structure compensations), then failed on rebalance budget
+exhaustion: the re-inserts descended the IN-MEMORY mutated node graph (clearing the
+record cache does not unlink the linked node objects — the restored root instance's
+subtree is the post-mutation graph).
+
+**Attempt 2** (same round, incremental): registered the structure triples at ALL setRoot
+sites, reordered resources→structures→keys, added fresh-parse-per-reinsert
+(`storage.load(tree)` after the infra-cache invalidation), and invalidated infra record
+caches + canonical registrations in `postRollback`. Result: the re-inserts still burned
+the rebalance retry budgets on the last keys (1–4 in the repro) — the in-memory node
+graph remains structurally inconsistent beyond pointer repair: the descent follows
+IN-MEMORY node instances (parsed-stub materialization resolves through the parent's
+in-memory children list and the canonical registry), so a cache clear cannot force a
+true re-parse while ANY mutated instance stays linked. A registry+cache invalidation
+that also unlinks the in-memory references is a structural redesign of the R-53
+canonical-instance identity — W-4 territory.
+
+**Conclusion (three repair strategies documented, each fixing one layer and exposing the
+next):** the rollback correctness for in-place-mutated B+tree structures requires the
+W4-DESIGN write-path semantics (read-your-own-read snapshots or per-record undo logs).
+Until then, the deterministic repro stays disabled-red, and the OPERATIONAL mitigation
+for the leak family is the documented one: a rolled-back purge leaves orphans; a storage
+REOPEN (shutdown + open) rebuilds every tree from the pre-transaction files and clears
+the symptom (the enabled green scenario in the repro test).
 
 ## Acceptance criteria
 
