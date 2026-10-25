@@ -13,7 +13,13 @@ import java.io.File;
 import java.util.Collection;
 import java.util.UUID;
 
-/** Диагностика: save(universe)+save(galaxies) -> load(XdGalaxy, id) — где теряется ключ id_index. */
+/**
+ * Диагностика (T-3b, docs/tasks/2.1.0/07): save(universe)+save(galaxies) →
+ * load(XdGalaxy, id) — где теряется ключ id_index. Запускается вручную
+ * ({@code mvn test -Dtest=GraphFlowDiagnosticTest}) при расследовании регрессий
+ * маршрутизации индекса: тест печатает каждый шаг потока графа (вставка, индексация,
+ * чтение), поэтому в обычных прогонах он просто проходит и ничего не ломает.
+ */
 public class GraphFlowDiagnosticTest {
 
     @Test
