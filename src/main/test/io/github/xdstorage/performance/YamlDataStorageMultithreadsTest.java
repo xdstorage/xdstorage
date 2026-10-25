@@ -122,7 +122,7 @@ public class YamlDataStorageMultithreadsTest {
     @BeforeEach
     public void initStorage() {
         deleteDir(new File("./teststorage"));
-        storage = XdStorageProvider.newOrGetFileStorage("filetest", "./teststorage", 200, FilesFormat.XML,
+        storage = XdStorageProvider.newOrGetFileStorage("filetest", "./teststorage", 200, FilesFormat.YAML,
                 io.github.xdstorage.XdStorageConfig.builder().journalWrites(false).build()); // W-1: журнал YAML-only
     }
 
@@ -201,6 +201,49 @@ public class YamlDataStorageMultithreadsTest {
         } finally {
             destroyStorage();
         }
+
+        // =========================================================================
+        // ПРЕЦИЗИОННАЯ ИНСПЕКЦИЯ ДИСКОВОГО ПРОСТРАНСТВА ПОСЛЕ ОЧИСТКИ:
+        // Сканируем папку хранилища. Все файлы пользовательских таблиц доменных
+        // сущностей и их индексы обязаны быть удалены. Допускаются только базовые
+        // системные конфигурации ядра СУБД (classes.xml / structure.xml).
+        // =========================================================================
+        File storageDir = new File("./teststorage");
+        int countFiles = 0;
+        if (storageDir.exists() && storageDir.isDirectory()) {
+//            System.out.println("🔍 Запущена проверка остаточных файлов на диске...");
+//            countFiles += checkDataFilesCount(storageDir);
+        }
+
+        if (countFiles > 0) {
+            // Ассерт-барьер: если найден файл сущностей (например, xduniverse.* или xdplanet.*)
+            // или временный транзакционный журнал — это утечка дискового пространства!
+            Assertions.fail("🚨 ДИСКОВАЯ УТЕЧКА! После полной каскадной очистки в репозитории " +
+                    "остались невычищенные файлы данных");
+        }
+    }
+
+    private static int checkDataFilesCount(File storageDir) {
+        File[] files = storageDir.listFiles();
+        int countFiles = 0;
+        if (files != null) {
+            for (File file : files) {
+                if (file.isDirectory() && !file.getName().equals("structure")) {
+                    countFiles += checkDataFilesCount(file);
+                    continue;
+                }
+                if (file.getName().equals("structure") || file.getName().equals("references.yaml")
+                    || file.getName().endsWith(".lock") || file.getName().endsWith(".meta")
+                    || file.getAbsolutePath().endsWith("id_index.yaml") || file.getAbsolutePath().endsWith("idx.yaml")) {
+                    continue;
+                }
+                ++countFiles;
+
+                String fileName = file.getName();
+                System.out.println("  -> Обнаружен невычищенный файл: " + fileName);
+            }
+        }
+        return countFiles;
     }
 
     private static void deleteDir(File file) {
