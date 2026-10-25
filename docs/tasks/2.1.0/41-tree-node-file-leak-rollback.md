@@ -39,6 +39,16 @@ timeout sweeps, rollback-only marks, task-40 aborts) can therefore orphan node f
 leak composes with task 40 (a purge aborted by a dangling reference leaks whole subtrees) and
 task 38 (uncompensated search-key deletes keep trees non-empty).
 
+## Landed (2026-10-25): the stale-adoption vector is closed
+
+`XdStorageBTree` now records a self-collapse in a `collapsedEmpty` flag (set at the
+`setRoot(null)` choke point, cleared on any non-null root). All five
+`root == null && wasInitialized` refresh branches refuse to adopt a root from storage when
+the flag is set — the log-proven leak vector (the emptied `XdGalaxy-id_index` root
+flipping `null → 1` mid-commit by adopting a lagging file parse, misrouting every
+subsequent key operation) is dead. The btree/reliability/search estates (86-106 tests) are
+green with the guard.
+
 ## ⚠️ A naive shutdown sweep is UNSAFE — proven, do not re-attempt as written
 
 An implementation attempt (2026-10-25, reverted) walked the trees' IN-MEMORY children from

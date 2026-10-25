@@ -254,6 +254,13 @@ public final class XdStorageCacheMutator {
                     || (cache.isInfrastructureCache()
                         && !(record.isInsertChange() && !record.isCommitedState() && !record.isChangedByTransaction(transaction)));
             if (change != null) {
+                // LOSTUPD diagnostics: the accept/reject decision with its exact inputs —
+                // the read moment vs the record's version stamp.
+                if (io.github.xdstorage.utils.XdStorageDiag.ENABLED) {
+                    log.info("UPDATE gate id={} tx={} readTs={} record[state={}, ts={}] infraRelax={}",
+                            objectId, transactionId, change.readTimestamp,
+                            record.getState(), record.getRecordTimestamp(), infraRelax);
+                }
                 if (!infraRelax && !record.canBeChangedByTransaction(transaction, change.readTimestamp)) {
                     // R-40: отказ обновления обязан оставлять в логе СОСТОЯНИЕ записи — без него
                     // отказ выглядит необъяснимым (владелец == сам апдейтер, но отказ).

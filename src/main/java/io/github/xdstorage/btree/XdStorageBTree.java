@@ -75,6 +75,8 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
     // Маркер жизненного цикла: фиксирует, что дерево хотя бы раз инициализировало структуру узлов.
     // Позволяет надежно отличать первичную пустую базу от базы, опустошенной в ходе транзакции очистки!
     private boolean wasInitialized = false;
+    /** TREEFILE: set when a collapse legitimately emptied the tree (root=null); see setRoot. */
+    private volatile boolean collapsedEmpty;
 
     /**
      * Default constructor for the persistence layer — an empty, unresolved tree whose
@@ -369,6 +371,11 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      * @param root the root node to set
      */
     public void setRoot(final XdStorageBTreeNode root) {
+        // TREEFILE (docs/tasks/2.1.0/41): track "this tree was emptied by its own
+        // collapse" — the one case where a root==null refresh must NEVER adopt a root
+        // from storage (the file lags the collapse; adopting resurrects pre-collapse
+        // keys and commits a stale structure — the log-proven root=null→1 leak vector).
+        this.collapsedEmpty = root == null;
         this.root = root;
     }
 
@@ -516,6 +523,11 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
             // Перегружаем состояние bTree из storage, чтобы восстановить живую ссылку на root!
             if (root == null && wasInitialized) {
                 XdStorageBTree freshTree = storage.load(XdStorageBTree.class, this.id, transaction);
+                // TREEFILE: after a self-collapse the tree is genuinely empty — the file
+                // (and any parse of it) lags the collapse; adoption would resurrect keys.
+                if (collapsedEmpty) {
+                    freshTree = null;
+                }
                 if (freshTree != null && freshTree.getRoot() != null) {
                     this.root = freshTree.getRoot();
                     this.firstLeaf = freshTree.getFirstLeaf();
@@ -566,6 +578,11 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
                 // Защита от фантомного зануления внутриdo-while цикла
                 if (root == null && wasInitialized) {
                     XdStorageBTree freshTree = storage.load(XdStorageBTree.class, this.id, transaction);
+                    // TREEFILE: see the delete-path refresh — a self-collapsed empty tree
+                    // must not adopt a root from a lagging file parse.
+                    if (collapsedEmpty) {
+                        freshTree = null;
+                    }
                     if (freshTree != null && freshTree.getRoot() != null) {
                         this.root = freshTree.getRoot();
                         this.firstLeaf = freshTree.getFirstLeaf();
@@ -617,6 +634,11 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
             // Восстановление живого корня для операции обновления структуры
             if (root == null && wasInitialized) {
                 XdStorageBTree freshTree = storage.load(XdStorageBTree.class, this.id, transaction);
+                // TREEFILE: after a self-collapse the tree is genuinely empty — the file
+                // (and any parse of it) lags the collapse; adoption would resurrect keys.
+                if (collapsedEmpty) {
+                    freshTree = null;
+                }
                 if (freshTree != null && freshTree.getRoot() != null) {
                     this.root = freshTree.getRoot();
                     this.firstLeaf = freshTree.getFirstLeaf();
@@ -662,6 +684,11 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
             try {
                 if (root == null && wasInitialized) {
                     XdStorageBTree freshTree = storage.load(XdStorageBTree.class, this.id, transaction);
+                    // TREEFILE: see the delete-path refresh — a self-collapsed empty tree
+                    // must not adopt a root from a lagging file parse.
+                    if (collapsedEmpty) {
+                        freshTree = null;
+                    }
                     if (freshTree != null && freshTree.getRoot() != null) {
                         this.root = freshTree.getRoot();
                         this.firstLeaf = freshTree.getFirstLeaf();
@@ -714,6 +741,11 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
             try {
                 if (root == null) {
                     XdStorageBTree freshTree = storage.load(XdStorageBTree.class, this.id, transaction);
+                    // TREEFILE: see the delete-path refresh — a self-collapsed empty tree
+                    // must not adopt a root from a lagging file parse.
+                    if (collapsedEmpty) {
+                        freshTree = null;
+                    }
                     if (freshTree != null && freshTree.getRoot() != null) {
                         this.root = freshTree.getRoot();
                         this.firstLeaf = freshTree.getFirstLeaf();

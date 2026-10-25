@@ -520,13 +520,20 @@ class XdStorageCacheRecordInvariantTest extends CacheInvariantTestSupport {
         committed.markUpdate(committer);
         committed.prepareCommit();
         committed.performCommit();
+        // LOSTUPD (docs/tasks/2.1.0/40): коммит метит версию ИСТИННЫМ моментом коммита
+        // (commitTimeNano) — читатель, прочитавший ДО чужого коммита, запись обновить
+        // не может (первый коммитёр выигрывает); прочитавший ПОСЛЕ — может. Момент
+        // коммита фиксируем часами вокруг вызова commit().
+        final long beforeCommitNano = System.nanoTime();
         committed.commit(committer);
+        final long afterCommitNano = System.nanoTime();
         assertTrue(committed.canBeChangedByTransaction(mkTx("late", 200L)));
         assertFalse(committed.canBeChangedByTransaction(mkTx("early", 50L)));
 
-        // двухаргументная форма: readTimestamp решает вместо timestart читателя
-        assertTrue(committed.canBeChangedByTransaction(mkTx("late-read", 1L), 150L));
-        assertFalse(committed.canBeChangedByTransaction(mkTx("early-read", 999L), 50L));
+        // двухаргументная форма: readTimestamp решает вместо timestart читателя —
+        // и сравнивается с истинным моментом коммита версии (см. LOSTUPD выше)
+        assertTrue(committed.canBeChangedByTransaction(mkTx("late-read", 1L), afterCommitNano));
+        assertFalse(committed.canBeChangedByTransaction(mkTx("early-read", 999L), beforeCommitNano));
     }
 
     // =========================================================================

@@ -60,6 +60,21 @@ True first-committer-wins (PostgreSQL repeatable-read semantics):
   overwrite allowed by design there? — decide and document).
 - Related but separate (filed in 38): the search-tree key deletes lack rollback compensation.
 
+## Landed (2026-10-25): the core semantic fix
+
+`XdStorageCacheRecord.commitTimeNano` — a NEW field stamped with the true commit moment
+(`System.nanoTime()`) at `commit()` finalization; both `canBeChangedByTransaction`
+overloads' committed-version comparison consults it when set, falling back to the
+historical `timestamp` for records that never went through a real two-phase commit (mock
+fixtures, reopened state). The pinned `getRecordTimestamp()` contract (writer timestart)
+is untouched — the isolation estate needed exactly ONE fixture adaptation
+(`canBeChangedMatrix`'s two-arg rows now express read-before/read-after-commit on the real
+clock, captured around the `commit()` call). The isolation estate (92 tests incl. phantom,
+rollback-guard, concurrency) is green. READ_COMMITTED keeps the same rejection (safer;
+documented here). Remaining open: a dedicated repro test at the FACADE level (two
+transactions, read the same record, one commits, the other's write must fail) and the
+10x-stress acceptance below.
+
 ## Already fixed in the same investigation (context, not part of this task)
 
 - B+tree caches are now READ COMMITTED always (`XdStorageCacheRecord.servesCommittedVersion` /

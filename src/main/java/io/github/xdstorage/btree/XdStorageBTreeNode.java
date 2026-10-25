@@ -1294,6 +1294,12 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
 
         // ФАЗА 2: изъятие правого соседа по ID (fallback на инстанс при отсутствии ID)
         removeChildById(this.getParent(), right.getId(), right);
+        // TREEFILE diagnostics: the absorbed node's record is deleted — on rollback this
+        // deletion reverts via the record mechanism while the structural detachment stays.
+        if (io.github.xdstorage.utils.XdStorageDiag.ENABLED) {
+            log.info("joinWithRight: node {} absorbed into node {} (record deleted), tree={}",
+                    right.getId(), this.getId(), getTree() != null ? getTree().getId() : null);
+        }
         storage.delete(right, transaction);
         // Спускаем разделительный ключ из родителя во внутренний узел 'this'.
         // КАНОН B-ДЕРЕВА: разделитель между this и right — это РОВНО parent.keys[currentNodeIndex];
@@ -1372,6 +1378,12 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
 
             // ФАЗА 2: изъятие себя из родителя по ID (fallback на инстанс при отсутствии ID)
             removeChildById(this.getParent(), this.getId(), this);
+            // TREEFILE diagnostics: mirror of joinWithRight — this node is absorbed into
+            // its left neighbor; see the rollback-asymmetry note there.
+            if (io.github.xdstorage.utils.XdStorageDiag.ENABLED) {
+                log.info("joinWithLeft: node {} absorbed into node {} (record deleted), tree={}",
+                        this.getId(), left.getId(), getTree() != null ? getTree().getId() : null);
+            }
             storage.delete(this, transaction);
 
             // КАНОН B-ДЕРЕВА: разделитель между left и this — это РОВНО parent.keys[currentNodeIndex - 1].

@@ -55,6 +55,18 @@ public final class XdStorageCacheRecord {
 
     private long prevTimestamp = Long.MIN_VALUE;
 
+    /**
+     * LOSTUPD (docs/tasks/2.1.0/40): the wall-nano moment this version was COMMITTED
+     * ({@code 0} when the record never went through a real two-phase commit — mock
+     * fixtures, reopened pre-existing state). The write-conflict check consults this
+     * instead of {@link #timestamp} (which carries the WRITER's timestart by pinned
+     * contract) — comparing my read moment against the true commit moment is what makes
+     * the check first-committer-wins.
+     */
+    private volatile long commitTimeNano;
+
+    private long prevCommitTimeNano;
+
     private XdStorageCacheChange change;
 
     private XdStorageCacheChange previousChange;
@@ -263,11 +275,17 @@ public final class XdStorageCacheRecord {
         boolean isOwnerTxAlive = this.transaction != null &&
                 cache.isTransactionAlive(this.transaction);
 
+        // LOSTUPD: the committed-version comparison uses the TRUE commit moment when the
+        // record has one (a real two-phase commit) — readTs older than the foreign commit
+        // = a stale write, rejected. Records without a real commit (mock fixtures,
+        // reopened state) fall back to the historical timestamp comparison.
+        final long committedComparator = commitTimeNano != 0 ? commitTimeNano : timestamp;
+
         boolean result = this.state == State.undefined
                 || !isOwnerTxAlive
                 || (this.state == State.locked && this.transaction == transaction && transaction.getTimestart() == timestamp)
                 || (this.state == State.locked && isOwnedByTransactionChain(transaction))
-                || (this.state == State.committed && readObjectByTransactionTimestamp > timestamp);
+                || (this.state == State.committed && readObjectByTransactionTimestamp > committedComparator);
 
         if (log.isDebugEnabled()) {
             log.debug("canBeChangedByTransaction state: " + this.state
@@ -437,6 +455,12 @@ public final class XdStorageCacheRecord {
     public void markUpdate(IXdStorageTransaction transaction) {
         ++version;
         this.prevObject = this.object;
+        // LOSTUPD diagnostics: the accept path of every write — what version stamp the
+        // conflict checks will see for this record from now on.
+        if (io.github.xdstorage.utils.XdStorageDiag.ENABLED) {
+            log.info("markUpdate id={} tx={} version={} prevTs={} -> ts={} (writer timestart)", id,
+                    transaction.getTransactionId(), version, prevTimestamp, timestamp);
+        }
 
         // =========================================================================
         // СУБД ТАЙМСТAМП-БAРЬEР: Защищаем историческую сетку времени при холодном старте!
@@ -632,6 +656,17 @@ public final class XdStorageCacheRecord {
 
         this.prevTimestamp = this.timestamp;
         this.timestamp = tx.getTimestart();
+        // LOSTUPD: the TRUE commit moment — the version-stamp the write-conflict check
+        // compares against (first-committer-wins). timestamp stays the writer's
+        // timestart (pinned contract, see the field javadoc).
+        this.prevCommitTimeNano = this.commitTimeNano;
+        this.commitTimeNano = System.nanoTime();
+
+        // LOSTUPD diagnostics: the durable version stamp (the conflict-check comparator).
+        if (io.github.xdstorage.utils.XdStorageDiag.ENABLED) {
+            log.info("commit id={} tx={} stampTs={} (writer timestart) change={} state={}", id,
+                    tx.getTransactionId(), timestamp, change, state);
+        }
 
         // НОМЕР ФАКТИЧЕСКОГО КОММИТА: граница видимости снапшотных читателей.
         // timestart владельца (метится при НАЧАЛЕ его транзакции) лжет читателям,
