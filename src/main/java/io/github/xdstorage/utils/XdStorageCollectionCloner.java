@@ -70,7 +70,7 @@ public final class XdStorageCollectionCloner {
                 return newCollectionInstance(src);
             }
 
-            final Collection<Object> clone = newCollectionInstance((Collection<Object>)collection);
+            final Collection<Object> clone = newCollectionInstance(src);
             Object[] arr = src.toArray(new Object[0]);
             for (final Object object : arr) {
                 final Class<?> cl = object != null ? object.getClass() : null;
