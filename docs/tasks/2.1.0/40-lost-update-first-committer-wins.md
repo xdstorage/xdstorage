@@ -83,6 +83,39 @@ transactions, read the same record, one commits, the other's write must fail) an
 - R-57-mirror compensation for index-key DELETES (`registerIndexKeyDeleteForRollback` /
   `rollbackIndexKeyDeletes`) — a rolled-back delete no longer consumes the key forever.
 
+## ⚠ STILL OPEN (2026-10-25, post-fix validation): the canonical-instance mutation leak
+
+The 20-run post-fix validation: **19/20 green** (was 0–3/20 before the fix), the gate
+firing (stale writes rejected), zero durable stale-write acceptances of the ORIGINAL shape.
+One failure remains (run 19, YAML purge): "cannot load by reference XdGalaxy 32768e3e" —
+and the sink forensics show a SHARPER mechanism beneath the fixed one:
+
+- galaxy 32768e3e was inserted by a worker tx that **rolled back** (no `commit id=32768e3e`
+  line exists — the galaxy never became durable), yet
+- the purge later read the universe collection and found a reference to it.
+
+The reference survived the insert tx's rollback. The mechanism: `InsertGalaxyOperation`
+mutates the universe's collection IN PLACE on the materialized instance
+(`universe.addGalaxy(...)` happens BEFORE `update(universe)`), and `markUpdate` archives
+`prevObject = this.object` — an ALIASED reference to the same (already-mutated) canonical
+instance. The clone made for `newObject` cannot help the rollback: restoring
+`prevObject` restores the contaminated instance. The rolled-back tx's list mutation
+therefore survives its own rollback inside the canonical instance, and ANY later
+transaction that reads and commits that universe record makes the orphan reference
+durable.
+
+This is the DOMAIN-record mirror of task 41's infra aliasing asymmetry, and it is why
+first-committer-wins alone cannot close the family: the commitTimeNano gate correctly
+rejects writes whose READ predates a foreign commit, but the contamination here is written
+into the shared instance before any gate can see it.
+
+**The remaining fix is structural (W-4-class):** either (a) load() hands out copies, not
+the canonical instance (read-side cloning — kills the in-place mutation channel; the
+performance cost is the known W-4 debate), or (b) structural compensation records the
+pre-mutation collection state (an undo log per touched record), or (c) writes serialize
+the collection from a snapshot captured at the tx's own read (write-your-own-read). All
+three are write-path redesign items owned by W4-DESIGN, not hot-patchable.
+
 ## Acceptance criteria
 
 - [ ] The repro test (read → foreign commit → write must fail) is red before, green after.
