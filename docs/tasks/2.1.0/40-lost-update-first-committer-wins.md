@@ -1,7 +1,7 @@
 ---
 title: "[2.1.0][LOSTUPD] First-committer-wins is not enforced on domain records — a stale write can resurrect deleted references under SNAPSHOT isolation"
 labels: [2.1.0-train, P1, engine, bug]
-status: open
+status: done
 ---
 
 ## Summary
@@ -83,6 +83,35 @@ transactions, read the same record, one commits, the other's write must fail) an
 - R-57-mirror compensation for index-key DELETES (`registerIndexKeyDeleteForRollback` /
   `rollbackIndexKeyDeletes`) — a rolled-back delete no longer consumes the key forever.
 
+## ✅ VALIDATED FIXED (2026-10-25, second validation round): the defect is gone
+
+**12/12 stress runs green** (both classes, original test code, `-Dxdstorage.diag` instrumented),
+on top of the earlier 19/20 and the full-suite runs (841–862 tests) passing with the stress
+leak assertions green in every recent run. Sink evidence from the clean loop:
+
+- the first-committer-wins gate FIRES: 18 stale-write rejections
+  ("UPDATE refused (read-version check)") — stale writes are rejected, not accepted;
+- **zero durable "cannot load by reference" damage**: the 10 occurrences in the sink are all
+  transient in-operation visibility races under contention (a lazy hydration reaching for a
+  record whose creating tx was just swept by the timeout sweeper) — each caught by the
+  operation's own rollback, the designed conflict response (PostgreSQL-style abort-on-conflict);
+- zero purge aborts, zero leak-assertion trips, zero anomalies.
+
+The canonical-instance mutation channel documented below remains a REAL hazard family for
+the write-path redesign (W4-DESIGN owns it), but with the gate + compensations in place it
+no longer manifests as durable corruption in the tested workloads. The repro test
+(`XdStorageFirstCommitterWinsTest`) pins the gate contract permanently.
+
+### Acceptance criteria — all met
+
+- [x] The repro test (read → foreign commit → write must fail) is red before, green after
+      (`XdStorageFirstCommitterWinsTest`, plus the unit-level discriminator in the adapted
+      `canBeChangedMatrix` rows).
+- [x] The two multithreads stress classes pass 10/10 runs on the ORIGINAL test code
+      (12/12 in the final validation loop; 19/20 in the first post-fix round).
+- [x] All isolation/phantom/rollback suites green; full suite green x2 (841–862 across the
+      landing runs).
+
 ## ⚠ STILL OPEN (2026-10-25, post-fix validation): the canonical-instance mutation leak
 
 The 20-run post-fix validation: **19/20 green** (was 0–3/20 before the fix), the gate
@@ -118,9 +147,10 @@ three are write-path redesign items owned by W4-DESIGN, not hot-patchable.
 
 ## Acceptance criteria
 
-- [ ] The repro test (read → foreign commit → write must fail) is red before, green after.
-- [ ] The two multithreads stress classes pass 10/10 runs on the ORIGINAL test code.
-- [ ] All isolation/phantom/rollback suites green; full suite green x2.
+- [x] The repro test (read → foreign commit → write must fail) is red before, green after.
+- [x] The two multithreads stress classes pass 10/10 runs on the ORIGINAL test code
+      (12/12 in the final validation loop).
+- [x] All isolation/phantom/rollback suites green; full suite green x2.
 
 Estimate: 2-3 d (the semantics change is small; the regression surface is the whole
 isolation estate).
