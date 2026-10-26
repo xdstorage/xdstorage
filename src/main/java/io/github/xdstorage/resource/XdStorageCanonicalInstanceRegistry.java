@@ -57,6 +57,26 @@ public class XdStorageCanonicalInstanceRegistry {
     }
 
     /**
+     * TREEFILE (docs/tasks/2.1.0/41): force-replaces the canonical instance of the class/id
+     * pair. The rollback reload of an infrastructure resource re-parses the last-committed
+     * file and the fresh parse MUST win over the pre-replace registration — the registered
+     * instance carries the rolled-back transaction's un-restorable in-place mutations
+     * (prevObject aliases the live instance, so record rollback cannot restore it).
+     *
+     * @param clazz    the infrastructure class (tree or node)
+     * @param id       the object id of the instance
+     * @param instance the new canonical instance
+     * @return the registered instance (as-is for {@code null} arguments)
+     */
+    public Object register(final Class<?> clazz, final Object id, final Object instance) {
+        if (clazz == null || id == null || instance == null) {
+            return instance;
+        }
+        instances.put(clazz.getName() + "#" + id, instance);
+        return instance;
+    }
+
+    /**
      * Discards all registrations — called at storage shutdown (entries are otherwise kept
      * for the storage's whole lifetime by design).
      */

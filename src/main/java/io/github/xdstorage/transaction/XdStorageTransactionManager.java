@@ -41,6 +41,14 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
     protected final XdStorageServicesLocator services;
 
     private final Map<String, XdStorageTransaction> transactionsById;
+
+    /**
+     * TREEFILE (docs/tasks/2.1.0/41): пиковое число одновременных транзакционных ПОТОКОВ
+     * за жизнь хранилища (см. точку замера в beginTransaction). Начинается с 1: монотонное
+     * однопоточное хранилище никогда не поднимает пик.
+     */
+    private final java.util.concurrent.atomic.AtomicInteger infraThreadHighWaterMark =
+            new java.util.concurrent.atomic.AtomicInteger(1);
     private final Map<String, String> threadsByTransactionId;
     private final Map<String, XdStorageTransaction> transactionsByThreadId;
 
@@ -129,6 +137,40 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
         return !transaction.isRollbackOnly();
     }
 
+    /**
+     * TREEFILE (docs/tasks/2.1.0/41): whether any transaction OTHER than {@code self}
+     * currently EXISTS in the storage. The rollback's infra recovery
+     * (recoverInfraFromCommittedFiles) swaps canonical B+tree graphs — the one operation
+     * a concurrent transaction can never tolerate (it holds cross-references — tree
+     * instances, nodes, parsed records — between its own steps, even between its own
+     * transactions a worker thread races the swap through the search flow's
+     * restore/find/delete sequences). Only a storage with NO other transaction at all —
+     * the deterministic single-writer case, the shape of the task-41 repro — is provably
+     * safe; the swap is refused otherwise (the documented W-4 boundary: the write-path
+     * rewrite owns concurrent-history rollback).
+     *
+     * @param self the calling (rolling-back) transaction, excluded from the check
+     * @return {@code true} when at least one other transaction exists
+     */
+    public boolean anyOtherTransactionExists(final XdStorageTransaction self) {
+        return transactionsById.size() > 1;
+    }
+
+    /**
+     * TREEFILE (docs/tasks/2.1.0/41): whether this storage has EVER run transactions on
+     * more than one thread concurrently. A multi-thread storage can never take the
+     * rollback's canonical-graph reload: worker runnables hold cross-references into the
+     * graphs BETWEEN their transactions (the search flow's restore/find/delete sequence
+     * alone defeats every transaction-lifetime gate), so only a storage that has been
+     * single-transaction-thread for its whole life is provably holder-free. Internal
+     * (nested) transactions share the parent's thread id and never raise the mark.
+     *
+     * @return {@code true} once concurrent transaction threads have been observed
+     */
+    public boolean hasEverRunConcurrentTransactionThreads() {
+        return infraThreadHighWaterMark.get() > 1;
+    }
+
     @Override
     public XdStorageTransaction beginTransaction(final long timeout) {
         final String currentThreadId = getCurrentThreadId();
@@ -156,6 +198,13 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
         transactionsByThreadId.put(currentThreadId, newTransaction);
         transactionsById.put(newTransactionId, newTransaction);
         transactionActiveThreadsCounter.put(newTransactionId, new AtomicLong(0));
+        // TREEFILE (docs/tasks/2.1.0/41): пиковая одновременность транзакционных ПОТОКОВ
+        // за жизнь хранилища. Внутренние (nested) транзакции разделяют thread-id родителя
+        // и пик не поднимают; отдельные воркер-потоки — поднимают. Признак «хранилище
+        // когда-либо работало в несколько транзакционных потоков» навсегда запрещает
+        // перезагрузку канонических графов при откате (recoverInfraFromCommittedFiles):
+        // воркер-раннабли держат ссылки на граф между своими транзакциями.
+        infraThreadHighWaterMark.accumulateAndGet(transactionsByThreadId.size(), Math::max);
         metrics().increment(XdStorageMetrics.TRANSACTIONS_BEGUN);
         metrics().increment(XdStorageMetrics.ACTIVE_TRANSACTIONS);
 
@@ -218,9 +267,12 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
             // R-57: сначала компенсация ин-плейс индексных мутаций — вставок И удалений
             // (деревья не откатываются record-механизмом; возврат удаленных ключей держит
             // дерево read-committed после отката), затем штатный откат зафиксированных ресурсов.
+            // TREEFILE: rollbackFailedCommit ПЕРЕЗАГРУЖАЕТ деревья с закоммиченных файлов
+            // (recoverInfraFromCommittedFiles) — их ключевые компенсации пропускаются
+            // точечно, по факту перезагрузки (infraReloadedTrees).
+            transaction.rollbackFailedCommit(firstPhaseCommittedResources);
             transaction.rollbackIndexKeyInserts();
             transaction.rollbackIndexKeyDeletes();
-            transaction.rollbackFailedCommit(firstPhaseCommittedResources);
         } finally {
             transaction.finishCriticalSection();
         }

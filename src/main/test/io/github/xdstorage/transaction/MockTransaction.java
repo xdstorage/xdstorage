@@ -79,4 +79,9 @@ public class MockTransaction implements IXdStorageTransaction {
     public void rollbackIndexKeyDeletes() {
         // mock: no live trees to compensate
     }
+
+    @Override
+    public void markTreeInfraReloaded(final Object tree) {
+        // mock: no live trees to reload
+    }
 }

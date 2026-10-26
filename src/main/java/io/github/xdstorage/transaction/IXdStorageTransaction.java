@@ -129,4 +129,16 @@ public interface IXdStorageTransaction {
      * the rollback.
      */
     void rollbackIndexKeyDeletes();
+
+    /**
+     * TREEFILE (docs/tasks/2.1.0/41): marks the tree as RELOADED from its committed
+     * files during the rollback's infra recovery — the reload restored the tree's keys
+     * wholesale, so the key compensations for THIS tree are superseded (running them
+     * would only produce double-insert refusals and rebalance noise). Trees that could
+     * not be reloaded (busy with other transactions' staged state) keep their
+     * compensations.
+     *
+     * @param tree the tree instance whose state was reloaded from disk
+     */
+    void markTreeInfraReloaded(Object tree);
 }

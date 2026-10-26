@@ -32,7 +32,10 @@ public class XdStorageClonerCollectionProcessor {
      */
     @SuppressWarnings("unchecked")
     public static Object cloneAndWrapCollection(final Collection<?> src, final IXdStorage storage, final IXdStorageTransaction transaction, final XdStorageSmartCloner cloner) throws Exception {
-        final Collection<Object> clone = (Collection<Object>) src.getClass().newInstance();
+        // SILENTFAIL ladder (docs/tasks/2.1.0/35): non-instantiable containers (immutable/
+        // wrapper classes like Collections$EmptyList) fall back to the closest mutable
+        // semantic equivalent instead of failing the clone.
+        final Collection<Object> clone = io.github.xdstorage.utils.XdStorageCollectionCloner.newCollectionInstance((Collection<Object>) src);
         for (final Object object : src) {
             final Class<?> cl = object != null ? XdStorageObjectUtils.getEntityClass(object.getClass()) : null;
             if (object == null || cl.isEnum() || XdStorageObjectUtils.isSimpleType(cl, object)) {
@@ -67,7 +70,7 @@ public class XdStorageClonerCollectionProcessor {
      */
     @SuppressWarnings("unchecked")
     public static Object cloneAndWrapMap(final Map<?, ?> src, final IXdStorage storage, final IXdStorageTransaction transaction, final XdStorageSmartCloner cloner) throws Exception {
-        final Map<Object, Object> clone = (Map<Object, Object>) src.getClass().newInstance();
+        final Map<Object, Object> clone = io.github.xdstorage.utils.XdStorageCollectionCloner.newMapInstance((Map<Object, Object>) src);
         for (final Map.Entry<?, ?> entry : src.entrySet()) {
             final Object keyvalue = entry.getKey(), key;
             Class<?> clValue = keyvalue != null ? XdStorageObjectUtils.getEntityClass(keyvalue.getClass()) : null;
@@ -111,7 +114,10 @@ public class XdStorageClonerCollectionProcessor {
      */
     @SuppressWarnings("unchecked")
     public static Object unwrapAndCloneCollection(final Collection<?> src, final XdStorageSmartCloner cloner) throws Exception {
-        final Collection<Object> clone = (Collection<Object>) src.getClass().newInstance();
+        // SILENTFAIL ladder (docs/tasks/2.1.0/35): non-instantiable containers (immutable/
+        // wrapper classes like Collections$EmptyList) fall back to the closest mutable
+        // semantic equivalent instead of failing the clone.
+        final Collection<Object> clone = io.github.xdstorage.utils.XdStorageCollectionCloner.newCollectionInstance((Collection<Object>) src);
         for (final Object object : src) {
             final Class<?> cl = object != null ? XdStorageObjectUtils.getEntityClass(object.getClass()) : null;
             if (object == null || cl.isEnum() || XdStorageObjectUtils.isSimpleType(cl, object)) {
@@ -144,7 +150,7 @@ public class XdStorageClonerCollectionProcessor {
      */
     @SuppressWarnings("unchecked")
     public static Object unwrapAndCloneMap(final Map<?, ?> src, final XdStorageSmartCloner cloner) throws Exception {
-        final Map<Object, Object> clone = (Map<Object, Object>) src.getClass().newInstance();
+        final Map<Object, Object> clone = io.github.xdstorage.utils.XdStorageCollectionCloner.newMapInstance((Map<Object, Object>) src);
         for (final Map.Entry<?, ?> entry : src.entrySet()) {
             final Object keyvalue = entry.getKey(), key;
             Class<?> clValue = keyvalue != null ? XdStorageObjectUtils.getEntityClass(keyvalue.getClass()) : null;

@@ -11,6 +11,7 @@ import io.github.xdstorage.serialization.IXdStorageIOFactory;
 import io.github.xdstorage.serialization.IXdStorageObjectsReader;
 import io.github.xdstorage.serialization.IXdStorageObjectsWriter;
 import io.github.xdstorage.services.XdStorageServicesLocator;
+import io.github.xdstorage.resource.cache.XdStorageCacheRecord;
 import io.github.xdstorage.transaction.XdStorageTransaction;
 import io.github.xdstorage.transaction.XdStorageTransactionResourceChanges;
 import io.github.xdstorage.utils.XdStorageAtomicFile;
@@ -457,6 +458,12 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
      * the subclass hook; as a fail-safe it also releases the commit lock if this thread
      * still holds it. The persistent state is untouched.
      *
+     * <p>TREEFILE (docs/tasks/2.1.0/41): the infrastructure reload after a rollback does
+     * NOT happen here — it runs ONCE per transaction, tree-coherently, from
+     * {@code XdStorageTransaction.recoverInfraFromCommittedFiles} (a per-resource reload
+     * races concurrent transactions' staged state and forks canonical graphs mid-flight;
+     * only a whole-tree, quiet-window, tree-write-locked reload is safe).</p>
+     *
      * @param transaction the transaction being rolled back
      * @throws XdStorageException on a storage-level failure
      */
@@ -468,5 +475,146 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
         }
         cache.rollback(transaction);
         postRollback(transaction);
+    }
+
+    /**
+     * TREEFILE (docs/tasks/2.1.0/41): whether this resource hosts B+tree infrastructure
+     * records (the tree objects and the nodes) — the aliased live-canonical-graph caches.
+     *
+     * @return {@code true} when the entity class belongs to the btree infrastructure package
+     */
+    public boolean isInfrastructureResource() {
+        return cache.isInfrastructureCache();
+    }
+
+    /**
+     * TREEFILE: whether every record of this infrastructure resource is free of staged
+     * mutations by OTHER live transactions (the transaction's own staged records were
+     * already reverted by its rollback). The quiet check is what makes a reload safe:
+     * records staged by a live foreign transaction reference workspace state that a
+     * canonical swap would orphan.
+     *
+     * @param transaction the transaction being rolled back (its own records don't count)
+     * @return {@code true} when no other live transaction holds staged state here
+     */
+    public boolean isInfraQuietForRollbackOf(final XdStorageTransaction transaction) {
+        for (final XdStorageCacheRecord record : cache.records().values()) {
+            final XdStorageTransaction owner = record.getOwnerTransaction();
+            if (owner != null && owner != transaction && !record.isCommitedState()
+                    && services.getTransactionsManager().isTransactionAlive(owner)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * TREEFILE: the tree instance this resource's canonical records belong to — the
+     * coordination point for the coherent tree-group reload. For a tree-record resource
+     * this is the recorded {@code XdStorageBTree}; for a node resource it is the live
+     * node's owning tree (fixed up by {@code materialize} at first touch). Returns
+     * {@code null} when the records carry no live tree reference (stubs/inert records —
+     * nothing coordinates through them).
+     *
+     * @return the owning tree instance, or {@code null} when it cannot be resolved
+     */
+    public Object resolveInfrastructureTree() {
+        for (final XdStorageCacheRecord record : cache.records().values()) {
+            final Object body = record.getObject();
+            if (body instanceof io.github.xdstorage.btree.XdStorageBTree) {
+                return body;
+            }
+            if (body instanceof io.github.xdstorage.btree.XdStorageBTreeNode) {
+                return ((io.github.xdstorage.btree.XdStorageBTreeNode) body).getTree();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * TREEFILE (docs/tasks/2.1.0/41): reloads this infrastructure resource from its
+     * last-committed file, replacing cache records and canonical registrations with the
+     * fresh instances. Infrastructure records are deliberately NOT cloned on write
+     * (живой канонический граф, R-40/R-53): a rolled-back transaction's structural
+     * mutations (root collapse, node emptying, splits) live directly on the aliased
+     * canonical instances, and record rollback "restores" them to the post-mutation
+     * state. Two compensation attempts (2026-10-25) proved the mutated in-memory node
+     * graph cannot be repaired in place. The rolled-back transaction never wrote files
+     * (full-file write-out happens at commit), so the file IS the pre-transaction truth:
+     * the fresh parse restores it. Fresh tree instances also naturally reset
+     * {@code collapsedEmpty}/{@code wasInitialized}/key-type-restore flags, so the tree's
+     * own refresh machinery rebuilds a persistence-faithful graph — the same state a
+     * reopen would produce, without closing the storage.
+     *
+     * <p>Safety rules: records staged as uncommitted mutations by OTHER live transactions
+     * are kept as-is (their canonical instances and workspace records belong to a tx that
+     * is not rolling back — a swap would orphan their staged inserts); parse stubs never
+     * clobber existing full instances (R-53). Records the committed file does not know are
+     * deliberately KEPT (the R-40 {@code rollbackInsertKeepServing} contract): a
+     * concurrently committed transaction can have durably written a parent file that
+     * references such an orphan node (the aliased in-place-write hazard family), and the
+     * kept-serving record is what later flushes heal the file — dropping it makes the
+     * dangling reference permanent ("referenced but missing"). The resource commit lock is
+     * taken for the swap so a concurrent two-phase commit (full-file write + cache
+     * publish) is not interleaved.</p>
+     *
+     * <p>Called by {@code XdStorageTransaction.recoverInfraFromCommittedFiles} per
+     * TREE GROUP, under the group tree's write lock — never per-resource from
+     * {@link #rollback}, which would race concurrent transactions and fork canonical
+     * graphs mid-flight.</p>
+     *
+     * @param transaction the transaction being rolled back
+     * @throws XdStorageException when the committed file exists but cannot be parsed
+     */
+    public void reloadInfrastructureFromCommittedFiles(final XdStorageTransaction transaction) throws XdStorageException {
+        final Class<?> infraClass = cache.entityClass();
+        final io.github.xdstorage.resource.XdStorageCanonicalInstanceRegistry registry = services.getCanonicalInstances();
+        final Map<Object, XdStorageCacheRecord> records = cache.records();
+
+        // Сериализуемся с идущими коммитами этого ресурса (фаза-1 полная перезапись +
+        // фаза-2 публикация в кэш); коммит короткий, откат важнее — по таймауту идем без лока.
+        // Вызов происходит под write-локом дерева группы: структурные мутации чужих tx
+        // исключены, остаются только их коммиты — их ждет ресурсный ReentrantLock.
+        boolean lockedHere = false;
+        try {
+            lockedHere = lock.tryLock(10, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        if (!lockedHere) {
+            log.warn("TREEFILE: infra reload of resource {} proceeds WITHOUT the commit lock (10 s budget expired) — racing-commit window accepted", resourceId);
+        }
+        try {
+            final Collection<Object> parsed = readAsObjects(); // null = файла нет
+
+            if (parsed != null) {
+                // Подменяем записи и каноны свежим парсом (упор: свежий парс ВЫИГРЫВАЕТ).
+                // Записи, которых в файле нет, НЕ выбрасываем (R-40 rollbackInsertKeepServing):
+                // см. контракт в javadoc. Чужие живые незакоммиченные записи пропускать
+                // небезопасно, но к этому моменту группа проверена на тихость под локом дерева —
+                // повторная проверка здесь была бы гонкой в обратную сторону.
+                for (final Object fresh : parsed) {
+                    final Object id = idField.get(fresh);
+                    if (id == null) {
+                        continue;
+                    }
+                    final boolean stub = fresh instanceof io.github.xdstorage.code.IXdStorageReferenceMarked
+                            && ((io.github.xdstorage.code.IXdStorageReferenceMarked) fresh).isReference();
+                    if (stub && records.containsKey(id)) {
+                        continue; // R-53: стаб не затирает полный инстанс
+                    }
+                    records.put(id, cache.createReadRecord(fresh));
+                    if (!stub && registry != null) {
+                        registry.register(infraClass, id, fresh);
+                    }
+                }
+            }
+            log.debug("TREEFILE: infra resource {} reloaded from committed file after rollback: {} record(s) parsed",
+                    resourceId, parsed != null ? parsed.size() : 0);
+        } finally {
+            if (lockedHere) {
+                lock.unlock();
+            }
+        }
     }
 }

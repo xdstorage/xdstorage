@@ -99,7 +99,6 @@ public class XdStorageTreeStructureRollbackTest {
     }
 
     @Test
-    @org.junit.jupiter.api.Disabled("TREEFILE docs/tasks/2.1.0/41: the structural compensation is not landed yet — this repro is RED by design until then")
     public void rollbackOfFullCollapse_RestoresTheTree() throws Exception {
         // Grow the tree past one node (t=4): 40 records force splits and multiple nodes.
         final List<Long> ids = insertBatch(40);

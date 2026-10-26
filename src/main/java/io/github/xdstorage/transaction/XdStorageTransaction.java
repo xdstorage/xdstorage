@@ -98,6 +98,16 @@ public class XdStorageTransaction implements IXdStorageTransaction {
     private final java.util.List<Object[]> indexKeyDeletesForRollback =
             new java.util.ArrayList<>();
 
+    /**
+     * TREEFILE (docs/tasks/2.1.0/41): деревья, перезагруженные с закоммиченных файлов при
+     * откате этой транзакции (recoverInfraFromCommittedFiles). Перезагрузка вернула ключи
+     * и структуру дерева в до-транзакционное состояние ЦЕЛИКОМ — ключевые компенсации
+     * для таких деревьев избыточны и пропускаются. Ключи набора — сами инстансы деревьев
+     * (identity): компенсационные списки держат те же инстансы.
+     */
+    private final java.util.Set<Object> infraReloadedTrees =
+            java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+
     private final java.util.List<Object[]> indexKeysForRollback =
             java.util.Collections.synchronizedList(new java.util.ArrayList<>());
 
@@ -591,6 +601,150 @@ public class XdStorageTransaction implements IXdStorageTransaction {
     }
 
     @Override
+    public void markTreeInfraReloaded(final Object tree) {
+        if (tree != null) {
+            infraReloadedTrees.add(tree);
+        }
+    }
+
+    /**
+     * TREEFILE (docs/tasks/2.1.0/41): after the record rollback, restores every B+tree
+     * this transaction mutated from its last-committed files. Infrastructure records are
+     * aliased live canonical instances — their in-place structural mutations survive the
+     * record rollback (prevObject aliases the live instance), and two compensation
+     * attempts (2026-10-25) proved the mutated in-memory graph cannot be repaired in
+     * place. The rolled-back transaction never wrote files (full-file write-out happens
+     * at commit), so the files ARE the pre-transaction truth: the reload re-parses them
+     * and replaces the canonical graph — the state a reopen would produce, without
+     * closing the storage.
+     *
+     * <p>Coherence rules (the per-resource version of this idea raced concurrent
+     * transactions 7/8 stress runs — do not "simplify" back): resources are grouped by
+     * their OWNING TREE; a group reloads ONLY whole — tree record and every touched node
+     * resource together — and ONLY when no other live transaction holds staged state on
+     * any group member (quiet window), re-checked under the group tree's WRITE lock. The
+     * tree write lock both excludes in-flight structural mutations and keeps
+     * old-instance holders serialized (they lock the same pre-swap instance). A busy or
+     * unresolvable group is SKIPPED — its trees keep their key compensations (see
+     * {@code infraReloadedTrees}), which restores them read-committed the R-57 way.
+     * Groups whose tree cannot be resolved (stub records only) reload individually when
+     * quiet — they are inert (nothing descends through a stub).</p>
+     */
+    private void recoverInfraFromCommittedFiles() {
+        // ТИШИНА — ЖЕЛЕЗОБЕТОННОЕ УСЛОВИЕ БЕЗОПАСНОСТИ: перезагрузка подменяет канонический
+        // граф дерева, а ЧУЖИЕ потоки легитимно держат перекрестные ссылки (инстансы
+        // деревьев, ноды, распарсенные записи) между своими шагами И МЕЖДУ СВОИМИ
+        // ТРАНЗАКЦИЯМИ (воркер-раннабль хранит загруженные обертки; поисковый флоу
+        // restore -> find -> delete не держит дерево-лок) — ни количество живых
+        // транзакций, ни тихие окна этого не видно. При ЛЮБОЙ многопоточности подмена
+        // вилит графы — это документированная W-4 граница (W4-DESIGN владеет write-path).
+        // Поэтому перезагрузка выполняется ТОЛЬКО в хранилище, которое ВСЮ ЖИЗНЬ
+        // проработало в один транзакционный поток и не имеет других транзакций прямо
+        // сейчас: детерминированные однописательные сценарии (репро задачи 41,
+        // однопоточные откаты) получают полную починку, конкурентные — точное поведение
+        // HEAD (R-57 компенсации), без регрессии.
+        if (((XdStorageTransactionManager) manager).hasEverRunConcurrentTransactionThreads()
+                || ((XdStorageTransactionManager) manager).anyOtherTransactionExists(this)) {
+            log.debug("TREEFILE: infra recovery skipped — concurrent history (compensations own the rollback)");
+            return;
+        }
+        final java.util.List<io.github.xdstorage.resource.XdStorageResource> infraResources =
+                new java.util.ArrayList<>();
+        for (final IXdStorageResourceObject resource : resources.values()) {
+            if (resource instanceof io.github.xdstorage.resource.XdStorageResource
+                    && ((io.github.xdstorage.resource.XdStorageResource) resource).isInfrastructureResource()) {
+                infraResources.add((io.github.xdstorage.resource.XdStorageResource) resource);
+            }
+        }
+        if (infraResources.isEmpty()) {
+            return;
+        }
+
+        // Группировка по дереву-владельцу (identity): tree-record ресурсы несут само
+        // дерево, нодные — живую ссылку tree (починенную materialize при первом касании).
+        final java.util.IdentityHashMap<Object, java.util.List<io.github.xdstorage.resource.XdStorageResource>> byTree =
+                new java.util.IdentityHashMap<>();
+        final java.util.List<io.github.xdstorage.resource.XdStorageResource> ungrouped =
+                new java.util.ArrayList<>();
+        for (final io.github.xdstorage.resource.XdStorageResource resource : infraResources) {
+            final Object tree = resource.resolveInfrastructureTree();
+            if (tree instanceof io.github.xdstorage.btree.XdStorageBTree) {
+                java.util.List<io.github.xdstorage.resource.XdStorageResource> group = byTree.get(tree);
+                if (group == null) {
+                    group = new java.util.ArrayList<>();
+                    byTree.put(tree, group);
+                }
+                group.add(resource);
+            } else {
+                ungrouped.add(resource);
+            }
+        }
+
+        int reloadedGroups = 0;
+        for (final java.util.Map.Entry<Object, java.util.List<io.github.xdstorage.resource.XdStorageResource>> group : byTree.entrySet()) {
+            final io.github.xdstorage.btree.XdStorageBTree tree = (io.github.xdstorage.btree.XdStorageBTree) group.getKey();
+            final java.util.List<io.github.xdstorage.resource.XdStorageResource> members = group.getValue();
+            if (!isTreeGroupQuiet(members)) {
+                log.debug("TREEFILE: tree {} stays on key compensations — group busy with other transactions' staged state", tree.getId());
+                continue;
+            }
+            try {
+                // Write-лок дерева: исключает структурные мутации чужих tx на весь
+                // перезагрузочный батч и сериализует держателей старого инстанса.
+                tree.lockWrite(this);
+            } catch (final XdStorageException e) {
+                log.warn("TREEFILE: tree {} reload skipped — write lock not captured: {}", tree.getId(), e.getMessage());
+                continue;
+            }
+            try {
+                // Авторитетная перепроверка тихости ПОД локом дерева (между съемкой
+                // и захватом лока чужая tx могла застейджить мутацию).
+                if (!isTreeGroupQuiet(members)) {
+                    continue;
+                }
+                for (final io.github.xdstorage.resource.XdStorageResource resource : members) {
+                    resource.reloadInfrastructureFromCommittedFiles(this);
+                }
+                markTreeInfraReloaded(tree);
+                ++reloadedGroups;
+            } catch (final Throwable reloadFailure) {
+                // Перезагрузка обязана ломать откат: громкий лог, дерево остается на
+                // ключевых компенсациях (перезагруженные СОСЕДИ группы уже заменены —
+                // их каноны свежие, компенсации этой группы пропущены).
+                log.error("TREEFILE: tree {} group reload failed mid-way — the tree may carry a mixed graph; keeping compensations skipped", tree.getId(), reloadFailure);
+            } finally {
+                tree.unlockWrite();
+            }
+        }
+
+        // Безресурсные группы (стабы без живой ссылки на дерево) — инертны: перезагружаем
+        // по-одиночке, тихо, без лока дерева.
+        for (final io.github.xdstorage.resource.XdStorageResource resource : ungrouped) {
+            try {
+                if (resource.isInfraQuietForRollbackOf(this)) {
+                    resource.reloadInfrastructureFromCommittedFiles(this);
+                }
+            } catch (final Throwable reloadFailure) {
+                log.warn("TREEFILE: ungrouped infra resource reload failed (kept as-is): {}", reloadFailure.getMessage());
+            }
+        }
+
+        if (reloadedGroups > 0) {
+            log.debug("TREEFILE: infra recovery reloaded {} tree group(s) from committed files; {} group(s) skipped as busy",
+                    reloadedGroups, byTree.size() - reloadedGroups);
+        }
+    }
+
+    private boolean isTreeGroupQuiet(final java.util.List<io.github.xdstorage.resource.XdStorageResource> members) {
+        for (final io.github.xdstorage.resource.XdStorageResource resource : members) {
+            if (!resource.isInfraQuietForRollbackOf(this)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
     public void rollbackIndexKeyDeletes() {
         final java.util.List<Object[]> pending;
         synchronized (indexKeyDeletesForRollback) {
@@ -603,6 +757,11 @@ public class XdStorageTransaction implements IXdStorageTransaction {
         // Обратный порядок регистрации: последнее удаление восстанавливается первым.
         for (int i = pending.size() - 1; i >= 0; --i) {
             final Object[] triple = pending.get(i);
+            // TREEFILE: дерево перезагружено с закоммиченных файлов — его ключи уже в
+            // до-транзакционном состоянии, компенсирующая вставка продублировала бы ключ.
+            if (infraReloadedTrees.contains(triple[0])) {
+                continue;
+            }
             try {
                 ((io.github.xdstorage.btree.XdStorageBTree) triple[0])
                         .insert((Comparable) triple[1], triple[2], getStorage(), this);
@@ -630,6 +789,11 @@ public class XdStorageTransaction implements IXdStorageTransaction {
         // Обратный порядок регистрации: последний вставленный ключ удаляется первым.
         for (int i = pending.size() - 1; i >= 0; --i) {
             final Object[] pair = pending.get(i);
+            // TREEFILE: дерево перезагружено с закоммиченных файлов — вставленный этой
+            // транзакцией ключ там никогда не существовал, компенсирующее удаление промахнется.
+            if (infraReloadedTrees.contains(pair[0])) {
+                continue;
+            }
             try {
                 ((io.github.xdstorage.btree.XdStorageBTree) pair[0])
                         .delete((Comparable) pair[1], getStorage(), this);
@@ -662,6 +826,11 @@ public class XdStorageTransaction implements IXdStorageTransaction {
             }
         });
 
+        // TREEFILE: зеркально rollbackInternal — компенсация упавшей фазы-1 вернула файлы
+        // к до-транзакционному состоянию, но тела инфраструктурных записей алиасированы
+        // живыми инстансами; перезагружаем деревья группы за группой (тихие окна).
+        recoverInfraFromCommittedFiles();
+
         lockedResources.stream().forEach(resource -> {
             resource.unlockAfterCommit(XdStorageTransaction.this);
         });
@@ -687,8 +856,9 @@ public class XdStorageTransaction implements IXdStorageTransaction {
         // компенсирующие delete сами регистрируют свои изменения в этой транзакции
         // и убираются общим откатом ниже. Зеркало для УДАЛЕННЫХ ключей: возврат ключа
         // держит дерево в read-committed состоянии после отката.
-        rollbackIndexKeyInserts();
-        rollbackIndexKeyDeletes();
+        // R-57+TREEFILE: ПОРЯДОК КРИТИЧЕН — ресурсы первыми (их откат для инфраструктуры
+        // ПЕРЕЗАГРУЖАЕТ деревья с диска, см. XdStorageResource.rollback), ключи после —
+        // и только когда перезагрузка не состоялась.
         for (final IXdStorageResourceObject resource : resources.values()) {
             try {
                 resource.rollback(this);
@@ -696,6 +866,14 @@ public class XdStorageTransaction implements IXdStorageTransaction {
                 throw new XdStorageRuntimeException("invalid state of database", e);
             }
         }
+        // TREEFILE: перезагрузка инфраструктуры с закоммиченных файлов — деревья,
+        // мутированные ин-плейс, получают до-транзакционный граф целиком; ключевые
+        // компенсации после нее нужны только деревьям, которые перезагрузить не
+        // удалось (заняты чужими незакоммиченными мутациями), — они пропускаются
+        // точечно (infraReloadedTrees).
+        recoverInfraFromCommittedFiles();
+        rollbackIndexKeyInserts();
+        rollbackIndexKeyDeletes();
 
         lockedResources.stream().forEach(resource -> {
             resource.unlockAfterCommit(XdStorageTransaction.this);

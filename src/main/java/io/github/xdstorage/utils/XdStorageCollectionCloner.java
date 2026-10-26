@@ -106,9 +106,11 @@ public final class XdStorageCollectionCloner {
      * (SortedSet → TreeSet preserving natural order, Set → HashSet, Queue/Deque →
      * LinkedList, everything else → ArrayList/LinkedList per {@link RandomAccess}).
      * The clone's CLASS may therefore be coarser than the source's — its CONTENTS and
-     * iteration semantics are what the snapshot preserves.
+     * iteration semantics are what the snapshot preserves. Also reused by the smart
+     * cloner's collection processor (XdStorageClonerCollectionProcessor) for the same
+     * non-instantiable-container fallback.
      */
-    private static Collection<Object> newCollectionInstance(final Collection<Object> src) {
+    public static Collection<Object> newCollectionInstance(final Collection<Object> src) {
         final Class<? extends Collection> collectionClass = src.getClass();
         try {
             return collectionClass.newInstance();
@@ -142,7 +144,7 @@ public final class XdStorageCollectionCloner {
      * (natural order), everything else → HashMap. See {@link #newCollectionInstance}.
      */
     @SuppressWarnings("unchecked")
-    private static Map<Object, Object> newMapInstance(final Map<Object, Object> src) {
+    public static Map<Object, Object> newMapInstance(final Map<Object, Object> src) {
         final Class<?> mapClass = src.getClass();
         try {
             return (Map<Object, Object>) mapClass.newInstance();
