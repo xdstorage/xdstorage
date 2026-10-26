@@ -55,6 +55,22 @@ there for the full decision record before starting an item.
 | 40 | [lost-update-first-committer-wins](40-lost-update-first-committer-wins.md) | LOSTUPD | P1, engine, bug | 2–3 d | — (PROVEN by the 2026-10-24 stress investigation: conflict check compares writer-start, not read-vs-commit; blocks a reliable full-suite gate until landed) |
 | 41 | [tree-node-file-leak-rollback](41-tree-node-file-leak-rollback.md) | TREEFILE | P1, engine, bug | 2–3 d | — (PROVEN by the 2026-10-25 file-leak run: infra rollback asymmetry — aliased canonical tree records make node files permanent orphans after rollbacks; composes with 38+40) |
 
+**RELEASE CRITICALITY TRIAGE (architect, 2026-10-26) — what 2.1.0 ships with:**
+
+| Verdict | Task | Why |
+|---|---|---|
+| **BLOCKER** | 35 CRASHPURGE (2/3 red) | The release sells the post-crash recovery/cleanup story (tasks 19/23) — the release-gate test proving it is disabled and failing. 1–2 d. |
+| **BLOCKER** | 36-zombie-latch (3/3 red, deterministic) | Same family: the purge cannot run while zombie latches live; also the worker-hygiene contract fix. 1–2 d. |
+| **BLOCKER-or-explicit-deferral** | 16 BUG-B | Silent id-unreachability after structure update = a correctness defect. Either fix in-train (needs the wrapper-identity design decision made fast) or defer to 2.2.0 WITH a loud EMBEDDING limitation + the @Disabled acceptance test as recorded debt. Shipping silently is the only forbidden outcome. |
+| **SHOULD-FIX** | 39 message-hygiene | Minutes each; misdirecting messages (incl. the `idgeneration <id>` misuse the new diagnostics emit). |
+| **SHOULD-FIX** | 36-structure-update-correctness | SUCCESS reported as FAILURE in `updateStructure` — callers branch on it; equals/hashCode on persisted records. |
+| **SHOULD-FIX (after 35/36 settle)** | 38 index-resource-contracts | Disk-full reported as "invalid state of database" sends operators down the corruption path; touches the fresh W-4a journal path — sequence it last. |
+| **INCLUDE if capacity** | 27 JDK21 matrix | 0.5 d; the published baseline is JDK-21 numbers — the release should test on 21. |
+| **SLIP to 2.1.1** | 28 JAVADOC | 3–5 d full coverage + doclint flip; the javadoc jar ships as-is for 2.1.0, the E-2 tightening moves one release (honest note in RELEASE-PLAN §3). |
+| **SLIP to 2.2.0** | 25 EXPLAIN, 33 BINFEAS | Additive feature / FP-9 gate analysis — no release dependency; EXPLAIN's plan table should follow W-4b anyway. |
+
+**Numbering collision notice:** tasks 34/35/36 exist TWICE (the code-smell ledger sequence 34–41 filed by the javadoc campaign collided with the train sequence). File paths are the sync-issues ownership key — **do not renumber** (renaming orphans issues); reference tasks by full file name; 2.2.0 starts fresh numbering at 01.
+
 **The field-feedback track (added 2026-10-23 — "more important than new features"):**
 the P0 docs track executes in order **29 → 30**, with **31 (P1, ASAP)** running in
 parallel — its design/analysis is what 29/30 publish as the write-performance fix plan.
