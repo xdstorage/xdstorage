@@ -1,8 +1,41 @@
 ---
 title: "[2.1.0][RBCAUSE] \"marked as rollback only\" must say WHO marked it, WHEN and WHY — first-cause capture + cause-chained commit failures"
 labels: [2.1.0-train, P1, engine, bug]
-status: open
+status: done
 ---
+
+## Landed (2026-10-26)
+
+- **`XdStorageRollbackOnlyCause`** (immutable value object, transaction package): site
+  descriptor, root exception (nullable), wall-clock moment, tx age at the mark, marking
+  tx id, `cascadedFrom`, and a repeat-mark counter (AtomicInteger — the record itself
+  never changes after the first mark). First mark wins atomically
+  (`AtomicReference#compareAndSet`).
+- **Mark-site overloads**: `IXdStorageTransaction.markRollbackOnly(String site,
+  Throwable cause)` + `markSelfAndChildrenRollbackOnly(site, cause)` (class level) +
+  the internal cascade variants carrying `cascadedFrom` (the nested chain propagates
+  the ORIGINAL poison source id upward; the downward cascade stamps the immediate
+  poisoning tx). The no-arg forms stay and record `"unspecified"`. ONE WARN per
+  transaction at the first mark; repeat marks increment the counter only.
+- **Every internal site passes a real descriptor**: generated wrappers emit
+  `"lazy-load of field 'X' on <EntityClass>"` / `"modification of viewable object:
+  setter|closed method '...' on <Class>"`; the search manager emits
+  `"search-read failure of <Class>"`; the parent force-sweeps emit
+  `"parent force-sweep of same-thread abandoned|expired internal tx <id> (age > timeout)"`;
+  the commit-time global-cascade and the explicit nested `rollback()` name themselves.
+- **Cause-chained failures**: all four refusal sites (the manager's two commit checks,
+  the transaction's critical-section fast-fail and `registerResource`) append
+  `"(by <site> at tx-age <n> ms[ (cascaded from ...)][: <root message>])"` and chain the
+  root exception via the cause. Note (verified by the suite): a transaction poisoned
+  DURING its own commit (the nested-expiry cascade) is compensated and rolled back
+  SILENTLY by the manager's mid-commit failure path — historical semantics, out of
+  scope — the capture still records the cause for `getRollbackOnlyCause()`.
+- **Generated-wrapper check**: the codegen source test pins the emitted descriptors for
+  both the unmodifiable setter and the simple-wrapper lazy-load getter. (Finding: the
+  generated setters initially compiled against a non-existent one-arg
+  `markRollbackOnly(String)` — the suite caught it via the dummy-wrapper fallback, fixed
+  to emit `(site, null)`.)
+
 
 ## Summary
 
@@ -72,16 +105,20 @@ being loaded, the operation) and is **discarded** — the transaction cannot rem
 
 ## Acceptance criteria
 
-- [ ] The cause-capture suite green: every marking site (#1-#5) is reproduced and the
+- [x] The cause-capture suite green: every marking site (#1-#5) is reproduced and the
       commit failure names the site, carries the root exception as the cause, and states
-      the tx age at the mark.
-- [ ] First-cause-wins pinned by test; repeat marks counted not logged (log volume
-      assertion).
-- [ ] `getRollbackOnlyCause()` documented in EMBEDDING.md § Transactions; the README
-      asymmetry paragraph links it.
-- [ ] No-arg `markRollbackOnly()` still compiles everywhere (source-compatible);
+      the tx age at the mark. (`XdStorageRollbackOnlyCauseTest`, 11 tests: the nested
+      cascade up, the isolated veto down, BOTH parent force-sweep variants (the
+      cross-thread expiry scenario poisons the parent with the cascade source named),
+      the unmodifiable-setter mark behaviorally on a real generated wrapper, the
+      search-read failure with the corrupt-fragment reopen repro.)
+- [x] First-cause-wins pinned by test; repeat marks counted not logged (log volume
+      assertion via an in-test log4j2 capture appender: exactly ONE warn for three marks).
+- [x] `getRollbackOnlyCause()` documented in EMBEDDING.md § Transactions; the README
+      asymmetry paragraph links it; GUIDE.md Transactions + lazy-children sections name it.
+- [x] No-arg `markRollbackOnly()` still compiles everywhere (source-compatible);
       generated-wrapper output contains the site descriptors.
-- [ ] Full suite green ×2 (BUILD SUCCESS verdict).
+- [x] Full suite green ×2 (BUILD SUCCESS verdict). — 875 tests ×2, 0 failures, 0 errors.
 
 Estimate: ~1–2 dev-days (the generator change is the careful half).
 

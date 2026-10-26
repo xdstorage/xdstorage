@@ -219,7 +219,8 @@ Contract (pinned by `XdStorageAutoSaveCascadeTest`):
 - `@XdStorageLoadByGetMethod` on a child-collection field makes the generated getter **lazy**: the first
   call loads the collection from the storage (`storage.load(getter result, tx)`) and caches it. The first
   access must happen inside a transaction; if that load fails, the transaction is marked rollback-only and
-  a `XdStorageRuntimeException` is thrown.
+  a `XdStorageRuntimeException` is thrown — the mark's captured cause (`getRollbackOnlyCause()`) names the
+  lazy-loaded field and carries the root failure.
 
 ## Opening and closing a storage
 
@@ -286,7 +287,11 @@ Semantics:
 - `commit()` runs a two-phase commit across every resource the transaction touched (object files, id
   indexes, search indexes). If the commit fails at any phase, the changes are rolled back and the database
   returns to a valid state.
-- `markRollbackOnly()` flags the transaction so a later `commit()` is refused.
+- `markRollbackOnly()` flags the transaction so a later `commit()` is refused. The refusal is
+  diagnosable: the FIRST mark (by a wrapper accessor, a search error, a sweep or your own call —
+  optionally `markRollbackOnly(site, cause)`) records `getRollbackOnlyCause()` — the marking site, the
+  root exception, the transaction's age at the mark and the cascade source — and the commit failure
+  names the site and chains the root exception as its cause.
 - `beginTransaction(IXdStorageTransaction parent)` derives a transaction from a parent one — this is the
   correct way for **triggers** to run their own storage work while remaining inside the committing
   transaction.

@@ -321,11 +321,12 @@ public class XdStorageWrapperJavaBeansContractTest {
         assertThrows(XdStorageRuntimeException.class, () -> w1.setName("x"));
         assertThrows(XdStorageRuntimeException.class, () -> w1.setActive(true));
         assertThrows(XdStorageRuntimeException.class, () -> w1.setChild(child(9L, "l9")));
-        verify(transaction, times(3)).markRollbackOnly();
+        // RBCAUSE: the generated setters mark with the site descriptor (site, null cause)
+        verify(transaction, times(3)).markRollbackOnly(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.isNull());
 
         // non-accessor public methods are closed the same way
         assertThrows(XdStorageRuntimeException.class, w1::businessMethod);
-        verify(transaction, times(4)).markRollbackOnly();
+        verify(transaction, times(4)).markRollbackOnly(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.isNull());
     }
 
     @Test

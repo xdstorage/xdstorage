@@ -121,6 +121,14 @@ public class XdStorageTransaction implements IXdStorageTransaction {
 
     private final AtomicBoolean rollbackOnly = new AtomicBoolean(false);
 
+    /**
+     * RBCAUSE (docs/tasks/2.1.0/34): the FIRST-CAUSE record of the rollback-only mark —
+     * the first mark wins (atomically), later marks only increment the repeat counter of
+     * the recorded cause. {@code null} while the transaction is not marked.
+     */
+    private final AtomicReference<XdStorageRollbackOnlyCause> rollbackOnlyCause =
+            new AtomicReference<>();
+
     private final AtomicLong critical = new AtomicLong(0);
 
     /** R-40: запас сверх таймаута внутренней tx, после которого родитель принудительно ее sweeping-откатывает. */
@@ -297,7 +305,9 @@ public class XdStorageTransaction implements IXdStorageTransaction {
                         if (!internal.isRollbackOnly() && ((XdStorageTransactionManager) manager).isTransactionBoundToCurrentThread(internalId)) {
                             log.warn("Parent transaction {} force-sweeps internal transaction {} abandoned on the same thread (exception escaped its scope)",
                                     transactionId, internalId);
-                            internal.markSelfAndChildrenRollbackOnly();
+                            // RBCAUSE: cascadedFrom = родитель-уборщик — жертва знает, КТО ее смыл
+                            internal.markSelfAndChildrenRollbackOnlyCascaded(
+                                    "parent force-sweep of same-thread abandoned internal tx " + internalId, null, this.transactionId);
                             swept = true;
                             continue;
                         }
@@ -308,9 +318,11 @@ public class XdStorageTransaction implements IXdStorageTransaction {
                             // Отравление цепочки: первый вызов каскадно помечает parent (ACID:
                             // упавшая вложенная tx обязана откатить родителя), второй — саму
                             // внутреннюю tx (ее globalTransaction уже rollback-only).
-                            internal.markRollbackOnly();
+                            final String sweepSite = "parent force-sweep of expired internal tx " + internalId
+                                    + " (age " + ageMillis + " ms > timeout " + internal.getTimeout() + " ms)";
+                            internal.markRollbackOnly(sweepSite, null);
                             if (!internal.isRollbackOnly()) {
-                                internal.markRollbackOnly();
+                                internal.markRollbackOnly(sweepSite, null);
                             }
                             manager.registerRollbackOnlyTransaction(internal);
                             swept = true;
@@ -390,7 +402,7 @@ public class XdStorageTransaction implements IXdStorageTransaction {
             // Если транзакция УЖЕ помечена как rollback-only, и это не вызов самого отката,
             // мгновенно прерываем операцию легитимным исключением СУБД!
             if (!rollback && rollbackOnly.get())
-                throw new XdStorageRuntimeException("transaction " + transactionId + " marked as rollback only and will be rolled back");
+                throw buildRollbackOnlyFailure("transaction " + transactionId + " marked as rollback only and will be rolled back");
             critical.incrementAndGet();
         }
     }
@@ -413,6 +425,20 @@ public class XdStorageTransaction implements IXdStorageTransaction {
     }
 
     private void setRollbackOnly() {
+        setRollbackOnly("unspecified", null, null);
+    }
+
+    /**
+     * RBCAUSE: the single flag-setting chokepoint — records the first-cause at the mark
+     * decision (before any wait: the cause belongs to the decision, not to the moment the
+     * flag physically lands), then flips the flag.
+     *
+     * @param site         the marking-site descriptor
+     * @param cause        the root exception at the mark site (nullable)
+     * @param cascadedFrom the transaction whose failure cascaded into this mark (nullable)
+     */
+    private void setRollbackOnly(final String site, final Throwable cause, final String cascadedFrom) {
+        recordRollbackOnlyMark(site, cause, cascadedFrom);
         synchronized (critical) {
             // ИСПРАВЛЕНИЕ: Проверяем, выполняется ли операция в контексте текущего транзакционного потока.
             // Если поток совпадает с transactionThreadId (или текущим Thread.currentThread()),
@@ -434,6 +460,46 @@ public class XdStorageTransaction implements IXdStorageTransaction {
             }
             rollbackOnly.set(true);
         }
+    }
+
+    /**
+     * RBCAUSE: first-cause-wins capture. The first mark records its cause atomically and
+     * logs ONE WARN (site + root exception + tx id); later marks only increment the
+     * recorded cause's repeat counter — never the log.
+     */
+    private void recordRollbackOnlyMark(final String site, final Throwable cause, final String cascadedFrom) {
+        final long txAgeMillis = (System.nanoTime() - timestart) / 1_000_000L;
+        final XdStorageRollbackOnlyCause first =
+                new XdStorageRollbackOnlyCause(site != null ? site : "unspecified", cause, cascadedFrom, transactionId, txAgeMillis);
+        if (rollbackOnlyCause.compareAndSet(null, first)) {
+            if (cause != null) {
+                log.warn("transaction {} marked as rollback only by {} (tx-age {} ms): {}",
+                        transactionId, first.getSite(), txAgeMillis, cause.getMessage(), cause);
+            } else {
+                log.warn("transaction {} marked as rollback only by {} (tx-age {} ms){}",
+                        transactionId, first.getSite(), txAgeMillis,
+                        cascadedFrom != null ? " — cascaded from " + cascadedFrom : "");
+            }
+        } else {
+            rollbackOnlyCause.get().incrementRepeatMarks();
+        }
+    }
+
+    /**
+     * RBCAUSE: builds a rollback-only failure exception from the transaction's original
+     * message, appending the first-cause summary and chaining the root exception as the
+     * cause (when the failure itself carries none of its own).
+     *
+     * @param baseMessage the historical failure message
+     * @return the exception to throw
+     */
+    private XdStorageRuntimeException buildRollbackOnlyFailure(final String baseMessage) {
+        return XdStorageRollbackOnlyCause.buildFailure(baseMessage, rollbackOnlyCause.get());
+    }
+
+    @Override
+    public XdStorageRollbackOnlyCause getRollbackOnlyCause() {
+        return rollbackOnlyCause.get();
     }
 
     @Override
@@ -476,8 +542,11 @@ public class XdStorageTransaction implements IXdStorageTransaction {
      */
     public void registerResource(final IXdStorageResourceObject resource, final int commitOrder) throws XdStorageException {
         synchronized (critical) {
-            if (rollbackOnly.get())
-                throw new XdStorageException("transaction " + transactionId + " marked as rollback only and will be rolled back");
+            if (rollbackOnly.get()) {
+                final XdStorageRuntimeException failure = buildRollbackOnlyFailure(
+                        "transaction " + transactionId + " marked as rollback only and will be rolled back");
+                throw new XdStorageException(failure.getMessage(), failure.getCause());
+            }
 
             resourcesIds.add(resource.getResourceId());
             resources.put(resource.getResourceId(), resource);
@@ -882,10 +951,31 @@ public class XdStorageTransaction implements IXdStorageTransaction {
 
     @Override
     public void markRollbackOnly() {
+        markRollbackOnly("unspecified", null);
+    }
+
+    @Override
+    public void markRollbackOnly(final String site, final Throwable cause) {
         if (globalTransaction == null || globalTransaction.isRollbackOnly() || isRollbackOnly()) {
-            markSelfAndChildrenRollbackOnly();
+            markSelfAndChildrenRollbackOnly(site, cause);
         } else {
-            globalTransaction.markRollbackOnly();
+            // Каскад ВВЕРХ: родитель узнает об отравлении от вложенной транзакции —
+            // cascadedFrom несет id отравившего звена (распространяется через цепочку
+            // вложенности неизменным: жертве важен ИСТОЧНИК каскада).
+            globalTransaction.markRollbackOnlyCascaded(site, cause, this.transactionId);
+        }
+    }
+
+    /**
+     * RBCAUSE: cascade hop of {@link #markRollbackOnly(String, Throwable)} — the mark
+     * lands on THIS transaction while {@code cascadedFrom} keeps the id of the nested
+     * transaction whose failure started the cascade.
+     */
+    public void markRollbackOnlyCascaded(final String site, final Throwable cause, final String cascadedFrom) {
+        if (globalTransaction == null || globalTransaction.isRollbackOnly() || isRollbackOnly()) {
+            markSelfAndChildrenRollbackOnly(site, cause, cascadedFrom);
+        } else {
+            globalTransaction.markRollbackOnlyCascaded(site, cause, cascadedFrom);
         }
     }
 
@@ -898,14 +988,35 @@ public class XdStorageTransaction implements IXdStorageTransaction {
      * даже в один поток.
      */
     public void markSelfAndChildrenRollbackOnly() {
-        setRollbackOnly();
+        markSelfAndChildrenRollbackOnly("unspecified", null);
+    }
+
+    /**
+     * RBCAUSE: the same isolated self-and-children mark with a first-cause capture of the
+     * marking site.
+     *
+     * @param site  the marking-site descriptor
+     * @param cause the root exception at the mark site (nullable)
+     */
+    public void markSelfAndChildrenRollbackOnly(final String site, final Throwable cause) {
+        markSelfAndChildrenRollbackOnly(site, cause, null);
+    }
+
+    private void markSelfAndChildrenRollbackOnly(final String site, final Throwable cause, final String cascadedFrom) {
+        setRollbackOnly(site, cause, cascadedFrom);
         for (final String internalId : internalTransactions.toArray(new String[0])) {
             final XdStorageTransaction internal = (XdStorageTransaction) manager.getTransaction(internalId);
             if (internal != null && !internal.isRollbackOnly()) {
-                internal.markSelfAndChildrenRollbackOnly();
+                // Каскад ВНИЗ: внутренние tx получают тот же site/cause, cascadedFrom =
+                // отравившее звено (эта транзакция).
+                internal.markSelfAndChildrenRollbackOnlyCascaded(site, cause, this.transactionId);
             }
         }
         manager.registerRollbackOnlyTransaction(this);
+    }
+
+    private void markSelfAndChildrenRollbackOnlyCascaded(final String site, final Throwable cause, final String cascadedFrom) {
+        markSelfAndChildrenRollbackOnly(site, cause, cascadedFrom);
     }
 
     /**

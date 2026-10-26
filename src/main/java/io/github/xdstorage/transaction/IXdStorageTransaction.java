@@ -79,6 +79,30 @@ public interface IXdStorageTransaction {
     void markRollbackOnly();
 
     /**
+     * RBCAUSE (docs/tasks/2.1.0/34): marks the transaction rollback-only and records WHO
+     * is marking it and WHY. The first mark wins: its site descriptor and root exception
+     * become the transaction's {@link #getRollbackOnlyCause()}; later marks only count.
+     * The failure of the eventual commit names the site, states the transaction's age at
+     * the mark and chains the root exception as its cause.
+     *
+     * @param site  human-readable marking-site descriptor (e.g.
+     *              {@code "lazy-load of field 'crew' on Ship"}); {@code null} is
+     *              recorded as {@code "unspecified"}
+     * @param cause the failure that prompted the mark, {@code null} when none applies
+     */
+    void markRollbackOnly(String site, Throwable cause);
+
+    /**
+     * RBCAUSE (docs/tasks/2.1.0/34): who marked this transaction rollback-only, when and
+     * why — the first-cause record captured at the first mark (site, root exception,
+     * wall-clock moment, transaction age, cascade source, repeat-mark count).
+     *
+     * @return the first mark's cause record, or {@code null} while the transaction is
+     *         not marked rollback-only
+     */
+    XdStorageRollbackOnlyCause getRollbackOnlyCause();
+
+    /**
      * Whether the transaction is marked rollback-only.
      *
      * @return {@code true} when the commit would fail

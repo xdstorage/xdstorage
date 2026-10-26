@@ -152,7 +152,8 @@ javadoc warning. Guide contents:
 - [Opening and closing a storage](docs/GUIDE.md#opening-and-closing-a-storage) — the provider registry,
   the exclusive folder lock, `XdStorageConfig`, `shutdown()` semantics.
 - [Transactions](docs/GUIDE.md#transactions) — explicit transactions, timeouts, 2PC semantics,
-  rollback-only, derived transactions for triggers.
+  rollback-only (with first-cause capture: `getRollbackOnlyCause()` names who poisoned the transaction
+  and the commit failure chains the root exception), derived transactions for triggers.
 - [CRUD operations](docs/GUIDE.md#crud-operations) — save/has/load/update/delete and bulk forms.
 - [The search engine](docs/GUIDE.md#search-engine) — criteria and operators, the plan/fallback matrix,
   `ORDER BY`/`LIMIT`/`OFFSET`/`count`, and the cost model.

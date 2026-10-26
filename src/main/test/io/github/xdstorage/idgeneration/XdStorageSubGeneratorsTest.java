@@ -75,8 +75,9 @@ public class XdStorageSubGeneratorsTest {
         String generatedCode = builder.toString();
 
         // Проверяем защитные инварианты: unmodifiable-геттер обязан вызывать защиту транзакции markRollbackOnly при сбоях!
-        assertTrue(generatedCode.contains("transaction.markRollbackOnly()"),
-                "Немодифицируемая обертка обязана метить транзакцию на откат при ошибках I/O ленивой загрузки!");
+        // RBCAUSE: the mark carries the first-cause site descriptor (field + entity class)
+        assertTrue(generatedCode.contains("transaction.markRollbackOnly(\"lazy-load of field '"),
+                "Немодифицируемая обертка обязана метить транзакцию на откат при ошибках I/O ленивой загрузки (с дескриптором места)!");
         assertTrue(generatedCode.contains("storage.load"),
                 "Должен присутствовать вызов дискового движка хранения");
     }
@@ -102,8 +103,9 @@ public class XdStorageSubGeneratorsTest {
         // ПРОВЕРКА ИНВАРИАНТА БЕЗОПАСНОСТИ SNAPSHOT:
         // Любой сеттер в Unmodifiable-обертке обязан принудительно вызывать markRollbackOnly(),
         // предотвращая порчу консистентности данных в базе.
-        assertTrue(generatedCode.contains("transaction.markRollbackOnly();"),
-                "Сгенерированный сеттер обязан помечать транзакцию на откат!");
+        // RBCAUSE: the mark carries the first-cause site descriptor (setter + entity class)
+        assertTrue(generatedCode.contains("transaction.markRollbackOnly(\"modification of viewable object: setter '"),
+                "Сгенерированный сеттер обязан помечать транзакцию на откат (с дескриптором места)!");
 
         // Проверяем, что генерируется жесткое fail-fast исключение
         assertTrue(generatedCode.contains("throw new io.github.xdstorage.exceptions.XdStorageRuntimeException"),

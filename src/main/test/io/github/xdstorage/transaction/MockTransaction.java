@@ -56,6 +56,16 @@ public class MockTransaction implements IXdStorageTransaction {
     }
 
     @Override
+    public void markRollbackOnly(final String site, final Throwable cause) {
+        // mock: no live capture
+    }
+
+    @Override
+    public XdStorageRollbackOnlyCause getRollbackOnlyCause() {
+        return null;
+    }
+
+    @Override
     public boolean isRollbackOnly() {
         return false;
     }

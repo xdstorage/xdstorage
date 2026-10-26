@@ -35,7 +35,11 @@ current code, stated so embedding surprises are design-time, not production-time
 - **One transaction may be used from many threads** (parallel streams): the engine counts active
   threads per transaction and defers rollback until they all leave.
 - A failed CRUD operation throws but does NOT auto-rollback the transaction; wrapper-generated
-  accessors and search errors do mark it rollback-only. Commit of a rollback-only transaction throws.
+  accessors and search errors do mark it rollback-only. Commit of a rollback-only transaction throws —
+  and the failure **tells you who poisoned the transaction**: the first mark records its cause
+  (`transaction.getRollbackOnlyCause()` — the marking site, the root exception, the transaction's age
+  at the mark, the cascade source), the commit failure names the site and chains the root exception as
+  its cause, and repeat marks are counted on the record instead of overwriting it.
 - Nested transactions: `beginTransaction(parentTx, timeout)`; a nested rollback does not poison the
   parent (downward-only rollback-only cascade).
 

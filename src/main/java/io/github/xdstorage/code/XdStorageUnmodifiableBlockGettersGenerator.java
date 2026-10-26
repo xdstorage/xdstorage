@@ -95,9 +95,13 @@ public class XdStorageUnmodifiableBlockGettersGenerator {
             builder.append("\t\t\t\tif (toLoadObject != null) {\r\n\t\t\t\t\tstorage.load(toLoadObject, transaction);\r\n\t\t\t\t}\r\n");
             builder.append("\t\t\t\t").append(fieldName).append("Loaded = true;\r\n");
             builder.append("\t\t\t} catch(").append(XdStorageConnectionException.class.getName()).append(" | ").append(XdStorageException.class.getName()).append(" e) {\r\n");
-            builder.append("\t\t\t\ttransaction.markRollbackOnly();\r\n");
+            // RBCAUSE: the site descriptor names the lazy-loaded field and the entity class;
+            // the caught storage failure is BOTH the mark's root cause and the thrown
+            // exception's cause — the commit failure chains back to it
+            builder.append("\t\t\t\ttransaction.markRollbackOnly(\"lazy-load of field '").append(fieldName)
+                    .append("' on ").append(getter.getDeclaringClass().getSimpleName()).append("\", e);\r\n");
             builder.append("\t\t\t\tthrow new ").append(XdStorageRuntimeException.class.getName());
-            builder.append("(\"couldn't load objects of field ").append(fieldName).append(", transaction \" + transaction.getTransactionId() + \" marked as rollback only\");\r\n");
+            builder.append("(\"couldn't load objects of field ").append(fieldName).append(", transaction \" + transaction.getTransactionId() + \" marked as rollback only\", e);\r\n");
             builder.append("\t\t\t}\r\n\t\t}\r\n");
 
             if (getter == ctx.parentGetter) {

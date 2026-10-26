@@ -238,13 +238,18 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
 
     public void commitTransaction(final XdStorageTransaction transaction) {
         if (transaction.isRollbackOnly()) {
-            throw new XdStorageRuntimeException("transaction will be rolled back because it is marked as rollback only");
+            throw XdStorageRollbackOnlyCause.buildFailure(
+                    "transaction will be rolled back because it is marked as rollback only",
+                    transaction.getRollbackOnlyCause());
         }
 
         final XdStorageTransaction globalTransactionToCheck = transaction.getGlobalTransaction();
         if (globalTransactionToCheck != null && globalTransactionToCheck.isRollbackOnly()) {
-            transaction.markRollbackOnly();
-            throw new XdStorageRuntimeException("transaction should be rolled back because global transaction is marked as rollback only");
+            transaction.markRollbackOnly("commit refused: global transaction " + globalTransactionToCheck.getTransactionId()
+                    + " already rollback-only", null);
+            throw XdStorageRollbackOnlyCause.buildFailure(
+                    "transaction should be rolled back because global transaction is marked as rollback only",
+                    transaction.getRollbackOnlyCause());
         }
 
         final Collection<IXdStorageResourceObject> resources = transaction.getResources();
@@ -342,7 +347,7 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
             // R-41: ИЗОЛИРОВАННЫЙ откат вложенной транзакции — родитель выживает.
             // Прежний transaction.markRollbackOnly() делегировал наверх и ядовил parent:
             // сценарий "nested rollback" ронял следующий commit родителя даже в один поток.
-            transaction.markSelfAndChildrenRollbackOnly();
+            transaction.markSelfAndChildrenRollbackOnly("explicit rollback() of nested transaction " + transaction.getTransactionId(), null);
             return;
         }
 

@@ -111,7 +111,10 @@ public class XdStorageWrapperBlockGettersGenerator {
             }
 
             builder.append("\t\t\t\t\t\t").append(fieldName).append("Loaded = true;\r\n\t\t\t\t\t} catch(").append(Throwable.class.getName()).append(" e) {\r\n");
-            builder.append("\t\t\t\t\t\ttransaction.markRollbackOnly();\r\n\t\t\t\t\t\tthrow new ").append(XdStorageRuntimeException.class.getName());
+            // RBCAUSE: the site descriptor names the lazy-loaded field and the entity class;
+            // the caught failure is the mark's root cause (already chained into the throw)
+            builder.append("\t\t\t\t\t\ttransaction.markRollbackOnly(\"lazy-load of field '").append(fieldName)
+                    .append("' on ").append(getter.getDeclaringClass().getSimpleName()).append("\", e);\r\n\t\t\t\t\t\tthrow new ").append(XdStorageRuntimeException.class.getName());
             builder.append("(\"couldn't load objects of field ").append(fieldName).append(", transaction \" + transaction.getTransactionId() + \" marked as rollback only\", e);\r\n\t\t\t\t\t}\r\n");
             builder.append("\t\t\t\t}\r\n");
             builder.append("\t\t\t} finally {\r\n");

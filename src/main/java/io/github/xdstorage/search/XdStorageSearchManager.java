@@ -979,7 +979,8 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
             }
             return null;
         } catch (final XdStorageException | XdStorageConnectionException e) {
-            transaction.markRollbackOnly();
+            // RBCAUSE: the search-read failure is the first-cause descriptor of the mark
+            transaction.markRollbackOnly("search-read failure of " + clInfo.getClazz().getSimpleName(), e);
             throw new XdStorageRuntimeException(e);
         }
     }
@@ -1040,7 +1041,8 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
                         result.put(objectId, (T) resource.read(objectId, transaction));
                     }
                 } catch (final XdStorageException | XdStorageConnectionException e) {
-                    transaction.markRollbackOnly();
+                    // RBCAUSE: the search-read failure is the first-cause descriptor of the mark
+                    transaction.markRollbackOnly("search-read failure of " + clInfo.getClazz().getSimpleName(), e);
                     throw new XdStorageRuntimeException(e);
                 }
             }

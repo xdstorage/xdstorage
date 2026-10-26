@@ -26,7 +26,10 @@ public class XdStorageUnmodifiableBlockSettersGenerator {
         for (Method method : ctx.setters) {
             builder.append("\r\n\t@Override\r\n\t");
             builder.append(gen.buildMethodDefinition(method.getModifiers(), method.getName(), method.getTypeParameters(), method.getReturnType(), method.getGenericReturnType(), method.getParameterTypes(), method.getGenericParameterTypes(), method.getExceptionTypes())).append(" {\r\n");
-            builder.append("\t\ttransaction.markRollbackOnly();\r\n");
+            // RBCAUSE: the site descriptor names the setter and the entity class — the
+            // commit failure of the poisoned transaction says who marked it
+            builder.append("\t\ttransaction.markRollbackOnly(\"modification of viewable object: setter '").append(method.getName())
+                    .append("' on ").append(method.getDeclaringClass().getSimpleName()).append("\", null);\r\n");
             builder.append("\t\tthrow new ").append(XdStorageRuntimeException.class.getName()).append("(\"modification of viewable object is not allowed\");\r\n\t}\r\n");
         }
     }
@@ -45,7 +48,9 @@ public class XdStorageUnmodifiableBlockSettersGenerator {
         for (Method method : ctx.toCloseMethods) {
             builder.append("\r\n\t@Override\r\n\t");
             builder.append(gen.buildMethodDefinition(method.getModifiers(), method.getName(), method.getTypeParameters(), method.getReturnType(), method.getGenericReturnType(), method.getParameterTypes(), method.getGenericParameterTypes(), method.getExceptionTypes())).append(" {\r\n");
-            builder.append("\t\ttransaction.markRollbackOnly();\r\n");
+            // RBCAUSE: the site descriptor names the closed method and the entity class
+            builder.append("\t\ttransaction.markRollbackOnly(\"modification of viewable object: call of closed method '").append(method.getName())
+                    .append("' on ").append(method.getDeclaringClass().getSimpleName()).append("\", null);\r\n");
             builder.append("\t\tthrow new ").append(XdStorageRuntimeException.class.getName()).append("(\"modification of viewable object is not allowed\");\r\n\t}\r\n");
         }
     }
