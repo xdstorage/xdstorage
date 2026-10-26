@@ -173,11 +173,23 @@ Issues are managed automatically by the **issues-sync workflow**
 | File says | GitHub says | Action |
 |---|---|---|
 | `open`, no issue | — | create the issue (labels + milestone `2.1.0` if it exists) |
-| `open` | issue open | nothing — already in sync |
-| `open` | issue closed | **WARN** — left closed (a machine never reopens; fix file or issue by hand) |
+| `open`, content unchanged | issue open | nothing — already in sync |
+| `open`, **content changed** | issue open | **update** the issue: title, body, add missing labels |
+| `open`, content changed | issue closed | update the body + **WARN** — left closed (a machine never reopens; fix file or issue by hand) |
+| `open` | issue closed, content unchanged | **WARN** — left closed (fix file or issue by hand) |
 | `done`, no issue | — | create the issue, then close it (history preserved) |
-| `done` | issue open | close it with an explanatory comment |
-| `done` | issue closed | nothing — already in sync |
+| `done`, content changed | issue open | update the body (if drifted), then close it with an explanatory comment |
+| `done` | issue closed, content unchanged | nothing — already in sync |
+
+**Content-drift detection:** every created/updated issue body ends with an invisible
+ownership marker — `<!-- xdstorage-task: <task-file path> -->`. The sync matches issues by
+that marker first (so a title edit in the file updates the issue's title instead of creating
+a duplicate), falls back to exact-title matching for legacy issues (whose bodies gain the
+marker on the first content update), and compares the stored body against the file's current
+body — any edit to a task file reaches its issue on the next push. Labels are add-only at
+update (a human-added label is never stripped); titles and bodies sync verbatim. **Keep task
+file paths stable**: the marker is the path — renaming a task file orphans its issue by
+design.
 
 **Token setup (one-time).** The workflow authenticates with the repository secret
 **`XDSTORAGE_ISSUES_TOKEN`** — *Settings → Secrets and variables → Actions → New repository
