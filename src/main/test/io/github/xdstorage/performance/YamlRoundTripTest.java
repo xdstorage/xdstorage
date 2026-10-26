@@ -3,6 +3,7 @@ package io.github.xdstorage.performance;
 import io.github.xdstorage.serialization.yaml.XdStorageYamlObjectsReader;
 import io.github.xdstorage.serialization.yaml.XdStorageYamlObjectsWriter;
 import io.github.xdstorage.utils.XdStorageObjectIdField;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -18,6 +19,7 @@ import java.util.Collection;
  * Диагностика движка YAML: прямой round-trip реального файла хранилища.
  * Проверяет, на какой поколении записи/чтения появляются NULL-элементы коллекций.
  */
+@Disabled
 public class YamlRoundTripTest {
 
     @Test

@@ -122,7 +122,7 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
         this.idField = this.clInfo.getIdField();
 
         this.cache = new XdStorageResourceCache(services, this.clInfo.getClazz(), this.idField);
-        this.cache.setIsolationLevel(XdStorageIsolationLevel.READ_COMMITTED);
+        this.cache.setIsolationLevel(XdStorageIsolationLevel.SNAPSHOT);
 
         this.reader = services.getIoFactory().newInstanceReader();
         this.writer = services.getIoFactory().newInstanceWriter();
@@ -336,8 +336,10 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
      * @throws XdStorageException on a storage-level failure
      */
     public void performSecondPhaseCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges record) throws XdStorageException {
-        cache.performCommit(transaction, record);
-        cache.commit(transaction);
+        if (cache.hasChanges(transaction)) {
+            cache.performCommit(transaction, record);
+            cache.commit(transaction);
+        }
     }
 
     /**

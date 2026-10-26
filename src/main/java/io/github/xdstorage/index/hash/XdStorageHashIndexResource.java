@@ -387,9 +387,11 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
      * @throws XdStorageException on a storage-level failure
      */
     public void performSecondPhaseCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges record) throws XdStorageException {
-        cache.performCommit(transaction, record);
-        cache.commit(transaction);
-        postCommit(transaction);
+        if (cache.hasChanges(transaction)) {
+            cache.performCommit(transaction, record);
+            cache.commit(transaction);
+            postCommit(transaction);
+        }
     }
 
     /**

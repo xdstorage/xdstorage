@@ -102,7 +102,7 @@ public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIn
         this.idField = this.clInfo.getIdField();
         this.isReferences = false;
         this.cache = new XdStorageResourceCache(services, clInfo.getClazz(), idField);
-        this.cache.setIsolationLevel(XdStorageIsolationLevel.READ_COMMITTED);
+        this.cache.setIsolationLevel(XdStorageIsolationLevel.SNAPSHOT);
         this.idGenerator = null;
 
         this.indexName = indexName;
@@ -134,7 +134,7 @@ public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIn
         this.idField = this.clInfo.getIdField();
         this.isReferences = false;
         this.cache = new XdStorageResourceCache(services, clInfo.getClazz(), idField);
-        this.cache.setIsolationLevel(XdStorageIsolationLevel.READ_COMMITTED);
+        this.cache.setIsolationLevel(XdStorageIsolationLevel.SNAPSHOT);
         this.idGenerator = idGenerator;
 
         this.indexName = indexName;

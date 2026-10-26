@@ -107,6 +107,7 @@ public abstract class XdStorageAbstractResource implements IXdStorageResourceObj
         this.idField = clInfo.getIdField();
         this.isReferences = isReferences;
         this.cache = new XdStorageResourceCache(services, clInfo.getClazz(), idField);
+        this.cache.setIsolationLevel(XdStorageIsolationLevel.SNAPSHOT);
         this.idGenerator = idGenerator;
     }
 
