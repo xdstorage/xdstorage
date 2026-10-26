@@ -42,6 +42,7 @@ there for the full decision record before starting an item.
 | 30 | [benchmarks-context](30-benchmarks-context.md) | BMCONTEXT | P0, docs, performance | 0.5 d | 29 (the entry surface it complements) |
 | 31 | [write-path-analysis-design](31-write-path-analysis-design.md) | WRTPATH | P1, engine, performance | 2–3 sess | — (profile → bottleneck ledger → the W-4 design; **impl stays 2.2.0**; feeds 29/30's fix-plan links) |
 | 33 | [binary-format-feasibility](33-binary-format-feasibility.md) | BINFEAS | P2, docs, performance | 0.5–1 d | — (the OPTIMIZATION-PROPOSAL-01 demand signal; FP-9's gate) |
+| 34 | [rollback-only-cause](34-rollback-only-cause.md) | RBCAUSE | P1, engine, bug | 1–2 d | — (first-cause capture on the tx; the generator site-descriptors are the careful half) |
 | 32 | [w4-write-path-implementation](32-w4-write-path-implementation.md) | W4 | P0, engine, performance, feature | W-4a 2–3 sess + W-4c 1 sess (in-train); W-4b next; W-4d gated | 31 (the governing [W4-DESIGN.md](../../W4-DESIGN.md)); before-numbers FIRST |
 | 34 | [cache-commit-protocol-audit](34-cache-commit-protocol-audit.md) | CACHE2PC | P2, engine, bug | 0.5–1 d | — (found by 28: phase-1/2 duplication + legacy rollback order) |
 | 35 | [silent-failure-hazards-codegen-observer-cloner](35-silent-failure-hazards-codegen-observer-cloner.md) | SILENTFAIL | P2, engine, bug | 1–1.5 d | — (found by 28: three swallow-and-continue paths) |
@@ -104,12 +105,12 @@ it starts).
 - **Lane C (engine/search):** **13 first (ASAP — the canonical benchmark suite; tasks 08/09/10
   record their numbers into it, 11 asserts on its scenario list)** → 08 ∥ 09 → 10; 22
   (AUTOSAVE — independent: mini-spike, then feature work)
-- **Lane E (bug fixes & data safety, engine):** 15 ∥ 17 ∥ 14 (independent surfaces: structure journal vs
+- **Lane E (bug fixes, data safety & diagnostics, engine):** 15 ∥ 17 ∥ 14 (independent surfaces: structure journal vs
   write-out id assignment vs the generator contract) → 16 after 15 (the journal crash masks
   part of its repro); 18 independent (P0 — numeric search indexes are dead after any reopen);
   23 independent (P0 — the power-loss incident: recovery matrix + recipe + the
   `durableWrites` default decision); 24 independent (journal naming + 2.0.0-upgrade
-  read-compat — land before the 2.x on-disk base grows)
+  read-compat — land before the 2.x on-disk base grows); 34 independent (P1 — the rollback-only cause capture: every marking site names itself, commit failures chain the root cause)
 - **Lane F (guide-derived adoption work):** 19 ∥ 20 ∥ 21 (independent; 20 after 13's harness
   is in — it already is; 21 after 12, ditto)
 - **Lane G (master-plan pulls):** 25 ∥ 26 ∥ 27 (independent; 25 after the FP-1 routing it
