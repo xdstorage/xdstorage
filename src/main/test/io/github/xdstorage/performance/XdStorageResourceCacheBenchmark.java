@@ -30,9 +30,10 @@ import static org.mockito.Mockito.when;
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 @State(Scope.Benchmark) // Состояние живет на протяжении всего запуска бенчмарка
-@Warmup(iterations = 3, time = 1, timeUnit = TimeUnit.SECONDS) // 3 итерации прогрева JVM
-@Measurement(iterations = 3, time = 2, timeUnit = TimeUnit.SECONDS) // 3 итерации чистых замеров
-@Fork(1) // Запуск в 1 отдельном JVM-процессе для чистоты JIT-компиляции
+@Warmup(iterations = 4, time = 2) // 3 итерации прогрева JVM
+@Measurement(iterations = 5, time = 2) // 3 итерации чистых замеров
+@Fork(4) // Запуск в 1 отдельном JVM-процессе для чистоты JIT-компиляции
+@Threads(1)
 public class XdStorageResourceCacheBenchmark {
 
     private XdStorageResourceCache resourceCache;

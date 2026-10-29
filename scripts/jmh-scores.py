@@ -35,9 +35,17 @@ def extract(jmh_json_path, out_path):
     scores = {}
     for bench in data:
         p = bench["primaryMetric"]
+
+        # Безопасное извлечение и обработка погрешности
+        raw_error = p.get("scoreError", 0.0)
+        if isinstance(raw_error, str) or raw_error is None:
+            score_error = 0.0
+        else:
+            score_error = round(raw_error, 3)
+
         scores[key_of(bench)] = {
             "score": round(p["score"], 3),
-            "error": round(p.get("scoreError", 0.0), 3),
+            "error": score_error,
             "unit": p.get("scoreUnit", "ops/s"),
             "params": bench.get("params", {}),
         }

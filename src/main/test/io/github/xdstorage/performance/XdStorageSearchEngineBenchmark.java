@@ -62,9 +62,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 @State(Scope.Benchmark)
-@Fork(1)
-@Warmup(iterations = 2, time = 1)
-@Measurement(iterations = 3, time = 1)
+@Fork(2)
+@Warmup(iterations = 4, time = 2)
+@Measurement(iterations = 5, time = 2)
 @Threads(4)
 public class XdStorageSearchEngineBenchmark {
 
