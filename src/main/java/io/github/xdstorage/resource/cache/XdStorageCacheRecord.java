@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * внутренний класс CacheRecord). Все мутации состояния выполняются под монитором
  * самой записи (synchronized (record) на стороне вызывающих).
  */
-public final class XdStorageCacheRecord {
+public class XdStorageCacheRecord {
 
     private static final Logger log = LoggerFactory.getLogger(XdStorageCacheRecord.class);
 

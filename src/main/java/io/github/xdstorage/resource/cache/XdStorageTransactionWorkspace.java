@@ -26,7 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Все карты — ConcurrentHashMap, ключ — id транзакции; сам объект не добавляет
  * синхронизации сверх той, что была у карт в XdStorageResourceCache.
  */
-public final class XdStorageTransactionWorkspace {
+public class XdStorageTransactionWorkspace {
 
     private static final Logger log = LoggerFactory.getLogger(XdStorageTransactionWorkspace.class);
 

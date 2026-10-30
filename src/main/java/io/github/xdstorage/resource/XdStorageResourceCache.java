@@ -1,5 +1,6 @@
 package io.github.xdstorage.resource;
 
+import io.github.xdstorage.resource.cache.*;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import io.github.xdstorage.IXdStoragePredicate;
@@ -10,13 +11,6 @@ import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.factories.IXdStorageCloner;
 import io.github.xdstorage.observing.IXdStorageIdObservableWrapper;
 import io.github.xdstorage.services.XdStorageServicesLocator;
-import io.github.xdstorage.resource.cache.XdStorageCacheChange;
-import io.github.xdstorage.resource.cache.XdStorageCacheCommitProtocol;
-import io.github.xdstorage.resource.cache.XdStorageCacheContext;
-import io.github.xdstorage.resource.cache.XdStorageCacheMutator;
-import io.github.xdstorage.resource.cache.XdStorageCacheObjectChange;
-import io.github.xdstorage.resource.cache.XdStorageCacheRecord;
-import io.github.xdstorage.resource.cache.XdStorageTransactionWorkspace;
 import io.github.xdstorage.transaction.XdStorageTransaction;
 import io.github.xdstorage.transaction.XdStorageTransactionResourceChanges;
 import io.github.xdstorage.utils.XdStorageObjectIdField;
@@ -106,6 +100,10 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
         if (config != null && config.getIsolationLevel() != null) {
             this.isolationLevel = config.getIsolationLevel();
         }
+    }
+
+    void setInternalListener(IXdStorageCacheInternalListener listener) {
+        this.mutator.setInternalListener(listener);
     }
 
     // =========================================================================

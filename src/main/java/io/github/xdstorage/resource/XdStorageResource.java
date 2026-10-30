@@ -1,5 +1,7 @@
 package io.github.xdstorage.resource;
 
+import io.github.xdstorage.resource.cache.IXdStorageCacheInternalListener;
+import io.github.xdstorage.transaction.IXdStorageTransaction;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 
@@ -18,11 +20,8 @@ import io.github.xdstorage.utils.XdStorageAtomicFile;
 import io.github.xdstorage.utils.XdStorageClassInfo;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -58,9 +57,12 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
 
     private final io.github.xdstorage.serialization.yaml.XdStorageYamlIOFactory yamlJournalFactory;
 
-    private Lock lock = new ReentrantLock();
+    private final Lock lock = new ReentrantLock();
 
-    private AtomicBoolean prepared = new AtomicBoolean(false);
+    private final AtomicBoolean prepared = new AtomicBoolean(false);
+
+    // map [transactionId, list [listener]]
+    private final Map<String, List<IXdStorageInternalListener>> listeners = new ConcurrentHashMap<>();
 
     /**
      * Builds a resource with in-process id generation; journaling follows the storage
@@ -123,13 +125,17 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
                 : null;
         // W-2: бюджет материализации считают ТОЛЬКО ресурсы данных (id-индексные кэши — служебные)
         this.cache.setEnforceMaterializationBudget(true);
+        this.cache.setInternalListener(new XdStorageCacheInternalListener());
     }
 
     private final boolean journalWrites;
 
-    private Map<String, Long> blockingTime = new HashMap<>();
-
-    private AtomicBoolean locked = new AtomicBoolean(false);
+    @Override
+    public void registerListener(IXdStorageInternalListener listener, IXdStorageTransaction transaction) {
+        List<IXdStorageInternalListener> list = listeners.computeIfAbsent(transaction.getTransactionId(),
+                tId -> Collections.synchronizedList(new ArrayList<>()));
+        list.add(listener);
+    }
 
     @Override
     public void lockForCommit(final XdStorageTransaction transaction) {
@@ -154,12 +160,15 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
 
     @Override
     public void unlockAfterCommit(final XdStorageTransaction transaction) {
+        listeners.remove(transaction.getTransactionId());
+
         // ИСПРАВЛЕНИЕ ДЕДЛОКА СУБД: Освобождаем ReentrantLock вместо synchronized-уведомлений
         if (((ReentrantLock) lock).isHeldByCurrentThread()) {
             lock.unlock();
         }
 
         super.unlockAfterCommit(transaction);
+
     }
 
     /**
@@ -616,6 +625,33 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
         } finally {
             if (lockedHere) {
                 lock.unlock();
+            }
+        }
+    }
+
+    private class XdStorageCacheInternalListener implements IXdStorageCacheInternalListener {
+
+        @Override
+        public void insertRegistered(Object newObject, IXdStorageTransaction transaction) {
+            List<IXdStorageInternalListener> listenerList = listeners.get(transaction.getTransactionId());
+            if (listenerList != null) {
+                listenerList.forEach(listener -> listener.insertRegistered(newObject, transaction));
+            }
+        }
+
+        @Override
+        public void updateRegistered(Object oldObject, Object newObject, IXdStorageTransaction transaction) {
+            List<IXdStorageInternalListener> listenerList = listeners.get(transaction.getTransactionId());
+            if (listenerList != null) {
+                listenerList.forEach(listener -> listener.updateRegistered(oldObject, newObject, transaction));
+            }
+        }
+
+        @Override
+        public void deleteRegistered(Object object, IXdStorageTransaction transaction) {
+            List<IXdStorageInternalListener> listenerList = listeners.get(transaction.getTransactionId());
+            if (listenerList != null) {
+                listenerList.forEach(listener -> listener.deleteRegistered(object, transaction));
             }
         }
     }
