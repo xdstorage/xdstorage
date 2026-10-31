@@ -590,10 +590,6 @@ public class XdStorageTransaction implements IXdStorageTransaction {
 
         while ((checkObject = forCommit.poll()) != null) {
             final IXdStorageResourceObject res = checkObject.resource;
-            // Если ресурс не содержит изменений в текущей транзакции — просто пропускаем его
-            if (!res.hasChanges(this)) {
-                continue;
-            }
             // Блокируем измененный дисковый ресурс на коммит и добавляем в локальную цепочку
             res.lockForCommit(this);
             lockedResources.add(res);
