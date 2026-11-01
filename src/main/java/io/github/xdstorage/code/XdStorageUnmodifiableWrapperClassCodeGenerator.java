@@ -126,6 +126,6 @@ public class XdStorageUnmodifiableWrapperClassCodeGenerator extends XdStorageAbs
      */
     @Override
     protected String buildClassName(final String classesPackage, final Class<?> cl) {
-        return cl.getSimpleName() + "UnmodifiableWrapper";
+        return cl.getSimpleName() + generationQualifier(cl) + "UnmodifiableWrapper";
     }
 }

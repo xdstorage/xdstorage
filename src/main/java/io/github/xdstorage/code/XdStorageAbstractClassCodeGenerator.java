@@ -347,4 +347,34 @@ public abstract class XdStorageAbstractClassCodeGenerator {
      * @return the generated class simple name
      */
     protected abstract String buildClassName(final String classesPackage, final Class<?> cl);
+
+    /**
+     * BUG-B (docs/tasks/2.1.0/16), GENERATION-AWARE WRAPPER IDENTITY (the codegen
+     * contract decision, recorded in MASTER-PLAN § codegen): the generated wrapper's
+     * simple name carries a QUALIFIER derived from the entity's DEFINING CLASSLOADER
+     * whenever that loader is not the engine's own. Two live generations of one FQCN
+     * (an application upgrade: the old generation on disk, the new one loaded through
+     * the app's classloader) then get DISTINCT wrapper classes in the shared codegen
+     * loader instead of colliding on one NAME-based wrapper (the first generation's
+     * wrapper won {@code Class.forName} and the other generation failed instantiation
+     * with {@code NoSuchMethodException} on its constructor).
+     *
+     * <p>Empty qualifier for classes loaded by the engine's own classloader (the
+     * common embedded case) — their wrapper names stay exactly as before, zero change
+     * to the 99% path and no code-directory litter. The identity-hash qualifier is
+     * stable within one JVM lifetime, which is the only lifetime a generated wrapper
+     * class has; stale qualified .class files from previous runs are never requested
+     * again and are harmless.</p>
+     *
+     * @param cl the entity class the wrapper is generated for
+     * @return {@code ""} for engine-loaded classes, {@code "_gen<id>"} otherwise
+     */
+    protected static String generationQualifier(final Class<?> cl) {
+        final ClassLoader entityLoader = cl.getClassLoader();
+        final ClassLoader engineLoader = XdStorageAbstractClassCodeGenerator.class.getClassLoader();
+        if (entityLoader == null || entityLoader == engineLoader) {
+            return "";
+        }
+        return "_gen" + Integer.toHexString(System.identityHashCode(entityLoader));
+    }
 }

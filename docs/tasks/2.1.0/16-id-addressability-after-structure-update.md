@@ -1,7 +1,7 @@
 ---
 title: "[2.1.0][BUG-B] Objects unreachable by id after a structure update on a freshly-opened storage"
 labels: [2.1.0-train, P1, engine, bug]
-status: open
+status: done
 ---
 
 ## Summary
@@ -59,11 +59,45 @@ surgery tier alongside W-4.
   the repro along the probe evidence).
 - Implementing full schema-evolution UX beyond restoring the invariants.
 
+## Fixed (2026-11-01)
+
+- **GENERATION-AWARE WRAPPER IDENTITY** (the decision, recorded in MASTER-PLAN § codegen):
+  generated wrapper names carry a qualifier derived from the entity's DEFINING
+  CLASSLOADER when that loader is not the engine's own
+  (`XdStorageAbstractClassCodeGenerator.generationQualifier` — applied to the simple,
+  unmodifiable, observable and infra wrapper generators); engine-loaded classes keep
+  the unqualified names (zero change to the common path).
+- **The shared codegen loader no longer defines duplicate entity classes**: its
+  `loadClass` delegates already-registered classes to the class-metadata registry's
+  exact instance (previously the bridged entity URLs let it define a SECOND copy of the
+  entity — every generated wrapper linked against the shared copy and failed the
+  application's `instanceof`/field access, "object is not an instance of declaring
+  class").
+- **The class-metadata registry is LAST-REGISTERED-WINS per FQCN**
+  (`latestByName` consulted by `findLoadedClassByName` before the hash-order scan):
+  with two live generations registered, the reopened storage now always materializes
+  the application's CURRENT generation.
+- **The persisted structure record's identity is the class FQCN** (was the Class
+  object — the V1-era record keyed on the V1 Class instance was INVISIBLE to the V2
+  generation's read, so the evolution was never detected;
+  `XdStorageClassStructure.type` and `XdStorageClassIndexStructureId.type` are FQCN
+  strings now; the read sites pass `cl.getName()`).
+- The regression `get()` helper unwraps the generated SimpleWrapper before field
+  reflection (the wrapper is the live lazy-loading view; its own fields are delegation
+  plumbing). Each scenario also compiles its entity into its OWN package — the static
+  metadata registry was a cross-test pollution channel under a shared FQCN.
+
 ## Acceptance criteria
 
-- [ ] The two disabled tests green.
-- [ ] The plain-class probe sequence still green (no regression in the working path).
-- [ ] Full suite green ×2 (BUILD SUCCESS verdict).
+- [x] The two disabled tests green. (`reopenSurvivesStructureAndData`,
+      `evolutionDetectsChangeAndReportsUpdaterOutcomes` — un-disabled and green; the
+      `updaterLedgerIdempotencyAndRetry` scenario was additionally restructured to pin
+      BOTH ledger halves — SUCCESS-record skip and FAILURE-record retry, whose original
+      assertions were internally contradictory and never ran.)
+- [x] The plain-class probe sequence still green (no regression in the working path).
+- [x] Full suite green ×2 (BUILD SUCCESS verdict). — 926 tests ×2, 0 failures; the
+      single error in both runs is the task-42-documented MassFillAndClean FK veto
+      (the concurrent-fill divergence, out of this task's scope).
 
 ## Verification
 

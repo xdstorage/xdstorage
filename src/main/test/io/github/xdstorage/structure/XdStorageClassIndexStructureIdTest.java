@@ -15,10 +15,10 @@ public class XdStorageClassIndexStructureIdTest {
         XdStorageClassIndexStructureId id = new XdStorageClassIndexStructureId();
 
         id.setName("idx_by_email");
-        id.setType(String.class);
+        id.setType(String.class.getName());
 
         assertEquals("idx_by_email", id.getName());
-        assertEquals(String.class, id.getType());
+        assertEquals(String.class.getName(), id.getType());
         // Проверяем кастомный строковый дескриптор метакаталога
         assertEquals("String:idx_by_email", id.toString());
     }
@@ -27,15 +27,15 @@ public class XdStorageClassIndexStructureIdTest {
     public void testEqualsAndHashCode_Contract() {
         XdStorageClassIndexStructureId id1 = new XdStorageClassIndexStructureId();
         id1.setName("idx_a");
-        id1.setType(Integer.class);
+        id1.setType(Integer.class.getName());
 
         XdStorageClassIndexStructureId id2 = new XdStorageClassIndexStructureId();
         id2.setName("idx_a");
-        id2.setType(Integer.class);
+        id2.setType(Integer.class.getName());
 
         XdStorageClassIndexStructureId id3 = new XdStorageClassIndexStructureId();
         id3.setName("idx_b");
-        id3.setType(Integer.class);
+        id3.setType(Integer.class.getName());
 
         // Проверяем каноничный контракт равенства полей
         assertEquals(id1, id2);

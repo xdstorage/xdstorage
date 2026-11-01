@@ -176,6 +176,6 @@ public class XdStorageObservableWrapperClassCodeGenerator extends XdStorageAbstr
 
     @Override
     protected String buildClassName(final String classesPackage, final Class<?> cl) {
-        return cl.getSimpleName() + "IdObservableWrapper";
+        return cl.getSimpleName() + generationQualifier(cl) + "IdObservableWrapper";
     }
 }

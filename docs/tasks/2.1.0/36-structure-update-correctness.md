@@ -1,7 +1,7 @@
 ---
 title: "[2.1.0][STRUCTFIX] Structure-update correctness — the FAILURE-mislabel, equals/hashCode, the ignored tx parameter, and the dead transform override"
 labels: [2.1.0-train, P2, engine, bug]
-status: open
+status: done
 ---
 
 ## Summary
@@ -38,11 +38,35 @@ Four findings of the 28-javadoc-coverage campaign, all in the stored-schema laye
 - (4) delete the dead override (git keeps the history) or wire it, with the updater's
   re-index flow covered by an existing test (16's id-addressability suite is the closest).
 
+## Fixed (2026-11-01)
+
+- (1) The "executed earlier" branch reports `SUCCESSFULLY` now (the stale `res` carried
+  the initial FAILURE into a successful script's result). Regression-pinned in the
+  evolution ledger test (`assertNotEquals(FAILURE, ...)` on the skipped updater).
+- (2) Consistent `hashCode` added to both records; the contract pinned by
+  `XdStorageStructureRecordsContractTest` (equality, hash equality, hash-set behavior,
+  difference sanity — both records).
+- (3) DECISION RECORDED (class javadoc): the migration does NOT run in the caller's
+  transaction — DDL-like semantics (a business-tx rollback must not resurrect the old
+  schema over migrated data) + the deadlock history of the executor-offloaded
+  autonomous transaction; the call stays SYNCHRONOUS, so the caller's subsequent
+  operations run against the migrated schema. The `tx` parameter stays for API
+  compatibility and is documented as unused.
+- (4) The dead `transform` override removed structurally: the base's `transform` is a
+  LOUD default (`UnsupportedOperationException` naming the class) instead of abstract —
+  watcher-based updaters no longer carry a null-returning ceremony override, and a
+  record-rewriting subclass that forgets the override fails loudly at migration time
+  instead of silently writing null records.
+- BONUS (the dual-generation work of task 16 landed through this suite): the structure
+  record's identity is the class FQCN; `XdStorageClassIndexStructureId.toString` handles
+  the FQCN form.
+
 ## Acceptance criteria
 
-- [ ] All four resolved with a test or an explicit recorded decision.
-- [ ] `equals`/`hashCode` contract test on both structure records.
-- [ ] Full suite green ×2.
+- [x] All four resolved with a test or an explicit recorded decision.
+- [x] `equals`/`hashCode` contract test on both structure records.
+- [x] Full suite green ×2. — 926 tests ×2, 0 failures; the single error is the
+      task-42-documented MassFillAndClean FK veto (out of scope here).
 
 Estimate: 1 d.
 

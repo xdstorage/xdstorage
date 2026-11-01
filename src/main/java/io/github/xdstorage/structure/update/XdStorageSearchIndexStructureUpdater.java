@@ -121,16 +121,4 @@ public class XdStorageSearchIndexStructureUpdater extends XdStorageAbstractStruc
         }
         return XdStorageUpdateStructureResult.SUCCESSFULLY;
     }
-
-    /**
-     * Unused by this updater: re-indexing happens through the watchers of {@code execute}
-     * instead of a record-by-record rewrite.
-     *
-     * @param oldStateOfObject the record as currently stored (ignored)
-     * @return always {@code null}
-     */
-    @Override
-    protected XdStorageSearchIndexRecord transform(final XdStorageIdentifiableObject oldStateOfObject) {
-        return null;
-    }
 }

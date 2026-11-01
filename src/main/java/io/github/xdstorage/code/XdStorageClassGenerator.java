@@ -203,6 +203,28 @@ public class XdStorageClassGenerator {
         public void addURL(final URL url) {
             super.addURL(url);
         }
+
+        /**
+         * BUG-B (docs/tasks/2.1.0/16): the bridged entity URLs let this loader DEFINE ITS
+         * OWN COPY of an entity class the application had already loaded through its own
+         * classloader — two live classes of one FQCN, and every generated wrapper linked
+         * against the shared copy failed the application's {@code instanceof}/field
+         * access ("object is not an instance of declaring class"). An entity class the
+         * engine has already REGISTERED is therefore delegated to the registry's exact
+         * instance instead of being defined here; only unregistered names (the generated
+         * wrappers themselves, bridged entities not yet registered) are defined locally.
+         */
+        @Override
+        protected Class<?> loadClass(final String name, final boolean resolve) throws ClassNotFoundException {
+            final Class<?> registered = io.github.xdstorage.utils.XdStorageClassMetadataRegistry.findLoadedClassByName(name);
+            if (registered != null) {
+                if (resolve) {
+                    resolveClass(registered);
+                }
+                return registered;
+            }
+            return super.loadClass(name, resolve);
+        }
     }
 
     private static String buildCompilationClasspath(final Class<?> cl) {

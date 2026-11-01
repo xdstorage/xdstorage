@@ -19,6 +19,13 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public final class XdStorageClassMetadataRegistry {
     private static final Map<Class<?>, XdStorageClassInfo> classesInfo = new ConcurrentHashMap<>();
+
+    /**
+     * BUG-B (docs/tasks/2.1.0/16): the LAST registered Class per FQCN — the application's
+     * current live generation. {@link #findLoadedClassByName} consults this before the
+     * (hash-order, nondeterministic) classesInfo scan.
+     */
+    private static final Map<String, Class<?>> latestByName = new ConcurrentHashMap<>();
     private static final ReentrantLock REGISTRY_LOCK = new ReentrantLock();
 
     private XdStorageClassMetadataRegistry() {}
@@ -60,6 +67,16 @@ public final class XdStorageClassMetadataRegistry {
     public static Class<?> findLoadedClassByName(final String name) {
         if (name == null) {
             return null;
+        }
+        // BUG-B (docs/tasks/2.1.0/16): LAST-REGISTERED-WINS per name. Two live generations
+        // of one FQCN (an application upgrade) both land in classesInfo, and the old
+        // keySet scan answered whichever instance the hash iteration hit first — the
+        // reopened storage then materialized records of a FOREIGN generation
+        // ("object is not an instance of declaring class"). The newest registration is
+        // the application's current live generation and must always win.
+        final Class<?> latest = latestByName.get(name);
+        if (latest != null) {
+            return latest;
         }
         for (final Class<?> cl : classesInfo.keySet()) {
             if (cl.getName().equals(name)) {
@@ -112,6 +129,7 @@ public final class XdStorageClassMetadataRegistry {
             }
 
             classesInfo.put(cl, newInfo);
+            latestByName.put(cl.getName(), cl);
             return newInfo;
         } finally {
             REGISTRY_LOCK.unlock();

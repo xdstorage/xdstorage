@@ -195,7 +195,15 @@ grouping is tags, not layout.
    `175b72a`**; BUG-C (17, P0) auto-generated ids unreachable by id after reopen —
    **FIXED `3575ffb`**; BUG-D (14, P2) the `UUID_GENERATOR` field property never
    auto-generated — **FIXED `d8d706f`**; BUG-B (16, P1) refined to name-based codegen
-   wrapper identity collision across entity generations — OPEN, W-4-class design decision;
+   wrapper identity collision across entity generations — **FIXED (2026-11-01): the
+   codegen contract decision is GENERATION-AWARE WRAPPER IDENTITY** — generated wrapper
+   names carry a qualifier derived from the entity's defining classloader when that
+   loader is not the engine's own (engine-loaded classes keep the unqualified names,
+   zero change to the common path), and the shared codegen loader delegates
+   already-registered classes to the class-metadata registry instead of defining
+   duplicate copies; the persisted structure record's identity is the class FQCN (not
+   the Class object), so two live generations of one FQCN are ONE stored class whose
+   evolution is detected (structure + index-structure ids converted to FQCN identity);
    **BUG-E (18, P0, OPEN)** search-index key types not restored at reopen — numeric
    range/EQUALS seeks crash after a close/open cycle (`XdStorageSearchRangeReopenTest`
    disabled).

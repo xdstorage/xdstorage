@@ -201,8 +201,18 @@ public abstract class XdStorageAbstractStructureUpdater<T> implements IXdStorage
     /**
      * Transforms the old persisted state of one stored record into its migrated state.
      *
+     * <p>STRUCTFIX (docs/tasks/2.1.0/36): deliberately NOT abstract. Updaters that do not
+     * use the record-by-record rewrite machinery (their {@code execute} is overridden —
+     * e.g. {@code XdStorageSearchIndexStructureUpdater} re-indexes through watchers) no
+     * longer carry a dead {@code transform} override returning {@code null}. A
+     * record-rewriting subclass that forgets to override this method fails LOUDLY at
+     * migration time instead of silently writing {@code null} records.
+     *
      * @param oldStateOfObject the record as currently stored
      * @return the migrated state to write back for the record
      */
-    protected abstract T transform(final XdStorageIdentifiableObject oldStateOfObject);
+    protected T transform(final XdStorageIdentifiableObject oldStateOfObject) {
+        throw new UnsupportedOperationException(
+                getClass().getName() + " uses the record-by-record migration machinery but does not override transform()");
+    }
 }

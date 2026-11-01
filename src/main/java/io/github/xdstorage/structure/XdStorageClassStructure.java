@@ -21,8 +21,13 @@ import java.util.Objects;
  */
 public class XdStorageClassStructure {
 
+    // BUG-B (docs/tasks/2.1.0/16): the record's persisted identity is the class NAME (the
+    // FQCN), NOT the Class object. Two live generations of one FQCN (an application
+    // upgrade) are ONE stored class with ONE structure record; a Class-object identity
+    // keyed the record on whichever generation instance the registry resolved at write
+    // time, so the next generation's read missed it and the evolution was invisible.
     @XdStorageObjectId
-    private Class<?> type;
+    private String type;
 
     private XdStoragePolicy policy;
 
@@ -37,20 +42,20 @@ public class XdStorageClassStructure {
     }
 
     /**
-     * Returns the stored class whose schema this record snapshots.
+     * Returns the FQCN of the stored class whose schema this record snapshots.
      *
-     * @return the stored class this structure record describes
+     * @return the fully-qualified name of the described stored class
      */
-    public Class<?> getType() {
+    public String getType() {
         return type;
     }
 
     /**
-     * Sets the stored class whose schema this record snapshots.
+     * Sets the FQCN of the stored class whose schema this record snapshots.
      *
-     * @param type the stored class this structure record describes
+     * @param type the fully-qualified name of the described stored class
      */
-    public void setType(final Class<?> type) {
+    public void setType(final String type) {
         this.type = type;
     }
 
@@ -156,5 +161,12 @@ public class XdStorageClassStructure {
                 policy == that.policy &&
                 Objects.equals(fields, that.fields) &&
                 Objects.equals(indexes, that.indexes);
+    }
+
+    // STRUCTFIX (docs/tasks/2.1.0/36): equals was overridden without hashCode — both
+    // structure records land in hash-based collections; inconsistent lookup behavior.
+    @Override
+    public int hashCode() {
+        return Objects.hash(type, policy, fields, indexes);
     }
 }

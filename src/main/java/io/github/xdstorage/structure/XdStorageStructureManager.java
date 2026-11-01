@@ -97,6 +97,24 @@ public class XdStorageStructureManager {
      * @throws XdStorageConnectionException when the storage connection failed during the
      *                                       migration
      */
+    /**
+     * STRUCTFIX (docs/tasks/2.1.0/36) — TRANSACTION CONTRACT, decided and explicit:
+     * the migration does NOT run inside the caller's transaction. The {@code tx}
+     * parameter is accepted for API compatibility ({@code IXdFileStorage#executeStructureUpdate}
+     * requires the caller to be inside a transaction) and is deliberately NOT used:
+     * <ul>
+     *   <li>the schema migration is DDL-like: it must commit atomically on its own and
+     *       must NOT be undone by a business transaction's later rollback — a rolled-back
+     *       business tx must not resurrect the old schema over migrated data;</li>
+     *   <li>the verification/migration runs in a dedicated AUTONOMOUS 3 s transaction on
+     *       the engine executor — the deadlock fix (see the in-method comment): running it
+     *       in the caller's tx crossed the caller's record locks with the structure
+     *       resource locks and deadlocked parallel first-touches;</li>
+     *   <li>the call is still SYNCHRONOUS ({@code .get()}): when this method returns, the
+     *       migration has committed and the caller's subsequent operations run against the
+     *       migrated schema.</li>
+     * </ul>
+     */
     public List<IXdStorageStructureUpdater> checkAndUpdateStructureIfNeed(final Class<?> cl, final XdStorageTransaction tx) throws XdStorageException, XdStorageConnectionException {
         AtomicBoolean state = states.get(cl);
         if (state != null && state.get()) {
@@ -208,7 +226,7 @@ public class XdStorageStructureManager {
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(structureCl);
 
         final IXdStorageDaoResource resource = services.getResourcesManager().lockStructureResource(clInfo, tx);
-        return resource.read(cl, tx) != null;
+        return resource.read(cl.getName(), tx) != null; // BUG-B: the record identity is the FQCN
     }
 
     private void insertStructure(final Class<?> cl, final XdStorageClassStructure currentStructure,
@@ -226,7 +244,7 @@ public class XdStorageStructureManager {
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(structureCl);
 
         final IXdStorageDaoResource resource = services.getResourcesManager().lockStructureResource(clInfo, tx);
-        final XdStorageClassStructure structure = (XdStorageClassStructure) resource.read(cl, tx);
+        final XdStorageClassStructure structure = (XdStorageClassStructure) resource.read(cl.getName(), tx); // BUG-B: FQCN identity
 
         return !Objects.equals(structure, currentStructure);
     }
@@ -237,7 +255,7 @@ public class XdStorageStructureManager {
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(structureCl);
 
         final IXdStorageDaoResource resource = services.getResourcesManager().lockStructureResource(clInfo, tx);
-        final XdStorageClassStructure structure = (XdStorageClassStructure) resource.read(cl, tx);
+        final XdStorageClassStructure structure = (XdStorageClassStructure) resource.read(cl.getName(), tx); // BUG-B: FQCN identity
 
         final Map<String, XdStorageClassIndexStructure> oldIndexes = structure.getIndexes();
         if (oldIndexes != null) {
@@ -257,7 +275,7 @@ public class XdStorageStructureManager {
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
 
         final XdStorageClassStructure structure = new XdStorageClassStructure();
-        structure.setType(cl);
+        structure.setType(cl.getName()); // BUG-B: the record identity is the FQCN, not the Class object
         structure.setPolicy(clInfo.getPolicy());
 
         final Collection<XdStorageObjectField> fields = clInfo.getFields().values();
@@ -276,7 +294,7 @@ public class XdStorageStructureManager {
     private XdStorageClassIndexStructure buildIndexStructure(final Class<?> cl, final XdStorageSearchIndex index) {
         final XdStorageClassIndexStructureId id = new XdStorageClassIndexStructureId();
         id.setName(index.getName());
-        id.setType(cl);
+        id.setType(cl.getName()); // BUG-B: the identity is the FQCN, not the Class object
 
         final XdStorageClassIndexStructure indexStructure = new XdStorageClassIndexStructure();
         indexStructure.setId(id);
@@ -310,6 +328,9 @@ public class XdStorageStructureManager {
                                                              final XdStorageTransaction tx) throws XdStorageException, XdStorageConnectionException {
         final List<IXdStorageStructureUpdater> result = new ArrayList<>();
 
+        // STRUCTFIX (docs/tasks/2.1.0/36): res is the result OF THE LAST EXECUTED SCRIPT,
+        // not of the whole updater — the "executed earlier" branch below used to report it
+        // (initially FAILURE) for a script that had actually succeeded.
         XdStorageUpdateStructureResult res = XdStorageUpdateStructureResult.FAILURE;
         final XdStorageTransaction safeTransaction = new XdStorageTransactionWrapper(tx);
 
@@ -342,7 +363,11 @@ public class XdStorageStructureManager {
 
                         resource.insert(record, tx);
                     } else {
-                        updater.setResult(res, "update with name " + updater.getUpdateName() + " has been executed earlier", null);
+                        // STRUCTFIX: the prior run SUCCEEDED (record.getResult() != FAILURE) —
+                        // reporting the stale `res` (initially FAILURE) mislabeled a success
+                        // as FAILURE for any caller branching on the result.
+                        updater.setResult(XdStorageUpdateStructureResult.SUCCESSFULLY,
+                                "update with name " + updater.getUpdateName() + " has been executed earlier", null);
                     }
                 } catch (final Throwable e) {
                     updater.setResult(res, "execute update exception", e);

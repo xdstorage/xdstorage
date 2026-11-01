@@ -158,6 +158,6 @@ public class XdStorageUnmodifiableXdStorageObjectWrapperClassCodeGenerator exten
 
     @Override
     protected String buildClassName(final String classesPackage, final Class<?> cl) {
-        return cl.getSimpleName() + "UnmodifiableXdStorageObjectWrapper";
+        return cl.getSimpleName() + generationQualifier(cl) + "UnmodifiableXdStorageObjectWrapper";
     }
 }

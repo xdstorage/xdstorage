@@ -14,7 +14,9 @@ public class XdStorageClassIndexStructureId {
 
     private String name;
 
-    private Class<?> type;
+    // BUG-B (docs/tasks/2.1.0/16): the FQCN of the owning class — the identity belongs to
+    // the NAME (two live generations of one FQCN are one stored class, one index record).
+    private String type;
 
     /**
      * Creates an empty identifier.
@@ -41,20 +43,20 @@ public class XdStorageClassIndexStructureId {
     }
 
     /**
-     * Returns the owning class part of the identifier.
+     * Returns the FQCN of the owning class part of the identifier.
      *
-     * @return the stored class the index belongs to
+     * @return the fully-qualified name of the stored class the index belongs to
      */
-    public Class<?> getType() {
+    public String getType() {
         return type;
     }
 
     /**
-     * Sets the owning class part of the identifier.
+     * Sets the FQCN of the owning class part of the identifier.
      *
-     * @param type the stored class the index belongs to
+     * @param type the fully-qualified name of the stored class the index belongs to
      */
-    public void setType(Class<?> type) {
+    public void setType(String type) {
         this.type = type;
     }
 
@@ -89,6 +91,10 @@ public class XdStorageClassIndexStructureId {
      */
     @Override
     public String toString() {
-        return type.getSimpleName() + ":" + name;
+        final String fqcn = type;
+        final String simple = fqcn != null && fqcn.contains(".")
+                ? fqcn.substring(fqcn.lastIndexOf('.') + 1)
+                : fqcn;
+        return simple + ":" + name;
     }
 }

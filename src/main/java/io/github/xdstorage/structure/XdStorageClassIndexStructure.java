@@ -142,4 +142,10 @@ public class XdStorageClassIndexStructure {
                 Objects.equals(fields, that.fields) &&
                 Objects.equals(childrenFields, that.childrenFields);
     }
+
+    // STRUCTFIX (docs/tasks/2.1.0/36): consistent hashCode for the overridden equals.
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, fields, childrenFields);
+    }
 }
