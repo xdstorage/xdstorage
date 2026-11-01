@@ -1,5 +1,6 @@
 package io.github.xdstorage;
 
+import io.github.xdstorage.foreignkey.XdStorageForeignKeyObjectChangeType;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import io.github.xdstorage.exceptions.XdStorageConnectionException;
@@ -312,6 +313,8 @@ class XdStorage implements IXdFileStorage {
 
             // AUTOSAVE (docs/tasks/2.1.0/22): cascade @XdStorageAutoSave children in the same tx
             XdStorageAutoSaveCascadeEngine.cascadeAfterPersist(object, tx, services, this);
+
+            services.getForeignKeyEngine().process(object, XdStorageForeignKeyObjectChangeType.INSERT, tx);
         } finally {
             txManager.decrementActiveThreads(transaction.getTransactionId());
         }
@@ -397,6 +400,13 @@ class XdStorage implements IXdFileStorage {
                         throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy.StoreAsClassObjects + " or "
                                 + XdStoragePolicy.StoreAsSingleObject);
                     }
+
+                    log.debug("saved {} by tx {}", cl.getSimpleName(), transaction.getTransactionId());
+
+                    // AUTOSAVE (docs/tasks/2.1.0/22): cascade @XdStorageAutoSave children in the same tx
+                    XdStorageAutoSaveCascadeEngine.cascadeAfterPersist(object, tx, services, this);
+
+                    services.getForeignKeyEngine().process(object, XdStorageForeignKeyObjectChangeType.INSERT, tx);
                 } catch (final XdStorageConnectionException e) {
                     if (hasError.get()) {
                         return;
@@ -1131,8 +1141,13 @@ class XdStorage implements IXdFileStorage {
                 throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy.StoreAsClassObjects + " or "
                         + XdStoragePolicy.StoreAsSingleObject);
             }
+
+            log.debug("updated {} by tx {}", cl.getSimpleName(), transaction.getTransactionId());
+
             // AUTOSAVE (docs/tasks/2.1.0/22): cascade @XdStorageAutoSave children in the same tx
             XdStorageAutoSaveCascadeEngine.cascadeAfterPersist(object, tx, services, this);
+
+            services.getForeignKeyEngine().process(object, XdStorageForeignKeyObjectChangeType.UPDATE, tx);
         } finally {
             txManager.decrementActiveThreads(transaction.getTransactionId());
         }
@@ -1214,6 +1229,13 @@ class XdStorage implements IXdFileStorage {
                         throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy.StoreAsClassObjects + " or "
                                 + XdStoragePolicy.StoreAsSingleObject);
                     }
+
+                    log.debug("updated {} by tx {}", cl.getSimpleName(), transaction.getTransactionId());
+
+                    // AUTOSAVE (docs/tasks/2.1.0/22): cascade @XdStorageAutoSave children in the same tx
+                    XdStorageAutoSaveCascadeEngine.cascadeAfterPersist(object, tx, services, this);
+
+                    services.getForeignKeyEngine().process(object, XdStorageForeignKeyObjectChangeType.UPDATE, tx);
                 } catch (final XdStorageConnectionException e) {
                     if (hasError.get()) {
                         return;
@@ -1307,6 +1329,8 @@ class XdStorage implements IXdFileStorage {
             }
 
             log.debug("deleted {} by tx {}", cl.getSimpleName(), transaction.getTransactionId());
+
+            services.getForeignKeyEngine().process(reference, XdStorageForeignKeyObjectChangeType.DELETE, tx);
         } finally {
             txManager.decrementActiveThreads(transaction.getTransactionId());
         }
@@ -1390,6 +1414,10 @@ class XdStorage implements IXdFileStorage {
                         throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy.StoreAsClassObjects + " or "
                                 + XdStoragePolicy.StoreAsSingleObject);
                     }
+
+                    log.debug("deleted {} by tx {}", cl.getSimpleName(), transaction.getTransactionId());
+
+                    services.getForeignKeyEngine().process(reference, XdStorageForeignKeyObjectChangeType.DELETE, tx);
                 } catch (final XdStorageConnectionException e) {
                     if (hasError.get()) {
                         return;

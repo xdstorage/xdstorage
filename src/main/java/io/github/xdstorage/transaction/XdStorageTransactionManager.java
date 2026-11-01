@@ -278,6 +278,8 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
             transaction.rollbackFailedCommit(firstPhaseCommittedResources);
             transaction.rollbackIndexKeyInserts();
             transaction.rollbackIndexKeyDeletes();
+
+            throw new XdStorageRuntimeException(e);
         } finally {
             transaction.finishCriticalSection();
         }

@@ -24,9 +24,12 @@ public class XdStorageResourceCommitOrder {
     /** Data resources of foreign keys spanning datasources, after children. */
     public static final int CROSS_DATASOURCE_FK_RESOURCE_ORDER = 2500;
 
+
     /** Id-index resources, after all data they will point at. */
     public static final int INDEX_RESOURCE_ORDER = 3000;
 
     /** Search-index resources, last — after both data and id indexes. */
     public static final int SEARCH_INDEX_RESOURCE_ORDER = 5000;
+
+    public static final int FOREIGN_KEY_RESOURCE_ORDER = 7500;
 }

@@ -1,6 +1,7 @@
 package io.github.xdstorage.resource;
 
 import io.github.xdstorage.resource.cache.IXdStorageCacheInternalListener;
+import io.github.xdstorage.resource.cache.XdStorageCacheCommitPhase;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
@@ -61,7 +62,9 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
 
     private final AtomicBoolean prepared = new AtomicBoolean(false);
 
-    // map [transactionId, list [listener]]
+    /**
+     * map [transactionId, list [listener]]
+     */
     private final Map<String, List<IXdStorageInternalListener>> listeners = new ConcurrentHashMap<>();
 
     /**
@@ -630,28 +633,11 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
     }
 
     private class XdStorageCacheInternalListener implements IXdStorageCacheInternalListener {
-
         @Override
-        public void insertRegistered(Object newObject, IXdStorageTransaction transaction) {
+        public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
             List<IXdStorageInternalListener> listenerList = listeners.get(transaction.getTransactionId());
             if (listenerList != null) {
-                listenerList.forEach(listener -> listener.insertRegistered(newObject, transaction));
-            }
-        }
-
-        @Override
-        public void updateRegistered(Object oldObject, Object newObject, IXdStorageTransaction transaction) {
-            List<IXdStorageInternalListener> listenerList = listeners.get(transaction.getTransactionId());
-            if (listenerList != null) {
-                listenerList.forEach(listener -> listener.updateRegistered(oldObject, newObject, transaction));
-            }
-        }
-
-        @Override
-        public void deleteRegistered(Object object, IXdStorageTransaction transaction) {
-            List<IXdStorageInternalListener> listenerList = listeners.get(transaction.getTransactionId());
-            if (listenerList != null) {
-                listenerList.forEach(listener -> listener.deleteRegistered(object, transaction));
+                listenerList.forEach(listener -> listener.notify(phase, change, oldObject, newObject, transaction));
             }
         }
     }

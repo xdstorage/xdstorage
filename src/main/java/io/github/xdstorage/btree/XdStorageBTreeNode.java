@@ -1629,6 +1629,158 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
     }
 
     /**
+     * Точечный спуск по поддереву для удаления конкретной пары Ключ + Значение.
+     */
+    public void delete(final XdStorageBTree tree, final Comparable key, final Comparable value,
+                       final IXdStorage storage, final IXdStorageTransaction transaction, final AtomicBoolean retryDelete)
+            throws XdStorageException, XdStorageConnectionException {
+        loadThisNode(storage, transaction);
+        if (this.getChildren().isEmpty()) {
+            try {
+                if (!tryDeepLockForDelete(transaction)) {
+                    retryDelete.set(true);
+                    return;
+                }
+            } finally {
+                // Если toUnlock (предыдущий узел или дерево) передан — отпускаем его лок
+                // В корневом вызове tree релизится на уровне цикла do-while, сюда передается null
+            }
+            try {
+                // Физически вырезаем точечную пару из листа
+                deletePairFromThisNode(key, value, storage, transaction);
+
+                // Балансировка при недогрузе ноды (классический канон Кнута)
+                if (this.getKeys().size() <= getTree().getT() - 1) {
+                    if (this.getParent() != null) {
+                        if (!tryToMoveKeyFromNeightbor(this, storage, transaction)) {
+                            joinWithNeightbor(this, storage, transaction);
+                        }
+                    }
+                }
+
+                // Схлопывание дерева, если удаление полностью опустошило корень
+                final XdStorageBTreeNode root = getTree().getRoot();
+                final Object rootId = root != null ? root.getId() : null;
+                if (this.getKeys().isEmpty() && (root == this || (rootId != null && rootId.equals(this.getId())))) {
+                    getTree().setRoot(null);
+                    getTree().setFirstLeaf(null);
+                    storage.delete(this, transaction);
+                    storage.update(getTree(), transaction);
+                }
+            } finally {
+                deepUnlock();
+            }
+        } else {
+            // Спускаемся ниже по этажам маршрутизаторов
+            findChildAndDeletePair(this, key, value, storage, transaction, retryDelete);
+        }
+    }
+
+    /**
+     * Каскадный спуск hand-over-hand по не-листовым нодам с lock-coupling для удаления пары.
+     */
+    private void findChildAndDeletePair(final IXdStorageBTreeNode toUnlock, final Comparable key, final Comparable value,
+                                        final IXdStorage storage, final IXdStorageTransaction transaction, final AtomicBoolean retryDelete)
+            throws XdStorageException, XdStorageConnectionException {
+        XdStorageBTreeNode current = this, child = null;
+        try {
+            current.lockWrite(transaction);
+        } finally {
+            if (toUnlock != null) {
+                toUnlock.unlockWrite();
+            }
+        }
+
+        while (current.getObjects().isEmpty()) {
+            try {
+                boolean isFound = false;
+                final List<XdStorageBTreeNode> currentChildren = current.getChildren();
+
+                for (int i = 0; i < current.getKeys().size(); ++i) {
+                    final int compareResult = key.compareTo(current.getKeys().get(i));
+                    if (compareResult < 0) {
+                        child = current.loadChildOfThisNode(i, storage, transaction);
+                        isFound = true;
+                        break;
+                    } else if (compareResult == 0) {
+                        // СИНХРOНИЗAЦИЯ НА СЛИЯНИЯХ: Если ключ совпал с разделителем этажа,
+                        // уходим строго в правое поддерево (индекс i + 1), зеркально инсерту и файнд-скану!
+                        int targetIdx = (i + 1) < currentChildren.size() ? (i + 1) : (currentChildren.size() - 1);
+                        child = current.loadChildOfThisNode(targetIdx, storage, transaction);
+                        isFound = true;
+                        break;
+                    }
+                }
+                if (!isFound) {
+                    child = current.loadChildOfThisNode(currentChildren.size() - 1, storage, transaction);
+                }
+                if (child == null) {
+                    retryDelete.set(true);
+                    return;
+                }
+                child.lockWrite(transaction);
+                try {
+                    final boolean parentChanged = !isSameParentId(child.getParent(), current);
+                    child.setParent(current);
+                    if (parentChanged) {
+                        storage.update(child, transaction);
+                    }
+                } catch (final Throwable t) {
+                    child.unlockWrite();
+                    throw t;
+                }
+            } finally {
+                current.unlockWrite();
+            }
+            current = child;
+            child = null;
+        }
+
+        try {
+            current.delete(null, key, value, storage, transaction, retryDelete);
+        } finally {
+            current.unlockWrite();
+        }
+    }
+
+    /**
+     * Исполнитель точечной мутации листа: удаляет элемент только при совпадении И ключа, И значения.
+     */
+    private void deletePairFromThisNode(final Comparable key, final Comparable value, final IXdStorage storage, final IXdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException {
+        final ListIterator<Comparable> keyIterator = getKeys().listIterator();
+        final ListIterator<Object> objectIterator = getObjects().listIterator();
+        boolean deleted = false;
+
+        while (keyIterator.hasNext()) {
+            final Comparable currentKey = keyIterator.next();
+            final Object currentVal = objectIterator.next();
+
+            final int keyCmp = currentKey.compareTo(key);
+            if (keyCmp == 0) {
+                // Ключи совпали. Теперь проверяем значение (кастуем к Comparable по контракту СУБД)
+                if (currentVal instanceof Comparable && ((Comparable) currentVal).compareTo(value) == 0) {
+                    keyIterator.remove();
+                    objectIterator.remove();
+                    deleted = true;
+                    break; // Пара найдена и вырезана, останавливаем проход листа
+                }
+            } else if (keyCmp > 0) {
+                break; // Ушли по сортировке вперед, целевой пары точно нет
+            }
+        }
+
+        if (!deleted) {
+            if (CHAIN_DEBUG) {
+                chainDebug("DELETE-PAIR-MISS leaf=" + getId() + " key=" + key + " value=" + value);
+            }
+            throw new XdStorageException("object of " + tree.getId() + " with key " + key + " and value " + value + " does not exists");
+        }
+
+        storage.update(this, transaction);
+    }
+
+    /**
      * Replaces the record stored under the key in the leaf reached from this node — an
      * in-place leaf-list write, no rebalance. The descent captures write locks with
      * try-attempts hand-over-hand; contention sets {@code retryUpdate} and returns without

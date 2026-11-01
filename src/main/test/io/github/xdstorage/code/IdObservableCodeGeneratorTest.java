@@ -1,7 +1,7 @@
 package io.github.xdstorage.code;
 
-import io.github.xdstorage.entities.XdSatellite;
-import io.github.xdstorage.entities.XdStarSystem;
+import io.github.xdstorage.performance.entities.XdPlanetAutoSave;
+import io.github.xdstorage.performance.entities.XdSatelliteAutoSave;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -12,7 +12,7 @@ public class IdObservableCodeGeneratorTest {
         XdStorageObservableWrapperClassCodeGenerator generator = new XdStorageObservableWrapperClassCodeGenerator();
 
         Map<String, String> codemap = new HashMap<>();
-        generator.generate("io.github.xdstorage.code", XdSatellite.class, codemap);
+        generator.generate("io.github.xdstorage.code", XdPlanetAutoSave.class, codemap);
 
         codemap.values().stream().forEach(code -> {
             System.out.println(code);

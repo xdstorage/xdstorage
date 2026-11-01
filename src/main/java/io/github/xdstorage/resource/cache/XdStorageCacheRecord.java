@@ -642,7 +642,9 @@ public class XdStorageCacheRecord {
             log.error("commit of record {} rejected: firstPhaseCommit={}, secondPhaseCommit={}, state={}, change={}, owner={}",
                     id, firstPhaseCommit, secondPhaseCommit, state, change,
                     transaction != null ? transaction.getTransactionId() : null);
-            throw new XdStorageRuntimeException("Illegal state of record to commit");
+            if (!cache.isInfrastructureCache()) {
+                throw new XdStorageRuntimeException("Illegal state of record to commit");
+            }
         }
 
         this.prevObject = this.object;

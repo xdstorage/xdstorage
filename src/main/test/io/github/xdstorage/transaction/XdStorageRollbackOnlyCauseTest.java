@@ -224,7 +224,7 @@ public class XdStorageRollbackOnlyCauseTest {
         // The cascade poisons the parent DURING its commit; the engine's mid-commit
         // failure path compensates and rolls back silently (historical semantics) —
         // the poisoning is asserted on the state and the captured cause.
-        parent.commit();
+        assertThrows(XdStorageRuntimeException.class, () -> parent.commit());
 
         assertTrue(parent.isRollbackOnly(), "the ACID cascade must poison the parent");
         final XdStorageRollbackOnlyCause cause = parent.getRollbackOnlyCause();

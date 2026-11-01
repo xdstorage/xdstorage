@@ -42,6 +42,7 @@ public final class XdStorageConfig {
     private final boolean indexJournalWrites;
     private final long journalCheckpointBytes;
     private final long txMaterializedObjectsCap;
+    private final boolean enableForeignKeys;
 
     private XdStorageConfig(final Builder builder) {
         this.durableWrites = builder.durableWrites;
@@ -55,6 +56,7 @@ public final class XdStorageConfig {
         this.indexJournalWrites = builder.indexJournalWrites;
         this.journalCheckpointBytes = builder.journalCheckpointBytes;
         this.txMaterializedObjectsCap = builder.txMaterializedObjectsCap;
+        this.enableForeignKeys = builder.enableForeignKeys;
     }
 
     /** The all-defaults configuration.
@@ -158,6 +160,10 @@ public final class XdStorageConfig {
         return txMaterializedObjectsCap;
     }
 
+    public boolean isEnableForeignKeys() {
+        return enableForeignKeys;
+    }
+
     /** The builder of {@link XdStorageConfig}: fluent setters, every knob at its documented
      * default, and loud validation of illegal values at set-time. */
     public static final class Builder {
@@ -176,6 +182,7 @@ public final class XdStorageConfig {
         private boolean indexJournalWrites = true;   // W-4a: index journaling is the default write path (task 32; green soak 808/0, the W-3 flip protocol)
         private long journalCheckpointBytes = 16L * 1024 * 1024;
         private long txMaterializedObjectsCap = 0;
+        private boolean enableForeignKeys = true;
 
         /** Fsync the resource file before the atomic rename and the parent directory after it (power-loss safe; measured ~8x write cost).
          *
@@ -299,6 +306,11 @@ public final class XdStorageConfig {
             if (value < 0)
                 throw new IllegalArgumentException("txMaterializedObjectsCap must be >= 0");
             this.txMaterializedObjectsCap = value;
+            return this;
+        }
+
+        public Builder setEnableForeignKeys(boolean enableForeignKeys) {
+            this.enableForeignKeys = enableForeignKeys;
             return this;
         }
 

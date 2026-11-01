@@ -48,4 +48,6 @@ public interface IXdStorageResourceNamingService {
      * @return the structure resource id (a relative file path)
      */
     Object getStructureResourceId(Class<?> cl);
+
+    Object getForeignKeyResourceId(String suffix, Class<?> parentClass, Class<?> childClass, String parentClassField);
 }

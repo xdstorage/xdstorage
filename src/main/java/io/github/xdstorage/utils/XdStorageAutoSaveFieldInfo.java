@@ -19,7 +19,7 @@ import java.util.Map;
  * only those value objects whose class carries an id-field ({@code XdStorageClassInfo.getIdField()
  * != null}); the KEYS of the map are never cascade candidates.
  */
-public final class XdStorageAutoSaveFieldInfo {
+public class XdStorageAutoSaveFieldInfo {
 
     /**
      * The declared shape of an {@code @XdStorageAutoSave} field — how the cascade extracts the
@@ -39,7 +39,7 @@ public final class XdStorageAutoSaveFieldInfo {
     private final XdStorageObjectField accessor;
     private final Shape shape;
 
-    private XdStorageAutoSaveFieldInfo(final XdStorageObjectField accessor, final Shape shape) {
+    public XdStorageAutoSaveFieldInfo(final XdStorageObjectField accessor, final Shape shape) {
         this.accessor = accessor;
         this.shape = shape;
     }

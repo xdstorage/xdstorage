@@ -2,6 +2,10 @@ package io.github.xdstorage.services;
 
 import io.github.xdstorage.IXdStorage;
 import io.github.xdstorage.XdStorageConfig;
+import io.github.xdstorage.foreignkey.IXdStorageForeignKeyEngine;
+import io.github.xdstorage.foreignkey.XdStorageForeignKeyEngine;
+import io.github.xdstorage.foreignkey.XdStorageForeignKeyRegistry;
+import io.github.xdstorage.foreignkey.XdStorageForeignKeyResourcesManager;
 import io.github.xdstorage.metrics.XdStorageMetrics;
 import io.github.xdstorage.factories.IXdStorageCloner;
 import io.github.xdstorage.factories.IXdStorageReferenceProvider;
@@ -76,6 +80,8 @@ public class XdStorageServicesLocator {
 
     private IXdStorageCloner cloner;
 
+    private IXdStorageForeignKeyEngine foreignKeyEngine;
+
     /**
      * Wires a file-backed storage with the default engine configuration.
      *
@@ -118,6 +124,8 @@ public class XdStorageServicesLocator {
         this.searchManager = new XdStorageSearchManager(this);
         this.referencesProvider = new XdStorageDefaultReferenceProvider(this.storage);
         this.cloner = new XdStorageSmartCloner(this.referencesProvider);
+        XdStorageForeignKeyResourcesManager foreignKeyResourcesManager = new XdStorageForeignKeyResourcesManager(this, resourcesManager);
+        this.foreignKeyEngine = new XdStorageForeignKeyEngine(foreignKeyResourcesManager, new XdStorageForeignKeyRegistry(), storageConfig.isEnableForeignKeys());
     }
 
     /** S-4: именованные воркеры (диагностика дампов) + опционально daemon (забытый shutdown() не вешает JVM). */
@@ -269,6 +277,10 @@ public class XdStorageServicesLocator {
      */
     public IXdStorageReferenceProvider getReferencesProvider() {
         return referencesProvider;
+    }
+
+    public IXdStorageForeignKeyEngine getForeignKeyEngine() {
+        return foreignKeyEngine;
     }
 
     /**

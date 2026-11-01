@@ -1,5 +1,6 @@
 package io.github.xdstorage.resource.cache;
 
+import io.github.xdstorage.transaction.IXdStorageTransaction;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import io.github.xdstorage.exceptions.XdStorageException;
@@ -15,6 +16,8 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
+
+import static io.github.xdstorage.resource.XdStorageObjectOperationType.*;
 
 /**
  * Протокол завершения транзакции кэша ресурсов: двухфазный коммит (prepare/perform),
@@ -40,6 +43,11 @@ public final class XdStorageCacheCommitProtocol {
 
     private final XdStorageCacheContext cache;
 
+    private static final IXdStorageCacheInternalListener DO_NOTHING_LISTENER = (type, change, oldObject, newObject, transaction) -> {};
+
+
+    private IXdStorageCacheInternalListener listener;
+
     /**
      * Binds the protocol to a cache context.
      *
@@ -47,6 +55,11 @@ public final class XdStorageCacheCommitProtocol {
      */
     public XdStorageCacheCommitProtocol(final XdStorageCacheContext cache) {
         this.cache = cache;
+        this.listener = DO_NOTHING_LISTENER;
+    }
+
+    public void setInternalListener(IXdStorageCacheInternalListener listener) {
+        this.listener = listener != null ? listener : DO_NOTHING_LISTENER;
     }
 
     /**
@@ -106,7 +119,7 @@ public final class XdStorageCacheCommitProtocol {
                 synchronized (record) {
                     if (record.isInsertChange()) {
                         newObject = record.getNewObject();
-                        type = XdStorageObjectOperationType.Insert;
+                        type = Insert;
 
                         if (newObject != null) {
                             final Object objectId = cache.idField().get(newObject);
@@ -140,8 +153,10 @@ public final class XdStorageCacheCommitProtocol {
 
                     if (prepare) {
                         record.prepareCommit();
+                        listener.notify(XdStorageCacheCommitPhase.PREPARE_COMMIT, type, oldObject, newObject, transaction);
                     } else {
                         record.performCommit();
+                        listener.notify(XdStorageCacheCommitPhase.PERFORM_COMMIT, type, oldObject, newObject, transaction);
                     }
                 }
             }
@@ -150,7 +165,7 @@ public final class XdStorageCacheCommitProtocol {
         final Map<Object, IXdStorageIdObservableWrapper> wrappers = cache.workspace().unidentified(transactionId);
         if (wrappers != null) {
             for (final IXdStorageIdObservableWrapper wrapper : wrappers.values()) {
-                collector.addChangeObject(XdStorageObjectOperationType.Insert, null, null, wrapper);
+                collector.addChangeObject(Insert, null, null, wrapper);
             }
         }
     }
@@ -182,7 +197,13 @@ public final class XdStorageCacheCommitProtocol {
                 boolean committedNow = true;
                 synchronized (record) {
                     try {
+                        XdStorageObjectOperationType type = record.isInsertChange() ? Insert : record.isUpdateChange() ? Update : Delete;
+                        Object oldObject = record.getObject();
+                        Object newObject = record.getNewObject();
+
                         record.commit(transaction);
+
+                        listener.notify(XdStorageCacheCommitPhase.COMMIT, type, oldObject, newObject, transaction);
                     } catch (final XdStorageRuntimeException illegalState) {
                         // R-58: запись УЖЕ ЗАКОММИЧЕНА (повторный commit той же записи —
                         // вложенный/двойной контур коммита: флаги фаз потреблены первым

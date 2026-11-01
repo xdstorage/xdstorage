@@ -612,6 +612,103 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
     }
 
     /**
+     * Прецизионное удаление конкретной пары Ключ + Значение из B+ Дерева (для MULTI-индексов).
+     *
+     * @param key         ключ связи (Comparable)
+     * @param value       конкретное значение/ссылка (Comparable)
+     * @param storage     фасад хранилища для ленивой загрузки нод
+     * @param transaction текущая транзакция
+     * @throws XdStorageException           при превышении бюджета ретраев или отсутствии ключа
+     * @throws XdStorageConnectionException при ошибках ввода-вывода
+     */
+    public void delete(final Comparable key, final Comparable value, final IXdStorage storage, final IXdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new XdStorageException("interrupted", new InterruptedException("Поток прерван перед удалением пары из B+ Дерева"));
+        }
+
+        lockWrite(transaction);
+        try {
+            if (root == null && wasInitialized) {
+                XdStorageBTree freshTree = storage.load(XdStorageBTree.class, this.id, transaction);
+                if (collapsedEmpty) {
+                    freshTree = null;
+                }
+                if (freshTree != null && freshTree.getRoot() != null) {
+                    this.root = freshTree.getRoot();
+                    this.firstLeaf = freshTree.getFirstLeaf();
+                }
+            }
+
+            if (root != null) {
+                root = this.root = XdStorageBTreeNode.materialize(root, storage, transaction, this, null);
+                if (firstLeaf != null) {
+                    firstLeaf = this.firstLeaf = XdStorageBTreeNode.materialize(firstLeaf, storage, transaction, this, null);
+                }
+            } else {
+                if (!wasInitialized && !isReference) {
+                    throw new XdStorageException("object with key " + key + " and value " + value + " does not exists in " + id);
+                }
+                return;
+            }
+        } finally {
+            unlockWrite();
+        }
+
+        final AtomicLong counter = new AtomicLong(0);
+        final AtomicBoolean retryDelete = new AtomicBoolean();
+        int attempts = 0;
+        do {
+            synchronized (counter) {
+                if (counter.incrementAndGet() % 5 == 0) {
+                    try {
+                        counter.wait(50);
+                    } catch (InterruptedException e) {
+                        throw new XdStorageException("interrupted", e);
+                    }
+                }
+            }
+            if (++attempts > REBALANCE_RETRY_BUDGET) {
+                log.warn("B+Tree rebalance retry budget exhausted for targeted delete of key {} in tree {} (operation failed loudly)", key, id);
+                throw new XdStorageException("retry budget exhausted by targeted delete of key " + key + " from " + id);
+            }
+
+            retryDelete.set(false);
+            lockWrite(transaction);
+            try {
+                if (root == null && wasInitialized) {
+                    XdStorageBTree freshTree = storage.load(XdStorageBTree.class, this.id, transaction);
+                    if (collapsedEmpty) {
+                        freshTree = null;
+                    }
+                    if (freshTree != null && freshTree.getRoot() != null) {
+                        this.root = freshTree.getRoot();
+                        this.firstLeaf = freshTree.getFirstLeaf();
+                    }
+                }
+
+                if (root == null) {
+                    return;
+                }
+                structureVersion.incrementAndGet();
+                activeMutations.incrementAndGet();
+                activeMutatorThreads.put(Thread.currentThread(), "deletePair");
+                try {
+                    // Вызываем перегруженный целевой метод корня
+                    root.delete(this, key, value, storage, transaction, retryDelete);
+                } finally {
+                    activeMutatorThreads.remove(Thread.currentThread());
+                    activeMutations.decrementAndGet();
+                }
+            } finally {
+                if (isWriteLocked()) {
+                    unlockWrite();
+                }
+            }
+        } while (retryDelete.get());
+    }
+
+    /**
      * Replaces the record stored under the key with the new value in place (a leaf-list
      * write, no structural change); a missing key fails loudly. Sustained rebalance
      * contention is retried within a bounded budget, then fails loudly.

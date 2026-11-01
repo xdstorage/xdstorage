@@ -8,8 +8,8 @@ import java.lang.reflect.*;
 import java.util.Map;
 
 /**
- * Декомпозированный stateless генератор реактивных Observable оберток (Поинт В / Г).
- * Полностью избавлен от разделяемых полей и изолирован на уровне локального стек-контекста.
+ * Декомпозированный stateless генератор реактивных Observable оберток.
+ * Наблюдатели хранятся в потокобезопасной очереди, а нотификация выполняется через poll().
  */
 public class XdStorageObservableWrapperClassCodeGenerator extends XdStorageAbstractClassCodeGenerator {
 
@@ -19,9 +19,8 @@ public class XdStorageObservableWrapperClassCodeGenerator extends XdStorageAbstr
 
     /**
      * Generates the id-observable wrapper subclass source: a delegating subclass that
-     * keeps an observer list, fires {@code onNewIdIsSet} on the entity's id setter and
-     * delegates every other setter to the wrapped object, while closed methods reject
-     * modification of the reactive contour with {@code XdStorageRuntimeException}.
+     * keeps an observer queue, fires {@code onNewIdIsSet} using poll() on the entity's id setter,
+     * and delegates every other setter to the wrapped object.
      *
      * @param classesPackage target package of the generated class
      * @param cl             the entity class to generate the observable wrapper for
@@ -30,29 +29,22 @@ public class XdStorageObservableWrapperClassCodeGenerator extends XdStorageAbstr
      */
     @Override
     public Map<String, String> generate(final String classesPackage, final Class<?> cl, final Map<String, String> code) {
-        // 1. Собираем методы во внутренний изолированный GenerationContext нити
         final GenerationContext ctx = collectMethodsAndClasses(cl);
 
         final StringBuilder builder = new StringBuilder();
         final String className = buildClassName(classesPackage, cl);
 
-        // 2. Декларативный конвейер сборки структуры реактивного класса
         appendPackageAndClassHeader(builder, classesPackage, className, cl);
         appendPrivateFields(builder, cl);
         appendConstructor(builder, className, cl);
         appendObserverRegistryMethods(builder);
 
-        // 3. Ищем idSetter на основе локального анализа сессии текущего класса
         final Method targetIdSetter = findIdSetter(cl);
         if (targetIdSetter != null) {
             generateIdSetter(builder, className, targetIdSetter);
         }
 
-        // 3.1 Остальные сеттеры обязаны делегировать во внутренний объект: обертка наследует
-        // мертвые поля сущности, и мутирующий их сеттер молча ТЕРЯЛ изменение состояния
         generateDelegatingSetters(builder, ctx, targetIdSetter);
-
-        // 4. Генерируем блоки методов, делегируя контекст
         generateSimpleGetters(builder, ctx);
         generateStrongGetters(builder, ctx);
         generateClosedMethods(builder, ctx);
@@ -74,8 +66,9 @@ public class XdStorageObservableWrapperClassCodeGenerator extends XdStorageAbstr
 
     private void appendPrivateFields(final StringBuilder builder, final Class<?> cl) {
         builder.append("\r\n\tprivate ").append(getSourceTypeName(cl)).append(" object;\r\n");
-        builder.append("\r\n\tprivate java.util.Collection<").append(XdStorageAbstractIdObserver.class.getName())
-                .append("> observers = new java.util.ArrayList<>();\r\n");
+        // АРХИТЕКТУРНОЕ ИЗМЕНЕНИЕ: Перевод на ConcurrentLinkedQueue для безопасного извлечения через poll()
+        builder.append("\r\n\tprivate java.util.Queue<").append(XdStorageAbstractIdObserver.class.getName())
+                .append("> observers = new java.util.concurrent.ConcurrentLinkedQueue<>();\r\n");
     }
 
     private void appendConstructor(final StringBuilder builder, final String className, final Class<?> cl) {
@@ -108,8 +101,6 @@ public class XdStorageObservableWrapperClassCodeGenerator extends XdStorageAbstr
 
     private void generateDelegatingSetters(final StringBuilder builder, final GenerationContext ctx, final Method excludedIdSetter) {
         for (Method method : ctx.setters) {
-            // рефлекшн возвращает новые копии Method на каждый вызов — сравниваем
-            // по сигнатуре, а не по ссылке
             if (excludedIdSetter != null
                     && method.getName().equals(excludedIdSetter.getName())
                     && java.util.Arrays.equals(method.getParameterTypes(), excludedIdSetter.getParameterTypes())) {
@@ -121,13 +112,20 @@ public class XdStorageObservableWrapperClassCodeGenerator extends XdStorageAbstr
         }
     }
 
+    /**
+     * Модифицированный генератор сеттера идентификатора СУБД.
+     * Оповещение и выгрузка наблюдателей выполняются в цикле через метод poll().
+     */
     private void generateIdSetter(final StringBuilder builder, final String className, final Method method) {
         builder.append("\r\n\t@Override\r\n\t");
         builder.append(buildMethodDefinition(method.getModifiers(), method.getName(), method.getTypeParameters(), method.getReturnType(), method.getGenericReturnType(), method.getParameterTypes(), method.getGenericParameterTypes(), method.getExceptionTypes())).append(" {\r\n");
         builder.append("\t\tobject.").append(buildMethodCalling(method.getName(), method.getParameterTypes())).append(";\r\n");
-        builder.append("\r\n\t\tobservers.stream().forEach(observer -> {\r\n")
-                .append("\t\t\tobserver.onNewIdIsSet(").append(className).append(".this, var0);\r\n")
-                .append("\t\t});\r\n\t}\r\n");
+
+        // РЕАКТИВНЫЙ ФИКС ОЧЕРЕДИ: Вытесняем элементы по одному через poll() до полного опустошения
+        builder.append("\r\n\t\t").append(XdStorageAbstractIdObserver.class.getName()).append(" obs;\r\n")
+                .append("\t\twhile ((obs = observers.poll()) != null) {\r\n")
+                .append("\t\t\tobs.onNewIdIsSet(").append(className).append(".this, var0);\r\n")
+                .append("\t\t}\r\n\t}\r\n");
     }
 
     private void generateStrongGetters(final StringBuilder builder, final GenerationContext ctx) {
@@ -162,24 +160,14 @@ public class XdStorageObservableWrapperClassCodeGenerator extends XdStorageAbstr
 
         builder.append("\r\n\t@Override\r\n\tpublic Object getWrappedObject__() {\r\n\t\treturn object;\r\n\t}\r\n");
 
-        // =========================================================================
-        // ЭТАЛОННЫЙ ФИКС КОДОГЕНЕРАЦИИ REACTIVE WRAPPER (По твоему канону без прикрас):
-        // Сравнение идет СТРОГО враппер-к-врапперу. Любой чистый доменный объект или
-        // прокси другого типа гарантированно возвращает false, полностью защищая
-        // реактивный контур СУБД от утечек симметрии!
-        // Распаковка через getWrappedObject__() — без рефлекшна на каждый вызов.
-        // =========================================================================
         builder.append("\r\n\t@Override\r\n\tpublic boolean equals(Object obj) {\r\n");
         builder.append("\t\tif (this == obj) return true;\r\n");
         builder.append("\t\tif (obj == null) return false;\r\n\r\n");
 
-        // 1) Проверяем объект-параметр: является ли он IXdStorageIdObservableWrapper?
         builder.append("\t\tif (obj instanceof ").append(IXdStorageIdObservableWrapper.class.getName()).append(") {\r\n");
-        // 1.1) Если да — вытаскиваем обёрнутый объект напрямую и сравниваем через .equals()
         builder.append("\t\t\treturn this.object.equals(((").append(IXdStorageIdObservableWrapper.class.getName()).append(") obj).getWrappedObject__());\r\n");
         builder.append("\t\t}\r\n\r\n");
 
-        // 1.2) Если нет — объекты ГАРАНТИРОВАННО не равны!
         builder.append("\t\treturn false;\r\n");
         builder.append("\t}\r\n");
 

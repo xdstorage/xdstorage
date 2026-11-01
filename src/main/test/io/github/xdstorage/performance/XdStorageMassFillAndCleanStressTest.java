@@ -2,7 +2,7 @@ package io.github.xdstorage.performance;
 
 import io.github.xdstorage.IXdFileStorage;
 import io.github.xdstorage.XdStorageProvider;
-import io.github.xdstorage.entities.*;
+import io.github.xdstorage.performance.entities.*;
 import io.github.xdstorage.exceptions.XdStorageConnectionException;
 import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.serialization.FilesFormat;
@@ -54,7 +54,7 @@ public class XdStorageMassFillAndCleanStressTest {
         IXdStorageTransaction txInit = storage.beginTransaction();
         List<String> universeIds = new ArrayList<>();
         for (int i = 0; i < 5; i++) {
-            XdUniverse u = new XdUniverse();
+            XdUniverseAutoSave u = new XdUniverseAutoSave();
             u.setId(UUID.randomUUID().toString());
             storage.save(u, txInit);
             universeIds.add(u.getId());
@@ -82,10 +82,10 @@ public class XdStorageMassFillAndCleanStressTest {
                             tx = storage.beginTransaction();
 
                             // Вытаскиваем существующий корень из MVCC Snapshot-снимка текущей TX
-                            XdUniverse u = storage.load(XdUniverse.class, targetUni, tx);
+                            XdUniverseAutoSave u = storage.load(XdUniverseAutoSave.class, targetUni, tx);
                             if (u != null) {
                                 // Кусочек 1: Вселенная + Галактика (Связывание с существующей вселенной)
-                                XdGalaxy g = new XdGalaxy();
+                                XdGalaxyAutoSave g = new XdGalaxyAutoSave();
                                 g.setId(UUID.randomUUID().toString());
                                 storage.save(g, tx);
 
@@ -93,13 +93,13 @@ public class XdStorageMassFillAndCleanStressTest {
                                 storage.update(u, tx);
 
                                 // Кусочек 2: Галактика + Черная Дыра + Звездная система
-                                XdBlackHole hole = new XdBlackHole();
+                                XdBlackHoleAutoSave hole = new XdBlackHoleAutoSave();
                                 hole.setId(UUID.randomUUID().toString());
                                 hole.setMass(rand.nextInt(1000000));
                                 g.setHole(hole);
                                 storage.update(g, tx);
 
-                                XdStarSystem sys = new XdStarSystem();
+                                XdStarSystemAutoSave sys = new XdStarSystemAutoSave();
                                 sys.setId(UUID.randomUUID().toString());
                                 sys.setNewName("System_" + rand.nextInt(1000));
                                 storage.save(sys, tx);
@@ -108,9 +108,9 @@ public class XdStorageMassFillAndCleanStressTest {
                                 storage.update(g, tx);
 
                                 // Кусочек 3: Звездная система + Планеты + Спутники
-                                XdPlanet p = new XdPlanet();
+                                XdPlanetAutoSave p = new XdPlanetAutoSave();
                                 p.setName("Planet_" + rand.nextInt(1000));
-                                XdSatellite s = new XdSatellite();
+                                XdSatelliteAutoSave s = new XdSatelliteAutoSave();
                                 s.setName("Sat_" + rand.nextInt(1000));
                                 p.setSatellite(s);
                                 storage.save(p, tx);
@@ -122,29 +122,29 @@ public class XdStorageMassFillAndCleanStressTest {
                         } else if (op == 2) {
                             // Периодическое чтение
                             tx = storage.beginTransaction();
-                            storage.load(XdUniverse.class, tx);
-                            storage.load(XdPlanet.class, tx);
+                            storage.load(XdUniverseAutoSave.class, tx);
+                            storage.load(XdPlanetAutoSave.class, tx);
                             tx.commit();
                         } else {
                             // Периодическое точечное удаление
                             tx = storage.beginTransaction();
                             final IXdStorageTransaction delTx = tx;
-                            Collection<XdUniverse> universes = storage.load(XdUniverse.class, delTx);
+                            Collection<XdUniverseAutoSave> universes = storage.load(XdUniverseAutoSave.class, delTx);
                             universes.forEach(u -> {
-                                Collection<XdGalaxy> galaxies = u.getGalaxies();
+                                Collection<XdGalaxyAutoSave> galaxies = u.getGalaxies();
                                 galaxies.forEach(g -> {
                                     try {
                                         storage.load(g, delTx);
 
-                                        Collection<XdStarSystem> systems = g.getSystems();
+                                        Collection<XdStarSystemAutoSave> systems = g.getSystems();
                                         systems.forEach(s -> {
                                             try {
                                                 storage.load(s, delTx);
 
-                                                Collection<XdPlanet> planets = s.getPlanets();
-                                                if (!planets.isEmpty()) {
-                                                    Iterator<XdPlanet> it = planets.iterator();
-                                                    XdPlanet p = it.next();
+                                                Collection<XdPlanetAutoSave> planets = s.getPlanets();
+                                                if (planets != null && !planets.isEmpty()) {
+                                                    Iterator<XdPlanetAutoSave> it = planets.iterator();
+                                                    XdPlanetAutoSave p = it.next();
                                                     it.remove();
 
                                                     storage.update(s, delTx);
@@ -186,28 +186,30 @@ public class XdStorageMassFillAndCleanStressTest {
         // ТРЕБОВАНИЕ: Очистка должна производится с корневых элементов — то есть с вселенных
         IXdStorageTransaction cleanTx = storage.beginTransaction();
         try {
-            Collection<XdUniverse> universes = storage.load(XdUniverse.class, cleanTx);
+            Collection<XdUniverseAutoSave> universes = storage.load(XdUniverseAutoSave.class, cleanTx);
             System.out.println("   -> Обнаружено вселенных для пурджа: " + universes.size());
 
-            for (XdUniverse universe : universes) {
+            for (XdUniverseAutoSave universe : universes) {
 //                storage.load(universe, cleanTx);
-                for (XdGalaxy galaxyRef : universe.getGalaxies()) {
+                for (XdGalaxyAutoSave galaxyRef : universe.getGalaxies()) {
                     try {
-                        XdGalaxy galaxy = storage.load(XdGalaxy.class, galaxyRef.getId(), cleanTx);
+                        XdGalaxyAutoSave galaxy = storage.load(XdGalaxyAutoSave.class, galaxyRef.getId(), cleanTx);
                         if (galaxy == null) continue;
 
-                        Collection<XdStarSystem> systems = galaxy.getSystems();
+                        Collection<XdStarSystemAutoSave> systems = galaxy.getSystems();
                         storage.load(systems, cleanTx);
 
-                        for (XdStarSystem systemRef : systems) {
-                            Collection<XdPlanet> planets = systemRef.getPlanets();
-                            storage.load(planets, cleanTx);
+                        for (XdStarSystemAutoSave systemRef : systems) {
+                            Collection<XdPlanetAutoSave> planets = systemRef.getPlanets();
+                            if (planets != null) {
+                                storage.load(planets, cleanTx);
 
-                            for (XdPlanet planetRef : planets) {
-                                // Вычищаем подчиненные спутники, если они есть
-                                storage.delete(planetRef, cleanTx);
+                                for (XdPlanetAutoSave planetRef : planets) {
+                                    // Вычищаем подчиненные спутники, если они есть
+                                    storage.delete(planetRef, cleanTx);
+                                }
+                                storage.delete(systemRef, cleanTx);
                             }
-                            storage.delete(systemRef, cleanTx);
                         }
                         storage.delete(galaxy, cleanTx);
                     } catch (Exception e) {
@@ -229,10 +231,10 @@ public class XdStorageMassFillAndCleanStressTest {
         System.out.println("🔍 Запуск тотальной верификации по классам...");
         IXdStorageTransaction verifyTx = storage.beginTransaction();
         try {
-            Assertions.assertTrue(storage.load(XdUniverse.class, verifyTx).isEmpty(), "Утечка памяти! Найдена XdUniverse!");
-            Assertions.assertTrue(storage.load(XdGalaxy.class, verifyTx).isEmpty(), "Утечка памяти! Найдена XdGalaxy!");
-            Assertions.assertTrue(storage.load(XdStarSystem.class, verifyTx).isEmpty(), "Утечка памяти! Найдена XdStarSystem!");
-            Assertions.assertTrue(storage.load(XdPlanet.class, verifyTx).isEmpty(), "Утечка памяти! Найдена XdPlanet!");
+            Assertions.assertTrue(storage.load(XdUniverseAutoSave.class, verifyTx).isEmpty(), "Утечка памяти! Найдена XdUniverse!");
+            Assertions.assertTrue(storage.load(XdGalaxyAutoSave.class, verifyTx).isEmpty(), "Утечка памяти! Найдена XdGalaxy!");
+            Assertions.assertTrue(storage.load(XdStarSystemAutoSave.class, verifyTx).isEmpty(), "Утечка памяти! Найдена XdStarSystem!");
+            Assertions.assertTrue(storage.load(XdPlanetAutoSave.class, verifyTx).isEmpty(), "Утечка памяти! Найдена XdPlanet!");
             verifyTx.commit();
             System.out.println("🎉 Верификация по классам успешна: в памяти СУБД чисто.");
         } catch (Exception e) {

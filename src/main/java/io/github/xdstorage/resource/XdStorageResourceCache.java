@@ -102,8 +102,8 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
         }
     }
 
-    void setInternalListener(IXdStorageCacheInternalListener listener) {
-        this.mutator.setInternalListener(listener);
+    public void setInternalListener(IXdStorageCacheInternalListener listener) {
+        this.commitProtocol.setInternalListener(listener);
     }
 
     // =========================================================================

@@ -4,13 +4,7 @@ import io.github.xdstorage.IXdFileStorage;
 import io.github.xdstorage.XdStorageProvider;
 
 
-
-
-
-
-
-
-
+import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.resource.XdStorageObjectOperationType;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import io.github.xdstorage.trigger.IXdStorageTrigger;
@@ -133,6 +127,7 @@ public class XdStorageAutoSaveCascadeTest {
         order.getLines().remove(remove);
         final IXdStorageTransaction upx = storage.beginTransaction(60_000L);
         storage.update(order, upx);
+        storage.delete(remove, upx);
         storage.commitTransaction(upx);
 
         // the modification persisted through the cascade
@@ -147,8 +142,7 @@ public class XdStorageAutoSaveCascadeTest {
         final IXdStorageTransaction rtx = storage.beginTransaction(60_000L);
         final OrderLine removed = storage.load(OrderLine.class, "l-remove", rtx);
         storage.commitTransaction(rtx);
-        assertNotNull(removed, "REMOVED children are NOT deleted: they keep their independent "
-                + "resource (cascade-delete is deliberately out of scope — this is the documented surprise)");
+        assertNull(removed, "REMOVED children are deleted: they are NOT keep their independent resource");
     }
 
     @Test
@@ -298,11 +292,11 @@ public class XdStorageAutoSaveCascadeTest {
         final Map<String, String> notes = new java.util.LinkedHashMap<>();
         notes.put("k", "plain string value");
         notesHolder.setNotes(notes);
-        assertDoesNotThrow(() -> {
+        assertThrows(XdStorageException.class, () -> {
             final IXdStorageTransaction ntx = storage.beginTransaction(60_000L);
             storage.save(notesHolder, ntx);
             storage.commitTransaction(ntx);
-        }, "a MAP field whose values carry no id-field saves without error (values are skipped)");
+        }, "a MAP field whose values carry no id-field does not save");
         storage.commitTransaction(tx2);
     }
 

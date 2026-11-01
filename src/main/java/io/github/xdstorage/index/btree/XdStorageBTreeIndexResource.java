@@ -1,5 +1,8 @@
 package io.github.xdstorage.index.btree;
 
+import io.github.xdstorage.resource.*;
+import io.github.xdstorage.resource.cache.XdStorageCacheCommitPhase;
+import io.github.xdstorage.transaction.IXdStorageTransaction;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import io.github.xdstorage.IXdStorage;
@@ -18,11 +21,6 @@ import io.github.xdstorage.index.IXdStorageIndexDaoResource;
 import io.github.xdstorage.index.IXdStorageIndexResourceObject;
 import io.github.xdstorage.object.XdStorageIdentifiableObject;
 import io.github.xdstorage.observing.XdStorageObserverService;
-import io.github.xdstorage.resource.IXdStorageDaoResource;
-import io.github.xdstorage.resource.XdStorageAbstractResourcesManager;
-import io.github.xdstorage.resource.XdStorageIsolationLevel;
-import io.github.xdstorage.resource.XdStorageObjectChange;
-import io.github.xdstorage.resource.XdStorageResourceCache;
 import io.github.xdstorage.serialization.IXdStorageObjectsReader;
 import io.github.xdstorage.serialization.IXdStorageObjectsWriter;
 import io.github.xdstorage.services.XdStorageServicesLocator;
@@ -96,6 +94,8 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
 
     private final Lock lock = new ReentrantLock();
 
+    private final Map<String, List<IXdStorageInternalListener>> listeners = new ConcurrentHashMap<>();
+
     /**
      * Creates the resource.
      *
@@ -128,6 +128,13 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
         this.writer = services.getIoFactory().newInstanceWriter();
     }
 
+    @Override
+    public void registerListener(IXdStorageInternalListener listener, IXdStorageTransaction transaction) {
+        List<IXdStorageInternalListener> list = listeners.computeIfAbsent(transaction.getTransactionId(),
+                tId -> Collections.synchronizedList(new ArrayList<>()));
+        list.add(listener);
+    }
+
     /** @return the storage-wide unique id of this resource */
     @Override
     public Object getResourceId() {
@@ -157,10 +164,6 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
     public boolean hasChanges(final XdStorageTransaction transaction) throws XdStorageException {
         return cache.hasChanges(transaction);
     }
-
-    private Map<String, Long> blockingTime = new HashMap<>();
-
-    private AtomicBoolean locked = new AtomicBoolean(false);
 
     /**
      * Acquires the tree commit lock, waiting up to the transaction's timeout. Fails loudly
@@ -198,6 +201,8 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
      */
     @Override
     public void unlockAfterCommit(final XdStorageTransaction transaction) {
+        listeners.remove(transaction.getTransactionId());
+
         // ИСПРАВЛЕНИЕ ДЕДЛОКА СУБД: Освобождаем ReentrantLock вместо synchronized-уведомлений
         if (((ReentrantLock) lock).isHeldByCurrentThread()) {
             lock.unlock();
@@ -708,6 +713,10 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
         // R-57: ключ успешно в живом дереве — при откате транзакции будет удален компенсирующе
         transaction.registerIndexKeyForRollback(tree, (Comparable) objectId);
 
+        listeners.computeIfAbsent(transaction.getTransactionId(), tId -> new ArrayList<>()).forEach(listener ->
+            listener.notify(XdStorageCacheCommitPhase.PREPARE_COMMIT, XdStorageObjectOperationType.Insert, null, object, transaction)
+        );
+
         // =========================================================================
         // БАРЬЕР СТРУКТУРНОЙ ЦЕЛОСТНОСТИ ИНДEКСА: мутации id_index обязаны завершаться
         // валидацией цепочки листьев. При нарушении транзакция откатывается громко,
@@ -750,7 +759,12 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
         }
 
         final IXdStorageDaoResource resource = manager.lockResource(resourceId, objectClInfo, transaction);
+        Object oldObject = resource.read(objectId, transaction);
         resource.update(object, transaction);
+
+        listeners.computeIfAbsent(transaction.getTransactionId(), tId -> new ArrayList<>()).forEach(listener ->
+                listener.notify(XdStorageCacheCommitPhase.PREPARE_COMMIT, XdStorageObjectOperationType.Update, null, object, transaction)
+        );
     }
 
     /**
@@ -792,6 +806,10 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
         // чтении). Регистрируем пару для компенсирующей вставки при откате — дерево
         // обязано оставаться read-committed всегда.
         transaction.registerIndexKeyDeleteForRollback(tree, (Comparable) objectId, resourceId);
+
+        listeners.computeIfAbsent(transaction.getTransactionId(), tId -> new ArrayList<>()).forEach(listener ->
+                listener.notify(XdStorageCacheCommitPhase.PREPARE_COMMIT, XdStorageObjectOperationType.Delete, object, null, transaction)
+        );
 
         // БАРЬЕР СТРУКТУРНОЙ ЦЕЛОСТНОСТИ: слияния листьев (join/borrow) — самый опасный
         // контур ребалансировки, валидируем цепочку сразу после удаления

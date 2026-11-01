@@ -121,7 +121,7 @@ public class XdStorageClassInfo {
         return idField;
     }
 
-    void setIdField(XdStorageObjectIdField idField) {
+    public void setIdField(XdStorageObjectIdField idField) {
         this.idField = idField;
     }
 
@@ -134,7 +134,7 @@ public class XdStorageClassInfo {
         return autoSaveFields;
     }
 
-    void addAutoSaveField(final XdStorageAutoSaveFieldInfo info) {
+    public void addAutoSaveField(final XdStorageAutoSaveFieldInfo info) {
         autoSaveFields.add(info);
     }
 

@@ -1,5 +1,9 @@
 package io.github.xdstorage.index.hash;
 
+import io.github.xdstorage.resource.*;
+import io.github.xdstorage.resource.cache.IXdStorageCacheInternalListener;
+import io.github.xdstorage.resource.cache.XdStorageCacheCommitPhase;
+import io.github.xdstorage.transaction.IXdStorageTransaction;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 
@@ -12,10 +16,6 @@ import io.github.xdstorage.index.IXdStorageChangeIndexRollback;
 import io.github.xdstorage.index.IXdStorageIndexDaoResource;
 import io.github.xdstorage.index.IXdStorageIndexResourceObject;
 import io.github.xdstorage.index.XdStorageIndexResourceCache;
-import io.github.xdstorage.resource.IXdStorageDaoResource;
-import io.github.xdstorage.resource.XdStorageAbstractResourcesManager;
-import io.github.xdstorage.resource.XdStorageIsolationLevel;
-import io.github.xdstorage.resource.XdStorageResourceCache;
 import io.github.xdstorage.services.XdStorageServicesLocator;
 import io.github.xdstorage.transaction.XdStorageTransaction;
 import io.github.xdstorage.utils.XdStorageClassInfo;
@@ -82,6 +82,11 @@ public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIn
     protected final XdStorageObjectIdField objectIdField;
 
     /**
+     * map [transactionId, list [listener]]
+     */
+    private final Map<String, List<IXdStorageInternalListener>> listeners = new ConcurrentHashMap<>();
+
+    /**
      * Creates the resource without an id generator (ids must be set by the caller).
      *
      * @param services     the engine services locator
@@ -103,6 +108,7 @@ public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIn
         this.isReferences = false;
         this.cache = new XdStorageResourceCache(services, clInfo.getClazz(), idField);
         this.cache.setIsolationLevel(XdStorageIsolationLevel.READ_COMMITTED);
+        this.cache.setInternalListener(new XdStorageCacheInternalListener());
         this.idGenerator = null;
 
         this.indexName = indexName;
@@ -135,12 +141,20 @@ public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIn
         this.isReferences = false;
         this.cache = new XdStorageResourceCache(services, clInfo.getClazz(), idField);
         this.cache.setIsolationLevel(XdStorageIsolationLevel.READ_COMMITTED);
+        this.cache.setInternalListener(new XdStorageCacheInternalListener());
         this.idGenerator = idGenerator;
 
         this.indexName = indexName;
         this.index = new XdStorageIndexResourceCache(fragmentSize);
         this.objectClInfo = clInfo;
         this.objectIdField = clInfo.getIdField();
+    }
+
+    @Override
+    public void registerListener(IXdStorageInternalListener listener, IXdStorageTransaction transaction) {
+        List<IXdStorageInternalListener> list = listeners.computeIfAbsent(transaction.getTransactionId(),
+                tId -> Collections.synchronizedList(new ArrayList<>()));
+        list.add(listener);
     }
 
     /** @return the storage-wide unique id of this index resource */
@@ -246,7 +260,7 @@ public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIn
      */
     @Override
     public void unlockAfterCommit(final XdStorageTransaction transaction) {
-        // do nothing
+        listeners.remove(transaction.getTransactionId());
     }
 
     /**
@@ -484,5 +498,15 @@ public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIn
     @Override
     public IXdStorageIndexDaoResource getDao() {
         return this;
+    }
+
+    private class XdStorageCacheInternalListener implements IXdStorageCacheInternalListener {
+        @Override
+        public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
+            List<IXdStorageInternalListener> listenerList = listeners.get(transaction.getTransactionId());
+            if (listenerList != null) {
+                listenerList.forEach(listener -> listener.notify(phase, change, oldObject, newObject, transaction));
+            }
+        }
     }
 }

@@ -4,6 +4,7 @@ import io.github.xdstorage.annotations.XdStorageObjectId;
 import io.github.xdstorage.annotations.XdStorageObjectIdIndexType;
 import io.github.xdstorage.annotations.XdStorageObjectPolicy;
 import io.github.xdstorage.annotations.XdStorageObjectSearchIndex;
+import io.github.xdstorage.foreignkey.XdStorageForeignKeyEngine;
 import io.github.xdstorage.index.XdStorageIndexType;
 import io.github.xdstorage.resource.XdStorageAbstractResourcesManager;
 import io.github.xdstorage.search.IXdStorageSearchManager;
@@ -26,6 +27,7 @@ public abstract class AbstractXdStorageTest {
     protected XdStorageTriggerManager mockTriggersManager;
     protected XdStorageStructureManager mockStructureManager;
     protected XdStorageTransaction mockTx;
+    protected XdStorageForeignKeyEngine mockForeignKeyEngine;
 
     @BeforeEach
     public void baseSetUp() throws Exception {
@@ -35,6 +37,7 @@ public abstract class AbstractXdStorageTest {
         mockSearchManager = mock(IXdStorageSearchManager.class);
         mockTriggersManager = mock(XdStorageTriggerManager.class);
         mockStructureManager = mock(XdStorageStructureManager.class);
+        mockForeignKeyEngine = mock(XdStorageForeignKeyEngine.class);
         mockTx = mock(XdStorageTransaction.class);
 
         // Связываем цепочку моков локатора сервисов
@@ -43,6 +46,7 @@ public abstract class AbstractXdStorageTest {
         when(mockServices.getSearchManager()).thenReturn(mockSearchManager);
         when(mockServices.getTriggersManager()).thenReturn(mockTriggersManager);
         when(mockServices.getStructureManager()).thenReturn(mockStructureManager);
+        when(mockServices.getForeignKeyEngine()).thenReturn(mockForeignKeyEngine);
 
         // Дефолтное поведение транзакций
         when(mockTx.getTransactionId()).thenReturn("tx-facade-123");

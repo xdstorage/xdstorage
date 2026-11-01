@@ -63,7 +63,7 @@ public class XdStorageObjectField {
      * @return the field's JavaBeans name
      */
     public String getName() {
-        return field.getName();
+        return field != null ? field.getName() : null;
     }
 
     /**

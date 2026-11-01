@@ -575,9 +575,6 @@ public class XdStorageTransaction implements IXdStorageTransaction {
         final XdStorageRuntimeException[] exceptions = new XdStorageRuntimeException[]{null};
         final AtomicBoolean hasError = new AtomicBoolean();
 
-        // Делаем изолированный снимок зарегистрированных ресурсов СУБД для второй фазы
-        final Collection<IXdStorageResourceObject> resourceToCommit = new ArrayList<>(resources.values());
-
         // Переводим транзакцию в состояние подготовки коммита (Phase 1 Commit)
         state.setState(XdStorageCommitTransactionState.PREPARING);
 
@@ -622,12 +619,13 @@ public class XdStorageTransaction implements IXdStorageTransaction {
         state.setState(XdStorageCommitTransactionState.PREPARED);
 
         // performing second phase commit (финальная очистка кэшей и подтверждение версий)
-        resourceToCommit.stream().forEach(resource -> {
+        firstPhaseCommittedResources.values().forEach(change -> {
             if (hasError.get()) {
                 return;
             }
 
             try {
+                IXdStorageResourceObject<?> resource = change.getResource();
                 final XdStorageTransactionResourceChanges record = new XdStorageTransactionResourceChanges(resource);
                 resource.performSecondPhaseCommit(this, record);
             } catch (final Throwable e) {

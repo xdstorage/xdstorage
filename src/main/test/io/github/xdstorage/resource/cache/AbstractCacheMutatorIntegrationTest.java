@@ -2,7 +2,9 @@ package io.github.xdstorage.resource.cache;
 
 import io.github.xdstorage.btree.XdStorageBTreeNode;
 import io.github.xdstorage.exceptions.XdStorageException;
+import io.github.xdstorage.resource.IXdStorageInternalListener;
 import io.github.xdstorage.resource.XdStorageIsolationLevel;
+import io.github.xdstorage.resource.XdStorageObjectOperationType;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import io.github.xdstorage.transaction.IXdStorageTransactionManager;
 import io.github.xdstorage.transaction.XdStorageTransaction;
@@ -27,7 +29,6 @@ public abstract class AbstractCacheMutatorIntegrationTest {
         listener = new TestListener();
 
         mutator = new XdStorageCacheMutator(cacheContext);
-        mutator.setInternalListener(listener);
 
         // Настоящий инстанс транзакции через наследника (чтобы не мокать конструктор)
         transaction = new XdStorageTransaction(
@@ -56,9 +57,18 @@ public abstract class AbstractCacheMutatorIntegrationTest {
         List<Object[]> updateCalls = new ArrayList<>();
         List<Object> deleteCalls = new ArrayList<>();
 
-        @Override public void insertRegistered(Object obj, IXdStorageTransaction tx) { insertCalls.add(obj); }
-        @Override public void updateRegistered(Object oldObj, Object newObj, IXdStorageTransaction tx) { updateCalls.add(new Object[]{oldObj, newObj}); }
-        @Override public void deleteRegistered(Object obj, IXdStorageTransaction tx) { deleteCalls.add(obj); }
+        @Override
+        public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
+            if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT) {
+                if (change == XdStorageObjectOperationType.Insert) {
+                    insertCalls.add(newObject);
+                } else if (change == XdStorageObjectOperationType.Update) {
+                    updateCalls.add(new Object[]{oldObject, newObject});
+                } else {
+                    deleteCalls.add(oldObject);
+                }
+            }
+        }
     }
 
     // --- Реальный इन-memory Контекст ---
