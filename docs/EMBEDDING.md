@@ -42,6 +42,16 @@ current code, stated so embedding surprises are design-time, not production-time
   its cause, and repeat marks are counted on the record instead of overwriting it.
 - Nested transactions: `beginTransaction(parentTx, timeout)`; a nested rollback does not poison the
   parent (downward-only rollback-only cascade).
+- **Abandoned top-level transactions are NOT force-swept at `beginTransaction`** (the
+  ZOMBIELATCH decision, docs/tasks/2.1.0/36-zombie-latch-purge): a worker that swallows a
+  failure without commit/rollback leaves its transaction latched until the lazy timeout
+  enforcement trips — but the record latches are ADOPTABLE the moment the owner is
+  dead (the R-27 latch skips for infrastructure + the dead-owner adoption make stale
+  latches non-blocking for new work), the sweeper still rolls the zombie on contact,
+  and a begin-time force-sweep would add cross-transaction interference to every
+  `beginTransaction` on a reused pool thread for a hygiene bug the caller must fix
+  (always terminate your transaction in a `finally`). The obligation is on the caller;
+  the stress estates pin it (every worker `catch` ends its transaction).
 
 ## JVM-wide static state (per-JVM, not per-storage)
 

@@ -211,6 +211,7 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
                     log.warn("CRASHPURGE: dangling child {} of relation {} resolved — its record no longer exists (crash residue)",
                             childId, relationName());
                 } else {
+                    // the child's RECORD is live — the purge really left an orphan: veto
                     if (live == null) live = new java.util.HashSet<>();
                     live.add(childId);
                 }
@@ -333,7 +334,7 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
 
         Object parentObjectId = parentIdField.get(parentObject);
         if (parentObjectId != null) {
-            registerForeignKey(parentObjectId, childObjectId, transaction);
+            registerForeignKey((Comparable<?>) parentObjectId, childObjectId, transaction);
         } else {
             registerParentIdWaiter(childObjectId, parentObject, transaction);
         }
@@ -353,7 +354,7 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
                         .add((Comparable<?>) childObjectId);
                 return;
             }
-            registerForeignKey(parentObjectId, childObjectId, transaction);
+            registerForeignKey(parentObjectId, (Comparable<?>) childObjectId, transaction);
         } else {
             registerChildIdWaiter(parentObjectId, childObject, transaction);
         }
@@ -369,7 +370,7 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
 
         if (parentObjectId != null) {
             if (childObjectId != null) {
-                registerForeignKey(parentObjectId, childObjectId, transaction);
+                registerForeignKey((Comparable<?>) parentObjectId, (Comparable<?>) childObjectId, transaction);
             } else {
                 registerChildIdWaiter(parentObjectId, childObject, transaction);
             }
@@ -471,11 +472,70 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
 
         resolveOrphanedEntry(parentObjectId, childObjectId, transaction);
 
-        if (parentObject != null && !isChildAnchoredRelation() && !isChildDeleted(childObjectId, transaction)) {
-            // FNKEY: the PARENT side dissolves the relation while the child survives —
-            // the child is now dangling; it must be deleted within this transaction.
-            danglingChildren.computeIfAbsent(transaction.getTransactionId(), tId -> ConcurrentHashMap.newKeySet())
-                    .add(childObjectId);
+        // ZOMBIELATCH (docs/tasks/2.1.0/36-zombie-latch-purge): the deletion invariant
+        // ("children are deleted first") applies to children whose RECORDS are LIVE. A
+        // child whose record no longer exists is a phantom of the concurrent fill (the
+        // in-place collection mutation survives a rolled-back chunk; the next committed
+        // parent update re-registers the pair from the live collection) — dissolving its
+        // pair is residue cleanup, not a violation.
+        if (parentObject != null && !isChildAnchoredRelation() && !isChildDeleted(childObjectId, transaction)
+                && !childRecordMissing(childObjectId, transaction)) {
+            if (!parentCollectionContains(parentObject, childObjectId)) {
+                // ZOMBIELATCH (docs/tasks/2.1.0/36) residue cascade: the child's record is
+                // LIVE but the parent's committed collection no longer contains it — a state
+                // unreachable through correct API use. It is the engine's own lost-update
+                // divergence residue (a concurrent stale-clone parent update persisted a
+                // collection without this child while the FK tree kept the pair). Vetoing
+                // the parent's delete would make any recovery purge non-convergent: the
+                // purge cannot delete children its object-graph walk never enumerates.
+                // The engine cleans up its own divergence: cascade-delete the residue child;
+                // its own FK income resolves it for this relation and cascades deeper.
+                final Object residueChild = services.getStorage().load(clChildInfo.getClazz(), childObjectId, transaction);
+                if (residueChild != null) {
+                    log.warn("ZOMBIELATCH: cascade-deleting residue child {} of relation {} — live record absent from the parent's committed collection (lost-update divergence)",
+                            childObjectId, relationName());
+                    services.getStorage().delete(residueChild, transaction);
+                }
+            } else {
+                // FNKEY: the PARENT side dissolves the relation while the child survives —
+                // the child is now dangling; it must be deleted within this transaction.
+                danglingChildren.computeIfAbsent(transaction.getTransactionId(), tId -> ConcurrentHashMap.newKeySet())
+                        .add(childObjectId);
+            }
+        }
+    }
+
+    /**
+     * ZOMBIELATCH (docs/tasks/2.1.0/36): whether the parent's collection field (its
+     * committed in-transaction view) still contains the child. The discriminator between
+     * a legitimate deletion-order violation (child present — the delete must veto) and
+     * the engine's lost-update residue (child absent — the pair is stale and the child
+     * is cascade-eligible).
+     *
+     * @param parentObject the parent-side wrapper being deleted
+     * @param childObjectId the child's identifier
+     * @return {@code true} when the collection holds the child (or the probe failed — the
+     *         veto path is the safe default)
+     */
+    private boolean parentCollectionContains(final Object parentObject, final Comparable<?> childObjectId) {
+        try {
+            final Object collection = clParentField.get(parentObject);
+            if (collection instanceof java.util.Collection) {
+                final java.util.Collection<?> members = (java.util.Collection<?>) collection;
+                for (final Object member : members) {
+                    if (member == null) {
+                        continue;
+                    }
+                    if (childObjectId.equals(clChildInfo.getIdField().get(member))) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        } catch (final Exception probeFailure) {
+            log.warn("ZOMBIELATCH: parent collection probe failed for relation {} — assuming the child is present (veto path): {}",
+                    relationName(), probeFailure.getMessage());
+            return true;
         }
     }
 
@@ -528,6 +588,24 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
         }
     }
 
+    /**
+     * ZOMBIELATCH (docs/tasks/2.1.0/36-zombie-latch-purge): whether a PARENT record
+     * still exists — the symmetric endpoint probe for the pair-registration gate.
+     *
+     * @param parentObjectId the parent's identifier
+     * @param transaction    the registering transaction
+     * @return {@code true} when the parent record is absent (or its probe failed)
+     */
+    private boolean parentRecordMissing(final Object parentObjectId, final XdStorageTransaction transaction) {
+        try {
+            return services.getStorage().load(clParentInfo.getClazz(), parentObjectId, transaction) == null;
+        } catch (final XdStorageException | XdStorageConnectionException probeFailure) {
+            log.warn("CRASHPURGE: parent record probe failed for {}#{} — treating as missing (residue): {}",
+                    clParentInfo.getClazz().getSimpleName(), parentObjectId, probeFailure.getMessage());
+            return true;
+        }
+    }
+
     /** FNKEY: the relation-name fragment used by the invariant messages. */
     private String relationName() {
         return clParentInfo.getClazz().getSimpleName() + "#" + clParentField.getName() + " -> " + clChildInfo.getClazz().getSimpleName();
@@ -549,7 +627,7 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
                 && field.getFieldInfo().getValueClass() == clChildInfo.getClazz());
     }
 
-    private void registerForeignKey(Object parentId, Object childId, XdStorageTransaction transaction) throws XdStorageConnectionException, XdStorageException {
+    private void registerForeignKey(Comparable<?> parentId, Comparable<?> childId, XdStorageTransaction transaction) throws XdStorageConnectionException, XdStorageException {
         XdStorageBTree treeParentChild = getOrCreateForeignKeyBTree(bTreeParentChildId, clParentInfo, createParentChildTreeLock, transaction);
         XdStorageBTree treeChildParent = getOrCreateForeignKeyBTree(bTreeChildParentId, clChildInfo, createChildParentTreeLock, transaction);
 
@@ -606,7 +684,7 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
                         expectedChildInserts.computeIfAbsent(transaction.getTransactionId(), tId -> ConcurrentHashMap.newKeySet())
                                 .add((Comparable<?>) childId);
                     } else {
-                        registerForeignKey(parentId, childId, transaction);
+                        registerForeignKey((Comparable<?>) parentId, (Comparable<?>) childId, transaction);
                     }
                     decrementInsertWaitingIdentifier(transaction);
                 } catch (XdStorageException | XdStorageConnectionException e) {
@@ -622,7 +700,7 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
             @Override
             public void onNewIdIsSet(IXdStorageIdObservableWrapper wrapper, Object parentId) {
                 try {
-                    registerForeignKey(parentId, childId, transaction);
+                    registerForeignKey((Comparable<?>) parentId, (Comparable<?>) childId, transaction);
                     decrementInsertWaitingIdentifier(transaction);
                 } catch (XdStorageException | XdStorageConnectionException e) {
                     throw new XdStorageRuntimeException(e);
@@ -640,7 +718,7 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
                 relationIds[0] = parentId;
                 if (relationIds[1] != null) {
                     try {
-                        registerForeignKey(relationIds[0], relationIds[1], transaction);
+                        registerForeignKey((Comparable<?>) relationIds[0], (Comparable<?>) relationIds[1], transaction);
                         decrementInsertWaitingIdentifier(transaction);
                     } catch (XdStorageException | XdStorageConnectionException e) {
                         throw new XdStorageRuntimeException(e);
@@ -655,7 +733,7 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
                 relationIds[1] = childId;
                 if (relationIds[0] != null) {
                     try {
-                        registerForeignKey(relationIds[0], relationIds[1], transaction);
+                        registerForeignKey((Comparable<?>) relationIds[0], (Comparable<?>) relationIds[1], transaction);
                         decrementInsertWaitingIdentifier(transaction);
                     } catch (XdStorageException | XdStorageConnectionException e) {
                         throw new XdStorageRuntimeException(e);

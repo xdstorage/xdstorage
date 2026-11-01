@@ -612,16 +612,36 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                 child = childrenList.get(index);
             }
 
-            if (XdStorageObjectUtils.isReference(child)) {
-                // R-53: лок держим на СТАБЕ (отдельная переменная — child ниже переприсваивается)
-                final XdStorageBTreeNode stub = child;
-                stub.lockWrite(transaction);
-                try {
-                    if (XdStorageObjectUtils.isReference(stub)) {
-                        // стаб ребенка заменяется каноническим инстансом по id (ФАЗА 3B
-                        // идентичность), бэк-референсы чинятся на живые дерево/родителя (this)
-                        final XdStorageBTreeNode materialized =
-                                materialize(stub, storage, transaction, getTree(), this);
+                if (XdStorageObjectUtils.isReference(child)) {
+                    // R-53: лок держим на СТАБЕ (отдельная переменная — child ниже переприсваивается)
+                    final XdStorageBTreeNode stub = child;
+                    stub.lockWrite(transaction);
+                    try {
+                        if (XdStorageObjectUtils.isReference(stub)) {
+                            // стаб ребенка заменяется каноническим инстансом по id (ФАЗА 3B
+                            // идентичность), бэк-референсы чинятся на живые дерево/родителя (this)
+                            XdStorageBTreeNode materialized;
+                            try {
+                                materialized = materialize(stub, storage, transaction, getTree(), this);
+                            } catch (final XdStorageException missing) {
+                                if (missing.getMessage() == null || !missing.getMessage().contains("is referenced but missing in storage")) {
+                                    throw missing;
+                                }
+                                // САМОЛЕЧЕНИЕ СПУСКА (разрушенное дерево после сбоя/гонки записи):
+                                // файл узла потерян, но родитель на него ссылается — вместо громкого
+                                // отказа спуска ставим в слот пустой лист С ТЕМ ЖЕ id и продолжаем.
+                                // Потерянное поддерево = принятая потеря сбоя (матрица восстановления:
+                                // «дерево разорвано → навигация самовосстанавливается, записи за
+                                // разрывом теряются»); точечные операции получают чистый промах
+                                // вместо каскадного отравления транзакций.
+                                log.warn("B+Tree self-heal: node {} referenced by node {} is missing in storage — replacing lost subtree with an empty leaf (id preserved)",
+                                        stub.getId(), getId());
+                                final XdStorageBTreeNode healed = new XdStorageBTreeNode(getTree(), this);
+                                healed.setId(stub.getId());
+                                healed.setReference(false);
+                                storage.save(healed, transaction);
+                                materialized = healed;
+                            }
                         if (materialized != stub) {
                             synchronized (getChildren()) {
                                 final List<XdStorageBTreeNode> slotChildren = getChildren();
