@@ -31,6 +31,11 @@ the concurrency internals, and the measured performance model with its tuning ad
   fully pluggable custom generators; deferred-id observers get notified when an id is assigned.
 - **Cascade save** — `@XdStorageAutoSave` upserts annotated independent children when the parent is
   saved or updated, in the same transaction.
+- **Referential integrity (foreign keys)** — relations between a parent and its
+  independent-policy children (`@XdStorageAutoSave` + `@XdStorageParentObject`) are backed by
+  persistent front/reverse B+tree indexes: a child that is still referenced by its parent
+  cannot be deleted, and FK entries are maintained in the same transaction as the objects
+  (`enableForeignKeys`, on by default).
 - **Pluggable serialization** — YAML (default), XML; the reader/writer pair is an SPI
   (`IXdStorageIOFactory`) so you can implement your own format. (The 1.x `FilesFormat.JSON`
   constant was removed in 2.0.0 — it wrote XML content; see [EMBEDDING.md](EMBEDDING.md) § Compatibility.)

@@ -155,7 +155,10 @@ copy: object counts, load-by-id, indexed EQUALS and range queries across all sto
 
 ## Configuration recap
 
-`XdStorageConfig`: `indexJournalWrites=true` (W-4a default — hash id-index commits journaled: O(delta)
+`XdStorageConfig`: `enableForeignKeys=true` (W-4/feature default — relations to independent-policy children
+  (`@XdStorageAutoSave` + `@XdStorageParentObject`) are backed by persistent front/reverse
+  B+tree indexes; deleting a still-referenced child fails loudly; set `false` to disable the
+  enforcement), `indexJournalWrites=true` (W-4a default — hash id-index commits journaled: O(delta)
 appends instead of the O(N) full-file rewrite; a clean shutdown checkpoints every journal,
 so after a clean close a power loss loses nothing even with `durableWrites=false`),
 `journalWrites=true` (W-3 default — data-class commits journaled,

@@ -157,6 +157,14 @@ Planned scope; items land here as they merge:
   Flag-gated (`indexJournalWrites`), soaked, then defaulted. Search-tree logical-op journal
   (W-4b) and disk-anchored scans (W-4d) follow their gates.
 
+- **Referential integrity — foreign keys** ([42](docs/tasks/2.1.0/42-foreign-keys.md)) —
+  relations between a parent and its independent-policy children (annotated with
+  `@XdStorageAutoSave` on the parent's field and `@XdStorageParentObject` on the child's
+  back-reference) are backed by persistent front/reverse B+tree indexes
+  (`<Parent>_to_<field>` / `<Parent>_from_<field>`): the entries are created and cleaned in
+  the same transaction as the objects, and **deleting a child that is still referenced by
+  its parent is refused loudly**. Flag: `enableForeignKeys` (default ON).
+
 ### Fixed (planned)
 
 Still open from the defect train (**a defect discovered by a train's own work ships with the

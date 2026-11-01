@@ -1,7 +1,7 @@
 ---
 title: "[2.1.0][FNKEY] Child objects with policies StoreAsSingleObject or StoreAsClassObjects should have foreign keys in relation with parent object
 labels: [2.1.0-train, P1, engine, feature]
-status: open
+status: done
 ---
 
 ## Summary
@@ -18,7 +18,8 @@ parent object still has reference to this deleted object. The next rules describ
 
 - Foreign key appears when field in parent class marked with annotation `XdStorageAutoSave`;
 - Foreign key appears when field in child class marked with annotation `XdStorageParentObject`;
-- Foreign key should be configurable - enabled by default;
+- Foreign key should be configurable - enabled by default; **DONE: `enableForeignKeys`
+  (default ON, `XdStorageConfig.builder().setEnableForeignKeys(false)` to disable)**
 - This relation get names **<parent_object_simple_class_name>`_to_`<parent_object_class_field_name>** as `front`
 direction, and **<parent_object_simple_class_name>`_from_`<parent_object_class_field_name>** as `reverse` direction;
 - Must be organised as persistent B+tree structure.
@@ -209,3 +210,14 @@ correctly refuses a parent deletion whose FK-visible children are alive. Closing
 requires fixing the FILL-side divergence — the concurrent update-cascade diff semantics
 (the R-46/R-56 stale-collection family), not the FK layer. Quantified and handed to the
 next session; the working tree holds the full instrumentation-ready state.
+
+## Status
+
+IMPLEMENTED (commits e9ee2d6 → d6e068f): the `foreignkey` package (engine, registry,
+resources manager, persistent front/reverse B+tree relations), wired into
+save/update/delete via internal listeners; `enableForeignKeys` default ON; the deletion
+vetoes are green in the suite (the two defects found by the 2026-10-23 full-suite run —
+the AutoSave removed-child FK cleanup ordering and the delete-alone veto — are resolved).
+Remaining: the documentation pass (task 44) and the benchmark cost visibility (task 43's
+delta table). The two new-field findings from the javadoc campaign that overlap this area
+(38's journal-path declarations) are tracked in 38.

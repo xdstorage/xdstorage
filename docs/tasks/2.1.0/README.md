@@ -42,6 +42,8 @@ there for the full decision record before starting an item.
 | 30 | [benchmarks-context](30-benchmarks-context.md) | BMCONTEXT | P0, docs, performance | 0.5 d | 29 (the entry surface it complements) |
 | 31 | [write-path-analysis-design](31-write-path-analysis-design.md) | WRTPATH | P1, engine, performance | 2–3 sess | — (profile → bottleneck ledger → the W-4 design; **impl stays 2.2.0**; feeds 29/30's fix-plan links) |
 | 33 | [binary-format-feasibility](33-binary-format-feasibility.md) | BINFEAS | P2, docs, performance | 0.5–1 d | — (the OPTIMIZATION-PROPOSAL-01 demand signal; FP-9's gate) |
+| 43 | [benchmark-refresh](43-benchmark-refresh.md) | BENCHREFRESH | P1, performance, ci, chore | 0.5–1 d | after the FK feature settles (senior-dev: run + regenerate + cascade updates) |
+| 44 | [technical-writer-pass](44-technical-writer-pass.md) | DOCSWRITER | P1, docs | 1–2 d | after 43 (the numbers it must agree with); technical-writer: landing + guide + contract as one story |
 | 35 | [crash-residue-purge](35-crash-residue-purge.md) | CRASHPURGE | P1, engine, testing, bug | 1–2 d | — (2/3 red: the purge dies on dangling references; disabled by `b3aeacb`) |
 | 36 | [zombie-latch-purge](36-zombie-latch-purge.md) | ZOMBIELATCH | P1, engine, testing, bug | 1–2 d | — (3/3 red: the purge dies on zombie record latches; disabled by `b3aeacb`) |
 | 34 | [rollback-only-cause](34-rollback-only-cause.md) | RBCAUSE | P1, engine, bug | 1–2 d | — (first-cause capture on the tx; the generator site-descriptors are the careful half) |
@@ -142,6 +144,8 @@ it starts).
 - **Lane J (proposal responses):** 33 — analysis-only (the OPTIMIZATION-PROPOSAL-01
   binary-format demand signal; its other directions mapped to existing plan items —
   docs/proposals/OPTIMIZATION-PROPSAL-01-ANALYSIS.md)
+- **Lane L (release polish):** 43 → 44 (the benchmark refresh lands first; the writer pass
+  aligns every surface to it — the last tasks before the RC protocol)
 - **Lane K (the disabled release-gate stress tests):** 35 ∥ 36 — un-disable is the exit
   criterion; both must pass the 10-consecutive-pass gate before closing
 - **Lane D (docs, last):** 12 — after the query pack lands, so it describes what ships.
