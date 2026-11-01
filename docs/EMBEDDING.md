@@ -103,6 +103,35 @@ back with its tail missing. The verified behavior matrix
 `durableWrites=true` (fsync per commit, measured ~8× write cost — BENCHMARKS § Canonical)
 the loss shrinks to nothing.
 
+**Cleanup after a crash (the recovery-purge recipe).** A torn multi-file commit can leave
+residue: a persisted collection referencing a record whose insert never became durable,
+and foreign-key pairs whose record is gone. Reading such a collection throws
+`cannot load by reference` (loud, by design) and marks the reading transaction
+rollback-only — so a recovery purge must NOT run in one shared transaction. The recipe
+(see `XdStorageCrashAndPurgeStressTest` for the full implementation):
+
+1. **One transaction per subtree** (per parent and its children) — a poisoned
+   (rollback-only) transaction is rolled back and the purge continues with a fresh one;
+   per-element `catch` in a shared transaction cannot survive a rollback-only mark.
+2. **Children-first order**, failures counted and skipped — a skipped subtree is retried
+   in the next pass; repeat until no progress is made.
+3. **Root-down scorched earth** as the last pass: load every record of each class
+   (children first) and delete, tolerating per-record failures.
+4. **Drop the FK indexes of the purged classes before the by-class pass.** The by-class
+   pass deletes children and parents in separate transactions, so a foreign-key
+   expectation armed in the children's transaction would veto at its own commit before
+   the parents' transaction dissolves the pairs. The records are being deleted anyway —
+   drop the FK tree files of the purged classes (both directions) and reopen: the purge
+   then runs without FK enforcement, exactly like disabling constraints for a recovery
+   purge in a conventional database.
+5. **A class whose index tree the crash broke** (repeated "node referenced but
+   missing" on every access) cannot route deletes at all: drop that class's data
+   directory AND its tree structure files, reopen — the class is being purged anyway,
+   so dropping its store IS the cleanup.
+6. **Verify**: per-class emptiness checks always execute; embedded children
+   (`StoreWithParentObject`) are counted by their record FILES on disk (the facade
+   cannot load embedded classes — the disk is the honest witness).
+
 **The recipe:** (0) run `XdStorageProvider.verify(folder)` — the read-only integrity walk
 (VERIFY, docs/tasks/2.1.0/26) that mechanizes these checks: per-file sentinel state
 (`TRUNCATED` names the file), journal state and record counts (torn tails named), data

@@ -23,11 +23,21 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
     private final XdStorageForeignKeyResourcesManager foreignKeyResourcesManager;
     private final XdStorageForeignKeyRegistry foreignKeyRegistry;
 
+    /** CRASHPURGE: services access for the parent-record existence probes. */
+    private final io.github.xdstorage.services.XdStorageServicesLocator services;
+
     public XdStorageForeignKeyEngine(XdStorageForeignKeyResourcesManager foreignKeyResourcesManager,
                                      XdStorageForeignKeyRegistry foreignKeyRegistry, boolean enabled) {
+        this(foreignKeyResourcesManager, foreignKeyRegistry, enabled, foreignKeyResourcesManager.getServices());
+    }
+
+    public XdStorageForeignKeyEngine(XdStorageForeignKeyResourcesManager foreignKeyResourcesManager,
+                                     XdStorageForeignKeyRegistry foreignKeyRegistry, boolean enabled,
+                                     final io.github.xdstorage.services.XdStorageServicesLocator services) {
         this.enabled = enabled;
         this.foreignKeyResourcesManager = foreignKeyResourcesManager;
         this.foreignKeyRegistry = foreignKeyRegistry;
+        this.services = services;
     }
 
     @Override
@@ -116,10 +126,18 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
                             // FNKEY: the child is deleted — the parent side must dissolve
                             // every still-present entry within this transaction or the
                             // commit veto fires (the "children are deleted first" rule).
+                            // CRASHPURGE (docs/tasks/2.1.0/35): a parent whose RECORD is
+                            // already gone (a torn crash commit) can never dissolve its
+                            // entry — the pair is orphaned residue and is dissolved HERE,
+                            // immediately, instead of arming a commit veto nobody can lift.
                             resource.markChildDeleted(childObjectId, transaction);
                             Collection<Object> parentIds = resource.readByChildObjectId(childObjectId, transaction);
                             for (Object parentObjectId : parentIds) {
-                                resource.registerOrphanedEntry((Comparable<?>) parentObjectId, childObjectId, transaction);
+                                if (parentRecordMissing(relation.getClassFrom(), parentObjectId, transaction)) {
+                                    resource.delete(null, (Comparable<?>) parentObjectId, null, childObjectId, transaction);
+                                } else {
+                                    resource.registerOrphanedEntry((Comparable<?>) parentObjectId, childObjectId, transaction);
+                                }
                             }
                         } else {
                             // child-anchored relation: the declarer itself is gone —
@@ -136,6 +154,29 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
             }
         } else {
             throw new XdStorageException("undefined change type " + type);
+        }
+    }
+
+    /**
+     * CRASHPURGE (docs/tasks/2.1.0/35): whether the PARENT record still exists. A missing
+     * parent (a torn crash commit persisted the FK pair but lost the record) makes the
+     * pair orphaned residue: no live transaction can ever dissolve it, so the recovery
+     * delete path dissolves it immediately instead of arming an unlift-able veto.
+     *
+     * @param parentClInfo the parent class metadata
+     * @param parentObjectId the parent's identifier
+     * @param transaction the deleting transaction
+     * @return {@code true} when the parent record is absent (or its probe failed)
+     */
+    private boolean parentRecordMissing(final XdStorageClassInfo parentClInfo, final Object parentObjectId,
+                                        final IXdStorageTransaction transaction) {
+        try {
+            return services.getStorage().load(parentClInfo.getClazz(), parentObjectId, transaction) == null;
+        } catch (final XdStorageException | XdStorageConnectionException probeFailure) {
+            org.slf4j.LoggerFactory.getLogger(XdStorageForeignKeyEngine.class).warn(
+                    "CRASHPURGE: parent record probe failed for {}#{} — treating as missing (residue): {}",
+                    parentClInfo.getClazz().getSimpleName(), parentObjectId, probeFailure.getMessage());
+            return true;
         }
     }
 

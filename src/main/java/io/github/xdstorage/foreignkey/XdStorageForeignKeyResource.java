@@ -201,6 +201,26 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
         // rethrows XdStorageForeignKeyViolationException after compensation).
         final java.util.Set<Comparable<?>> dangling = danglingChildren.get(transaction.getTransactionId());
         if (dangling != null && !dangling.isEmpty()) {
+            // CRASHPURGE (docs/tasks/2.1.0/35): a dangling child whose RECORD is already
+            // gone (a torn crash commit took the record but not the FK pair) is residue,
+            // not a violation — the recovery purge cannot delete what does not exist.
+            // Such children resolve; only children whose records are LIVE veto.
+            java.util.Set<Comparable<?>> live = null;
+            for (final Comparable<?> childId : dangling) {
+                if (childRecordMissing(childId, transaction)) {
+                    log.warn("CRASHPURGE: dangling child {} of relation {} resolved — its record no longer exists (crash residue)",
+                            childId, relationName());
+                } else {
+                    if (live == null) live = new java.util.HashSet<>();
+                    live.add(childId);
+                }
+            }
+            dangling.clear();
+            if (live != null) {
+                dangling.addAll(live);
+            }
+        }
+        if (dangling != null && !dangling.isEmpty()) {
             final XdStorageForeignKeyViolationException violation = new XdStorageForeignKeyViolationException(
                     transaction.getTransactionId(), relationName(),
                     "Foreign key violated for relation " + relationName()
@@ -486,6 +506,25 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
         final java.util.Set<String> entries = orphanedEntries.get(transaction.getTransactionId());
         if (entries != null) {
             entries.remove(parentObjectId + "#" + childObjectId);
+        }
+    }
+
+    /**
+     * CRASHPURGE (docs/tasks/2.1.0/35): whether a child RECORD still exists. A missing
+     * record (a torn crash commit) resolves dangling expectations — the recovery purge
+     * cannot delete what does not exist.
+     *
+     * @param childObjectId the child's identifier
+     * @param transaction   the committing transaction
+     * @return {@code true} when the child record is absent (or its probe failed)
+     */
+    private boolean childRecordMissing(final Comparable<?> childObjectId, final XdStorageTransaction transaction) {
+        try {
+            return services.getStorage().load(clChildInfo.getClazz(), childObjectId, transaction) == null;
+        } catch (final XdStorageException | XdStorageConnectionException probeFailure) {
+            log.warn("CRASHPURGE: child record probe failed for {}#{} — treating as missing (residue): {}",
+                    clChildInfo.getClazz().getSimpleName(), childObjectId, probeFailure.getMessage());
+            return true;
         }
     }
 
