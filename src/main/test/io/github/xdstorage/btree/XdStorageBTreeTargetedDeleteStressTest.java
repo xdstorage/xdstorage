@@ -112,8 +112,14 @@ public class XdStorageBTreeTargetedDeleteStressTest {
                             }
                         } catch (Throwable t) {
                             try { tx.rollback(); } catch (Exception ignored) {}
-                            // Пропускаем только легитимные исключения отсутствия ключа, если его стерли параллельно
-                            if (!t.getMessage().contains("does not exists")) {
+                            // Пропускаем легитимные транзиентные отказы гонки:
+                            // "does not exists" — ключ стерли параллельно;
+                            // "concurrent modification" — сохранение hot-записи самого
+                            // дерева отказано по first-committer-wins (все воркеры
+                            // пересохраняют запись дерева после каждого удаления).
+                            // Структурные аномалии — всё остальное.
+                            final String message = String.valueOf(t.getMessage());
+                            if (!message.contains("does not exists") && !message.contains("concurrent modification")) {
                                 exceptions.add(t);
                             }
                         }

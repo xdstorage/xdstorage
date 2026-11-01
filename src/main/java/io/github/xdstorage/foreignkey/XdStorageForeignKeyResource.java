@@ -53,7 +53,19 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
     // map [transactionId, countObjectWithoutId]
     private final Map<String, AtomicLong> insertWaitingIdentifiers = new ConcurrentHashMap<>();
 
-    private final Map<String, AtomicLong> deleteWaitingIdentifiers = new ConcurrentHashMap<>();
+    // FNKEY (docs/tasks/2.1.0/42): delete-invariant expectations, per transaction.
+    // deletedChildren — child ids deleted in the tx (identity of the delete flow);
+    // danglingChildren — children alive whose referencing parent was deleted in the tx
+    // (the child MUST be deleted by commit or the veto fires);
+    // orphanedEntries — "parentId#childId" pairs whose child was deleted while the entry
+    // still existed (the entry MUST be dissolved by commit or the veto fires).
+    private final Map<String, java.util.Set<Comparable<?>>> deletedChildren = new ConcurrentHashMap<>();
+    private final Map<String, java.util.Set<Comparable<?>>> danglingChildren = new ConcurrentHashMap<>();
+    private final Map<String, java.util.Set<String>> orphanedEntries = new ConcurrentHashMap<>();
+    // FNKEY: child ids whose INSERT declared a parent relation that the parent's save
+    // must register within the same transaction (the child-alone-save invariant; also
+    // armed by the deferred-id child waiter when the parent id never lands).
+    private final Map<String, java.util.Set<Comparable<?>>> expectedChildInserts = new ConcurrentHashMap<>();
 
     public XdStorageForeignKeyResource(XdStorageServicesLocator services,
                                        Object resourceId,
@@ -183,11 +195,40 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
             throw new XdStorageRuntimeException("Not all foreign keys are registered for relation "
                     + clParentInfo.getClazz() + "#" + clParentField.getName() + " -> " + clChildInfo.getClazz());
 
-        AtomicLong countObjectsWaitingDeleteIdentifiers = deleteWaitingIdentifiers
-                .computeIfAbsent(transaction.getTransactionId(), tId -> new AtomicLong());
-        if (countObjectsWaitingDeleteIdentifiers.get() > 0)
-            throw new XdStorageRuntimeException("Not all foreign keys are deleted for relation "
-                    + clParentInfo.getClazz() + "#" + clParentField.getName() + " -> " + clChildInfo.getClazz());
+        // FNKEY (docs/tasks/2.1.0/42): the delete-invariant veto — every expectation must
+        // be resolved by the commit. The violation is a DESIGNED refusal: it marks the
+        // transaction rollback-only and propagates out of the commit call (the manager
+        // rethrows XdStorageForeignKeyViolationException after compensation).
+        final java.util.Set<Comparable<?>> dangling = danglingChildren.get(transaction.getTransactionId());
+        if (dangling != null && !dangling.isEmpty()) {
+            final XdStorageForeignKeyViolationException violation = new XdStorageForeignKeyViolationException(
+                    transaction.getTransactionId(), relationName(),
+                    "Foreign key violated for relation " + relationName()
+                            + ": the parent was deleted but its children were not (tx "
+                            + transaction.getTransactionId() + ", not deleted children: " + dangling + ")");
+            transaction.markRollbackOnly("foreign key violation: " + relationName(), violation);
+            throw violation;
+        }
+        final java.util.Set<String> orphaned = orphanedEntries.get(transaction.getTransactionId());
+        if (orphaned != null && !orphaned.isEmpty()) {
+            final XdStorageForeignKeyViolationException violation = new XdStorageForeignKeyViolationException(
+                    transaction.getTransactionId(), relationName(),
+                    "Foreign key violated for relation " + relationName()
+                            + ": a child was deleted while its parent still references it (tx "
+                            + transaction.getTransactionId() + ", unresolved relations: " + orphaned + ")");
+            transaction.markRollbackOnly("foreign key violation: " + relationName(), violation);
+            throw violation;
+        }
+        final java.util.Set<Comparable<?>> expectedChildren = expectedChildInserts.get(transaction.getTransactionId());
+        if (expectedChildren != null && !expectedChildren.isEmpty()) {
+            final XdStorageForeignKeyViolationException violation = new XdStorageForeignKeyViolationException(
+                    transaction.getTransactionId(), relationName(),
+                    "Foreign key violated for relation " + relationName()
+                            + ": a child was saved but its parent never registered the relation in this transaction (tx "
+                            + transaction.getTransactionId() + ", unresolved children: " + expectedChildren + ")");
+            transaction.markRollbackOnly("foreign key violation: " + relationName(), violation);
+            throw violation;
+        }
     }
 
     /**
@@ -226,7 +267,10 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
     @Override
     public void release(final XdStorageTransaction transaction) {
         insertWaitingIdentifiers.remove(transaction.getTransactionId());
-        deleteWaitingIdentifiers.remove(transaction.getTransactionId());
+        deletedChildren.remove(transaction.getTransactionId());
+        danglingChildren.remove(transaction.getTransactionId());
+        orphanedEntries.remove(transaction.getTransactionId());
+        expectedChildInserts.remove(transaction.getTransactionId());
     }
 
     /**
@@ -281,6 +325,14 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
 
         Object childObjectId = childIdField.get(childObject);
         if (childObjectId != null) {
+            if (parentObjectId == null) {
+                // FNKEY: the child was saved while its declared parent had no identifier
+                // and nobody registered the pair — arm the child-insert expectation (the
+                // parent's save in this transaction must register the pair, or the veto).
+                expectedChildInserts.computeIfAbsent(transaction.getTransactionId(), tId -> ConcurrentHashMap.newKeySet())
+                        .add((Comparable<?>) childObjectId);
+                return;
+            }
             registerForeignKey(parentObjectId, childObjectId, transaction);
         } else {
             registerChildIdWaiter(parentObjectId, childObject, transaction);
@@ -352,6 +404,30 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
 //        }
 //    }
 
+    /**
+     * FNKEY (docs/tasks/2.1.0/42): removes the (parent, child) relation pair from BOTH
+     * persistent trees — the immediate, transactional primitive (the trees' mutations are
+     * staged changes of the active transaction; the physical flush happens at the commit
+     * phases). On top of the blind removal the method maintains the delete-invariant
+     * expectations:
+     * <ul>
+     *   <li>a pair removal resolves a pending orphaned-entry expectation for that pair
+     *       (the child was deleted first; the parent side followed);</li>
+     *   <li>when the PARENT side dissolves the relation while the child is NOT deleted in
+     *       this transaction (parentObject != null on a parent-anchored relation), the
+     *       child becomes dangling — it must be deleted within the same transaction or
+     *       the commit veto fires.</li>
+     * </ul>
+     *
+     * @param parentObject   the parent-side object when the PARENT side drives the
+     *                       dissolution (deleted/updated), {@code null} for the blind
+     *                       pair removal
+     * @param parentObjectId the parent's identifier
+     * @param childObject    the child-side object when known, {@code null} otherwise
+     * @param childObjectId  the child's identifier
+     * @param transaction    the owning transaction
+     * @throws XdStorageException when either foreign-key tree does not exist
+     */
     @Override
     public void delete(Object parentObject, Comparable<?> parentObjectId, Object childObject, Comparable<?> childObjectId,
                        XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
@@ -370,84 +446,68 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
                     clChildInfo.getClazz().getSimpleName() + " does not exist");
         }
 
-        // registering listeners
-        XdStoragePolicy policy = clParentInfo.getPolicy();
-        XdStorageObjectIdField parentIdField = clParentInfo.getIdField();
+        treeParentChild.delete(parentObjectId, childObjectId, storage, transaction);
+        treeChildParent.delete(childObjectId, parentObjectId, storage, transaction);
 
-        XdStorageAbstractResourcesManager resourcesManager = services.getResourcesManager();
-        if (policy == XdStoragePolicy.StoreAsClassObjects) {
-            final IXdStorageIndexDaoResource resource = resourcesManager.lockIndexResource(clParentInfo, transaction);
+        resolveOrphanedEntry(parentObjectId, childObjectId, transaction);
 
-            if (resource instanceof XdStorageAbstractHashIndexResource) {
-                incrementDeleteWaitingIdentifier(transaction);
-                ((XdStorageAbstractHashIndexResource) resource).registerListener(new IXdStorageInternalListener() {
-                    @Override
-                    public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
-                        if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT && change == XdStorageObjectOperationType.Delete) {
-                            if (oldObject instanceof XdStorageHashIndexRecord
-                                    && ((XdStorageHashIndexRecord) oldObject).getObjectId().equals(parentObjectId)) {
-                                try {
-                                    treeParentChild.delete(parentObjectId, childObjectId, storage, transaction);
-                                    treeChildParent.delete(childObjectId, parentObjectId, storage, transaction);
-                                    decrementDeleteWaitingIdentifier(transaction);
-                                } catch (XdStorageException | XdStorageConnectionException e) {
-                                    throw new RuntimeException(e);
-                                }
-                            }
-                        }
-                    }
-                }, transaction);
-            } else if (resource instanceof XdStorageBTreeIndexResource) {
-                incrementDeleteWaitingIdentifier(transaction);
-                ((XdStorageBTreeIndexResource) resource).registerListener(new IXdStorageInternalListener() {
-                    @Override
-                    public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
-                        if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT && change == XdStorageObjectOperationType.Delete) {
-                            Object pId = parentIdField.get(oldObject);
-                            if (pId.equals(parentObjectId)) {
-                                try {
-                                    treeParentChild.delete(parentObjectId, childObjectId, storage, transaction);
-                                    treeChildParent.delete(childObjectId, parentObjectId, storage, transaction);
-                                    decrementDeleteWaitingIdentifier(transaction);
-                                } catch (XdStorageException | XdStorageConnectionException e) {
-                                    throw new RuntimeException(e);
-                                }
-                            }
-                        }
-                    }
-                }, transaction);
-            }
-        } else if (policy == XdStoragePolicy.StoreAsSingleObject) {
-            if (parentObject == null) {
-                IXdStorageDaoResource index = resourcesManager.lockReferencesResource(clParentInfo, transaction);
-                parentObject = index.read(parentObjectId, transaction);
-            }
-
-            final IXdStorageDaoResource resource = resourcesManager.lockObjectResource(parentObject, transaction);
-
-            if (resource instanceof XdStorageResource) {
-                incrementDeleteWaitingIdentifier(transaction);
-                ((XdStorageResource) resource).registerListener(new IXdStorageInternalListener() {
-                    @Override
-                    public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
-                        if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT && change == XdStorageObjectOperationType.Delete) {
-                            Object pId = parentIdField.get(oldObject);
-                            if (pId.equals(parentObjectId)) {
-                                try {
-                                    treeParentChild.delete(parentObjectId, childObjectId, storage, transaction);
-                                    treeChildParent.delete(childObjectId, parentObjectId, storage, transaction);
-                                    decrementDeleteWaitingIdentifier(transaction);
-                                } catch (XdStorageException | XdStorageConnectionException e) {
-                                    throw new RuntimeException(e);
-                                }
-                            }
-                        }
-                    }
-                }, transaction);
-            }
-        } else {
-            throw new XdStorageException("unsupported delete operation for object with policy " + XdStoragePolicy.StoreWithParentObject);
+        if (parentObject != null && !isChildAnchoredRelation() && !isChildDeleted(childObjectId, transaction)) {
+            // FNKEY: the PARENT side dissolves the relation while the child survives —
+            // the child is now dangling; it must be deleted within this transaction.
+            danglingChildren.computeIfAbsent(transaction.getTransactionId(), tId -> ConcurrentHashMap.newKeySet())
+                    .add(childObjectId);
         }
+    }
+
+    /** FNKEY: {@inheritDoc} — marks the child deleted and resolves its dangling expectation. */
+    @Override
+    public void markChildDeleted(Comparable<?> childObjectId, XdStorageTransaction transaction) {
+        deletedChildren.computeIfAbsent(transaction.getTransactionId(), tId -> ConcurrentHashMap.newKeySet())
+                .add(childObjectId);
+        danglingChildren.computeIfAbsent(transaction.getTransactionId(), tId -> ConcurrentHashMap.newKeySet())
+                .remove(childObjectId);
+    }
+
+    /** FNKEY: whether the child was already deleted in this transaction (per the engine's flow). */
+    private boolean isChildDeleted(Comparable<?> childObjectId, XdStorageTransaction transaction) {
+        final java.util.Set<Comparable<?>> deleted = deletedChildren.get(transaction.getTransactionId());
+        return deleted != null && deleted.contains(childObjectId);
+    }
+
+    /** FNKEY: {@inheritDoc} */
+    @Override
+    public void registerOrphanedEntry(Comparable<?> parentObjectId, Comparable<?> childObjectId, XdStorageTransaction transaction) {
+        orphanedEntries.computeIfAbsent(transaction.getTransactionId(), tId -> ConcurrentHashMap.newKeySet())
+                .add(parentObjectId + "#" + childObjectId);
+    }
+
+    /** FNKEY: resolves the orphaned-entry expectation dissolved by a pair removal. */
+    private void resolveOrphanedEntry(Comparable<?> parentObjectId, Comparable<?> childObjectId, XdStorageTransaction transaction) {
+        final java.util.Set<String> entries = orphanedEntries.get(transaction.getTransactionId());
+        if (entries != null) {
+            entries.remove(parentObjectId + "#" + childObjectId);
+        }
+    }
+
+    /** FNKEY: the relation-name fragment used by the invariant messages. */
+    private String relationName() {
+        return clParentInfo.getClazz().getSimpleName() + "#" + clParentField.getName() + " -> " + clChildInfo.getClazz().getSimpleName();
+    }
+
+    /**
+     * FNKEY: whether this relation was declared through the CHILD's {@code @XdStorageParentObject}
+     * field WITHOUT a counter-{@code @XdStorageAutoSave} on the parent — its deletes dissolve
+     * blindly (the child-side declarer owns the reference; no dangling-child invariants).
+     */
+    private boolean isChildAnchoredRelation() {
+        if (clParentInfo.getAutoSaveFields().stream().anyMatch(autosaveField -> {
+            final Class<?> autosaveChildClass = autosaveField.getAccessor().getFieldInfo().getValueClass();
+            return autosaveChildClass != null && autosaveChildClass == clChildInfo.getClazz();
+        })) {
+            return false;
+        }
+        return clParentInfo.getFields().values().stream().anyMatch(field -> field.isParent()
+                && field.getFieldInfo().getValueClass() == clChildInfo.getClazz());
     }
 
     private void registerForeignKey(Object parentId, Object childId, XdStorageTransaction transaction) throws XdStorageConnectionException, XdStorageException {
@@ -456,6 +516,34 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
 
         treeParentChild.insert((Comparable<?>) parentId, childId, services.getStorage(), transaction);
         treeChildParent.insert((Comparable<?>) childId, parentId, services.getStorage(), transaction);
+
+        // FNKEY: the parent's save registered the declared pair — the child-insert
+        // expectation is resolved.
+        final java.util.Set<Comparable<?>> expected = expectedChildInserts.get(transaction.getTransactionId());
+        if (expected != null) {
+            expected.remove(childId);
+        }
+    }
+
+    /** FNKEY: {@inheritDoc} */
+    @Override
+    public void registerChildInsert(Comparable<?> childObjectId, Comparable<?> parentObjectId, XdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException {
+
+        if (parentObjectId != null && readByChildObjectId(childObjectId, transaction).contains(parentObjectId)) {
+            final XdStorageForeignKeyViolationException violation = new XdStorageForeignKeyViolationException(
+                    transaction.getTransactionId(), relationName(),
+                    "Foreign key violated for relation " + relationName()
+                            + ": the pair is already registered (tx " + transaction.getTransactionId()
+                            + ", parent: " + parentObjectId + ", child: " + childObjectId + ")");
+            transaction.markRollbackOnly("foreign key violation: " + relationName(), violation);
+            throw violation;
+        }
+        // The parent's save in THIS transaction must register the (parent, child) pair —
+        // for a null/id-less parent reference there is nobody to register it unless the
+        // parent object's id lands and its save follows; unresolved at commit = veto.
+        expectedChildInserts.computeIfAbsent(transaction.getTransactionId(), tId -> ConcurrentHashMap.newKeySet())
+                .add(childObjectId);
     }
 
 //    private void unregisterForeignKey(Object parentId, Object childId, XdStorageTransaction transaction) throws XdStorageConnectionException, XdStorageException {
@@ -472,7 +560,15 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
             @Override
             public void onNewIdIsSet(IXdStorageIdObservableWrapper wrapper, Object childId) {
                 try {
-                    registerForeignKey(parentId, childId, transaction);
+                    if (parentId == null) {
+                        // FNKEY: the child's id landed but its declared parent has none and
+                        // nobody registered the pair — the child-insert expectation holds
+                        // the commit veto unless the parent's save registers the pair.
+                        expectedChildInserts.computeIfAbsent(transaction.getTransactionId(), tId -> ConcurrentHashMap.newKeySet())
+                                .add((Comparable<?>) childId);
+                    } else {
+                        registerForeignKey(parentId, childId, transaction);
+                    }
                     decrementInsertWaitingIdentifier(transaction);
                 } catch (XdStorageException | XdStorageConnectionException e) {
                     throw new XdStorageRuntimeException(e);
@@ -573,16 +669,6 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
 
     private void decrementInsertWaitingIdentifier(IXdStorageTransaction transaction) {
         insertWaitingIdentifiers.computeIfAbsent(transaction.getTransactionId(), tId -> new AtomicLong())
-                .decrementAndGet();
-    }
-
-    private void incrementDeleteWaitingIdentifier(IXdStorageTransaction transaction) {
-        deleteWaitingIdentifiers.computeIfAbsent(transaction.getTransactionId(), tId -> new AtomicLong())
-                .incrementAndGet();
-    }
-
-    private void decrementDeleteWaitingIdentifier(IXdStorageTransaction transaction) {
-        deleteWaitingIdentifiers.computeIfAbsent(transaction.getTransactionId(), tId -> new AtomicLong())
                 .decrementAndGet();
     }
 

@@ -30,4 +30,45 @@ public interface IXdStorageForeignKeyResource extends IXdStorageResourceObject {
 
     void delete(Object parentObject, Comparable<?> parentObjectId, Object childObject, Comparable<?> childObjectId,
                 XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+
+    /**
+     * FNKEY (docs/tasks/2.1.0/42): marks a CHILD object as deleted within the transaction —
+     * resolves the pending "deleted parent expects this child's deletion" expectations for
+     * the child and arms the child's pending-entry expectations to be checked at commit.
+     * The engine calls it from the child-delete (income DELETE) flow of parent-anchored
+     * relations.
+     *
+     * @param childObjectId the deleted child's identifier
+     * @param transaction   the deleting transaction
+     */
+    void markChildDeleted(Comparable<?> childObjectId, XdStorageTransaction transaction);
+
+    /**
+     * FNKEY (docs/tasks/2.1.0/42): registers the (parent, child) entry expectation for a
+     * child DELETED in this transaction whose entry still exists — the parent side must
+     * dissolve the entry within the same transaction or the commit veto fires. The engine
+     * calls it from the child-delete (income DELETE) flow of parent-anchored relations.
+     *
+     * @param parentObjectId the parent side of the still-present entry
+     * @param childObjectId  the deleted child's identifier
+     * @param transaction    the deleting transaction
+     */
+    void registerOrphanedEntry(Comparable<?> parentObjectId, Comparable<?> childObjectId, XdStorageTransaction transaction);
+
+    /**
+     * FNKEY (docs/tasks/2.1.0/42): registers a child INSERT under a parent-anchored
+     * relation — the pair (parent, child) MUST be registered by the parent's save within
+     * the same transaction or the commit veto fires. Immediate rejections:
+     * a {@code null}/{@code id-less} parent reference throws on the spot (a child cannot
+     * declare a parent that is not there), and a pair that is ALREADY registered throws
+     * the duplicate-pair rejection.
+     *
+     * @param childObjectId  the saved child's identifier
+     * @param parentObjectId the declared parent's identifier, {@code null} when unset
+     * @param transaction    the saving transaction
+     * @throws XdStorageForeignKeyViolationException when the parent reference is unset or
+     *         the pair is already registered
+     */
+    void registerChildInsert(Comparable<?> childObjectId, Comparable<?> parentObjectId, XdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException;
 }

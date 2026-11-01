@@ -1726,11 +1726,19 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                         storage.update(child, transaction);
                     }
                 } catch (final Throwable t) {
-                    child.unlockWrite();
+                    // R-33/R-38 (FNKEY): ребалансировка под ногами могла уже отпустить
+                    // лок — отпускаем ТОЛЬКО если он реально удерживается этим потоком
+                    if (child.isWriteLocked()) {
+                        child.unlockWrite();
+                    }
                     throw t;
                 }
             } finally {
-                current.unlockWrite();
+                // R-33/R-38 (FNKEY): join/borrow внутри чужой мутации мог снять лок
+                // текущей ноды — guarded unlock вместо безусловного
+                if (current.isWriteLocked()) {
+                    current.unlockWrite();
+                }
             }
             current = child;
             child = null;
@@ -1739,7 +1747,10 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         try {
             current.delete(null, key, value, storage, transaction, retryDelete);
         } finally {
-            current.unlockWrite();
+            // R-33/R-38 (FNKEY): deepUnlock ребалансировки мог отпустить цепь — guarded
+            if (current.isWriteLocked()) {
+                current.unlockWrite();
+            }
         }
     }
 
