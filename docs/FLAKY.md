@@ -24,6 +24,13 @@ tests (20 classes × 10 consecutive surefire passes, 2026-10-19 night).
 | `XdStoragePhantomReadIsolationStressTest` | read-lock contention under full-suite load | flaky in-suite only | R-13, R-18, R-58c | known family, stable green in the 10× gate |
 | `XmlDataStorageMultithreadsTest` | concurrent purge vs rolled-back tx in afterEach | flaky ~1/3 in-suite (fixed) | R-18, R-21, R-31, R-57, R-58 | **FIXED** (5/5 + gate 10/10) |
 
+## Under contention watch (2026-10-23, post-FK commits)
+
+| Test class | Signature | Status |
+|------------|-----------|--------|
+| `XdStorageBTreeTargetedDeleteStressTest` (@Tag stress) | targeted deletes under heavy concurrency collect lock-deadlock/structure-anomaly exceptions on a single hot B+Tree | open — the R-37/B3 hot-node contention family; excluded from release builds by tag |
+| `BTreeResourceCacheIntegrationTest.testIntegration_HeavyParallelLoad_NoDeadlocksOrTimeouts` (@Tag integration) | 15 workers on one index tree: retry-budget exhaustion + latch timeouts on the hot node (id 15) | open — same family; the failures are lock-contention backpressure, no structure corruption reported |
+
 ## Conventions
 
 - A run is judged by Maven's own `BUILD SUCCESS`/`Tests run: N, Failures: M` line — **never by a

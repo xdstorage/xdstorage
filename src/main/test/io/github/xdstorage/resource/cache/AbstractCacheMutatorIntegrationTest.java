@@ -18,7 +18,7 @@ public abstract class AbstractCacheMutatorIntegrationTest {
 
     protected TestCacheContext cacheContext;
     protected XdStorageTransactionWorkspace workspace;
-    protected TestListener listener;
+    protected static TestListener listener;
     protected XdStorageTransaction transaction;
     protected XdStorageCacheMutator mutator;
 
@@ -73,6 +73,11 @@ public abstract class AbstractCacheMutatorIntegrationTest {
 
     // --- Реальный इन-memory Контекст ---
     protected static class TestCacheContext implements XdStorageCacheContext {
+
+        @Override
+        public IXdStorageCacheInternalListener internalListener() {
+            return listener;
+        }
         private final Map<Object, XdStorageCacheRecord> internalRecords = new ConcurrentHashMap<>();
         private final XdStorageTransactionWorkspace workspace;
         private boolean isInfra = false;

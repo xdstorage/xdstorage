@@ -16,6 +16,18 @@ import java.util.Map;
 public interface XdStorageCacheContext {
 
     /**
+     * W-4/FK (docs/tasks/2.1.0/32, task 42): the cache-level internal listener notified at
+     * MUTATION-REGISTRATION time by the cache mutator (phase
+     * {@link XdStorageCacheCommitPhase#PREPARE_COMMIT}, one notification per successful
+     * insert/update/delete). The production context delegates to the resource's
+     * per-transaction listener chain (the foreign-key engine registers there); tests
+     * override it. Default: no listener.
+     */
+    default IXdStorageCacheInternalListener internalListener() {
+        return null;
+    }
+
+    /**
      * Поле идентификатора сущности данного ресурса.
      *
      * @return the id field accessor of this resource's entity class

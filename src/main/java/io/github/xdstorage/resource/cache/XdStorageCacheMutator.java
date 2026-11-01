@@ -1,6 +1,6 @@
 package io.github.xdstorage.resource.cache;
 
-import io.github.xdstorage.transaction.IXdStorageTransaction;
+import io.github.xdstorage.resource.XdStorageObjectOperationType;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import io.github.xdstorage.exceptions.XdStorageException;
@@ -23,6 +23,21 @@ public final class XdStorageCacheMutator {
     private static final Logger log = LoggerFactory.getLogger(XdStorageCacheMutator.class);
 
     private final XdStorageCacheContext cache;
+
+    /**
+     * W-4/FK (task 42): notifies the context's internal listener at MUTATION-REGISTRATION
+     * time — one notification per successful insert/update/delete, phase PREPARE_COMMIT
+     * (the commit-phase notifications fire separately from the commit protocol). The
+     * foreign-key engine consumes these to maintain front/reverse relation entries.
+     */
+    private void notifyMutationRegistered(final XdStorageObjectOperationType type,
+                                          final Object oldObject, final Object newObject,
+                                          final XdStorageTransaction transaction) {
+        final IXdStorageCacheInternalListener listener = cache.internalListener();
+        if (listener != null) {
+            listener.notify(XdStorageCacheCommitPhase.PREPARE_COMMIT, type, oldObject, newObject, transaction);
+        }
+    }
 
     /**
      * Binds the mutator to a cache context.
@@ -152,6 +167,7 @@ public final class XdStorageCacheMutator {
             }
             cache.workspace().registerMutation(transactionId, objectId, record);
         }
+        notifyMutationRegistered(XdStorageObjectOperationType.Insert, null, newObject, transaction);
     }
 
     /**
@@ -182,6 +198,7 @@ public final class XdStorageCacheMutator {
                 log.warn("UPDATE of infrastructure object {} id {} without cache record — re-materializing (structural ghost self-heal)",
                         newObject.getClass().getSimpleName(), objectId);
                 cache.insert(newObject, transaction);
+                notifyMutationRegistered(XdStorageObjectOperationType.Insert, null, newObject, transaction);
                 return;
             }
             throw new XdStorageException("object of " + newObject.getClass() + " with idgeneration " + objectId + " does not exists");
@@ -203,6 +220,10 @@ public final class XdStorageCacheMutator {
                     if (existingRecord.isUpdateChange()) {
                         oldObject = existingRecord.getObject();
                     }
+                    // Контракт листенера (task 42 tests): обновление собственной
+                    // незакоммиченной вставки НЕ является листенер-апдейтом — уведомление
+                    // только для genuine-update записей.
+                    boolean listenerUpdate = existingRecord.isUpdateChange();
 
                     // ИДЕНТИЧНОСТЬ B+ ДЕРЕВА: быстрый путь повторного апдейта обязан подчиняться
                     // тому же правилу живой инстанции, что и полный путь — иначе коммит пишет
@@ -223,6 +244,9 @@ public final class XdStorageCacheMutator {
                         if (previous != null) {
                             transitObjects.put(objectId, new XdStorageCacheObjectChange(newObject, XdStorageCacheChange.update, previous.readTimestamp));
                         }
+                    }
+                    if (listenerUpdate) {
+                        notifyMutationRegistered(XdStorageObjectOperationType.Update, oldObject, newObject, transaction);
                     }
                     return;
                 }
@@ -247,6 +271,7 @@ public final class XdStorageCacheMutator {
         }
 
         final Map<Object, XdStorageCacheObjectChange> readObjects = cache.workspace().readObjectsOf(transaction);
+        final Object previousBody = record.getObject();
 
         final XdStorageCacheObjectChange change = readObjects.get(objectId);
         synchronized (record) {
@@ -290,10 +315,14 @@ public final class XdStorageCacheMutator {
                 record.setNewObject(cache.materializeForCache(newObject));
                 record.markUpdate(transaction);
                 readObjects.put(objectId, new XdStorageCacheObjectChange(newObject, XdStorageCacheChange.update, change != null ? change.readTimestamp : transaction.getTimestart()));
+                notifyMutationRegistered(XdStorageObjectOperationType.Update, previousBody, newObject, transaction);
             } else if (!record.isCommitedState() && record.isChangedByTransaction(transaction)) {
                 if (record.isUpdateChange() || record.isInsertChange()) {
                     record.setNewObject(cache.materializeForCache(newObject));
                     readObjects.put(objectId, new XdStorageCacheObjectChange(newObject, XdStorageCacheChange.update, change != null ? change.readTimestamp : transaction.getTimestart()));
+                    if (record.isUpdateChange()) {
+                        notifyMutationRegistered(XdStorageObjectOperationType.Update, previousBody, newObject, transaction);
+                    }
                 } else {
                     throw new XdStorageException("object of " + newObject.getClass() + " with idgeneration " + objectId + " was deleted this transaction");
                 }
@@ -301,6 +330,7 @@ public final class XdStorageCacheMutator {
                 record.setNewObject(cache.materializeForCache(newObject));
                 record.markUpdate(transaction);
                 readObjects.put(objectId, new XdStorageCacheObjectChange(newObject, XdStorageCacheChange.update, change != null ? change.readTimestamp : transaction.getTimestart()));
+                notifyMutationRegistered(XdStorageObjectOperationType.Update, previousBody, newObject, transaction);
             } else {
                 throw new XdStorageException("concurrent modification one object of " + newObject.getClass() + " with idgeneration " + objectId);
             }
@@ -361,6 +391,7 @@ public final class XdStorageCacheMutator {
         }
 
         final Map<Object, XdStorageCacheObjectChange> readObjects = cache.workspace().readObjectsOf(transaction);
+        final Object deletedBody = record.getObject();
 
         synchronized (record) {
             final XdStorageCacheObjectChange change = readObjects.get(objectId);
@@ -413,5 +444,6 @@ public final class XdStorageCacheMutator {
         }
 
         cache.workspace().registerMutation(transactionId, objectId, record);
+        notifyMutationRegistered(XdStorageObjectOperationType.Delete, deletedBody, null, transaction);
     }
 }

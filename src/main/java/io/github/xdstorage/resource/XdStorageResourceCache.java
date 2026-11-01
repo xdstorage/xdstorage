@@ -102,8 +102,20 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
         }
     }
 
+    private IXdStorageCacheInternalListener internalListener =
+            (phase, change, oldObject, newObject, transaction) -> { };
+
     public void setInternalListener(IXdStorageCacheInternalListener listener) {
-        this.commitProtocol.setInternalListener(listener);
+        this.internalListener = listener != null
+                ? listener
+                : (phase, change, oldObject, newObject, transaction) -> { };
+        this.commitProtocol.setInternalListener(this.internalListener);
+    }
+
+    /** W-4/FK: the mutator notifies this listener at mutation-registration time. */
+    @Override
+    public IXdStorageCacheInternalListener internalListener() {
+        return internalListener;
     }
 
     // =========================================================================

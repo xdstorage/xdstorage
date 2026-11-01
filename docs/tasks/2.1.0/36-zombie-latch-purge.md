@@ -91,3 +91,13 @@ Estimate: ~1–2 dev-days.
 - R-41 (the nested force-sweep this generalizes), R-36 (the retry/backoff pattern),
   PERF study §8.3 (the explicit-timeout advice)
 - [EMBEDDING.md](../../EMBEDDING.md) § Transactions and threads (the binding contract)
+
+## Update 2026-10-23 (post-W-4a/FK run)
+
+The signature CHANGED after the FK/internal-listener commits: the purge now dies with
+`IllegalMonitorStateException: Блокировка записи не удерживается текущим потоком` at the
+purge's cascade delete (test :222) — a record write-lock released/unlocked from a thread
+that does not hold it, consistent with a zombie-transaction rollback racing the purge
+thread's lock chain. The old `locked for undefined` signature has not re-appeared since.
+The fix scope is unchanged (worker hygiene + the top-level abandoned-tx sweep + explicit
+purge timeouts); add the cross-thread unlock path to the analysis when picked up.
