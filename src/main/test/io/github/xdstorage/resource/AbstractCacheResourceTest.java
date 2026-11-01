@@ -51,9 +51,11 @@ public abstract class AbstractCacheResourceTest {
         return tx;
     }
 
-    protected static class TestEntity {
+    public static class TestEntity {
         private final String data;
+        public TestEntity() { this.data = "default"; }
         public TestEntity(String data) { this.data = data; }
+        public String getData() { return data; }
         @Override
         public String toString() { return "TestEntity{" + data + "}"; }
     }
