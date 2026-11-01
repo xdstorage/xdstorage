@@ -75,7 +75,7 @@ public class XdStorageObjectIdFieldTest {
         XdStorageObjectIdField idField = new XdStorageObjectIdField(field, setter, getter, dummyFieldInfo);
 
         // Проверяем, что метод вытягивает именно тот тип генератора, который указан в аннотации (UUID_GENERATOR)
-        assertEquals(XdStorageIdGeneratorType.UUID_GENERATOR, idField.getIdGeneretorType());
+        assertEquals(XdStorageIdGeneratorType.UUID_GENERATOR, idField.getIdGeneratorType());
     }
 
     @Test
@@ -102,7 +102,7 @@ public class XdStorageObjectIdFieldTest {
         XdStorageObjectIdField idField = new XdStorageObjectIdField(field, setter, getter, dummyFieldInfo);
 
         // Согласно коду, в этом случае должен вернуться дефолтный XdStorageIdGeneratorType.CUSTOM_GENERATOR
-        assertEquals(XdStorageIdGeneratorType.CUSTOM_GENERATOR, idField.getIdGeneretorType());
+        assertEquals(XdStorageIdGeneratorType.CUSTOM_GENERATOR, idField.getIdGeneratorType());
     }
 
     @Test

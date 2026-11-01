@@ -1028,7 +1028,7 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
             // Это на 100% защищает первичные индексы адресации id_index от повреждения данных!
             // =========================================================================
             if (!getTree().isMultiple() && compareResult == 0) {
-                throw new XdStorageException("trying to double insert one object of " + getTree().getId() + " with idgeneration " + key);
+                throw new XdStorageException("trying to double insert one object of " + getTree().getId() + " with id " + key);
             } else if (compareResult < 0) {
                 getKeys().add(i, key);
                 getObjects().add(i, object);
@@ -1622,7 +1622,7 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                         + " parentKeys=" + (getParent() != null ? getParent().getKeys() : null)
                         + " parentChildren=" + (getParent() != null ? idsOf(getParent().getChildren()) : null));
             }
-            throw new XdStorageException("object of " + tree.getId() + " with idgeneration " + key + " does not exists");
+            throw new XdStorageException("object of " + tree.getId() + " with id " + key + " does not exists");
         }
 
         storage.update(this, transaction);
@@ -1856,7 +1856,7 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                 }
             }
             if (!isUpdated) {
-                throw new XdStorageException("search index caouldn't be updated because object with idgeneration " + key + " doesn't exist");
+                throw new XdStorageException("search index couldn't be updated because object with id " + key + " doesn't exist");
             }
         } finally {
             current.unlockWrite();

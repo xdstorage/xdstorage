@@ -589,7 +589,7 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
         final Object objectId = objectIdField.get(reference);
         final Object resourceId = getObjectResourceId(objectId, transaction);
         if (resourceId == null) {
-            throw new XdStorageException("cannot load by reference object of class " + reference.getClass() + " with idgeneration " + objectId);
+            throw new XdStorageException("cannot load by reference object of class " + reference.getClass() + " with id " + objectId);
         }
         final IXdStorageDaoResource resource = manager.lockResource(resourceId, objectClInfo, transaction);
         resource.readByReference(reference, transaction);
@@ -658,9 +658,9 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
         // BUG-D (docs/tasks/2.1.0/14): UUID_GENERATOR generates here too — the mux
         // dispatches by id type and validates UUID_GENERATOR to String id fields.
         if (objectId == null &&
-                (objectIdField.getIdGeneretorType() == XdStorageIdGeneratorType.DATABASE_GENERATOR
-                        || objectIdField.getIdGeneretorType() == XdStorageIdGeneratorType.UUID_GENERATOR
-                        || objectIdField.getIdGeneretorType() == XdStorageIdGeneratorType.CUSTOM_GENERATOR)
+                (objectIdField.getIdGeneratorType() == XdStorageIdGeneratorType.DATABASE_GENERATOR
+                        || objectIdField.getIdGeneratorType() == XdStorageIdGeneratorType.UUID_GENERATOR
+                        || objectIdField.getIdGeneratorType() == XdStorageIdGeneratorType.CUSTOM_GENERATOR)
                 && idGenerator != null) {
             objectIdField.set(XdStorageObserverService.getObservableWrapper(object), objectId = idGenerator.generate(object.getClass(), services.getStorage(), transaction));
         }
@@ -699,7 +699,7 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
             }
         }
 
-        final Object resourceId = manager.getFreeResourceId(objectClInfo.getClazz(), fragmentSize);
+        final Object resourceId = manager.reserveFreeResourceId(objectClInfo.getClazz(), fragmentSize);
         final IXdStorageDaoResource resource;
         if (resourceId == null) {
             resource = manager.lockResource(objectClInfo, objectId, transaction);
@@ -749,13 +749,13 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
         final XdStorageBTreeId bTreeId = new XdStorageBTreeId(objectClInfo.getClazz(), "id_index");
         final XdStorageBTree tree = storage.load(XdStorageBTree.class, bTreeId, transaction);
         if (tree == null) {
-            throw new XdStorageException("object of class " + object.getClass() + " with idgeneration " + objectId + " does not exists");
+            throw new XdStorageException("object of class " + object.getClass() + " with id " + objectId + " does not exists");
         }
 
         final List<Object> result = tree.find((Comparable) objectId, storage, transaction);
         final Object resourceId = result.isEmpty() ? null : result.get(0);
         if (resourceId == null) {
-            throw new XdStorageException("object of class " + object.getClass() + " with idgeneration " + objectId + " does not exists");
+            throw new XdStorageException("object of class " + object.getClass() + " with id " + objectId + " does not exists");
         }
 
         final IXdStorageDaoResource resource = manager.lockResource(resourceId, objectClInfo, transaction);
@@ -787,13 +787,13 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
         final XdStorageBTreeId bTreeId = new XdStorageBTreeId(objectClInfo.getClazz(), "id_index");
         final XdStorageBTree tree = storage.load(XdStorageBTree.class, bTreeId, transaction);
         if (tree == null) {
-            throw new XdStorageException("object of class " + object.getClass() + " with idgeneration " + objectId + " does not exists");
+            throw new XdStorageException("object of class " + object.getClass() + " with id " + objectId + " does not exists");
         }
 
         final List<Object> result = tree.find((Comparable) objectId, storage, transaction);
         final Object resourceId = result.isEmpty() ? null : result.get(0);
         if (resourceId == null) {
-            throw new XdStorageException("object of class " + object.getClass() + " with idgeneration " + objectId + " does not exists");
+            throw new XdStorageException("object of class " + object.getClass() + " with id " + objectId + " does not exists");
         }
 
         final IXdStorageDaoResource resource = manager.lockResource(resourceId, objectClInfo, transaction);

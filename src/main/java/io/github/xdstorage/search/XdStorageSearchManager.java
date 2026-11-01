@@ -438,7 +438,7 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
         final XdStorageSearchIndex index = clInfo.getIndexes().get(indexName);
         if (index == null) {
-            throw new XdStorageException("requred index '" + indexName + "' for class " + cl.getName() + " doesn't exist");
+            throw new XdStorageException("required index '" + indexName + "' for class " + cl.getName() + " doesn't exist");
         }
 
         final XdStoragePolicy policy = clInfo.getPolicy();
@@ -477,7 +477,7 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
         final XdStorageSearchIndex index = clInfo.getIndexes().get(indexName);
         if (index == null) {
-            throw new XdStorageException("requred index '" + indexName + "' for class " + cl.getName() + " doesn't exist");
+            throw new XdStorageException("required index '" + indexName + "' for class " + cl.getName() + " doesn't exist");
         }
 
         final XdStoragePolicy policy = clInfo.getPolicy();

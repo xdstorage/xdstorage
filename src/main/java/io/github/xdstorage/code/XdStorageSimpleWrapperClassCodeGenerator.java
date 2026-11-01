@@ -155,6 +155,7 @@ public class XdStorageSimpleWrapperClassCodeGenerator extends XdStorageAbstractC
      * @param cl             the entity class being wrapped
      * @return {@code SimpleName + "SimpleWrapper"}
      */
+    @Override
     protected String buildClassName(final String classesPackage, final Class<?> cl) {
         return cl.getSimpleName() + "SimpleWrapper";
     }

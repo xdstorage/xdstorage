@@ -13,7 +13,7 @@ import io.github.xdstorage.utils.XdStorageClassInfo;
  * The concrete resources manager of a file-backed storage: creates plain data and references
  * resources, and hash or B-tree id-index resources depending on the entity's declared index
  * type. New {@code StoreAsClassObjects} fragments are capped at the configured fragment size
- * (see {@link #getFreeResourceId}). Thread-safety as of the abstract base: all state is kept
+ * (see {@link #reserveFreeResourceId}). Thread-safety as of the abstract base: all state is kept
  * in concurrent maps.
  *
  * <p>Engine-internal — not part of the public API.</p>

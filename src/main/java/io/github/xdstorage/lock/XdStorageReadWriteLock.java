@@ -214,7 +214,8 @@ public class XdStorageReadWriteLock {
                 log.error("Read-lock acquisition failed after {} ms (holder thread: {}, tx: {}){} — timeout or leaked write-lock",
                         elapsed / 1_000_000, writeLockThread, transaction != null ? transaction.getTransactionId() : null,
                         describeLockState());
-                throw new XdStorageRuntimeException("Конфликт блокировок MVCC: Ресурс занят на чтение другим потоком. Превышен таймаут ожидания: " + timeout / 1_000_000 + " мс");
+                throw new XdStorageRuntimeException("Конфликт блокировок MVCC: Ресурс заблокирован чужой WRITE-блокировкой (держатель: "
+                        + (writeLockThread != null ? writeLockThread.getName() : "null") + "). Превышен таймаут ожидания: " + timeout / 1_000_000 + " мс");
             }
             Thread.sleep(Math.min(sleepStep, timeout - elapsed));
         }
@@ -250,8 +251,8 @@ public class XdStorageReadWriteLock {
         if (waitedMs >= 1000) {
             io.github.xdstorage.metrics.XdStorageMetrics.engineEvents()
                     .increment(io.github.xdstorage.metrics.XdStorageMetrics.LOCK_WAITS_OVER_1S);
-            log.warn("{}-lock acquired after {} ms — possible write-lock leak (holder: {}) or reader starvation",
-                    kind, waitedMs, writeLockThread);
+            log.warn("{}-lock acquired after {} ms by tx {} — possible write-lock leak (holder: {}) or reader starvation",
+                    kind, waitedMs, transaction != null ? transaction.getTransactionId() : null, writeLockThread);
         }
     }
 

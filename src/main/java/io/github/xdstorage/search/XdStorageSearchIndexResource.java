@@ -274,12 +274,12 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
             }
         }
         if (keyTree == null) {
-            throw new XdStorageException("object with idgeneration " + record.getId() + " does not exists");
+            throw new XdStorageException("object with id " + record.getId() + " does not exists");
         }
 
         final List<Object> findResult = keyTree.find((Comparable) record.getId(), storage, transaction);
         if (findResult == null || findResult.isEmpty()) {
-            throw new XdStorageException("object with idgeneration " + record.getId() + " does not exists in index keys");
+            throw new XdStorageException("object with id " + record.getId() + " does not exists in index keys");
         }
 
         final XdStorageSearchKeyIndexRecord oldHashIndexRecord = (XdStorageSearchKeyIndexRecord) findResult.get(0);
@@ -304,7 +304,7 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
             System.out.println("[CHAIN] SEARCH-TREE-MISS id=" + searchBTreeId + " recordId=" + record.getId());
         }
         if (tree == null) {
-            throw new XdStorageException("object with idgeneration " + record.getId() + " does not exists");
+            throw new XdStorageException("object with id " + record.getId() + " does not exists");
         }
         restoreSearchKeyTypesIfNeeded(keyTree, storage, transaction);
         restoreSearchKeyTypesIfNeeded(tree, storage, transaction);

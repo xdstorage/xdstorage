@@ -54,7 +54,7 @@ public class XdStorageDefaultIdGenerator implements IXdStorageIdGenerator {
             // BUG-D (docs/tasks/2.1.0/14): UUID_GENERATOR forces the UUID (String) generator
             // and is validated to String id fields — a numeric id under UUID_GENERATOR is a
             // loud contract error, never a silently different id type.
-            if (idField.getIdGeneretorType() == XdStorageIdGeneratorType.UUID_GENERATOR) {
+            if (idField.getIdGeneratorType() == XdStorageIdGeneratorType.UUID_GENERATOR) {
                 if (idClass != String.class) {
                     throw new XdStorageException("UUID_GENERATOR requires a String id field, got " + idClass.getName()
                             + " for " + cl.getName() + " — mixed-type id generation fails loudly");
@@ -62,7 +62,7 @@ public class XdStorageDefaultIdGenerator implements IXdStorageIdGenerator {
                 generator = generatorsByIdClassName.get(String.class);
             }
 
-            if (idField.getIdGeneretorType() == XdStorageIdGeneratorType.CUSTOM_GENERATOR
+            if (idField.getIdGeneratorType() == XdStorageIdGeneratorType.CUSTOM_GENERATOR
                     && idField.getIdGeneratorClass() != null) {
                 generator = registerIfNotExistAndGet(idField.getIdGeneratorClass());
             }

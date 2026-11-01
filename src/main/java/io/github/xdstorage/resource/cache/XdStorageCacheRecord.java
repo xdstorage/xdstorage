@@ -175,6 +175,9 @@ public class XdStorageCacheRecord {
     }
 
     /** R-40 диагностика отказов: состояние записи на момент отказа обновления.
+     * Дубликат-диагностика alongside {@link #getRecordTimestamp()} — intentional
+     * (R-40's refusal dumps print both the state and the version stamp); the pair
+     * stays, see also {@link #getRecordTimestamp()}.
      *
      * @return the record's current internal state as text (one of {@code undefined},
      *         {@code locked}, {@code committed}, {@code rolledback})
@@ -200,6 +203,8 @@ public class XdStorageCacheRecord {
     }
 
     /** R-40 диагностика отказов: timestamp записи на момент отказа обновления.
+     * Дубликат-диагностика alongside {@link #getState()} — intentional (R-40's refusal
+     * dumps print both); see also {@link #getState()}.
      *
      * @return the timestamp of the record's current version (see {@link #getTimestamp()})
      */

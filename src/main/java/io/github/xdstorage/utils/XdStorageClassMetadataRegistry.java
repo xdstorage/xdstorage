@@ -24,22 +24,15 @@ public final class XdStorageClassMetadataRegistry {
     private XdStorageClassMetadataRegistry() {}
 
     /**
-     * BUG-A (docs/tasks/2.1.0/15): resolves a class by name among the classes this JVM's
-     * storages have already registered — regardless of WHICH classloader loaded them. The
-     * plain Class.forName/ClassUtils path only sees the system/context loaders, so a class
-     * the application loaded through its own classloader (an upgraded entity generation)
-     * was invisible to journal/data replay and its records degraded into null-keyed poison.
-     * Returns null when no registered (or loadable) class matches.
-     */
-    /**
      * BUG-A (docs/tasks/2.1.0/15): Class.forName-compatible resolver for the serialization
-     * layer — TCCL first, then every class any storage of this JVM has registered (whatever
-     * classloader loaded it), then the caller's loader. Throws ClassNotFoundException with
-     * the original semantics so the readers' error paths stay intact.
+     * layer — the registry first (an already-registered class is returned as the EXACT
+     * instance the engine uses, whatever classloader loaded it — re-deriving the identity
+     * through a different loader degraded journal/data replay into null-keyed poison),
+     * then TCCL, then the caller's loader. Throws ClassNotFoundException with the original
+     * semantics so the readers' error paths stay intact.
      *
      * @param name the fully-qualified binary class name to resolve
-     * @return the resolved {@link Class} (identity-preferred: an already-registered class is
-     *         returned as the exact instance the engine uses)
+     * @return the resolved {@link Class}
      * @throws ClassNotFoundException when no registered class matches and every loader path fails
      */
     public static Class<?> resolveOrThrow(final String name) throws ClassNotFoundException {

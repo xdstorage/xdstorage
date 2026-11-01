@@ -31,7 +31,7 @@ public class XdStorageObjectIdField extends XdStorageObjectField {
      *
      * @return the configured id generator type, {@code CUSTOM_GENERATOR} when the field has no properties annotation
      */
-    public XdStorageIdGeneratorType getIdGeneretorType() {
+    public XdStorageIdGeneratorType getIdGeneratorType() {
         if (field.isAnnotationPresent(XdStorageObjectFieldProperties.class)) {
             return field.getAnnotation(XdStorageObjectFieldProperties.class).idGeneratorType();
         }

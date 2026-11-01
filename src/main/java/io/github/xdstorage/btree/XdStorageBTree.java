@@ -103,7 +103,7 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
         this.t = t;
 
         if (t <= 1) {
-            throw new XdStorageRuntimeException("Parameter t of BTree cannot be letter or equal 1");
+            throw new XdStorageRuntimeException("Parameter t of BTree cannot be less than or equal to 1");
         }
     }
 
@@ -351,7 +351,7 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      */
     public void setT(final int t) {
         if (t <= 1) {
-            throw new XdStorageRuntimeException("Parameter t of BTree cannot be letter or equal 1");
+            throw new XdStorageRuntimeException("Parameter t of BTree cannot be less than or equal to 1");
         }
         this.t = t;
     }
@@ -544,7 +544,7 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
                 }
             } else {
                 if (!wasInitialized && !isReference) {
-                    throw new XdStorageException("object of " + (id != null ? id.getCl().getName() : "Unknown") + " with idgeneration " + key + " does not exists");
+                    throw new XdStorageException("object of " + (id != null ? id.getCl().getName() : "Unknown") + " with id " + key + " does not exists");
                 }
                 return;
             }
@@ -743,7 +743,7 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
             }
 
             if (root == null) {
-                throw new XdStorageException("object of " + id + " with idgeneration " + key + " does not exists");
+                throw new XdStorageException("object of " + id + " with id " + key + " does not exists");
             }
 
             // R-53: парсерный стаб корня (холодное открытие) заменяется каноническим инстансом;
@@ -797,7 +797,7 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
                         System.out.println("[CHAIN] UPDATE-MISS tree=" + id + " key=" + key + " wasInitialized=" + wasInitialized);
                         new Exception("update-miss-stack").printStackTrace(System.out);
                     }
-                    throw new XdStorageException("object of " + id + " with idgeneration " + key + " does not exists");
+                    throw new XdStorageException("object of " + id + " with id " + key + " does not exists");
                 }
                 structureVersion.incrementAndGet();
                 activeMutations.incrementAndGet();

@@ -631,7 +631,7 @@ public class XdStorageDefaultObjectsWriter implements IXdStorageObjectsWriter {
     private void assignGeneratedIdIfNeeded(final Class<?> cl, final Object object) throws XdStorageIOException {
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
         final XdStorageObjectIdField idField = clInfo.getIdField();
-        final XdStorageIdGeneratorType generatorType = idField.getIdGeneretorType();
+        final XdStorageIdGeneratorType generatorType = idField.getIdGeneratorType();
         final boolean engineGenerates = generatorType == XdStorageIdGeneratorType.DATABASE_GENERATOR
                 || generatorType == XdStorageIdGeneratorType.UUID_GENERATOR
                 || generatorType == XdStorageIdGeneratorType.CUSTOM_GENERATOR;

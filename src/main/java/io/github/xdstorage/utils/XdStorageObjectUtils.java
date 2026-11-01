@@ -57,9 +57,14 @@ public final class XdStorageObjectUtils {
     }
 
     /**
-     * Probes whether the object can be wrapped in the generated unmodifiable wrapper (the
-     * generated checker says yes); any probe failure answers {@code true}, i.e. "treat as
-     * wrappable".
+     * Probes whether the object can be wrapped in the generated unmodifiable wrapper:
+     * {@code true} when the entity class has a REAL (non-dummy) generated wrapper — i.e.
+     * the wrap will succeed — and {@code true} also on any probe failure ("assume
+     * wrappable"). {@code false} only when the proxy engine answered with the DUMMY
+     * wrapper (compilation failed). MSGHYGIENE (docs/tasks/2.1.0/39): the polarity was
+     * re-verified against the generated {@code isDummyUnmodifiableWrapper} marker
+     * (real wrapper = {@code false}) — the name reads true=wrappable and is CORRECT;
+     * the confusing part was the double negation in the implementation, not the name.
      *
      * @param object the object to probe, must not be {@code null}
      * @return {@code true} when the entity class accepts an unmodifiable wrapper

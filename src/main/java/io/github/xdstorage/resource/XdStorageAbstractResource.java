@@ -198,8 +198,8 @@ public abstract class XdStorageAbstractResource implements IXdStorageResourceObj
 
     public void insertReference(final Object reference, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
         Object objectId = idField.get(reference);
-        if ((idField.getIdGeneretorType() == XdStorageIdGeneratorType.DATABASE_GENERATOR
-                || idField.getIdGeneretorType() == XdStorageIdGeneratorType.CUSTOM_GENERATOR)
+        if ((idField.getIdGeneratorType() == XdStorageIdGeneratorType.DATABASE_GENERATOR
+                || idField.getIdGeneratorType() == XdStorageIdGeneratorType.CUSTOM_GENERATOR)
                 && objectId == null && idGenerator != null) {
             idField.set(reference, idGenerator.generate(reference.getClass(), services.getStorage(), transaction));
         }

@@ -601,7 +601,7 @@ public abstract class XdStorageAbstractResourcesManager {
      * @return the resource id of the fragment with the reserved slot, or {@code null} when
      *         the class has no counters yet or every fragment is full
      */
-    public Object getFreeResourceId(final Class<?> cl, final long fragmentSize) {
+    public Object reserveFreeResourceId(final Class<?> cl, final long fragmentSize) {
         final Map<Object, AtomicLong> objectsCounters = countObjects.get(cl);
         if (objectsCounters != null) {
             for (final Map.Entry<Object, AtomicLong> entry : objectsCounters.entrySet()) {

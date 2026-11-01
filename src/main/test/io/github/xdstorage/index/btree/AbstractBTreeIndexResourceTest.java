@@ -67,7 +67,7 @@ public abstract class AbstractBTreeIndexResourceTest {
         when(mockDaoResource.getResourceId()).thenReturn("test-resource-id-string");
         when(mockManager.lockResource(any(XdStorageClassInfo.class), any(Object.class), any())).thenReturn(mockDaoResource);
         when(mockManager.lockResource(any(Object.class), any(), any())).thenReturn(mockDaoResource);
-        when(mockManager.getFreeResourceId(any(Class.class), anyLong())).thenReturn("test-resource-id-string");
+        when(mockManager.reserveFreeResourceId(any(Class.class), anyLong())).thenReturn("test-resource-id-string");
 
         IXdStorageIOFactory mockIoFactory = mock(IXdStorageIOFactory.class);
         IXdStorageObjectsReader mockReader = mock(IXdStorageObjectsReader.class);

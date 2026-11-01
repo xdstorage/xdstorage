@@ -118,7 +118,18 @@ public abstract class XdStorageAbstractClassCodeGenerator {
                                            final Type genReturnType, final Class<?>[] parameterTypes, final Type[] genParameterTypes,
                                            final Class<?>[] exceptionTypes) {
         final StringBuilder builder = new StringBuilder();
-        builder.append("public ");
+        // MSGHYGIENE (docs/tasks/2.1.0/39): the modifiers parameter was ignored and the
+        // header was always 'public'. Decision RECORDED: wired now via Modifier.toString
+        // (interface implementations still emit public — their reflected modifiers carry
+        // public/abstract, and 'abstract' is stripped: generated bodies have real bodies).
+        String modifierString = java.lang.reflect.Modifier.toString(modifiers);
+        if (modifierString.contains("abstract")) {
+            modifierString = modifierString.replace("abstract", "").trim();
+        }
+        if (modifierString.isEmpty()) {
+            modifierString = "public";
+        }
+        builder.append(modifierString).append(" ");
         if (typeParameters != null && typeParameters.length > 0) {
             builder.append("<");
             for (int i = 0; i < typeParameters.length; ++i) {

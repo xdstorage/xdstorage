@@ -372,7 +372,7 @@ public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIn
         final Object objectId = objectIdField.get(reference);
         final Object resourceId = index.getResourceId(objectId);
         if (resourceId == null) {
-            throw new XdStorageException("cannot load by reference object of class " + reference.getClass() + " with idgeneration " + objectId);
+            throw new XdStorageException("cannot load by reference object of class " + reference.getClass() + " with id " + objectId);
         }
 
         final IXdStorageDaoResource resource = manager.lockResource(resourceId, objectClInfo, transaction);
@@ -464,7 +464,7 @@ public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIn
         final Object objectId = objectIdField.get(object);
         final Object resourceId = index.getResourceId(objectId);
         if (resourceId == null) {
-            throw new XdStorageException("object of class " + object.getClass() + " with idgeneration " + objectId + " does not exists");
+            throw new XdStorageException("object of class " + object.getClass() + " with id " + objectId + " does not exists");
         }
 
         final IXdStorageDaoResource resource = manager.lockResource(resourceId, objectClInfo, transaction);
@@ -485,7 +485,7 @@ public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIn
         final Object objectId = objectIdField.get(object);
         final Object resourceId = index.getResourceId(objectId);
         if (resourceId == null) {
-            throw new XdStorageException("object of class " + object.getClass() + " with idgeneration " + objectId + " does not exists");
+            throw new XdStorageException("object of class " + object.getClass() + " with id " + objectId + " does not exists");
         }
 
         final IXdStorageDaoResource resource = manager.lockResource(resourceId, objectClInfo, transaction);

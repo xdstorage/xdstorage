@@ -1009,7 +1009,7 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
                     readObjects.putIfAbsent(objectId, new XdStorageCacheObjectChange(reference, XdStorageCacheChange.read, System.nanoTime()));
                     return;
                 }
-                throw new XdStorageException("cannot load by reference object of " + reference.getClass() + " with idgeneration " + field.get(reference));
+                throw new XdStorageException("cannot load by reference object of " + reference.getClass() + " with id " + field.get(reference));
             }
             synchronized (record) {
                 // R-58: гидрация ссылки обязана быть СОГЛАСОВАННОЙ СО СНАПШОТОМ читателя.
@@ -1053,9 +1053,9 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
             }
             throw new io.github.xdstorage.exceptions.XdStorageReferenceInvisibleException(
                     "reference is not visible in the reader snapshot: object of " + reference.getClass()
-                            + " with idgeneration " + field.get(reference));
+                            + " with id " + field.get(reference));
         }
-        throw new XdStorageException("cannot load by reference object of " + reference.getClass() + " with idgeneration " + field.get(reference));
+        throw new XdStorageException("cannot load by reference object of " + reference.getClass() + " with id " + field.get(reference));
     }
 
     /**

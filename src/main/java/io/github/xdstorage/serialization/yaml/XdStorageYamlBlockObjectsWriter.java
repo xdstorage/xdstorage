@@ -75,8 +75,8 @@ public class XdStorageYamlBlockObjectsWriter {
         for (final XdStorageObjectField property : props) {
             if (property.isIdField()) {
                 final XdStorageObjectIdField idField = clInfo.getIdField();
-                if ((idField.getIdGeneretorType() == XdStorageIdGeneratorType.DATABASE_GENERATOR
-                        || idField.getIdGeneretorType() == XdStorageIdGeneratorType.CUSTOM_GENERATOR)
+                if ((idField.getIdGeneratorType() == XdStorageIdGeneratorType.DATABASE_GENERATOR
+                        || idField.getIdGeneratorType() == XdStorageIdGeneratorType.CUSTOM_GENERATOR)
                         && idField.get(object) == null) {
                     idField.set(XdStorageObserverService.getObservableWrapper(object), idGenerator.generate(cl, services.getStorage(), null));
                 }

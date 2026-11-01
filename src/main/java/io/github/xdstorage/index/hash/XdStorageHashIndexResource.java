@@ -560,15 +560,15 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
         // BUG-D (docs/tasks/2.1.0/14): UUID_GENERATOR generates here too — the mux
         // dispatches by id type and validates UUID_GENERATOR to String id fields.
         if (objectId == null &&
-                (objectIdField.getIdGeneretorType() == XdStorageIdGeneratorType.DATABASE_GENERATOR
-                        || objectIdField.getIdGeneretorType() == XdStorageIdGeneratorType.UUID_GENERATOR
-                        || objectIdField.getIdGeneretorType() == XdStorageIdGeneratorType.CUSTOM_GENERATOR)
+                (objectIdField.getIdGeneratorType() == XdStorageIdGeneratorType.DATABASE_GENERATOR
+                        || objectIdField.getIdGeneratorType() == XdStorageIdGeneratorType.UUID_GENERATOR
+                        || objectIdField.getIdGeneratorType() == XdStorageIdGeneratorType.CUSTOM_GENERATOR)
                 && idGenerator != null) {
             objectIdField.set(XdStorageObserverService.getObservableWrapper(object), objectId = idGenerator.generate(object.getClass(), services.getStorage(), transaction));
         }
         final Object resourceId = index.getResourceId(objectId);
         if (resourceId != null) {
-            throw new XdStorageException("object of class " + object.getClass() + " with idgeneration " + objectId + " is exists");
+            throw new XdStorageException("object of class " + object.getClass() + " with id " + objectId + " is exists");
         }
         super.insert(object, transaction);
     }
