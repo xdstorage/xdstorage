@@ -28,7 +28,7 @@ tests (20 classes × 10 consecutive surefire passes, 2026-10-19 night).
 
 | Test class | Signature | Status |
 |------------|-----------|--------|
-| `XdStorageBTreeTargetedDeleteStressTest` (@Tag stress) | targeted deletes under heavy concurrency collect lock-deadlock/structure-anomaly exceptions on a single hot B+Tree | open — the R-37/B3 hot-node contention family; excluded from release builds by tag |
+| `XdStorageBTreeTargetedDeleteStressTest` (@Tag stress) | targeted deletes under heavy concurrency collect lock-deadlock/structure-anomaly exceptions on a single hot B+Tree | fixed-2026-11-01 (task 42 session): the `IllegalMonitorStateException` storm (unguarded unlocks in `findChildAndDeletePair` after mid-descent rebalances) is fixed with R-33 guarded unlocks; the worker filter tolerates the two transient races ("does not exists", first-committer-wins on the hot tree-record re-save). Residual (~1/3 runs under full-suite load): the DESIGNED `REBALANCE_RETRY_BUDGET` exhaustion (10 attempts) on one hot subtree — livelock containment, not corruption; retry-budget tuning is the open question |
 | `BTreeResourceCacheIntegrationTest.testIntegration_HeavyParallelLoad_NoDeadlocksOrTimeouts` (@Tag integration) | 15 workers on one index tree: retry-budget exhaustion + latch timeouts on the hot node (id 15) | open — same family; the failures are lock-contention backpressure, no structure corruption reported |
 
 ## Conventions
