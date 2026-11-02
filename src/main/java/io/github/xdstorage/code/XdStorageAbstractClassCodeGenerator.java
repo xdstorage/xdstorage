@@ -359,22 +359,37 @@ public abstract class XdStorageAbstractClassCodeGenerator {
      * wrapper won {@code Class.forName} and the other generation failed instantiation
      * with {@code NoSuchMethodException} on its constructor).
      *
-     * <p>Empty qualifier for classes loaded by the engine's own classloader (the
-     * common embedded case) — their wrapper names stay exactly as before, zero change
-     * to the 99% path and no code-directory litter. The identity-hash qualifier is
-     * stable within one JVM lifetime, which is the only lifetime a generated wrapper
-     * class has; stale qualified .class files from previous runs are never requested
-     * again and are harmless.</p>
+     * <p>The qualifier ALWAYS disambiguates on the entity class's identity: a
+     * deterministic hash of the FQN (two distinct nested classes sharing a SimpleName
+     * — the watch()-trio collision — get distinct wrappers; the hash is stable across
+     * JVM runs, so a warm {@code ./gencode} directory stays reusable), plus the
+     * loader-identity part whenever the entity's loader is not the engine's own. The
+     * identity-hash part is stable within one JVM lifetime, which is the only
+     * lifetime a generated wrapper class has; stale .class files from previous runs
+     * (old name scheme included) are never requested again and are harmless.</p>
      *
      * @param cl the entity class the wrapper is generated for
-     * @return {@code ""} for engine-loaded classes, {@code "_gen<id>"} otherwise
+     * @return {@code "_<fqn-hash>"} for engine-loaded classes,
+     *         {@code "_<fqn-hash>_gen<id>"} otherwise
      */
     protected static String generationQualifier(final Class<?> cl) {
         final ClassLoader entityLoader = cl.getClassLoader();
         final ClassLoader engineLoader = XdStorageAbstractClassCodeGenerator.class.getClassLoader();
+        // КОЛЛИЗИЯ ПРОСТЫХ ИМЁН (ResourceCache watch-трио): имя генерации строится по
+        // SimpleName, а квалификатор был ПУСТ для классов движкового класслоадера — два
+        // разных вложенных класса с одним простым именем (A$TestEntity и B$TestEntity)
+        // получали ОДНО имя сгенерированной обёртки. Первый defineClass занимал имя
+        // навсегда; генерация второго «успешно» подгружала ЧУЖУЮ обёртку, ключ карты
+        // (суперкласс загруженного класса) приходился на первого — движок возвращал
+        // null, wrapAsUnmodifiableObject молча деградировал в null, и watch() отдавал
+        // колбэку null (NPE "getValue() ... because wrappedObject is null") во всех
+        // последующих тестах JVM. Дискриминатор детерминирован (хеш FQN): стабилен
+        // между запусками, устаревшие .class в ./gencode с прежними именами просто
+        // никогда не запрашиваются (см. javadoc выше).
+        final String nameQualifier = "_" + Integer.toHexString(cl.getName().hashCode());
         if (entityLoader == null || entityLoader == engineLoader) {
-            return "";
+            return nameQualifier;
         }
-        return "_gen" + Integer.toHexString(System.identityHashCode(entityLoader));
+        return nameQualifier + "_gen" + Integer.toHexString(System.identityHashCode(entityLoader));
     }
 }
