@@ -541,6 +541,14 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
     }
 
     private boolean tryLockAndAddToDeepLock(final XdStorageBTreeNode deepLockedNode, final IXdStorageTransaction transaction) throws XdStorageException {
+        if (deepLockedNode != null && deepLockedNode.getTree() != null && deepLockedNode.getTree().isMultiple()) {
+            // DUPKEYS: a MULTI-tree mutation is exclusive (XdStorageBTree.lockExclusive — no
+            // other writer, no reader inside the tree), the only possible holder is the
+            // serializer's short non-blocking capture. A blocking capture cannot deadlock here,
+            // and the left-side borrow/join never silently skips (an underfilled node).
+            lockAndAddToDeepLock(deepLockedNode, transaction);
+            return true;
+        }
         if (deepLockedNode != null && tryLockWrite(transaction)) {
             deepLockedNode.lockedNodes.add(this);
             return true;
@@ -1656,43 +1664,52 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
             throws XdStorageException, XdStorageConnectionException {
         loadThisNode(storage, transaction);
         if (this.getChildren().isEmpty()) {
-            try {
-                if (!tryDeepLockForDelete(transaction)) {
-                    retryDelete.set(true);
-                    return;
-                }
-            } finally {
-                // Если toUnlock (предыдущий узел или дерево) передан — отпускаем его лок
-                // В корневом вызове tree релизится на уровне цикла do-while, сюда передается null
-            }
-            try {
-                // Физически вырезаем точечную пару из листа
-                deletePairFromThisNode(key, value, storage, transaction);
-
-                // Балансировка при недогрузе ноды (классический канон Кнута)
-                if (this.getKeys().size() <= getTree().getT() - 1) {
-                    if (this.getParent() != null) {
-                        if (!tryToMoveKeyFromNeightbor(this, storage, transaction)) {
-                            joinWithNeightbor(this, storage, transaction);
-                        }
-                    }
-                }
-
-                // Схлопывание дерева, если удаление полностью опустошило корень
-                final XdStorageBTreeNode root = getTree().getRoot();
-                final Object rootId = root != null ? root.getId() : null;
-                if (this.getKeys().isEmpty() && (root == this || (rootId != null && rootId.equals(this.getId())))) {
-                    getTree().setRoot(null);
-                    getTree().setFirstLeaf(null);
-                    storage.delete(this, transaction);
-                    storage.update(getTree(), transaction);
-                }
-            } finally {
-                deepUnlock();
-            }
+            // В корневом вызове tree релизится на уровне цикла do-while, сюда передается null
+            deleteEntryFromLeaf(key, value, storage, transaction, retryDelete);
         } else {
             // Спускаемся ниже по этажам маршрутизаторов
             findChildAndDeletePair(this, key, value, storage, transaction, retryDelete);
+        }
+    }
+
+    /**
+     * Leaf step of an entry deletion: removes ONE entry matching the key and the record
+     * ({@link #ANY_RECORD} matches any record of the key) under the deep write lock, then
+     * rebalances an underflowing leaf (borrow, otherwise merge, recursing upward) and clears
+     * the tree's root/first-leaf pointers when the root leaf empties. A busy deep lock sets
+     * {@code retryDelete} and leaves the tree untouched.
+     */
+    void deleteEntryFromLeaf(final Comparable key, final Object record, final IXdStorage storage,
+                             final IXdStorageTransaction transaction, final AtomicBoolean retryDelete)
+            throws XdStorageException, XdStorageConnectionException {
+        if (!tryDeepLockForDelete(transaction)) {
+            retryDelete.set(true);
+            return;
+        }
+        try {
+            // Физически вырезаем точечную пару из листа
+            deletePairFromThisNode(key, record, storage, transaction);
+
+            // Балансировка при недогрузе ноды (классический канон Кнута)
+            if (this.getKeys().size() <= getTree().getT() - 1) {
+                if (this.getParent() != null) {
+                    if (!tryToMoveKeyFromNeightbor(this, storage, transaction)) {
+                        joinWithNeightbor(this, storage, transaction);
+                    }
+                }
+            }
+
+            // Схлопывание дерева, если удаление полностью опустошило корень
+            final XdStorageBTreeNode root = getTree().getRoot();
+            final Object rootId = root != null ? root.getId() : null;
+            if (this.getKeys().isEmpty() && (root == this || (rootId != null && rootId.equals(this.getId())))) {
+                getTree().setRoot(null);
+                getTree().setFirstLeaf(null);
+                storage.delete(this, transaction);
+                storage.update(getTree(), transaction);
+            }
+        } finally {
+            deepUnlock();
         }
     }
 
@@ -1777,7 +1794,7 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
     /**
      * Исполнитель точечной мутации листа: удаляет элемент только при совпадении И ключа, И значения.
      */
-    private void deletePairFromThisNode(final Comparable key, final Comparable value, final IXdStorage storage, final IXdStorageTransaction transaction)
+    private void deletePairFromThisNode(final Comparable key, final Object value, final IXdStorage storage, final IXdStorageTransaction transaction)
             throws XdStorageException, XdStorageConnectionException {
         final ListIterator<Comparable> keyIterator = getKeys().listIterator();
         final ListIterator<Object> objectIterator = getObjects().listIterator();
@@ -1789,8 +1806,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
 
             final int keyCmp = currentKey.compareTo(key);
             if (keyCmp == 0) {
-                // Ключи совпали. Теперь проверяем значение (кастуем к Comparable по контракту СУБД)
-                if (currentVal instanceof Comparable && ((Comparable) currentVal).compareTo(value) == 0) {
+                // Ключи совпали. Теперь проверяем значение (equals, затем Comparable по контракту СУБД)
+                if (recordMatches(currentVal, value)) {
                     keyIterator.remove();
                     objectIterator.remove();
                     deleted = true;
@@ -1805,10 +1822,229 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
             if (CHAIN_DEBUG) {
                 chainDebug("DELETE-PAIR-MISS leaf=" + getId() + " key=" + key + " value=" + value);
             }
-            throw new XdStorageException("object of " + tree.getId() + " with key " + key + " and value " + value + " does not exists");
+            throw new XdStorageException(value == ANY_RECORD
+                    ? "object of " + tree.getId() + " with id " + key + " does not exists"
+                    : "object of " + tree.getId() + " with key " + key + " and value " + value + " does not exists");
         }
 
         storage.update(this, transaction);
+    }
+
+    // =========================================================================
+    // DUPKEYS: MULTI-деревья (дубликаты ключей И значений). Равные ключи легально лежат
+    // по обе стороны равного разделителя: инвариант разделителей — НЕСТРОГИЕ границы
+    // (ключи ребенка i лежат в [keys[i-1], keys[i]]), поэтому спуск «на равенстве — вправо»
+    // промахивался мимо пар в левом поддереве («does not exists» на живой паре). Ниже —
+    // навигация по ВСЕМ кандидатам между равными разделителями. Вызывается только внутри
+    // эксклюзивной мутации (XdStorageBTree.lockExclusive): внутри дерева нет ни других
+    // писателей, ни читателей, поэтому внутренние ноды читаются без нодовых локов.
+    // =========================================================================
+
+    /** DUPKEYS: record matcher sentinel — any record of the key (delete-by-key on a MULTI tree). */
+    static final Object ANY_RECORD = new Object();
+
+    /**
+     * DUPKEYS: record equality of the targeted delete — {@code equals} first, then the
+     * {@code Comparable} contract (the engine's records compare by value); records of
+     * incomparable types simply do not match instead of failing with a CCE.
+     */
+    @SuppressWarnings("unchecked")
+    static boolean recordMatches(final Object stored, final Object wanted) {
+        if (wanted == ANY_RECORD || stored == wanted) {
+            return true;
+        }
+        if (stored == null || wanted == null) {
+            return false;
+        }
+        if (stored.equals(wanted)) {
+            return true;
+        }
+        if (stored instanceof Comparable) {
+            try {
+                return ((Comparable) stored).compareTo(wanted) == 0;
+            } catch (final ClassCastException incomparable) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    /** First child that may hold the key: the first separator {@code >= key} (or the last child). */
+    private static int lowestCandidateChild(final List<Comparable> separators, final Comparable key) {
+        for (int i = 0; i < separators.size(); ++i) {
+            if (key.compareTo(separators.get(i)) <= 0) {
+                return i;
+            }
+        }
+        return separators.size();
+    }
+
+    /** Last child that may hold the key: the first separator {@code > key} (or the last child). */
+    private static int highestCandidateChild(final List<Comparable> separators, final Comparable key) {
+        for (int i = 0; i < separators.size(); ++i) {
+            if (key.compareTo(separators.get(i)) < 0) {
+                return i;
+            }
+        }
+        return separators.size();
+    }
+
+    private List<Comparable> keysSnapshot() {
+        synchronized (getKeys()) {
+            return new ArrayList<>(getKeys());
+        }
+    }
+
+    /**
+     * DUPKEYS: loads the child at the index (stub materialization included) and repairs its
+     * parent pointer to this node — the rebalance after the descent climbs parent pointers.
+     */
+    private XdStorageBTreeNode descendTo(final int index, final IXdStorage storage, final IXdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException {
+        final XdStorageBTreeNode child = loadChildOfThisNode(index, storage, transaction);
+        if (child == null) {
+            throw new XdStorageException("B+Tree internal node " + getId() + " of " + getTree().getId()
+                    + " has no child at " + index + " (broken structure)");
+        }
+        if (child.getParent() != this) {
+            // R-40: in-memory указатель чиним всегда, фиксация через фасад — только при смене id родителя
+            child.lockWrite(transaction);
+            try {
+                final boolean parentChanged = !isSameParentId(child.getParent(), this);
+                child.setParent(this);
+                if (parentChanged) {
+                    storage.update(child, transaction);
+                }
+            } finally {
+                child.unlockWrite();
+            }
+        }
+        return child;
+    }
+
+    /**
+     * DUPKEYS: the leaf a new entry of the key goes to — the RIGHTMOST leaf whose range admits
+     * the key. With the in-leaf insertion after the equal keys this keeps the duplicates of a
+     * key in insertion order along the leaf chain.
+     */
+    XdStorageBTreeNode locateInsertLeaf(final Comparable key, final IXdStorage storage, final IXdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException {
+        XdStorageBTreeNode current = this;
+        while (!current.getChildren().isEmpty()) {
+            current = current.descendTo(highestCandidateChild(current.keysSnapshot(), key), storage, transaction);
+        }
+        return current;
+    }
+
+    /**
+     * DUPKEYS: the leftmost leaf holding an entry of the key with a matching record
+     * ({@link #ANY_RECORD} — any record), or {@code null}. Visits every candidate child
+     * between the separators equal to the key, left to right.
+     */
+    XdStorageBTreeNode locateLeafHolding(final Comparable key, final Object record, final IXdStorage storage,
+                                         final IXdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException {
+        if (getChildren().isEmpty()) {
+            return holdsEntry(key, record) ? this : null;
+        }
+        final List<Comparable> separators = keysSnapshot();
+        final int last = highestCandidateChild(separators, key);
+        for (int i = lowestCandidateChild(separators, key); i <= last; ++i) {
+            final XdStorageBTreeNode leaf = descendTo(i, storage, transaction).locateLeafHolding(key, record, storage, transaction);
+            if (leaf != null) {
+                return leaf;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * DUPKEYS: inserts the entry into this leaf (found by {@link #locateInsertLeaf}) and splits
+     * upward on overflow — the leaf step of {@link #insert}.
+     *
+     * @return {@code false} when the deep lock was busy (nothing changed — retry)
+     */
+    boolean insertIntoLeafExclusive(final Comparable key, final Object object, final IXdStorage storage,
+                                    final IXdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException {
+        final AtomicBoolean retry = new AtomicBoolean();
+        insert(null, key, object, storage, transaction, retry);
+        return !retry.get();
+    }
+
+    /**
+     * DUPKEYS: removes one matching entry from this leaf (found by {@link #locateLeafHolding})
+     * and rebalances — see {@link #deleteEntryFromLeaf}.
+     *
+     * @return {@code false} when the deep lock was busy (nothing changed — retry)
+     */
+    boolean deleteFromLeafExclusive(final Comparable key, final Object record, final IXdStorage storage,
+                                    final IXdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException {
+        final AtomicBoolean retry = new AtomicBoolean();
+        loadThisNode(storage, transaction);
+        deleteEntryFromLeaf(key, record, storage, transaction, retry);
+        return !retry.get();
+    }
+
+    private boolean holdsEntry(final Comparable key, final Object record) {
+        final List<Comparable> leafKeys;
+        final List<Object> leafObjects;
+        synchronized (getKeys()) {
+            leafKeys = new ArrayList<>(getKeys());
+        }
+        synchronized (getObjects()) {
+            leafObjects = new ArrayList<>(getObjects());
+        }
+        for (int i = 0; i < leafKeys.size() && i < leafObjects.size(); ++i) {
+            final int cmp = key.compareTo(leafKeys.get(i));
+            if (cmp == 0 && recordMatches(leafObjects.get(i), record)) {
+                return true;
+            }
+            if (cmp < 0) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * DUPKEYS: replaces the record of EVERY entry of the key in this subtree (the MULTI-tree
+     * update — the number of entries, i.e. the duplicates, is preserved).
+     *
+     * @return the number of replaced records
+     */
+    int updateRecordsInSubtree(final Comparable key, final Object value, final IXdStorage storage,
+                               final IXdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException {
+        if (getChildren().isEmpty()) {
+            int updated = 0;
+            lockWrite(transaction);
+            try {
+                for (int i = 0; i < getKeys().size(); ++i) {
+                    final int cmp = key.compareTo(getKeys().get(i));
+                    if (cmp == 0) {
+                        getObjects().set(i, value);
+                        ++updated;
+                    } else if (cmp < 0) {
+                        break;
+                    }
+                }
+                if (updated > 0) {
+                    storage.update(this, transaction);
+                }
+            } finally {
+                unlockWrite();
+            }
+            return updated;
+        }
+        final List<Comparable> separators = keysSnapshot();
+        final int last = highestCandidateChild(separators, key);
+        int updated = 0;
+        for (int i = lowestCandidateChild(separators, key); i <= last; ++i) {
+            updated += descendTo(i, storage, transaction).updateRecordsInSubtree(key, value, storage, transaction);
+        }
+        return updated;
     }
 
     /**

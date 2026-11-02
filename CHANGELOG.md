@@ -170,6 +170,21 @@ Planned scope; items land here as they merge:
 Still open from the defect train (**a defect discovered by a train's own work ships with the
 train that discovered it**; BUG-A/C/D are fixed — see [Fixed](#fixed) below):
 
+- **DUPKEYS** — MULTI B+trees (duplicate keys AND duplicate (key, record) pairs, the FK
+  index trees) are correct: the targeted `delete(key, value)` no longer misses pairs lying
+  left of an equal separator (the descent went right on equality; separators are
+  non-strict bounds, so duplicates legally sit on both sides) — it searches every candidate
+  subtree between the equal separators. Contract: `delete(key, value)` removes ONE
+  occurrence (the tree is a multiset); `delete(key)` removes the earliest entry of the key;
+  `update(key, value)` replaces every record of the key; duplicates keep insertion order;
+  record matching is `equals`, then `Comparable` (incomparable types no longer throw a CCE).
+  Thread safety: a MULTI-tree mutation is exclusive — it holds the tree write lock for the
+  whole operation and first drains the leaf-chain walks in flight (readers stay parallel to
+  each other), so the left-side borrow/merge can neither deadlock against a chain reader nor
+  silently skip and leave an underfilled node. The full structural invariant set
+  (occupancy, balance, separator bounds, parent pointers, leaf chain, no orphan node, no
+  leaked lock) is verified after every operation by `BTreeDuplicatesPropertyTest` (both
+  modes, t=2/3/5), `BTreeDuplicatesScenarioTest` and `BTreeDuplicatesConcurrencyStressTest`.
 - **PWRLOSS** ([23](docs/tasks/2.1.0/23-power-loss-recovery.md)) — the power-loss story is
   now a verified matrix, a documented recipe, and an explicit default decision: every file
   class × truncation point × config ends in a clean open with a WARN or a loud sentinel
