@@ -19,7 +19,6 @@ import io.github.xdstorage.services.XdStorageServicesLocator;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import io.github.xdstorage.transaction.XdStorageTransaction;
 import io.github.xdstorage.transaction.XdStorageTransactionResourceChanges;
-import io.github.xdstorage.utils.XdStorageObjectUtils;
 import io.github.xdstorage.utils.XdStorageClassInfo;
 import io.github.xdstorage.utils.XdStorageObjectField;
 import io.github.xdstorage.utils.XdStorageObjectIdField;
@@ -497,26 +496,6 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
                             childObjectId, relationName());
                     services.getStorage().delete(residueChild, transaction);
                 }
-            } else if (parentCollectionMemberIsUnfilledReference(parentObject, childObjectId)) {
-                // TASK-42 (racing-commit residue): the deleting transaction's snapshot never
-                // materialized this child — its reference in the parent's collection stayed an
-                // UNFILLED stub (R-58: a record committed after the reader's start / transiently
-                // rolled back stays invisible; "the reference stays unfilled"). The FK pair is
-                // visible here because the relation trees read committed state, and the by-id
-                // record probe sees it live — the pair and the record disagree with the deleting
-                // transaction's own graph view, the same divergence class as the lost-update
-                // residue above. No action of THIS transaction could have enumerated or deleted
-                // the child (a graph walk dereferences the unfilled reference into null fields),
-                // and the first-committer-wins gate refuses this transaction the child's delete
-                // (its snapshot predates the record). Vetoing the parent's delete would make any
-                // single-transaction purge non-convergent — the 36-zombie-latch-purge rounds
-                // doctrine brought into the engine: the residue child is cascade-deleted in a
-                // FRESH transaction (synchronous, on the engine executor; its snapshot sees the
-                // record, its locks are free — the racing committer has finished), instead of
-                // arming a dangling expectation nobody can lift.
-                log.warn("TASK-42: racing-commit residue — child {} of relation {} is invisible to transaction {} (unfilled collection reference); cascade-deleting it in a fresh transaction",
-                        childObjectId, relationName(), transaction.getTransactionId());
-                cascadeDeleteRacingChildInFreshTransaction(parentObjectId, childObjectId);
             } else {
                 // FNKEY: the PARENT side dissolves the relation while the child survives —
                 // the child is now dangling; it must be deleted within this transaction.
@@ -606,87 +585,6 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
             log.warn("CRASHPURGE: child record probe failed for {}#{} — treating as missing (residue): {}",
                     clChildInfo.getClazz().getSimpleName(), childObjectId, probeFailure.getMessage());
             return true;
-        }
-    }
-
-    /**
-     * TASK-42 (racing-commit residue probe): whether the parent's collection holds the child
-     * ONLY as an unfilled reference stub for the reading side — the transaction's snapshot
-     * never materialized the record (R-58 invisibility: committed after the reader's start /
-     * transiently rolled back), so no walk through the object graph could have enumerated it.
-     * The veto path is the safe default on any probe doubt.
-     *
-     * @param parentObject  the parent-side object whose collection is probed
-     * @param childObjectId the child identifier looked up among the collection members
-     * @return {@code true} when the matching member is an unfilled reference stub
-     */
-    private boolean parentCollectionMemberIsUnfilledReference(final Object parentObject, final Comparable<?> childObjectId) {
-        try {
-            final Object collection = clParentField.get(parentObject);
-            if (collection instanceof java.util.Collection) {
-                for (final Object member : (java.util.Collection<?>) collection) {
-                    if (member == null) {
-                        continue;
-                    }
-                    if (XdStorageObjectUtils.isReference(member)
-                            && childObjectId.equals(clChildInfo.getIdField().get(
-                                    XdStorageObjectUtils.getWrappedObjectOrSameObject(member)))) {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        } catch (final Exception probeFailure) {
-            log.warn("TASK-42: unfilled-reference probe failed for relation {} child {} — assuming a live member (veto path): {}",
-                    relationName(), childObjectId, probeFailure.getMessage());
-            return false;
-        }
-    }
-
-    /**
-     * TASK-42: synchronous residue cleanup in a fresh top-level transaction on the engine
-     * executor. The calling thread's transaction is active and CANNOT delete the record
-     * (its snapshot predates the racing commit — the first-committer-wins gate refuses);
-     * a pool thread has no bound transaction, so it opens a fresh one whose snapshot sees
-     * the child and whose record locks are free (the racing committer has finished). The
-     * pair is dissolved first (blind, so the child's own delete resolves its orphan
-     * expectations instead of arming them); the caller's staged dissolve of the same pair
-     * is an idempotent duplicate — both remove it. Bounded synchronous wait: the caller
-     * must not outlive the cleanup it relies on.
-     *
-     * @param parentObjectId the residue pair's parent endpoint
-     * @param childObjectId  the residue child to cascade-delete
-     */
-    private void cascadeDeleteRacingChildInFreshTransaction(final Comparable<?> parentObjectId, final Comparable<?> childObjectId) {
-        try {
-            final java.util.concurrent.Future<?> cleanup = services.getExecutor().submit(() -> {
-                IXdStorageTransaction fresh = null;
-                try {
-                    fresh = services.getStorage().beginTransaction();
-                    try {
-                        // best effort: the caller's transaction may have staged the same dissolve —
-                        // then the pair is gone from this view and the child delete resolves without it
-                        delete(null, parentObjectId, null, childObjectId, (XdStorageTransaction) fresh);
-                    } catch (final XdStorageException pairAlreadyDissolved) {
-                        // идемпотентно: пара уже растворена
-                    }
-                    final Object child = services.getStorage().load(clChildInfo.getClazz(), childObjectId, fresh);
-                    if (child != null) {
-                        services.getStorage().delete(child, fresh);
-                    }
-                    fresh.commit();
-                } catch (final Throwable cleanupFailure) {
-                    if (fresh != null) {
-                        try { fresh.rollback(); } catch (final Exception ignored) { }
-                    }
-                    log.warn("TASK-42: fresh-transaction residue cleanup failed for child {} of {} — left for the next purge pass: {}",
-                            childObjectId, relationName(), cleanupFailure.getMessage());
-                }
-            });
-            cleanup.get(120, java.util.concurrent.TimeUnit.SECONDS);
-        } catch (final Exception waitFailure) {
-            log.warn("TASK-42: residue cleanup wait failed for child {} of {}: {}",
-                    childObjectId, relationName(), waitFailure.getMessage());
         }
     }
 
