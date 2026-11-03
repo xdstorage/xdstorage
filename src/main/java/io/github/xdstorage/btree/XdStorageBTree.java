@@ -29,13 +29,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * engine deliberately forbids vertical descents on reads (R-46: splits may reorder duplicate
  * keys across left/right branches), so scans traverse the whole leaf chain from
  * {@code firstLeaf}, and {@code readRange} (FP-1a) recovers sub-linear behavior through
- * early termination once the ordered chain passes the upper bound. A MULTI tree's separators
- * are NON-strict bounds (DUPKEYS): the keys of child {@code i} lie within
- * {@code [keys[i-1], keys[i]]}, so duplicates sit on both sides of an equal separator and a
- * targeted mutation descends through every candidate subtree between the equal separators.
- * MULTI semantics: a multiset of (key, record) pairs, duplicates in insertion order;
- * {@code delete(key, value)} removes one occurrence, {@code delete(key)} the earliest entry
- * of the key, {@code update(key, value)} replaces every record of the key.
+ * early termination once the ordered chain passes the upper bound.
  *
  * <p>Thread safety: every operation serializes on the tree-level read/write lock; mutations
  * additionally hold write locks along the rebalanced node path under a bounded
@@ -43,10 +37,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * released by the node descent itself at the lock-coupling point — callers must not wrap
  * {@code find}/{@code read} in an external unlock. The structure-mutation counters
  * ({@code currentStructureVersion}, {@code activeMutationCount}) let the invariant
- * validator reject non-atomic observations. A MULTI-tree mutation is exclusive instead
- * (DUPKEYS): it holds the tree write lock for the whole operation and first drains the
- * registered leaf-chain walks in flight; readers stay parallel to each other, and a scan is
- * atomic with respect to the mutations.</p>
+ * validator reject non-atomic observations.</p>
  *
  * <p>After a reopen the generic deserializer hands back raw-String keys/records for search
  * indexes; the types are restored once per tree instance by
@@ -137,21 +128,6 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
     /** R-56 диагностика: кто именно внутри мутационной секции (поток → описание операции). */
     private final java.util.concurrent.ConcurrentHashMap<Thread, String> activeMutatorThreads =
             new java.util.concurrent.ConcurrentHashMap<>();
-
-    // DUPKEYS: эксклюзивный протокол мутаций MULTI-деревьев (дубликаты ключей и значений).
-    // Дубликаты ключа размазаны по нескольким поддеревьям: точечная мутация обязана обойти
-    // кандидатов между равными разделителями, что несовместимо с hand-over-hand lock coupling
-    // (спуск отпускает родителя до того, как знает, есть ли пара в ребенке). Поэтому мутация
-    // MULTI-дерева держит write-лок дерева ВСЮ операцию и до первого изменения дожидается
-    // выхода читателей, уже идущих по цепи листьев (они отпустили лок дерева на точке
-    // сцепления и регистрируются здесь). Новые читатели ждут на локе дерева; читатели между
-    // собой по-прежнему параллельны.
-    private final java.util.concurrent.atomic.AtomicInteger activeWalkers = new java.util.concurrent.atomic.AtomicInteger();
-    private final java.util.concurrent.ConcurrentHashMap<Thread, Integer> walkerThreads =
-            new java.util.concurrent.ConcurrentHashMap<>();
-    private final Object walkersDrained = new Object();
-    /** DUPKEYS: нижняя граница ожидания выхода читателей (транзакции с нулевым таймаутом). */
-    private static final long WALKERS_DRAIN_MIN_WAIT_MS = 500;
 
     /**
      * R-56 support for the invariant validator: the structure-mutation version grows on
@@ -427,9 +403,6 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      * runs under lock coupling. On sustained rebalance-lock contention the descent is retried
      * within a bounded attempt budget (with backoff) and fails loudly when the budget is
      * exhausted. A duplicate key fails loudly on a unique ({@code multiple == false}) tree.
-     * On a MULTI tree duplicates of the key AND of the (key, record) pair are legal; the new
-     * entry goes after all existing entries of the key, so the duplicates keep insertion
-     * order, and the mutation is exclusive (see {@code lockExclusive}).
      *
      * @param key         the insertion key (Comparable contract of the indexed field's type)
      * @param object      the record to store under the key
@@ -445,10 +418,6 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
         // ИСПРАВЛЕНИЕ: Fail-fast проверка прерывания потока на входе в СУБД
         if (Thread.currentThread().isInterrupted()) {
             throw new XdStorageException("interrupted", new InterruptedException("Поток прерван перед вставкой в B+ Дерево"));
-        }
-        if (multiple) {
-            insertMulti(key, object, storage, transaction);
-            return;
         }
 
         lockWrite(transaction);
@@ -532,9 +501,6 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      * clears the root and first-leaf pointers). Deleting from a never-initialized
      * non-reference tree fails loudly; a no-op otherwise when the tree is empty. Sustained
      * rebalance contention is retried within a bounded budget, then fails loudly.
-     * On a MULTI tree one call removes ONE entry of the key — the earliest inserted one
-     * (callers drain a key by repeating the call; the targeted pair delete removes a chosen
-     * record).
      *
      * @param key         the key to remove
      * @param storage     the storage facade used to persist the tree and its nodes
@@ -546,10 +512,6 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
     public void delete(final Comparable key, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
         if (Thread.currentThread().isInterrupted()) {
             throw new XdStorageException("interrupted", new InterruptedException("Поток прерван перед удалением из B+ Дерева"));
-        }
-        if (multiple) {
-            deleteMulti(key, XdStorageBTreeNode.ANY_RECORD, storage, transaction);
-            return;
         }
 
         lockWrite(transaction);
@@ -651,8 +613,6 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
 
     /**
      * Прецизионное удаление конкретной пары Ключ + Значение из B+ Дерева (для MULTI-индексов).
-     * Удаляется ОДНО вхождение пары (самое раннее): пары тоже могут дублироваться, дерево —
-     * мультимножество. Пара ищется во всех поддеревьях между разделителями, равными ключу.
      *
      * @param key         ключ связи (Comparable)
      * @param value       конкретное значение/ссылка (Comparable)
@@ -665,10 +625,6 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
             throws XdStorageException, XdStorageConnectionException {
         if (Thread.currentThread().isInterrupted()) {
             throw new XdStorageException("interrupted", new InterruptedException("Поток прерван перед удалением пары из B+ Дерева"));
-        }
-        if (multiple) {
-            deleteMulti(key, value, storage, transaction);
-            return;
         }
 
         lockWrite(transaction);
@@ -839,7 +795,6 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      * Replaces the record stored under the key with the new value in place (a leaf-list
      * write, no structural change); a missing key fails loudly. Sustained rebalance
      * contention is retried within a bounded budget, then fails loudly.
-     * On a MULTI tree the records of ALL entries of the key are replaced.
      *
      * @param key         the key whose record is replaced
      * @param value       the replacement record
@@ -852,10 +807,6 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
     public void update(final Comparable key, final Object value, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
         if (Thread.currentThread().isInterrupted()) {
             throw new XdStorageException("interrupted", new InterruptedException("Поток прерван перед обновлением в B+ Дереве"));
-        }
-        if (multiple) {
-            updateMulti(key, value, storage, transaction);
-            return;
         }
 
         lockWrite(transaction);
@@ -947,232 +898,6 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
                 }
             }
         } while (retryUpdate.get());
-    }
-
-    // =========================================================================
-    // DUPKEYS: MULTI-дерево — эксклюзивные мутации и зарегистрированные проходы читателей
-    // (обоснование протокола — у полей activeWalkers/walkerThreads).
-    // =========================================================================
-
-    /**
-     * DUPKEYS: registers a leaf-chain walk of a MULTI tree. The registration happens under the
-     * tree read lock, so it cannot slip past an exclusive mutation (which holds the write lock
-     * for its whole duration); the tree lock itself is released before the walk.
-     *
-     * @return the chain start to walk from ({@code null} for an empty tree); the caller must
-     *         call {@link #leaveWalk()} in a finally block
-     */
-    private XdStorageBTreeNode enterWalk(final IXdStorageTransaction transaction) throws XdStorageException {
-        lockRead(transaction);
-        try {
-            activeWalkers.incrementAndGet();
-            walkerThreads.merge(Thread.currentThread(), 1, Integer::sum);
-            return firstLeaf;
-        } finally {
-            unlockRead();
-        }
-    }
-
-    private void leaveWalk() {
-        walkerThreads.computeIfPresent(Thread.currentThread(), (thread, depth) -> depth > 1 ? depth - 1 : null);
-        if (activeWalkers.decrementAndGet() == 0) {
-            synchronized (walkersDrained) {
-                walkersDrained.notifyAll();
-            }
-        }
-    }
-
-    /**
-     * DUPKEYS: number of leaf-chain walks of a MULTI tree in flight (diagnostics/tests).
-     *
-     * @return the number of registered walks
-     */
-    public int activeWalkCount() {
-        return activeWalkers.get();
-    }
-
-    /**
-     * DUPKEYS: takes the tree write lock (new readers and writers wait on it) and waits for the
-     * walks already in flight to finish: afterwards no other thread is inside the tree except
-     * the serializer's short non-blocking captures. A mutation from inside the calling
-     * thread's own walk (a viewer mutating the tree it scans) fails loudly — it would wait on
-     * itself.
-     */
-    private void lockExclusive(final String operation, final IXdStorageTransaction transaction) throws XdStorageException {
-        if (walkerThreads.containsKey(Thread.currentThread())) {
-            throw new XdStorageException(operation + " on MULTI tree " + id
-                    + " from inside its own leaf-chain walk is not supported (the walk excludes mutations)");
-        }
-        lockWrite(transaction);
-        try {
-            final long txTimeoutMs = transaction != null ? transaction.getTimeout() : 5000L;
-            final long waitMs = Math.max(txTimeoutMs, WALKERS_DRAIN_MIN_WAIT_MS);
-            final long deadline = System.nanoTime() + waitMs * 1_000_000L;
-            synchronized (walkersDrained) {
-                while (activeWalkers.get() > 0) {
-                    final long remainingMs = (deadline - System.nanoTime()) / 1_000_000L;
-                    if (remainingMs <= 0) {
-                        throw new XdStorageException(operation + " on MULTI tree " + id + ": " + activeWalkers.get()
-                                + " leaf-chain walk(s) did not finish within " + waitMs + " ms");
-                    }
-                    walkersDrained.wait(remainingMs);
-                }
-            }
-        } catch (final InterruptedException e) {
-            unlockWrite();
-            Thread.currentThread().interrupt();
-            throw new XdStorageException("interrupted", e);
-        } catch (final XdStorageException | RuntimeException | Error e) {
-            unlockWrite();
-            throw e;
-        }
-    }
-
-    /** DUPKEYS: the root/firstLeaf refresh of the delete/update paths (TREEFILE semantics kept). */
-    private void refreshEmptiedRoot(final IXdStorage storage, final IXdStorageTransaction transaction)
-            throws XdStorageException, XdStorageConnectionException {
-        if (root == null && wasInitialized && !collapsedEmpty) {
-            final XdStorageBTree freshTree = storage.load(XdStorageBTree.class, this.id, transaction);
-            if (freshTree != null && freshTree.getRoot() != null) {
-                this.root = freshTree.getRoot();
-                this.firstLeaf = freshTree.getFirstLeaf();
-            }
-        }
-    }
-
-    /** R-53: парсерные стабы корня и первого листа заменяются каноническими инстансами. */
-    private void materializeHead(final IXdStorage storage, final IXdStorageTransaction transaction)
-            throws XdStorageException, XdStorageConnectionException {
-        root = XdStorageBTreeNode.materialize(root, storage, transaction, this, null);
-        if (firstLeaf != null) {
-            firstLeaf = XdStorageBTreeNode.materialize(firstLeaf, storage, transaction, this, null);
-        }
-    }
-
-    private void beginMutation(final String operation) {
-        structureVersion.incrementAndGet();
-        activeMutations.incrementAndGet();
-        activeMutatorThreads.put(Thread.currentThread(), operation);
-    }
-
-    private void endMutation() {
-        activeMutatorThreads.remove(Thread.currentThread());
-        activeMutations.decrementAndGet();
-    }
-
-    /**
-     * DUPKEYS: inside an exclusive mutation a deep lock can only lose to the serializer's
-     * short capture — a short pause and a fresh descent; the budget stays bounded.
-     */
-    private void pauseBeforeRetry(final int attempt, final String operation, final Comparable key) throws XdStorageException {
-        if (attempt > REBALANCE_RETRY_BUDGET) {
-            log.warn("B+Tree retry budget exhausted for {} of key {} in MULTI tree {} (operation failed loudly)", operation, key, id);
-            throw new XdStorageException("retry budget exhausted by " + operation + " of key " + key + " in " + id
-                    + ": устойчивая конкуренция за блокировки ребалансировки");
-        }
-        try {
-            Thread.sleep(attempt);
-        } catch (final InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new XdStorageException("interrupted", e);
-        }
-    }
-
-    private void insertMulti(final Comparable key, final Object object, final IXdStorage storage,
-                             final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
-        lockExclusive("insert", transaction);
-        try {
-            if (root == null) {
-                createRoot(storage, transaction);
-            }
-            materializeHead(storage, transaction);
-            beginMutation("insert");
-            try {
-                for (int attempt = 1; ; ++attempt) {
-                    final XdStorageBTreeNode leaf = root.locateInsertLeaf(key, storage, transaction);
-                    if (leaf.insertIntoLeafExclusive(key, object, storage, transaction)) {
-                        return;
-                    }
-                    pauseBeforeRetry(attempt, "insert", key);
-                }
-            } finally {
-                endMutation();
-            }
-        } finally {
-            unlockWrite();
-        }
-    }
-
-    /**
-     * DUPKEYS: removes the earliest entry of the key matching the record ({@code ANY_RECORD} —
-     * any record) with a full rebalance. A miss fails loudly with the "does not exists"
-     * message of the node level.
-     */
-    private void deleteMulti(final Comparable key, final Object record, final IXdStorage storage,
-                             final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
-        final boolean byKey = record == XdStorageBTreeNode.ANY_RECORD;
-        final String operation = byKey ? "delete" : "deletePair";
-        final String missMessage = byKey
-                ? "object of " + (id != null ? id.getCl().getName() : "Unknown") + " with id " + key + " does not exists"
-                : "object with key " + key + " and value " + record + " does not exists in " + id;
-        lockExclusive(operation, transaction);
-        try {
-            refreshEmptiedRoot(storage, transaction);
-            if (root == null) {
-                if (!wasInitialized && !isReference) {
-                    throw new XdStorageException(missMessage);
-                }
-                return;
-            }
-            materializeHead(storage, transaction);
-            beginMutation(operation);
-            try {
-                for (int attempt = 1; ; ++attempt) {
-                    final XdStorageBTreeNode leaf = root.locateLeafHolding(key, record, storage, transaction);
-                    if (leaf == null) {
-                        if (XdStorageBTreeNode.CHAIN_DEBUG) {
-                            System.out.println("[CHAIN] DELETE-MISS tree=" + id + " key=" + key + " record=" + record);
-                        }
-                        throw new XdStorageException(byKey
-                                ? "object of " + id + " with id " + key + " does not exists"
-                                : "object of " + id + " with key " + key + " and value " + record + " does not exists");
-                    }
-                    if (leaf.deleteFromLeafExclusive(key, record, storage, transaction)) {
-                        break;
-                    }
-                    pauseBeforeRetry(attempt, operation, key);
-                }
-                if (root == null) {
-                    log.debug("B+Tree {} is empty after {} of key {} (root purged)", id, operation, key);
-                }
-            } finally {
-                endMutation();
-            }
-        } finally {
-            unlockWrite();
-        }
-    }
-
-    private void updateMulti(final Comparable key, final Object value, final IXdStorage storage,
-                             final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
-        lockExclusive("update", transaction);
-        try {
-            refreshEmptiedRoot(storage, transaction);
-            if (root == null) {
-                throw new XdStorageException("object of " + id + " with id " + key + " does not exists");
-            }
-            materializeHead(storage, transaction);
-            beginMutation("update");
-            try {
-                if (root.updateRecordsInSubtree(key, value, storage, transaction) == 0) {
-                    throw new XdStorageException("search index couldn't be updated because object with id " + key + " doesn't exist");
-                }
-            } finally {
-                endMutation();
-            }
-        } finally {
-            unlockWrite();
-        }
     }
 
     /**
@@ -1323,18 +1048,6 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
         if (searchKeysTypeRestored.getAndSet(true)) {
             return;
         }
-        if (multiple) {
-            // DUPKEYS: зеркало read() — зарегистрированный проход, исключен из MULTI-мутаций
-            final XdStorageBTreeNode chainStart = enterWalk(transaction);
-            try {
-                if (chainStart != null) {
-                    prewarmLeafChain(chainStart, storage, transaction).restoreSearchKeyTypes(null, storage, transaction, keyRestorer);
-                }
-            } finally {
-                leaveWalk();
-            }
-            return;
-        }
         lockWrite(transaction);
         XdStorageBTreeNode chainStart;
         try {
@@ -1371,19 +1084,6 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      * @throws XdStorageConnectionException when lazily loading a leaf-chain stub fails
      */
     public void read(final IXdStorage storage, final IXdStorageTransaction transaction, final IXdStorageBTreeViewer viewer) throws XdStorageException, XdStorageConnectionException {
-        if (multiple) {
-            // DUPKEYS: проход регистрируется до отпускания лока дерева — эксклюзивная мутация
-            // MULTI-дерева дожидается его выхода (никаких нодовых гонок с писателем)
-            final XdStorageBTreeNode chainStart = enterWalk(transaction);
-            try {
-                if (chainStart != null) {
-                    prewarmLeafChain(chainStart, storage, transaction).read(null, storage, transaction, viewer);
-                }
-            } finally {
-                leaveWalk();
-            }
-            return;
-        }
         // R-38: ПРЕДПРОГРЕВ ЦЕПИ ЛИСТЬЕВ. На холодном кэше связный обход под read-локами
         // делал синхронный storage.load каждого стаба-узла (XML-парс с диска) ВНУТРИ
         // удерживаемых блокировок — писатели вымораживались на таймаутах (R-37: детерминированный
