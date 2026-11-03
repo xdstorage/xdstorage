@@ -738,8 +738,25 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
                 activeMutations.incrementAndGet();
                 activeMutatorThreads.put(Thread.currentThread(), "deletePair");
                 try {
-                    // Вызываем перегруженный целевой метод корня
-                    root.delete(this, key, value, storage, transaction, retryDelete);
+                    // R-46 ПРИМЕНЁН К ТОЧЕЧНОМУ УДАЛЕНИЮ: в MULTI-дереве сплиты раскидывают
+                    // дубликаты ключа между левой и правой ветвями, поэтому вертикальный
+                    // спуск по разделителям этажей не может адресовать конкретную пару
+                    // Ключ+Значение: на равенстве ключа с разделителем он обязан выбрать
+                    // одну сторону (в findChildAndDeletePair — строго правую), а целевая
+                    // пара может лежать в другой. Отсюда фантомные "does not exists" на
+                    // сериях дубликатов длиннее 2t-1. Лист с парой ищется каноническим
+                    // горизонтальным обходом упорядоченной цепи листьев — зеркально
+                    // find()/read(); правый (уникальный) контекст сохраняет спуск.
+                    if (multiple) {
+                        final XdStorageBTreeNode leafWithPair = locateLeafWithPair(key, value, storage, transaction);
+                        if (leafWithPair == null) {
+                            throw new XdStorageException("object of " + id + " with key " + key + " and value " + value + " does not exists");
+                        }
+                        leafWithPair.delete(this, key, value, storage, transaction, retryDelete);
+                    } else {
+                        // Вызываем перегруженный целевой метод корня
+                        root.delete(this, key, value, storage, transaction, retryDelete);
+                    }
                 } finally {
                     activeMutatorThreads.remove(Thread.currentThread());
                     activeMutations.decrementAndGet();
@@ -750,6 +767,72 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
                 }
             }
         } while (retryDelete.get());
+    }
+
+    /**
+     * R-46 для точечного удаления (MULTI): находит лист, содержащий конкретную пару
+     * Ключ+Значение, каноническим горизонтальным обходом упорядоченной цепи листьев от
+     * {@code firstLeaf} — тем же путём, которым дубликаты находит {@code find()}/{@code read()}.
+     * Вызывается под write-локом дерева из мутационного цикла {@code delete(key, value, ...)}:
+     * структура цепи стабильна (все мутаторы сериализуются на локе дерева), стабы цепи
+     * разрешаются в канонические инстансы по ходу, снимки списков берутся под их
+     * мониторами (R-43, дисциплина сериализатора). Цепь упорядочена по ключу, поэтому
+     * обход завершается досрочно, как только ключ листа ушёл за целевой: дубликаты
+     * одного ключа занимают сплошной отрезок цепи.
+     *
+     * @param key         the key of the pair to locate (route only — duplicates span leaves)
+     * @param value       the concrete value/reference of the pair (the discriminator)
+     * @param storage     the storage facade used to resolve leaf-chain stubs
+     * @param transaction the owning transaction
+     * @return the leaf holding the pair, or {@code null} when no leaf contains it
+     * @throws XdStorageException           when a chain stub cannot be resolved
+     * @throws XdStorageConnectionException when lazily loading a chain stub fails
+     */
+    private XdStorageBTreeNode locateLeafWithPair(final Comparable key, final Comparable value,
+                                                  final IXdStorage storage, final IXdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException {
+        XdStorageBTreeNode previous = null;
+        XdStorageBTreeNode current = firstLeaf;
+        int steps = 0;
+        while (current != null && steps++ < PREWARM_STEP_BUDGET) {
+            if (XdStorageObjectUtils.isReference(current)) {
+                final XdStorageBTreeNode canonical = XdStorageBTreeNode.materialize(current, storage, transaction, this, null);
+                if (previous == null) {
+                    this.firstLeaf = canonical;
+                } else {
+                    previous.setNextTreeNodeOnThisLevel(canonical);
+                }
+                current = canonical;
+            }
+            final List<Comparable> keySnapshot;
+            final List<Object> objectSnapshot;
+            synchronized (current.getKeys()) {
+                keySnapshot = new ArrayList<>(current.getKeys());
+            }
+            synchronized (current.getObjects()) {
+                objectSnapshot = new ArrayList<>(current.getObjects());
+            }
+            boolean passedBeyondKey = false;
+            for (int i = 0; i < keySnapshot.size(); ++i) {
+                final int cmp = keySnapshot.get(i).compareTo(key);
+                if (cmp == 0) {
+                    final Object candidate = objectSnapshot.get(i);
+                    if (candidate instanceof Comparable && ((Comparable) candidate).compareTo(value) == 0) {
+                        return current;
+                    }
+                } else if (cmp > 0) {
+                    // цепь упорядочена: за целевым ключом этой и последующих пар быть не может
+                    passedBeyondKey = true;
+                    break;
+                }
+            }
+            if (passedBeyondKey) {
+                return null;
+            }
+            previous = current;
+            current = current.getNextTreeNodeOnThisLevel();
+        }
+        return null;
     }
 
     /**
