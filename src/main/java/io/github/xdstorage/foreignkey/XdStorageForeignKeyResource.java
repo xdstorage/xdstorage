@@ -176,19 +176,6 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
      */
     @Override
     public void performFirstPhaseCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges record) throws XdStorageException {
-        // do nothing
-    }
-
-    /**
-     * Phase 2 of the two-phase commit: publishes the phase-1 persisted changes into the
-     * tree-object cache, making them visible to subsequent transactions.
-     *
-     * @param transaction the committing transaction
-     * @param record      the collector filled by phase 1
-     * @throws XdStorageException on a storage-level failure
-     */
-    @Override
-    public void performSecondPhaseCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges record) throws XdStorageException {
         AtomicLong countObjectsWaitingInsertIdentifiers = insertWaitingIdentifiers
                 .computeIfAbsent(transaction.getTransactionId(), tId -> new AtomicLong());
         if (countObjectsWaitingInsertIdentifiers.get() > 0)
@@ -250,6 +237,19 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
             transaction.markRollbackOnly("foreign key violation: " + relationName(), violation);
             throw violation;
         }
+    }
+
+    /**
+     * Phase 2 of the two-phase commit: publishes the phase-1 persisted changes into the
+     * tree-object cache, making them visible to subsequent transactions.
+     *
+     * @param transaction the committing transaction
+     * @param record      the collector filled by phase 1
+     * @throws XdStorageException on a storage-level failure
+     */
+    @Override
+    public void performSecondPhaseCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges record) throws XdStorageException {
+        // do nothing
     }
 
     /**

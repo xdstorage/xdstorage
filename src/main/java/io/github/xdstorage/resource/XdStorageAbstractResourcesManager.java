@@ -1,6 +1,8 @@
 package io.github.xdstorage.resource;
 
 import io.github.xdstorage.XdStoragePolicy;
+import io.github.xdstorage.btree.XdStorageBTree;
+import io.github.xdstorage.btree.XdStorageBTreeNode;
 import io.github.xdstorage.exceptions.XdStorageConnectionException;
 import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.index.IXdStorageIndexDaoResource;
@@ -151,7 +153,12 @@ public abstract class XdStorageAbstractResourcesManager {
 
             @Override
             public int getCommitOrder() {
-                return XdStorageResourceCommitOrder.DATA_RESOURCE_ORDER;
+                Class<?> clazz = clInfo.getClazz();
+                if (clazz == XdStorageBTree.class || clazz == XdStorageBTreeNode.class) {
+                    return XdStorageResourceCommitOrder.INDEX_RESOURCE_ORDER;
+                } else {
+                    return XdStorageResourceCommitOrder.DATA_RESOURCE_ORDER;
+                }
             }
         }, transaction);
         return resource.getDao();
@@ -186,7 +193,12 @@ public abstract class XdStorageAbstractResourcesManager {
 
             @Override
             public int getCommitOrder() {
-                return XdStorageResourceCommitOrder.DATA_RESOURCE_ORDER;
+                Class<?> clazz = clInfo.getClazz();
+                if (clazz == XdStorageBTree.class || clazz == XdStorageBTreeNode.class) {
+                    return XdStorageResourceCommitOrder.INDEX_RESOURCE_ORDER;
+                } else {
+                    return XdStorageResourceCommitOrder.DATA_RESOURCE_ORDER;
+                }
             }
         }, transaction);
         return resource.getDao();
@@ -283,7 +295,12 @@ public abstract class XdStorageAbstractResourcesManager {
 
                 @Override
                 public int getCommitOrder() {
-                    return XdStorageResourceCommitOrder.DATA_RESOURCE_ORDER;
+                    Class<?> clazz = clInfo.getClazz();
+                    if (clazz == XdStorageBTree.class || clazz == XdStorageBTreeNode.class) {
+                        return XdStorageResourceCommitOrder.INDEX_RESOURCE_ORDER;
+                    } else {
+                        return XdStorageResourceCommitOrder.DATA_RESOURCE_ORDER;
+                    }
                 }
             }, transaction);
         }
@@ -324,7 +341,12 @@ public abstract class XdStorageAbstractResourcesManager {
 
                 @Override
                 public int getCommitOrder() {
-                    return XdStorageResourceCommitOrder.DATA_RESOURCE_ORDER;
+                    Class<?> clazz = clInfo.getClazz();
+                    if (clazz == XdStorageBTree.class || clazz == XdStorageBTreeNode.class) {
+                        return XdStorageResourceCommitOrder.INDEX_RESOURCE_ORDER;
+                    } else {
+                        return XdStorageResourceCommitOrder.DATA_RESOURCE_ORDER;
+                    }
                 }
             }, transaction);
         }
@@ -363,7 +385,12 @@ public abstract class XdStorageAbstractResourcesManager {
 
                 @Override
                 public int getCommitOrder() {
-                    return XdStorageResourceCommitOrder.DATA_RESOURCE_ORDER;
+                    Class<?> clazz = clInfo.getClazz();
+                    if (clazz == XdStorageBTree.class || clazz == XdStorageBTreeNode.class) {
+                        return XdStorageResourceCommitOrder.INDEX_RESOURCE_ORDER;
+                    } else {
+                        return XdStorageResourceCommitOrder.DATA_RESOURCE_ORDER;
+                    }
                 }
             }, transaction);
         }

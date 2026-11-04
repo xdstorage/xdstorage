@@ -619,13 +619,13 @@ public class XdStorageTransaction implements IXdStorageTransaction {
         state.setState(XdStorageCommitTransactionState.PREPARED);
 
         // performing second phase commit (финальная очистка кэшей и подтверждение версий)
-        firstPhaseCommittedResources.values().forEach(change -> {
+        activeChangesResources.forEach(change -> {
             if (hasError.get()) {
                 return;
             }
 
             try {
-                IXdStorageResourceObject<?> resource = change.getResource();
+                IXdStorageResourceObject<?> resource = change.resource;
                 final XdStorageTransactionResourceChanges record = new XdStorageTransactionResourceChanges(resource);
                 resource.performSecondPhaseCommit(this, record);
             } catch (final Throwable e) {
