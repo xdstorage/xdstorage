@@ -715,12 +715,13 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                 }
             }
             try {
-                insertIntoThisNode(key, object, storage, transaction);
-                if (this.getKeys().size() >= 2 * getTree().getT()) {
-                    if (this.getParent() == null) {
-                        splitAndCreateNewRoot(this, storage, transaction);
-                    } else {
-                        splitAndInsertIntoParent(this, storage, transaction);
+                if (insertIntoThisNode(key, object, storage, transaction, retryInsert)) {
+                    if (this.getKeys().size() >= 2 * getTree().getT()) {
+                        if (this.getParent() == null) {
+                            splitAndCreateNewRoot(this, storage, transaction);
+                        } else {
+                            splitAndInsertIntoParent(this, storage, transaction);
+                        }
                     }
                 }
             } finally {
@@ -752,11 +753,15 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                         isFound = true;
                         break;
                     } else if (compareResult == 0) {
-                        // МАТЕМАТИЧЕСКИЙ КАНOН Б+ ДЕРЕВА: Если ключ равен внутреннему разделителю этажа,
-                        // при вставке мы обязаны направить поток в ПРАВОЕ поддерево этого разделителя (индекс i + 1)!
-                        // Выполняем fail-safe проверку границ коллекции детей.
-                        int targetIdx = (i + 1) < currentChildren.size() ? (i + 1) : (currentChildren.size() - 1);
-                        child = current.loadChildOfThisNode(targetIdx, storage, transaction);
+                        if (tree.isMultiple()) {
+                            child = current.loadChildOfThisNode(i, storage, transaction);
+                        } else {
+                            // МАТЕМАТИЧЕСКИЙ КАНOН Б+ ДЕРЕВА: Если ключ равен внутреннему разделителю этажа,
+                            // при вставке мы обязаны направить поток в ПРАВОЕ поддерево этого разделителя (индекс i + 1)!
+                            // Выполняем fail-safe проверку границ коллекции детей.
+                            int targetIdx = (i + 1) < currentChildren.size() ? (i + 1) : (currentChildren.size() - 1);
+                            child = current.loadChildOfThisNode(targetIdx, storage, transaction);
+                        }
                         isFound = true;
                         break;
                     }
@@ -1034,7 +1039,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         XdStorageBTreeInvariants.checkStructuralAlignment(newRoot, "splitCreateRoot:" + this.getId());
     }
 
-    private void insertIntoThisNode(final Comparable key, final Object object, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    private boolean insertIntoThisNode(final Comparable key, final Object object, final IXdStorage storage,
+                                       final IXdStorageTransaction transaction, AtomicBoolean retryInsert) throws XdStorageException, XdStorageConnectionException {
         boolean isInserted = false;
         int i;
         for (i = 0; i < getKeys().size(); ++i) {
@@ -1068,11 +1074,35 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                 break;
             }
         }
+
         if (!isInserted) {
-            getKeys().add(key);
-            getObjects().add(object);
+            if (tree.isMultiple() && object instanceof Comparable) {
+                XdStorageBTreeNode nextLeaf = this.getNextTreeNodeOnThisLevel();
+                if (nextLeaf != null && nextLeaf.getKeys().get(0).compareTo(key) == 0) {
+                    if (!nextLeaf.tryDeepLockForInsert(transaction)) {
+                        retryInsert.set(true);
+                        return false;
+                    }
+                    try {
+                        nextLeaf.insertIntoThisNode(key, object, storage, transaction, retryInsert);
+                    } finally {
+                        nextLeaf.deepUnlock();
+                    }
+                } else {
+                    getKeys().add(key);
+                    getObjects().add(object);
+                    isInserted = true;
+                }
+            } else {
+                getKeys().add(key);
+                getObjects().add(object);
+                isInserted = true;
+            }
         }
-        storage.update(this, transaction);
+        if (isInserted) {
+            storage.update(this, transaction);
+        }
+        return isInserted;
     }
 
     private Comparable findLeftKey(final XdStorageBTreeNode deepLockedNode, final XdStorageBTreeNode node, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
