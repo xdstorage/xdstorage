@@ -38,7 +38,7 @@ public class XdStorageBTreeTargetedDeleteStressTest {
         for (int v = 100; v <= 150; v++) {
             bTree.insert(10, v, storage, tx);
         }
-        storage.save(bTree, tx);
+        storage.update(bTree, tx);
         tx.commit();
     }
 

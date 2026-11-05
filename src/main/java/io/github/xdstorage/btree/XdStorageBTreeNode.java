@@ -298,9 +298,11 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         canonical.setReference(false);
         if (liveTree != null) {
             canonical.setTree(liveTree);
+            storage.update(canonical, transaction);
         }
         if (liveParent != null && (canonical.getParent() == null || XdStorageObjectUtils.isReference(canonical.getParent()))) {
             canonical.setParent(liveParent);
+            storage.update(canonical, transaction);
         }
         return canonical;
     }

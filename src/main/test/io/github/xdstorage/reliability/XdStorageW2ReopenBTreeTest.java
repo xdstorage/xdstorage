@@ -2,16 +2,18 @@ package io.github.xdstorage.reliability;
 
 import io.github.xdstorage.IXdFileStorage;
 import io.github.xdstorage.IXdStorage;
+import io.github.xdstorage.XdStorageConfig;
 import io.github.xdstorage.XdStorageProvider;
 import io.github.xdstorage.search.query.IXdStorageCriterionOperator;
 import io.github.xdstorage.search.query.XdStoragePrimaryCriterion;
 import io.github.xdstorage.search.query.XdStorageSearchQuery;
+import io.github.xdstorage.serialization.FilesFormat;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Collection;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -35,7 +37,7 @@ public class XdStorageW2ReopenBTreeTest {
     @Test
     @DisplayName("BTree id index: после reopen каждый по-id load находит запись, full scan возвращает все")
     public void testBTreeIdIndexReadableAfterReopen() throws Exception {
-        final Path dir = Files.createTempDirectory("w2_btree_read");
+        final File dir = new File("./target/w2_btree_read");
         final String name = "w2-btree-read";
         try {
             IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage(name, dir.toString(), 128);
@@ -75,10 +77,11 @@ public class XdStorageW2ReopenBTreeTest {
     @Test
     @DisplayName("BTree id index: вставки/обновления/удаления после reopen корректны (сплиты/слияния по живому дереву)")
     public void testBTreeWritesWorkAfterReopen() throws Exception {
-        final Path dir = Files.createTempDirectory("w2_btree_write");
+        final File dir = new File("./target/w2_btree_write");
         final String name = "w2-btree-write";
         try {
-            IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage(name, dir.toString(), 128);
+            XdStorageConfig config = new XdStorageConfig.Builder().journalWrites(true).build();
+            IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage(name, dir.toString(), 128, FilesFormat.YAML, config);
             try {
                 final IXdStorageTransaction tx = storage.beginTransaction();
                 for (int i = 0; i < RECORDS; i++) {
@@ -139,7 +142,7 @@ public class XdStorageW2ReopenBTreeTest {
     @Test
     @DisplayName("Поисковый индекс (B+Tree): EQUALS и full scan работают после reopen; записи после reopen видны")
     public void testSearchIndexReadableAndWritableAfterReopen() throws Exception {
-        final Path dir = Files.createTempDirectory("w2_search");
+        final File dir = new File("./target/w2_search");
         final String name = "w2-search";
         try {
             IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage(name, dir.toString(), 128);
@@ -210,9 +213,9 @@ public class XdStorageW2ReopenBTreeTest {
         return ((Collection<Object>) result).size();
     }
 
-    private static void deleteQuietly(final Path dir) {
+    private static void deleteQuietly(final File dir) {
         try {
-            Files.walk(dir).sorted(java.util.Comparator.reverseOrder()).forEach(p -> p.toFile().delete());
+            Files.walk(dir.toPath()).sorted(java.util.Comparator.reverseOrder()).forEach(p -> p.toFile().delete());
         } catch (final Exception ignored) {
         }
     }
