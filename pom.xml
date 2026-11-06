@@ -317,11 +317,11 @@
                                 <include>**/*Test.java</include>
                             </includes>
                             <excludes>
-                                <!-- docs/FLAKY.md: документированные редкие флаки под пиковой нагрузкой -->
+                                <!-- docs/FLAKY.md: документированные редкие флаки под пиковой нагрузкой
                                 <exclude>**/XdStorageGraphPhantomReadStressTest.java</exclude>
                                 <exclude>**/XdStorageFacadeStressTest.java</exclude>
                                 <exclude>**/XdStoragePhantomReadIsolationStressTest.java</exclude>
-                                <exclude>**/XmlDataStorageMultithreadsTest.java</exclude>
+                                <exclude>**/XmlDataStorageMultithreadsTest.java</exclude-->
                             </excludes>
                         </configuration>
                     </plugin>
@@ -362,10 +362,10 @@
                                      *StressTest family, the Xml multithread stress, and the
                                      integration package — the slow and load-sensitive part of
                                      the run. They stay mandatory in the nightly and the
-                                     RC protocol (docs/RELEASE-PLAN.md § Quality bar). -->
+                                     RC protocol (docs/RELEASE-PLAN.md § Quality bar).
                                 <exclude>**/*StressTest.java</exclude>
                                 <exclude>**/XmlDataStorageMultithreadsTest.java</exclude>
-                                <exclude>**/integration/**</exclude>
+                                <exclude>**/integration/**</exclude-->
                             </excludes>
                         </configuration>
                     </plugin>

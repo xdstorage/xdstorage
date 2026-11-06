@@ -879,6 +879,8 @@ public class XdStorageTransaction implements IXdStorageTransaction {
      *         one rollback failed
      */
     public boolean rollbackFailedCommit(final Map<Object, XdStorageTransactionResourceChanges> firstPhaseCommittedResources) {
+        log.warn("ROLLBACK FAILED COMMIT of transaction {} started", getTransactionId());
+
         final List<XdStorageRuntimeException> exceptions = Collections.synchronizedList(new ArrayList<>());
 
         firstPhaseCommittedResources.entrySet().stream().forEach(entry -> {
@@ -900,7 +902,7 @@ public class XdStorageTransaction implements IXdStorageTransaction {
 
         if (!exceptions.isEmpty()) {
             exceptions.stream().forEach(e -> {
-                log.error("rollback failed commit error", e);
+                log.error("ROLLBACK FAILED COMMIT error", e);
             });
         }
 

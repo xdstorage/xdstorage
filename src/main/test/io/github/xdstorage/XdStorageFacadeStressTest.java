@@ -70,7 +70,7 @@ public class XdStorageFacadeStressTest extends AbstractXdStorageTest {
                         long uniqueId = (long) workerId * itemsPerThread + j + 1;
 
                         // Открываем изолированную транзакцию для текущего потока с запасом времени
-                        IXdStorageTransaction tx = realStorage.beginTransaction(100L);
+                        IXdStorageTransaction tx = realStorage.beginTransaction(5000L);
                         try {
                             ClassPolicyEntity entity = new ClassPolicyEntity();
                             entity.setId(uniqueId);

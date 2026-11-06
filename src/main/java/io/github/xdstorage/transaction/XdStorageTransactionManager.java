@@ -275,9 +275,9 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
             // TREEFILE: rollbackFailedCommit ПЕРЕЗАГРУЖАЕТ деревья с закоммиченных файлов
             // (recoverInfraFromCommittedFiles) — их ключевые компенсации пропускаются
             // точечно, по факту перезагрузки (infraReloadedTrees).
+//            transaction.rollbackIndexKeyInserts();
+//            transaction.rollbackIndexKeyDeletes();
             transaction.rollbackFailedCommit(firstPhaseCommittedResources);
-            transaction.rollbackIndexKeyInserts();
-            transaction.rollbackIndexKeyDeletes();
 
             throw new XdStorageRuntimeException(e);
         } finally {

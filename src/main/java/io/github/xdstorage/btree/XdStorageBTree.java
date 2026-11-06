@@ -52,12 +52,12 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
 
     /** R-36→R-54: бюджет ретраев спуска поиска — по ВРЕМЕНИ (см. find), не по попыткам.
      *  Верхняя граница дедлайна: даже при большом таймауте транзакции читатель не hangs дольше 10с. */
-    private static final long FIND_RETRY_BUDGET_CAP_MS = 10_000;
+    private static final long FIND_RETRY_BUDGET_CAP_MS = 1000;
     /** R-54: потолок экспоненциального backoff между ретраями поиска. */
     private static final long FIND_RETRY_BACKOFF_MAX_MILLIS = 25;
 
     /** R-38: страховка предпрогрева цепи листьев от зацикливания (штатная цепь конечна). */
-    private static final int PREWARM_STEP_BUDGET = 1_000_000;
+    private static final int PREWARM_STEP_BUDGET = 100;
 
     @XdStorageObjectId
     private XdStorageBTreeId id;

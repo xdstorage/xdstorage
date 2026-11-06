@@ -114,12 +114,9 @@ public final class XdStorageCacheMutator {
                 // чтобы граф children/next не расходился между кэшем и памятью после коммита
                 Object newMaterializedObject = cache.materializeForCache(newObject);
                 XdStorageCacheRecord tmpRecord = cache.createInsertRecord(newMaterializedObject, transaction);
+                tmpRecord.lock(transaction);
                 cache.records().putIfAbsent(objectId, tmpRecord);
                 record = cache.records().get(objectId);
-                if (record != tmpRecord) {
-                    throw new XdStorageException("trying to double insert one object of " + newObject.getClass() + " with id " + objectId);
-                }
-                record.lock(transaction);
                 if (!record.canBeChangedByTransaction(transaction)) {
                     log.error("INSERT refused (record check): object {} id {} record[state={}, ownerTx={}, recordTs={}]",
                             newObject.getClass().getSimpleName(), objectId, record.getState(),
