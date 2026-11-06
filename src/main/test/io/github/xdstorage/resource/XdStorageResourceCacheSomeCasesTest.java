@@ -2,6 +2,7 @@ package io.github.xdstorage.resource;
 
 import io.github.xdstorage.IXdStorage;
 import io.github.xdstorage.exceptions.XdStorageException;
+import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.factories.IXdStorageCloner;
 import io.github.xdstorage.services.XdStorageServicesLocator;
 import io.github.xdstorage.transaction.IXdStorageTransactionManager;
@@ -73,7 +74,7 @@ public class XdStorageResourceCacheSomeCasesTest {
         XdStorageTransaction tx = mock(XdStorageTransaction.class);
         when(tx.getTransactionId()).thenReturn(txId);
         when(tx.getTimestart()).thenReturn(timestart);
-        when(tx.getTimeout()).thenReturn(5000L);
+        when(tx.getTimeout()).thenReturn(100L);
         return tx;
     }
 
@@ -206,7 +207,7 @@ public class XdStorageResourceCacheSomeCasesTest {
         // Жертва в параллельном потоке пытается модифицировать этот же заблокированный объект
         ExecutorService executor = Executors.newSingleThreadExecutor();
         Future<?> future = executor.submit(() -> {
-            assertThrows(XdStorageException.class, () -> {
+            assertThrows(XdStorageRuntimeException.class, () -> {
                 resourceCache.update(entity, txVictim);
             }, "Поток-жертва обязан был вылететь по таймауту ожидания блокировки lock.wait()!");
         });

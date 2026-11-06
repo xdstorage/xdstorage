@@ -26,7 +26,7 @@ public abstract class AbstractClonerTest {
         mockTx = mock(XdStorageTransaction.class);
 
         when(mockTx.getTransactionId()).thenReturn("tx-cloner-test-123");
-        when(mockTx.getTimeout()).thenReturn(5000L);
+        when(mockTx.getTimeout()).thenReturn(100L);
 
         smartCloner = new XdStorageSmartCloner(mockProvider);
     }

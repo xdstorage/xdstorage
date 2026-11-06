@@ -42,7 +42,7 @@ public class UpdateUniverseOperation implements Runnable {
 
             tx.commit();
             System.out.println("UpdateUniverseOperation Commited");
-        } catch (final RuntimeException | XdStorageException | XdStorageConnectionException e) {
+        } catch (final Throwable e) {
             log.info("error", e);
             tx.rollback();
             System.out.println("UpdateUniverseOperation Rolledback");

@@ -113,7 +113,7 @@ public class BTreeResourceCacheIntegrationTest {
     @Test
     @DisplayName("Сценарий 1: Сквозная цепочка Мутация -> Индексация в B+Tree -> Двухфазный Коммит (ACID)")
     public void testIntegration_InsertAndUpdateWithTwoPhaseCommit() throws Exception {
-        XdStorageTransaction tx = createTx("tx-acid-flow", 5000L);
+        XdStorageTransaction tx = createTx("tx-acid-flow", 100L);
         IntegrationEntity planet = new IntegrationEntity(101L, "Tatooine");
 
         // 1. Фиксируем вставку объекта в транзакционном кэше версий ресурсов
@@ -137,7 +137,7 @@ public class BTreeResourceCacheIntegrationTest {
         resourceCache.commit(tx);
 
         // Проверяем, что после коммита объект стал доступен для глобального чтения
-        Object committedObj = resourceCache.read(101L, createTx("tx-global-reader", 5000L));
+        Object committedObj = resourceCache.read(101L, createTx("tx-global-reader", 100L));
         assertNotNull(committedObj);
         assertEquals("Tatooine", ((IntegrationEntity) committedObj).getName());
     }
@@ -148,9 +148,9 @@ public class BTreeResourceCacheIntegrationTest {
     @Test
     @DisplayName("Сценарий 2: Проверка изоляции Snapshot-версий между конкурирующими сессиями")
     public void testIntegration_TransactionIsolation_ConcurrentSessions() throws Exception {
-        XdStorageTransaction txInit = createTx("tx-init-session", 5000L);
-        XdStorageTransaction txWriter = createTx("tx-writer-session", 5000L);
-        XdStorageTransaction txReader = createTx("tx-reader-session", 5000L);
+        XdStorageTransaction txInit = createTx("tx-init-session", 100L);
+        XdStorageTransaction txWriter = createTx("tx-writer-session", 100L);
+        XdStorageTransaction txReader = createTx("tx-reader-session", 100L);
 
         IntegrationEntity coreEntity = new IntegrationEntity(202L, "Original_Data_Alpha");
 
@@ -197,7 +197,7 @@ public class BTreeResourceCacheIntegrationTest {
         AtomicInteger successfulOperations = new AtomicInteger(0);
 
         // Предзаполняем базовый кэш и B+Tree СУБД для обеспечения стабильной структуры балансировки страниц
-        XdStorageTransaction txInit = createTx("tx-bulk-init", 15000L);
+        XdStorageTransaction txInit = createTx("tx-bulk-init", 100L);
         for (int i = 1; i <= entitiesCount; i++) {
             resourceCache.fillCache(Collections.singletonList(new IntegrationEntity((long) i, "Base_Data_" + i)));
             bTree.insert((long) i, "Index_Data_" + i, mockStorage, txInit);
@@ -214,7 +214,7 @@ public class BTreeResourceCacheIntegrationTest {
                         long targetId = ((workerId + j) % entitiesCount) + 1;
 
                         // Выставляем промышленный таймаут в 15 000 мс для стабильного прохождения пиковой ForkJoin нагрузки
-                        XdStorageTransaction tx = createTx("tx-heavy-worker-" + workerId + "-" + j, 15000L);
+                        XdStorageTransaction tx = createTx("tx-heavy-worker-" + workerId + "-" + j, 100L);
 
                         // Фаза Чтения -> Валидация версий
                         Object obj = resourceCache.read(targetId, tx);

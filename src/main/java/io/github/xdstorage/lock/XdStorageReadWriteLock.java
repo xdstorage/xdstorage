@@ -169,7 +169,7 @@ public class XdStorageReadWriteLock {
      * @throws InterruptedException when the polling sleep is interrupted
      */
     public void lockWrite(final IXdStorageTransaction transaction) throws InterruptedException {
-        long timeout = transaction != null ? transaction.getTimeout() : 5000;
+        long timeout = transaction != null ? transaction.getTimeout() : 100L;
         timeout *= 1_000_000;
         long startTime = System.nanoTime();
         long sleepStep = 15;
@@ -201,7 +201,7 @@ public class XdStorageReadWriteLock {
      * @throws InterruptedException when the polling sleep is interrupted
      */
     public void lockRead(final IXdStorageTransaction transaction) throws InterruptedException {
-        long timeout = transaction != null ? transaction.getTimeout() : 5000;
+        long timeout = transaction != null ? transaction.getTimeout() : 100L;
         timeout *= 1_000_000;
         long startTime = System.nanoTime();
         long sleepStep = 15;

@@ -102,7 +102,7 @@ public abstract class AbstractBTreeIntegrationTest {
         };
 
         // Живая транзакция для прохождения таймстамп-контроля и лимитов блокировок
-        transaction = new XdStorageTransaction(null, "THREAD_1", null, 5000L, "TX_1") {
+        transaction = new XdStorageTransaction(null, "THREAD_1", null, 100L, "TX_1") {
             @Override public void startCriticalSection(boolean r) {}
             @Override public void finishCriticalSection() {}
         };

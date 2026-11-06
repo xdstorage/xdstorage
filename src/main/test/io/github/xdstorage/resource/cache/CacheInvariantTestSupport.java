@@ -142,7 +142,7 @@ class CacheInvariantTestSupport {
     }
 
     static XdStorageTransaction mkTx(final String txId, final long timestart) {
-        return mkTx(txId, timestart, 5000L);
+        return mkTx(txId, timestart, 100L);
     }
 
     static XdStorageTransaction mkTx(final String txId, final long timestart, final long timeout) {

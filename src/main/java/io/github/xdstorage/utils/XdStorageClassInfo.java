@@ -7,6 +7,7 @@ import io.github.xdstorage.search.XdStorageSearchIndex;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * The per-entity metadata record of the engine: storage policy, id-index type and id field,
@@ -162,5 +163,26 @@ public class XdStorageClassInfo {
 
     void setIndexes(Map<String, XdStorageSearchIndex> indexes) {
         this.indexes = indexes;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        XdStorageClassInfo that = (XdStorageClassInfo) o;
+        return clazz.equals(that.clazz);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(clazz);
+    }
+
+    @Override
+    public String toString() {
+        return "XdStorageClassInfo{" +
+                "clazz=" + clazz.getSimpleName() +
+                ", policy=" + policy +
+                '}';
     }
 }

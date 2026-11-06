@@ -39,7 +39,7 @@ public class GraphFlowDiagnosticTest {
             tx.commit();
 
             // Диагностика id_index
-            final IXdStorageTransaction dtx = storage.beginTransaction(5000L);
+            final IXdStorageTransaction dtx = storage.beginTransaction(100L);
             final XdStorageBTreeId treeId = new XdStorageBTreeId(XdGalaxy.class, "id_index");
             final XdStorageBTree tree = storage.load(XdStorageBTree.class, treeId, dtx);
             System.out.println("### tree=" + (tree != null ? "loaded" : "NULL")

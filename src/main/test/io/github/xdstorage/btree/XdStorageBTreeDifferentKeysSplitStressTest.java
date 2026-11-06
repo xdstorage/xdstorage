@@ -26,7 +26,7 @@ public class XdStorageBTreeDifferentKeysSplitStressTest {
     public void setUp() throws Exception {
         mockStorage = mock(IXdStorage.class);
         mockTx = mock(IXdStorageTransaction.class);
-        when(mockTx.getTimeout()).thenReturn(5000L);
+        when(mockTx.getTimeout()).thenReturn(100L);
 
         // Обучаем мок возвращать ноды In-Place из оперативной памяти
         doAnswer(invocation -> invocation.getArgument(0)).when(mockStorage).load((Class<Object>) any(), any());

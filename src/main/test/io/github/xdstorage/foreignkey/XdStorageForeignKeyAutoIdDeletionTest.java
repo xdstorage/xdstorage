@@ -61,7 +61,6 @@ public class XdStorageForeignKeyAutoIdDeletionTest {
 
     @Test
     @DisplayName("Инвариант: Попытка удалить родителя по сгенерированному ID при живом ребенке должна вызывать эксепшен")
-    @Disabled("нерабочий тест")
     public void testFK_AutoId_DeleteParentAlone_ShouldThrowException() throws Exception {
         IXdStorageTransaction tx = storage.beginTransaction();
 

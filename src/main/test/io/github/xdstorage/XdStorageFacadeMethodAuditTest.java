@@ -70,7 +70,7 @@ public class XdStorageFacadeMethodAuditTest {
     private Long insertOne(final String value) throws Exception {
         final AuditEntity e = new AuditEntity();
         e.setValue(value);
-        final IXdStorageTransaction tx = storage.beginTransaction(15000L);
+        final IXdStorageTransaction tx = storage.beginTransaction(100L);
         try {
             storage.save(e, tx);
             tx.commit();
@@ -101,7 +101,7 @@ public class XdStorageFacadeMethodAuditTest {
         assertNotNull(storage.getTransactionManager());
         // the manager is the lower-level handle of the SAME transaction lifecycle the
         // facade drives: a transaction begun through it must commit through it.
-        final IXdStorageTransaction tx = storage.getTransactionManager().beginTransaction(15000L);
+        final IXdStorageTransaction tx = storage.getTransactionManager().beginTransaction(100L);
         assertNotNull(tx);
         tx.commit();
         assertFalse(storage.getTransactionManager().isTransactionAlive(tx));
@@ -110,7 +110,7 @@ public class XdStorageFacadeMethodAuditTest {
     @Test
     public void getMetrics_TransactionCountersMove() throws Exception {
         final long begunBefore = storage.getMetrics().get("transactionsBegun");
-        final IXdStorageTransaction tx = storage.beginTransaction(15000L);
+        final IXdStorageTransaction tx = storage.beginTransaction(100L);
         tx.commit();
         assertTrue(storage.getMetrics().get("transactionsBegun") >= begunBefore + 1,
                 "the facade metrics getter must expose the live per-storage counter set");
@@ -119,7 +119,7 @@ public class XdStorageFacadeMethodAuditTest {
     @Test
     public void has_TrueForStored_FalseForMissing() throws Exception {
         final Long id = insertOne("present");
-        final IXdStorageTransaction tx = storage.beginTransaction(15000L);
+        final IXdStorageTransaction tx = storage.beginTransaction(100L);
         try {
             assertTrue(storage.has(AuditEntity.class, id, tx));
             assertFalse(storage.has(AuditEntity.class, -12345L, tx));
@@ -140,7 +140,7 @@ public class XdStorageFacadeMethodAuditTest {
     public void load_ByPredicate_FiltersInSnapshot() throws Exception {
         insertOne("alpha");
         insertOne("beta");
-        final IXdStorageTransaction tx = storage.beginTransaction(15000L);
+        final IXdStorageTransaction tx = storage.beginTransaction(100L);
         try {
             final java.util.Collection<AuditEntity> alphas = storage.load(
                     AuditEntity.class, e -> "alpha".equals(e.getValue()), tx);
@@ -161,7 +161,7 @@ public class XdStorageFacadeMethodAuditTest {
         // different missing-key semantics. Pinned here as observed; the javadoc/code
         // alignment decision is the filed follow-up, not a silent fix.
         insertOne("only");
-        final IXdStorageTransaction tx = storage.beginTransaction(15000L);
+        final IXdStorageTransaction tx = storage.beginTransaction(100L);
         try {
             assertNull(storage.load(AuditEntity.class, -987654321L, tx));
             tx.commit();
@@ -176,7 +176,7 @@ public class XdStorageFacadeMethodAuditTest {
         insertOne("w1");
         insertOne("w2");
         final AtomicInteger delivered = new AtomicInteger();
-        final IXdStorageTransaction tx = storage.beginTransaction(15000L);
+        final IXdStorageTransaction tx = storage.beginTransaction(100L);
         try {
             storage.watch(AuditEntity.class, e -> delivered.incrementAndGet(), tx);
             tx.commit();

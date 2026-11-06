@@ -49,4 +49,11 @@ public class XdStorageObjectIdField extends XdStorageObjectField {
         }
         return null;
     }
+
+    @Override
+    public String toString() {
+        return "XdStorageObjectIdField{" +
+                "field=" + field.getName() +
+                '}';
+    }
 }

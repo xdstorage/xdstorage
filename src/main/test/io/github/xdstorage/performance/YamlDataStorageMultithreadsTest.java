@@ -135,7 +135,7 @@ public class YamlDataStorageMultithreadsTest {
         System.out.println("=== НАЧАЛО МОНОЛИТНОЙ КАСКАДНОЙ ОЧИСТКИ ХРАНИЛИЩА ===");
 
         // Открываем ОДНУ ЕДИНСТВЕННУЮ транзакцию для каскадного удаления всего графа объектов
-        final IXdStorageTransaction localTx = storage.beginTransaction();
+        final IXdStorageTransaction localTx = storage.beginTransaction(1100L);
         try {
             // Вычитываем корни вселенных в контексте текущей транзакции очистки
             Collection<XdUniverse> universesToClean = storage.load(XdUniverse.class, localTx);
@@ -356,7 +356,7 @@ public class YamlDataStorageMultithreadsTest {
     }
 
     @Test
-    public void testMultithreads() {
+    public void testMultithreads() throws InterruptedException {
         final Runnable[] operations = initOperations(storage);
 
         Throwable ex = null;
@@ -425,12 +425,12 @@ public class YamlDataStorageMultithreadsTest {
         // потоков (диагностика livelock без внешнего jstack) и прерываем ожидание.
         final Thread watchdog = new Thread(() -> {
             try {
-                Thread.sleep(60_000);
+                Thread.sleep(10_000);
             } catch (final InterruptedException e) {
                 return;
             }
             if (countThreads.get() > 0) {
-                System.err.println("=== WATCHDOG: workers did not finish in 120s — dumping all stacks ===");
+                System.err.println("=== WATCHDOG: workers did not finish in 10s — dumping all stacks ===");
                 Thread.getAllStackTraces().forEach((t, frames) -> {
                     System.err.println("--- " + t.getName() + " ---");
                     for (final StackTraceElement f : frames) System.err.println("    " + f);
@@ -440,11 +440,12 @@ public class YamlDataStorageMultithreadsTest {
         });
         watchdog.setDaemon(true);
         watchdog.start();
+        watchdog.join();
 
         synchronized (countThreads) {
             while (countThreads.intValue() > 0) {
                 try {
-                    countThreads.wait(100);
+                    countThreads.wait(1000);
                     exThread.forEach(e -> e.printStackTrace(System.err));
                     Assertions.assertTrue(exThread.isEmpty());
                     log.info("FileStorage multithreads test: active threads = " + countThreads.get());

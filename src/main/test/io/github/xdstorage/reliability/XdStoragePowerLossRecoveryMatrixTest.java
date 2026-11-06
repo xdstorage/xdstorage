@@ -43,7 +43,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @DisplayName("PWRLOSS: power-loss recovery matrix (simulated by truncation)")
 public class XdStoragePowerLossRecoveryMatrixTest {
 
-    private static final long TX_TIMEOUT = 60_000L;
+    private static final long TX_TIMEOUT = 5_000L;
 
     @TempDir
     Path tempDir;

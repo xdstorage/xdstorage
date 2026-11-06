@@ -63,7 +63,7 @@ public class XdStorageBTreeRebalanceGuardTest extends AbstractBTreeTest {
         // Валидатор работает с КОНКРЕТНЫМ классом транзакции (критические секции)
         final XdStorageTransaction validatorTx = mock(XdStorageTransaction.class);
         when(validatorTx.getTransactionId()).thenReturn("tx-guard-divergence");
-        when(validatorTx.getTimeout()).thenReturn(5000L);
+        when(validatorTx.getTimeout()).thenReturn(100L);
 
         final XdStorageException thrown = assertThrows(XdStorageException.class,
                 () -> XdStorageBTreeInvariants.validateLeafChain(tree, storage, validatorTx, "guard-test"));

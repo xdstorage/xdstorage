@@ -3,6 +3,8 @@ package io.github.xdstorage.foreignkey;
 import io.github.xdstorage.utils.XdStorageClassInfo;
 import io.github.xdstorage.utils.XdStorageObjectField;
 
+import java.util.Objects;
+
 public class XdStorageForeignKeyRelation {
 
     private final XdStorageClassInfo classFrom;
@@ -52,5 +54,29 @@ public class XdStorageForeignKeyRelation {
 
     public XdStorageObjectField getField() {
         return field;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        XdStorageForeignKeyRelation that = (XdStorageForeignKeyRelation) o;
+        return reverseRelation == that.reverseRelation && parentAnchored == that.parentAnchored && classFrom.equals(that.classFrom) && classTo.equals(that.classTo) && field.equals(that.field);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(classFrom, classTo, reverseRelation, parentAnchored, field);
+    }
+
+    @Override
+    public String toString() {
+        return "XdStorageForeignKeyRelation{" +
+                "classFrom=" + classFrom +
+                ", classTo=" + classTo +
+                ", reverseRelation=" + reverseRelation +
+                ", parentAnchored=" + parentAnchored +
+                ", field=" + field +
+                '}';
     }
 }

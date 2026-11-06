@@ -985,7 +985,7 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
         // (производная от таймаута транзакции) с экспоненциальным backoff: аллокационный
         // шторм R-36 невозможен (паузы ограничивают темп), а окно ожидания перекрывает
         // штормы; вечный клин отсечен дедлайном + штатным таймаутом lockRead.
-        final long txTimeoutMs = transaction != null ? transaction.getTimeout() : 5000L;
+        final long txTimeoutMs = transaction != null ? transaction.getTimeout() : 100L;
         final long findBudgetMs = Math.min(Math.max(txTimeoutMs * 3 / 4, 500L), FIND_RETRY_BUDGET_CAP_MS);
         final long findDeadlineNanos = System.nanoTime() + findBudgetMs * 1_000_000L;
         long backoffMillis = 1L;

@@ -29,7 +29,7 @@ public class XdStorageBTreeArrayStressTest {
                 .when(mockStorage).load((Class<Object>) any(), any());
 
         mockTx = mock(IXdStorageTransaction.class);
-        when(mockTx.getTimeout()).thenReturn(5000L);
+        when(mockTx.getTimeout()).thenReturn(100L);
 
         // Инициализируем уникальное дерево с минимальным фактором t=2,
         // чтобы ноды сплитились и схлопывались максимально агрессивно (макс. емкость ноды = 3 ключа)

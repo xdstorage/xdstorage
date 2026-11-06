@@ -86,7 +86,7 @@ public class XdStorageNestedTransactionIsolationStressTest {
                         localStep++;
 
                         // 1. ОТКРЫВАЕМ РОДИТЕЛЬСКУЮ ТРАНЗАКЦИЮ (Global TX)
-                        IXdStorageTransaction parentTx = storage.beginTransaction(5000);
+                        IXdStorageTransaction parentTx = storage.beginTransaction(100L);
 
                         try {
                             // Делаем базовое изменение в контексте родительской сессии

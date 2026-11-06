@@ -70,7 +70,7 @@ public class XdStorageSearchEngineBenchmark {
 
     private static final int SHIPS_PER_THREAD = 100;
     private static final String ID_INDEX_NAME = "ship_idx";
-    private static final long TX_TIMEOUT = 15000L;
+    private static final long TX_TIMEOUT = 100L;
 
     /** Состояние потока: свой диапазон идентификаторов и свои корабли - без конфликтов ключей. */
     @State(Scope.Thread)

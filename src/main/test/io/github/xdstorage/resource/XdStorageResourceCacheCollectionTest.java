@@ -111,7 +111,7 @@ public class XdStorageResourceCacheCollectionTest {
         final XdStorageTransaction tx = org.mockito.Mockito.mock(XdStorageTransaction.class);
         when(tx.getTransactionId()).thenReturn(id);
         when(tx.getTimestart()).thenReturn(System.nanoTime());
-        when(tx.getTimeout()).thenReturn(5000L);
+        when(tx.getTimeout()).thenReturn(100L);
         return tx;
     }
 

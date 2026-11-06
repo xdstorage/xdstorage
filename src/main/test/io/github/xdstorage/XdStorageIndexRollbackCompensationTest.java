@@ -74,7 +74,7 @@ public class XdStorageIndexRollbackCompensationTest {
 
         // Вставка + ОТКАТ: индексные ключи обязаны быть компенсированы
         io.github.xdstorage.transaction.IXdStorageTransaction tx =
-                txStorage.beginTransaction(15000L);
+                txStorage.beginTransaction(100L);
         try {
             txStorage.save(new CompensatedEntity("rolled-1"), tx);
             txStorage.save(new CompensatedEntity("rolled-2"), tx);
@@ -83,7 +83,7 @@ public class XdStorageIndexRollbackCompensationTest {
             tx.rollback();
             throw t;
         }
-        tx = txStorage.beginTransaction(15000L);
+        tx = txStorage.beginTransaction(100L);
         try {
             txStorage.save(new CompensatedEntity("doomed-1"), tx);
             txStorage.save(new CompensatedEntity("doomed-2"), tx);
@@ -94,7 +94,7 @@ public class XdStorageIndexRollbackCompensationTest {
         // ГЛАВНЫЙ ПИН: скан по индексу НЕ находит откатенных и НЕ падает на висячих ключах.
         // До R-57 ключи doomed-* оставались в живом дереве, и этот скан завершался
         // XdStorageException ("cannot load by reference").
-        io.github.xdstorage.transaction.IXdStorageTransaction scanTx = txStorage.beginTransaction(15000L);
+        io.github.xdstorage.transaction.IXdStorageTransaction scanTx = txStorage.beginTransaction(100L);
         final Collection<CompensatedEntity> afterRollback;
         try {
             afterRollback = txStorage.load(CompensatedEntity.class, scanTx);
@@ -113,7 +113,7 @@ public class XdStorageIndexRollbackCompensationTest {
                         + "иначе сканы падают на висячих ключах");
 
         // Индекс работоспособен: новая вставка видна и единственна
-        io.github.xdstorage.transaction.IXdStorageTransaction liveTx = txStorage.beginTransaction(15000L);
+        io.github.xdstorage.transaction.IXdStorageTransaction liveTx = txStorage.beginTransaction(100L);
         try {
             txStorage.save(new CompensatedEntity("live-1"), liveTx);
             liveTx.commit();
@@ -122,7 +122,7 @@ public class XdStorageIndexRollbackCompensationTest {
             throw t;
         }
 
-        io.github.xdstorage.transaction.IXdStorageTransaction verifyTx = txStorage.beginTransaction(15000L);
+        io.github.xdstorage.transaction.IXdStorageTransaction verifyTx = txStorage.beginTransaction(100L);
         final Collection<CompensatedEntity> live;
         try {
             live = txStorage.load(CompensatedEntity.class, verifyTx);

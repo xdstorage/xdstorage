@@ -48,7 +48,7 @@ public class XdStoragePhantomReadIsolationStressTest {
     public void setUp() throws Exception {
         deleteDir(new File(STORAGE_PATH));
         // Инициализируем хранилище с достаточно большим размером страницы
-        storage = XdStorageProvider.newOrGetFileStorage("phantom_stress_db", STORAGE_PATH, 500);
+        storage = XdStorageProvider.newOrGetFileStorage("phantom_stress_db", STORAGE_PATH, 128);
 
         // Накатываем стартовый стабильный Snapshot (базис для читателей)
         IXdStorageTransaction txInit = storage.beginTransaction();

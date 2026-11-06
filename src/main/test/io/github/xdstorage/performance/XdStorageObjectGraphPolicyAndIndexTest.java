@@ -88,7 +88,7 @@ public class XdStorageObjectGraphPolicyAndIndexTest {
     @Order(2)
     @DisplayName("2. Ленивая загрузка графа: проверка извлечения через B+Tree индексы и ORM-обертки")
     public void testGraph_LazyLoadAndVerify_ShouldExtractObjectsCorrectly() throws Exception {
-        IXdStorageTransaction tx = storage.beginTransaction(5000L);
+        IXdStorageTransaction tx = storage.beginTransaction(100L);
 
         try {
             // Вычитываем корни из независимой таблицы классов

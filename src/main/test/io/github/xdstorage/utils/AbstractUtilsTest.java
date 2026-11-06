@@ -16,7 +16,7 @@ public abstract class AbstractUtilsTest {
         mockStorage = mock(IXdStorage.class);
         mockTx = mock(IXdStorageTransaction.class);
         when(mockTx.getTransactionId()).thenReturn("tx-test-utils-id");
-        when(mockTx.getTimeout()).thenReturn(5000L);
+        when(mockTx.getTimeout()).thenReturn(100L);
     }
 
     // Тестовые JavaBeans сущности для рефлексивной проверки

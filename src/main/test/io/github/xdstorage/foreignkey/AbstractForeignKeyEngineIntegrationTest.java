@@ -104,7 +104,7 @@ public abstract class AbstractForeignKeyEngineIntegrationTest {
         resourcesManager = new XdStorageForeignKeyResourcesManager(services, null);
         engine = new XdStorageForeignKeyEngine(resourcesManager, registry, true);
 
-        transaction = new XdStorageTransaction(null, "THREAD_1", null, 5000L, "TX_1") {
+        transaction = new XdStorageTransaction(null, "THREAD_1", null, 100L, "TX_1") {
             private final Set<Object> registeredResources = new HashSet<>();
             @Override public void startCriticalSection(boolean r) {}
             @Override public void finishCriticalSection() {}

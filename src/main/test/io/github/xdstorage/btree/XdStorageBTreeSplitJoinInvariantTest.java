@@ -224,7 +224,7 @@ public class XdStorageBTreeSplitJoinInvariantTest extends AbstractBTreeTest {
             final int t = 2;
             final XdStorageBTree tree = newTree(t, false);
             final MockTransaction tx = new MockTransaction("tx-inv-r" + seed) {
-                @Override public long getTimeout() { return 5000L; }
+                @Override public long getTimeout() { return 100L; }
             };
             final Random rnd = new Random(seed);
 
@@ -293,7 +293,7 @@ public class XdStorageBTreeSplitJoinInvariantTest extends AbstractBTreeTest {
             final int t = 2;
             final XdStorageBTree tree = newTree(t, false);
             final MockTransaction tx = new MockTransaction("tx-inv-col" + seed) {
-                @Override public long getTimeout() { return 5000L; }
+                @Override public long getTimeout() { return 100L; }
             };
             final Random rnd = new Random(seed);
 
@@ -368,7 +368,7 @@ public class XdStorageBTreeSplitJoinInvariantTest extends AbstractBTreeTest {
         for (final int t : new int[]{3, 5}) {
             final XdStorageBTree tree = newTree(t, false);
             final MockTransaction tx = new MockTransaction("tx-inv-t" + t) {
-                @Override public long getTimeout() { return 5000L; }
+                @Override public long getTimeout() { return 100L; }
             };
             final Random rnd = new Random(100 + t);
 

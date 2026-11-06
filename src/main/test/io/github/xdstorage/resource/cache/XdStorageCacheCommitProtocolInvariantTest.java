@@ -59,7 +59,7 @@ class XdStorageCacheCommitProtocolInvariantTest extends CacheInvariantTestSuppor
         protocol.commit(tx);
 
         XdStorageCacheRecord record = context.records.get(1L);
-        assertTrue(record.isCommitedState());
+        assertTrue(record.isCommittedState());
         assertFalse(record.isInsertChange());
         assertEquals("a", ((TestEntity) record.getObject()).getValue());
         assertNull(record.getNewObject());
@@ -137,8 +137,8 @@ class XdStorageCacheCommitProtocolInvariantTest extends CacheInvariantTestSuppor
 
         protocol.prepareCommit(tx, collector);
 
-        assertFalse(r1.isCommitedState());
-        assertFalse(r2.isCommitedState());
+        assertFalse(r1.isCommittedState());
+        assertFalse(r2.isCommittedState());
         assertEquals(2, collector.getChangesObjects().size(), "фаза 1: по подаче на запись");
 
         protocol.performCommit(tx, collector);
@@ -147,8 +147,8 @@ class XdStorageCacheCommitProtocolInvariantTest extends CacheInvariantTestSuppor
 
         // обе фазы установлены — финализация делает записи перманентными
         protocol.commit(tx);
-        assertTrue(r1.isCommitedState());
-        assertTrue(r2.isCommitedState());
+        assertTrue(r1.isCommittedState());
+        assertTrue(r2.isCommittedState());
         assertTrue(context.records.get(1L).getObject() instanceof TestEntity);
     }
 

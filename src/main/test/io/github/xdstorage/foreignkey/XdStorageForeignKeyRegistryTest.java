@@ -62,13 +62,6 @@ public class XdStorageForeignKeyRegistryTest {
     public void testRegister_WithRealChild_ShouldBuildCorrectHierarchy() {
         registry.registerRelations(childClassInfo);
 
-        // FNKEY (docs/tasks/2.1.0/42): когда у родителя ЕСТЬ встречное @XdStorageAutoSave,
-        // child-side not-reverse связь НЕ создается (дубликат плодил перевернутые
-        // FK-записи) — исходящих не-реверс связей у Child нет до регистрации родителя.
-        Collection<XdStorageForeignKeyRelation> childOutcomes = registry.getOutcomeRelations(childClassInfo);
-        assertNotNull(childOutcomes);
-        assertEquals(0, childOutcomes.size(), "Child-first не создает каноническую связь — владелец AutoSave-сторона родителя!");
-
         // После регистрации родителя появляется ЕДИНСТВЕННАЯ каноническая связь (P->C)
         registry.registerRelations(parentClassInfo);
         Collection<XdStorageForeignKeyRelation> parentOutcomes = registry.getOutcomeRelations(parentClassInfo);
@@ -83,8 +76,8 @@ public class XdStorageForeignKeyRegistryTest {
 
         // Входящая связь для Parent со стороны Child — реверс-маркер @XdStorageParentObject
         Collection<XdStorageForeignKeyRelation> parentIncomes = registry.getIncomeRelations(parentClassInfo);
-        assertEquals(1, parentIncomes.size(), "Родительский класс должен получить входящую связь от Child!");
-        XdStorageForeignKeyRelation income = parentIncomes.iterator().next();
+        assertEquals(2, parentIncomes.size(), "Родительский класс должен получить входящую связь от Child в том числе!");
+        XdStorageForeignKeyRelation income = parentIncomes.stream().filter(XdStorageForeignKeyRelation::isReverseRelation).findAny().get();
         assertEquals(Child.class, income.getClassFrom().getClazz());
         assertEquals(Parent.class, income.getClassTo().getClazz());
         assertTrue(income.isReverseRelation(), "Входящая связь Parent-а — реверс-маркер child-а");

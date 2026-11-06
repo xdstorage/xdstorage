@@ -52,7 +52,7 @@ public class XdStorageBTreeSubStructureTest {
         XdStorageTransaction tx = mock(XdStorageTransaction.class);
         when(tx.getTransactionId()).thenReturn(txId);
         when(tx.getTimestart()).thenReturn(System.currentTimeMillis());
-        when(tx.getTimeout()).thenReturn(5000L);
+        when(tx.getTimeout()).thenReturn(100L);
         return tx;
     }
 

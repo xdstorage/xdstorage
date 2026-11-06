@@ -82,7 +82,7 @@ public class XdStorageTreeStructureRollbackTest {
 
     private List<Long> insertBatch(final int count) throws Exception {
         final List<Long> ids = new ArrayList<>();
-        final IXdStorageTransaction tx = storage.beginTransaction(15000L);
+        final IXdStorageTransaction tx = storage.beginTransaction(100L);
         try {
             for (int i = 0; i < count; ++i) {
                 final RollbackEntity e = new RollbackEntity();
@@ -105,7 +105,7 @@ public class XdStorageTreeStructureRollbackTest {
 
         // Delete everything; then a phantom delete fails INSIDE the same transaction —
         // the deterministic trigger for the rollback of a fully collapsed tree.
-        final IXdStorageTransaction tx = storage.beginTransaction(15000L);
+        final IXdStorageTransaction tx = storage.beginTransaction(100L);
         try {
             for (final Long id : ids) {
                 final RollbackEntity ref = new RollbackEntity();
@@ -122,7 +122,7 @@ public class XdStorageTreeStructureRollbackTest {
 
         // THE CONTRACT: the rollback restored the pre-transaction tree — every entity is
         // loadable by id again through the id-index.
-        final IXdStorageTransaction check = storage.beginTransaction(15000L);
+        final IXdStorageTransaction check = storage.beginTransaction(100L);
         try {
             for (final Long id : ids) {
                 final RollbackEntity restored = storage.load(RollbackEntity.class, id, check);
@@ -137,7 +137,7 @@ public class XdStorageTreeStructureRollbackTest {
 
         // The restored tree accepts growth.
         final List<Long> fresh = insertBatch(5);
-        final IXdStorageTransaction check2 = storage.beginTransaction(15000L);
+        final IXdStorageTransaction check2 = storage.beginTransaction(100L);
         try {
             for (final Long id : fresh) {
                 assertNotNull(storage.load(RollbackEntity.class, id, check2));
@@ -153,7 +153,7 @@ public class XdStorageTreeStructureRollbackTest {
     public void rolledBackCollapse_ReopensConsistently() throws Exception {
         final List<Long> ids = insertBatch(40);
 
-        final IXdStorageTransaction tx = storage.beginTransaction(15000L);
+        final IXdStorageTransaction tx = storage.beginTransaction(100L);
         try {
             for (final Long id : ids) {
                 final RollbackEntity ref = new RollbackEntity();
@@ -172,7 +172,7 @@ public class XdStorageTreeStructureRollbackTest {
         storage = null;
         storage = XdStorageProvider.newOrGetFileStorage(STORAGE_NAME, STORAGE_DIR, 200);
 
-        final IXdStorageTransaction check = storage.beginTransaction(15000L);
+        final IXdStorageTransaction check = storage.beginTransaction(100L);
         try {
             for (final Long id : ids) {
                 assertNotNull(storage.load(RollbackEntity.class, id, check),

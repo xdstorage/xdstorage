@@ -97,7 +97,7 @@ public class XdStorageRollbackOnlyCauseTest {
 
     @Test
     public void noArgMark_RecordsUnspecifiedSite() {
-        final XdStorageTransaction tx = beginTx(15000L);
+        final XdStorageTransaction tx = beginTx(100L);
         tx.markRollbackOnly();
 
         final XdStorageRollbackOnlyCause cause = tx.getRollbackOnlyCause();
@@ -113,7 +113,7 @@ public class XdStorageRollbackOnlyCauseTest {
 
     @Test
     public void firstCauseWins_SecondMarkOnlyCounts() {
-        final XdStorageTransaction tx = beginTx(15000L);
+        final XdStorageTransaction tx = beginTx(100L);
         final RuntimeException firstFailure = new RuntimeException("lock-timeout at the record");
         final RuntimeException secondFailure = new RuntimeException("unrelated later failure");
 
@@ -128,7 +128,7 @@ public class XdStorageRollbackOnlyCauseTest {
 
     @Test
     public void commitFailure_NamesSiteAndChainsRootCause() {
-        final XdStorageTransaction tx = beginTx(15000L);
+        final XdStorageTransaction tx = beginTx(100L);
         final RuntimeException rootFailure = new RuntimeException("the original lazy-load failure");
         tx.markRollbackOnly("lazy-load of field 'crew' on Ship", rootFailure);
 
@@ -149,8 +149,8 @@ public class XdStorageRollbackOnlyCauseTest {
 
     @Test
     public void nestedFailureCascadesUp_ParentCauseNamesSource() {
-        final XdStorageTransaction parent = beginTx(15000L);
-        final IXdStorageTransaction nested = storage.beginTransaction(parent, 5000L);
+        final XdStorageTransaction parent = beginTx(100L);
+        final IXdStorageTransaction nested = storage.beginTransaction(parent, 100L);
         final RuntimeException nestedFailure = new RuntimeException("nested graph failure");
 
         nested.markRollbackOnly("nested failure of the trigger graph", nestedFailure);
@@ -174,8 +174,8 @@ public class XdStorageRollbackOnlyCauseTest {
 
     @Test
     public void explicitVetoCascadesDown_ChildCauseNamesParent() {
-        final XdStorageTransaction parent = beginTx(15000L);
-        final IXdStorageTransaction nested = storage.beginTransaction(parent, 5000L);
+        final XdStorageTransaction parent = beginTx(100L);
+        final IXdStorageTransaction nested = storage.beginTransaction(parent, 100L);
 
         ((XdStorageTransaction) parent).markSelfAndChildrenRollbackOnly("explicit veto by the application", null);
 
@@ -193,8 +193,8 @@ public class XdStorageRollbackOnlyCauseTest {
 
     @Test
     public void parentForceSweepsSameThreadAbandonedInternal_InternalCauseNamesSweep() {
-        final XdStorageTransaction parent = beginTx(15000L);
-        final IXdStorageTransaction internal = storage.beginTransaction(parent, 5000L);
+        final XdStorageTransaction parent = beginTx(100L);
+        final IXdStorageTransaction internal = storage.beginTransaction(parent, 100L);
         // abandoned on purpose: the same thread never commits/rolls it back
 
         parent.commit(); // skipOrWaitForInternalTransactions force-sweeps, then the parent commits cleanly
@@ -209,14 +209,14 @@ public class XdStorageRollbackOnlyCauseTest {
 
     @Test
     public void parentForceSweepsExpiredInternal_ParentPoisonedWithCascadeSite() throws Exception {
-        final XdStorageTransaction parent = beginTx(15000L);
+        final XdStorageTransaction parent = beginTx(100L);
         // the internal must be bound to a DIFFERENT thread: the same-thread branch sweeps it
         // isolated (R-41, no parent poisoning); the cross-thread expiry cascade poisons (R-40)
         final java.util.concurrent.atomic.AtomicReference<IXdStorageTransaction> internalRef =
                 new java.util.concurrent.atomic.AtomicReference<>();
         final Thread worker = new Thread(() -> internalRef.set(storage.beginTransaction(parent, 50L)));
         worker.start();
-        worker.join(5000L);
+        worker.join(100L);
         final IXdStorageTransaction internal = internalRef.get();
         assertNotNull(internal, "the worker must have begun the internal tx");
         Thread.sleep(900); // expire past the R-40 grace window (timeout + 500 ms)
@@ -242,7 +242,7 @@ public class XdStorageRollbackOnlyCauseTest {
 
     @Test
     public void unmodifiableSetterMark_NamesSetterAndClass() {
-        final XdStorageTransaction tx = beginTx(15000L);
+        final XdStorageTransaction tx = beginTx(100L);
         // a TOP-LEVEL entity: nested fixture classes cannot be runtime-codegen'd into wrappers
         final io.github.xdstorage.entities.XdPlanet entity = new io.github.xdstorage.entities.XdPlanet();
         entity.setId(1L);
@@ -283,7 +283,7 @@ public class XdStorageRollbackOnlyCauseTest {
     @Test
     public void searchReadFailure_MarksWithNamedSite() throws Exception {
         // Save through one storage generation...
-        final IXdStorageTransaction saveTx = storage.beginTransaction(15000L);
+        final IXdStorageTransaction saveTx = storage.beginTransaction(100L);
         for (int i = 0; i < 3; ++i) {
             final RbEntity e = new RbEntity();
             e.setName("entity-" + i);
@@ -301,7 +301,7 @@ public class XdStorageRollbackOnlyCauseTest {
 
         // ...and reopen: the search-read materialization fails and must mark with a named site
         storage = XdStorageProvider.newOrGetFileStorage(STORAGE_NAME, STORAGE_DIR, 200);
-        final XdStorageTransaction searchTx = beginTx(15000L);
+        final XdStorageTransaction searchTx = beginTx(100L);
         final XdStorageSearchQuery query = new XdStorageSearchQuery(
                 new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS, "entity-1"), null);
         // the corrupt fragment fails the search-read materialization (any outcome —
@@ -345,7 +345,7 @@ public class XdStorageRollbackOnlyCauseTest {
                 .addAppender(capture, Level.WARN, null);
         ctx.updateLoggers();
         try {
-            final XdStorageTransaction tx = beginTx(15000L);
+            final XdStorageTransaction tx = beginTx(100L);
             tx.markRollbackOnly("first site", new RuntimeException("boom"));
             tx.markRollbackOnly("second site", null);
             tx.markRollbackOnly("third site", null);

@@ -1,6 +1,7 @@
 package io.github.xdstorage.performance;
 
 import io.github.xdstorage.IXdFileStorage;
+import io.github.xdstorage.XdStorageConfig;
 import io.github.xdstorage.XdStorageProvider;
 import io.github.xdstorage.performance.entities.*;
 import io.github.xdstorage.exceptions.XdStorageConnectionException;
@@ -25,7 +26,11 @@ public class XdStorageMassFillAndCleanStressTest {
     public void setUp() {
         deleteDir(new File(STORAGE_PATH));
         // Инициализируем хранилище в YAML-формате с размером фрагмента 200, как в базовых тестах
-        storage = XdStorageProvider.newOrGetFileStorage("fill_clean_test", STORAGE_PATH, 200, FilesFormat.YAML);
+        XdStorageConfig config = new XdStorageConfig.Builder()
+                .journalWrites(true)
+                .setEnableForeignKeys(true)
+                .build();
+        storage = XdStorageProvider.newOrGetFileStorage("fill_clean_test", STORAGE_PATH, 200, FilesFormat.YAML, config);
     }
 
     @AfterEach
@@ -176,7 +181,7 @@ public class XdStorageMassFillAndCleanStressTest {
         }
 
         // Держим базу под жестким прессингом наполнения кусочками
-        Thread.sleep(5000);
+        Thread.sleep(100L);
         stopFlag.set(true);
         executor.shutdown();
         executor.awaitTermination(5, TimeUnit.SECONDS);

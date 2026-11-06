@@ -2,6 +2,7 @@ package io.github.xdstorage.resource;
 
 import io.github.xdstorage.IXdStoragePredicate;
 import io.github.xdstorage.exceptions.XdStorageException;
+import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.transaction.XdStorageTransaction;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -39,7 +40,7 @@ public class XdStorageCacheConcurrencyTest extends AbstractCacheResourceTest {
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
         Future<?> future = executor.submit(() -> {
-            XdStorageException thrown = assertThrows(XdStorageException.class, () -> {
+            XdStorageRuntimeException thrown = assertThrows(XdStorageRuntimeException.class, () -> {
                 resourceCache.update(update1, txVictim);
             });
             assertTrue(thrown.getMessage().contains("rolled back by timeout"));
@@ -115,7 +116,7 @@ public class XdStorageCacheConcurrencyTest extends AbstractCacheResourceTest {
 
         // Открываем транзакцию-монополиста (которая захватит лок на долгое время)
         XdStorageTransaction txMonopolist = mockTransaction("tx-monopolist-holder");
-        when(txMonopolist.getTimeout()).thenReturn(5000L); // 5 секунд
+        when(txMonopolist.getTimeout()).thenReturn(100L); // 5 секунд
 
         // Открываем транзакцию-жертву (у которой выставим очень короткий лимит ожидания)
         XdStorageTransaction txVictim = mockTransaction("tx-victim-timeout-target");
@@ -150,7 +151,7 @@ public class XdStorageCacheConcurrencyTest extends AbstractCacheResourceTest {
         assertNotNull(caughtException, "🚨 СУБД проглотила таймаут! Конкурирующий поток ушел в вечное заклинивание вместо fail-fast падения!");
 
         // Проверяем тип исключения и каноничный текст контракта xdstorage
-        assertTrue(caughtException instanceof XdStorageException, "Исключение таймаута обязано быть экземпляром XdStorageException!");
+        assertTrue(caughtException instanceof XdStorageRuntimeException, "Исключение таймаута обязано быть экземпляром XdStorageException!");
 
         String exceptionMessage = caughtException.getMessage();
         caughtException.printStackTrace(System.err);

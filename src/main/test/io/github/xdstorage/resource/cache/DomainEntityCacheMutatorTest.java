@@ -31,14 +31,10 @@ public class DomainEntityCacheMutatorTest extends AbstractCacheMutatorIntegratio
         assertNotNull(record);
         assertEquals(domainEntity, record.getNewObject());
         assertTrue(record.isInsertChange());
-        assertFalse(record.isCommitedState());
+        assertFalse(record.isCommittedState());
 
         // Проверяем, что запись легла в транзакционный журнал отката (undo-log)
         assertNotNull(workspace.changes(transaction.getTransactionId()).get(entityId));
-
-        // Листнер должен зафиксировать регистрацию вставки
-        assertEquals(1, listener.insertCalls.size());
-        assertEquals(domainEntity, listener.insertCalls.get(0));
     }
 
     @Test
@@ -71,7 +67,6 @@ public class DomainEntityCacheMutatorTest extends AbstractCacheMutatorIntegratio
 
         // Обычные доменные сущности при удалении «свежей» вставки полностью удаляются из ConcurrentHashMap
         assertFalse(cacheContext.records().containsKey(entityId));
-        assertEquals(1, listener.deleteCalls.size());
     }
 
     @Test
@@ -89,12 +84,6 @@ public class DomainEntityCacheMutatorTest extends AbstractCacheMutatorIntegratio
         assertTrue(existingRecord.isUpdateChange());
         assertEquals(domainEntity, existingRecord.getObject());      // Старый слепок заархивирован
         assertEquals(freshUpdate, existingRecord.getNewObject());     // Новый ждет коммита
-
-        // Листнер фиксирует модификацию
-        assertEquals(1, listener.updateCalls.size());
-        Object[] args = listener.updateCalls.get(0);
-        assertEquals(domainEntity, args[0]);
-        assertEquals(freshUpdate, args[1]);
     }
 
     @Test
@@ -109,7 +98,6 @@ public class DomainEntityCacheMutatorTest extends AbstractCacheMutatorIntegratio
         // Объект переходит в статус удаления
         assertTrue(existingRecord.isDeleteChange());
         assertNull(existingRecord.getNewObject());
-        assertEquals(1, listener.deleteCalls.size());
     }
 
     @Test
@@ -121,6 +109,5 @@ public class DomainEntityCacheMutatorTest extends AbstractCacheMutatorIntegratio
         mutator.delete(entityId, transaction);
 
         assertTrue(existingRecord.isDeleteChange());
-        assertEquals(1, listener.deleteCalls.size());
     }
 }

@@ -49,13 +49,13 @@ class XdStorageCacheRollbackGuardTest extends CacheInvariantTestSupport {
         record.performCommit();
         record.commit(tx);
 
-        assertTrue(record.isCommitedState());
+        assertTrue(record.isCommittedState());
         assertEquals("committed", ((TestEntity) record.getObject()).getValue());
 
         // Поздний/гонный откат (свидетель-транзакция не важна — это тот же контракт)
-        record.rollback();
+        record.rollback(tx);
 
-        assertTrue(record.isCommitedState(), "Состояние закоммиченной записи обязано остаться committed");
+        assertTrue(record.isCommittedState(), "Состояние закоммиченной записи обязано остаться committed");
         assertEquals("committed", ((TestEntity) record.getObject()).getValue(),
                 "Откат НЕ имеет права инвертировать закоммиченную вставку — контент обязан сохраниться");
     }
@@ -67,9 +67,9 @@ class XdStorageCacheRollbackGuardTest extends CacheInvariantTestSupport {
         XdStorageTransaction tx = mkTx("t-plain", 200L);
         XdStorageCacheRecord record = XdStorageCacheRecord.newInsertRecord(context, context.idField(), e, tx);
 
-        record.rollback();
+        record.rollback(tx);
 
-        assertTrue(!record.isCommitedState(), "Незакоммиченная вставка откатывается штатно");
+        assertTrue(!record.isCommittedState(), "Незакоммиченная вставка откатывается штатно");
         assertTrue(!record.isInsertChange(), "Признак вставки снят откатом");
     }
 
@@ -90,7 +90,7 @@ class XdStorageCacheRollbackGuardTest extends CacheInvariantTestSupport {
         protocol.performCommit(tx, collector);
         protocol.commit(tx);
 
-        assertTrue(record.isCommitedState());
+        assertTrue(record.isCommittedState());
 
         // Двойной контур: запись снова в карте изменений (вложенный коммит), флаги фаз
         // уже потреблены первым проходом. Старый код ронял ВЕСЬ коммит "Illegal state".
@@ -98,7 +98,7 @@ class XdStorageCacheRollbackGuardTest extends CacheInvariantTestSupport {
 
         assertDoesNotThrow(() -> protocol.commit(tx),
                 "Повторная фиксация уже закоммиченной записи обязана пропускаться");
-        assertTrue(record.isCommitedState(), "Запись обязана остаться закоммиченной");
+        assertTrue(record.isCommittedState(), "Запись обязана остаться закоммиченной");
         assertEquals("double", ((TestEntity) record.getObject()).getValue(),
                 "Контент обязан пережить повторный коммит");
     }

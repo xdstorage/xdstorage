@@ -43,12 +43,12 @@ public class XdStorageTransactionManagerTest {
 
     @Test
     public void testBeginTransaction_HappyPath_ShouldCreateActiveTransaction() {
-        // Создаем базовую транзакцию с тайм-аутом 5000мс
-        XdStorageTransaction tx = txManager.beginTransaction(5000L);
+        // Создаем базовую транзакцию с тайм-аутом 100Lмс
+        XdStorageTransaction tx = txManager.beginTransaction(100L);
 
         assertNotNull(tx);
         assertNotNull(tx.getTransactionId());
-        assertEquals(5000L, tx.getTimeout());
+        assertEquals(100L, tx.getTimeout());
         assertTrue(txManager.isTransactionAlive(tx));
 
         // Проверяем, что менеджер правильно привязал транзакцию к текущему воркер-потоку jvm
@@ -62,7 +62,7 @@ public class XdStorageTransactionManagerTest {
         XdStorageTransaction parentTx = txManager.beginTransaction(10000L);
 
         // 2. Стартуем вложенную подтранзакцию в том же потоке
-        XdStorageTransaction childTx = txManager.beginTransaction(5000L);
+        XdStorageTransaction childTx = txManager.beginTransaction(100L);
 
         assertNotNull(childTx);
         assertNotEquals(parentTx.getTransactionId(), childTx.getTransactionId());
@@ -76,7 +76,7 @@ public class XdStorageTransactionManagerTest {
 
     @Test
     public void testCommitTransaction_WhenMarkedRollbackOnly_ShouldThrowException() {
-        XdStorageTransaction tx = txManager.beginTransaction(5000L);
+        XdStorageTransaction tx = txManager.beginTransaction(100L);
 
         // Имитируем падение или явную отметку "только откат"
         tx.markRollbackOnly();
@@ -88,7 +88,7 @@ public class XdStorageTransactionManagerTest {
 
     @Test
     public void testIsTransactionAlive_WithRollbackOnly_ShouldReturnFalse() {
-        XdStorageTransaction tx = txManager.beginTransaction(5000L);
+        XdStorageTransaction tx = txManager.beginTransaction(100L);
         assertTrue(txManager.isTransactionAlive(tx));
 
         tx.markRollbackOnly();
@@ -237,7 +237,7 @@ public class XdStorageTransactionManagerTest {
     public void testNestedTransaction_SuspendAndResumeFlow_ShouldMaintainHierarchy() {
         // Тестируем сложнейший инвариант: Вложенные транзакции (Hierarchical MVCC)
         // 1. Стартуем глобальную родительскую транзакцию T1
-        XdStorageTransaction t1 = txManager.beginTransaction(5000L);
+        XdStorageTransaction t1 = txManager.beginTransaction(100L);
         assertNotNull(t1);
         String t1Id = t1.getTransactionId();
 
@@ -293,11 +293,11 @@ public class XdStorageTransactionManagerTest {
     @Test
     public void testTransactionMetadata_HappyPath() {
         IXdStorageTransactionManager mockManager = mock(IXdStorageTransactionManager.class);
-        XdStorageTransaction tx = new XdStorageTransaction(mockManager, "thread-1", null, 5000L, "tx-100");
+        XdStorageTransaction tx = new XdStorageTransaction(mockManager, "thread-1", null, 100L, "tx-100");
 
         assertEquals("tx-100", tx.getTransactionId());
         assertEquals("thread-1", tx.getTransactionThreadId());
-        assertEquals(5000L, tx.getTimeout());
+        assertEquals(100L, tx.getTimeout());
         assertFalse(tx.isRollbackOnly());
         assertNull(tx.getGlobalTransaction());
     }
@@ -305,7 +305,7 @@ public class XdStorageTransactionManagerTest {
     @Test
     public void testCriticalSection_IncrementAndDecrement() throws XdStorageException {
         IXdStorageTransactionManager mockManager = mock(IXdStorageTransactionManager.class);
-        XdStorageTransaction tx = new XdStorageTransaction(mockManager, "thread-1", null, 5000L, "tx-101");
+        XdStorageTransaction tx = new XdStorageTransaction(mockManager, "thread-1", null, 100L, "tx-101");
 
         // Убеждаемся, что вход и выход из критической секции не генерируют исключений
         assertDoesNotThrow(() -> {
@@ -319,7 +319,7 @@ public class XdStorageTransactionManagerTest {
     @Test
     public void testRegisterResource_WhenRollbackOnly_ShouldThrowXdStorageException() {
         IXdStorageTransactionManager mockManager = mock(IXdStorageTransactionManager.class);
-        XdStorageTransaction tx = new XdStorageTransaction(mockManager, "thread-1", null, 5000L, "tx-102");
+        XdStorageTransaction tx = new XdStorageTransaction(mockManager, "thread-1", null, 100L, "tx-102");
 
         // Помечаем транзакцию на принудительный откат
         tx.markRollbackOnly();

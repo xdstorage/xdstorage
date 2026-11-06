@@ -70,7 +70,7 @@ public class XdStorageFacadeStressTest extends AbstractXdStorageTest {
                         long uniqueId = (long) workerId * itemsPerThread + j + 1;
 
                         // Открываем изолированную транзакцию для текущего потока с запасом времени
-                        IXdStorageTransaction tx = realStorage.beginTransaction(15000L);
+                        IXdStorageTransaction tx = realStorage.beginTransaction(100L);
                         try {
                             ClassPolicyEntity entity = new ClassPolicyEntity();
                             entity.setId(uniqueId);
@@ -139,7 +139,7 @@ public class XdStorageFacadeStressTest extends AbstractXdStorageTest {
         // ФАЗА 4: КОНТРОЛЬНЫЙ ВЫСТРЕЛ — ПРОВЕРКА ПОЛНОЙ ПУСТОТЫ
         // =========================================================================
         log.info("=== ФАЗА 4: КОНТРОЛЬНАЯ ПРОВЕРКА ПОЛНОЙ АННИГИЛЯЦИИ СТРУКТУРЫ ===");
-        IXdStorageTransaction txCheckEmpty = realStorage.beginTransaction(5000L);
+        IXdStorageTransaction txCheckEmpty = realStorage.beginTransaction(100L);
         try {
             Collection<ClassPolicyEntity> emptyCheck = realStorage.load(ClassPolicyEntity.class, txCheckEmpty);
 

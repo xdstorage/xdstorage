@@ -95,4 +95,11 @@ public class XdStorageObjectFieldInfo {
     public Class<?> getValueClass() {
         return valueClass;
     }
+
+    @Override
+    public String toString() {
+        return "XdStorageObjectFieldInfo{" +
+                "clazz=" + clazz +
+                '}';
+    }
 }

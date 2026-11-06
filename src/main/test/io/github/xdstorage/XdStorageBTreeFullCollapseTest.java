@@ -100,7 +100,7 @@ public class XdStorageBTreeFullCollapseTest {
 
     private List<Long> insertBatch(final int from, final int count) throws Exception {
         final List<Long> ids = new ArrayList<>();
-        final IXdStorageTransaction tx = storage.beginTransaction(15000L);
+        final IXdStorageTransaction tx = storage.beginTransaction(100L);
         try {
             for (int i = from; i < from + count; ++i) {
                 final CollapseEntity e = new CollapseEntity();
@@ -117,7 +117,7 @@ public class XdStorageBTreeFullCollapseTest {
     }
 
     private void deleteAll(final List<Long> ids) throws Exception {
-        final IXdStorageTransaction tx = storage.beginTransaction(15000L);
+        final IXdStorageTransaction tx = storage.beginTransaction(100L);
         try {
             for (final Long id : ids) {
                 final CollapseEntity ref = new CollapseEntity();
@@ -147,14 +147,14 @@ public class XdStorageBTreeFullCollapseTest {
         // The emptied tree refuses phantom deletes loudly and does not resurrect anything.
         final CollapseEntity phantom = new CollapseEntity();
         phantom.setId(987654321L);
-        final IXdStorageTransaction tx = storage.beginTransaction(15000L);
+        final IXdStorageTransaction tx = storage.beginTransaction(100L);
         assertThrows(XdStorageException.class, () -> storage.delete(phantom, tx),
                 "a delete against the emptied index must fail loudly");
         tx.rollback();
         assertEquals(0, nodeFiles().size(), "the failed phantom delete must not resurrect node files");
 
         // The class still loads (empty) through a fresh transaction.
-        final IXdStorageTransaction check = storage.beginTransaction(15000L);
+        final IXdStorageTransaction check = storage.beginTransaction(100L);
         assertTrue(storage.load(CollapseEntity.class, check).isEmpty());
         check.commit();
     }
@@ -170,7 +170,7 @@ public class XdStorageBTreeFullCollapseTest {
         // Reopen the same folder: the collapsed tree must parse cleanly and accept growth.
         storage = XdStorageProvider.newOrGetFileStorage(STORAGE_NAME, STORAGE_DIR, 200);
         final List<Long> second = insertBatch(1000, 10);
-        final IXdStorageTransaction tx = storage.beginTransaction(15000L);
+        final IXdStorageTransaction tx = storage.beginTransaction(100L);
         final java.util.Collection<?> loaded = storage.load(CollapseEntity.class, tx);
         tx.commit();
         assertEquals(10, loaded.size(), "the re-grown tree must serve its records");

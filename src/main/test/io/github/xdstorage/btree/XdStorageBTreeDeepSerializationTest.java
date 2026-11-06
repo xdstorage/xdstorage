@@ -25,7 +25,7 @@ public class XdStorageBTreeDeepSerializationTest {
         diskStorage = new HashMap<>();
         mockStorage = mock(IXdStorage.class);
         mockTx = mock(IXdStorageTransaction.class);
-        when(mockTx.getTimeout()).thenReturn(5000L);
+        when(mockTx.getTimeout()).thenReturn(100L);
 
         // Имитируем физическое сохранение СУБД на диск (deep clone объекта)
         doAnswer(invocation -> {

@@ -24,8 +24,8 @@ public class XdStorageTransactionTest extends AbstractXdStorageTest {
         storage.beginTransaction();
         verify(mockTxManager, times(1)).beginTransaction(3000L);
 
-        storage.beginTransaction(5000L);
-        verify(mockTxManager, times(1)).beginTransaction(5000L);
+        storage.beginTransaction(100L);
+        verify(mockTxManager, times(1)).beginTransaction(100L);
     }
 
     @Test

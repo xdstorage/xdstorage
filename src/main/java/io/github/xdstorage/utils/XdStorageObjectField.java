@@ -166,4 +166,11 @@ public class XdStorageObjectField {
             return false;
         return true;
     }
+
+    @Override
+    public String toString() {
+        return "XdStorageObjectField{" +
+                "field=" + field.getName() +
+                '}';
+    }
 }

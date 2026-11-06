@@ -116,7 +116,7 @@ public class XdStorageResourceCacheInvariantTest {
         XdStorageTransaction tx = mock(XdStorageTransaction.class);
         when(tx.getTransactionId()).thenReturn(txId);
         when(tx.getTimestart()).thenReturn(timestart);
-        when(tx.getTimeout()).thenReturn(5000L);
+        when(tx.getTimeout()).thenReturn(100L);
         return tx;
     }
 

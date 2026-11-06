@@ -1,6 +1,5 @@
 package io.github.xdstorage.resource.cache;
 
-import io.github.xdstorage.transaction.IXdStorageTransaction;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import io.github.xdstorage.exceptions.XdStorageException;
@@ -211,7 +210,7 @@ public final class XdStorageCacheCommitProtocol {
                         // постоянны, повторная фиксация ничего не меняет (и не захватывает
                         // latch повторно — unlock не нужен). Для записей в иных состояниях
                         // ошибка остается громкой.
-                        if (record.isCommitedState()) {
+                        if (record.isCommittedState()) {
                             log.warn("commit of tx {}: record {} already committed (double-commit path) — skipped",
                                     transactionId, record.getId());
                             committedNow = false;
@@ -265,22 +264,23 @@ public final class XdStorageCacheCommitProtocol {
                 try {
                     synchronized (record) {
                         if (isInsertOp && cache.isInfrastructureCache()) {
-                            record.rollbackInsertKeepServing();
+                            record.rollbackInsertKeepServing(transaction);
                         } else {
-                            record.rollback();
+                            record.rollback(transaction);
                         }
                     }
 
                     if (isInsertOp && !cache.isInfrastructureCache() && recordId != null) {
                         cache.records().remove(recordId);
                     }
-                    record.unlock(transaction);
                 } catch (final RuntimeException e) {
                     // Откат не завершился: оставшиеся записи журнала содержат незакрытые мутации.
                     // Без этого ERROR половина отката была бы НЕЗаметной.
                     log.error("ROLLBACK FAILED mid-journal for transaction {} on record {} — {} undo entries left unprocessed",
                             transactionId, recordId, countRemaining(it), e);
                     throw e;
+                } finally {
+                    record.unlock(transaction);
                 }
             }
         } else if (map != null) {
@@ -291,19 +291,22 @@ public final class XdStorageCacheCommitProtocol {
             final Iterator<Entry<Object, XdStorageCacheRecord>> it = map.entrySet().iterator();
             while (it.hasNext()) {
                 final XdStorageCacheRecord record = it.next().getValue();
-                boolean isInsertOp = record.isInsertChange() && record.isChangedByTransaction(transaction);
-                Object recordId = record.getId();
-                synchronized (record) {
-                    if (isInsertOp && cache.isInfrastructureCache()) {
-                        record.rollbackInsertKeepServing();
-                    } else {
-                        record.rollback();
+                try {
+                    boolean isInsertOp = record.isInsertChange() && record.isChangedByTransaction(transaction);
+                    Object recordId = record.getId();
+                    synchronized (record) {
+                        if (isInsertOp && cache.isInfrastructureCache()) {
+                            record.rollbackInsertKeepServing(transaction);
+                        } else {
+                            record.rollback(transaction);
+                        }
                     }
+                    if (isInsertOp && !cache.isInfrastructureCache() && recordId != null) {
+                        cache.records().remove(recordId);
+                    }
+                } finally {
+                    record.unlock(transaction);
                 }
-                if (isInsertOp && !cache.isInfrastructureCache() && recordId != null) {
-                    cache.records().remove(recordId);
-                }
-                record.unlock(transaction);
             }
         }
 
@@ -352,7 +355,7 @@ public final class XdStorageCacheCommitProtocol {
                     }
 
                     synchronized (record) {
-                        record.rollback();
+                        record.rollback(transaction);
                     }
                     record.unlock(transaction);
                 }

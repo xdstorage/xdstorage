@@ -35,7 +35,7 @@ public abstract class AbstractCacheMutatorIntegrationTest {
                 null, // IXdStorageTransactionManager нам не нужен для тестов мутатора
                 String.valueOf(Thread.currentThread().getId()),
                 null,
-                5000L,
+                100L,
                 "TX_INTEGRATION_TEST"
         ) {
             // Переопределяем методы критических секций, чтобы они не падали без менеджера

@@ -176,7 +176,7 @@ public class XdStorageBTreeTest {
     public void testWriteLockContention_ShouldEnforceTimeout() throws Exception {
         IXdStorageTransaction mockTx1 = mock(IXdStorageTransaction.class);
         IXdStorageTransaction mockTx2 = mock(IXdStorageTransaction.class);
-        when(mockTx1.getTimeout()).thenReturn(5000L);
+        when(mockTx1.getTimeout()).thenReturn(100L);
         when(mockTx2.getTimeout()).thenReturn(100L);
 
         bTree.lockWrite(mockTx1);
@@ -536,7 +536,7 @@ public class XdStorageBTreeTest {
         IXdStorage mockStorage = mock(IXdStorage.class);
         IXdStorageTransaction mockTxReader = mock(IXdStorageTransaction.class);
         IXdStorageTransaction mockTxWriter = mock(IXdStorageTransaction.class);
-        when(mockTxReader.getTimeout()).thenReturn(5000L);
+        when(mockTxReader.getTimeout()).thenReturn(100L);
         when(mockTxWriter.getTimeout()).thenReturn(100L); // Жесткий короткий таймаут для пишущего потока
 
         bTree.insert(500, "TargetValue", mockStorage, mockTxReader);
@@ -582,7 +582,7 @@ public class XdStorageBTreeTest {
     public void testDelete_MassPurgerAndCascadingCollapse_ShouldEmptyTreeSafely() throws Exception {
         IXdStorage mockStorage = mock(IXdStorage.class);
         IXdStorageTransaction mockTx = mock(IXdStorageTransaction.class);
-        when(mockTx.getTimeout()).thenReturn(5000L);
+        when(mockTx.getTimeout()).thenReturn(100L);
 
         int totalElements = 100;
         List<Integer> keys = new ArrayList<>();
@@ -910,7 +910,7 @@ public class XdStorageBTreeTest {
                 try {
                     // Создаем уникальный транзакционный контекст для каждого параллельного читателя
                     IXdStorageTransaction txReader = mock(IXdStorageTransaction.class);
-                    when(txReader.getTimeout()).thenReturn(5000L); // Даем запас времени на чтение
+                    when(txReader.getTimeout()).thenReturn(100L); // Даем запас времени на чтение
 
                     startLatch.await();
                     for (int r = 0; r < 50; r++) {
@@ -958,7 +958,7 @@ public class XdStorageBTreeTest {
     public void testDelete_DeepSweepingTreeChallenge_ShouldInsertAndCollapsePerfectly() throws Exception {
         IXdStorage mockStorage = mock(IXdStorage.class);
         IXdStorageTransaction mockTx = mock(IXdStorageTransaction.class);
-        when(mockTx.getTimeout()).thenReturn(5000L);
+        when(mockTx.getTimeout()).thenReturn(100L);
 
         // Настраиваем мок на сквозной fail-safe возврат инстансов страниц в оперативной памяти
         doAnswer(invocation -> invocation.getArgument(0))
@@ -1023,7 +1023,7 @@ public class XdStorageBTreeTest {
                 .when(mockStorage).load(any(Object.class), any());
 
         IXdStorageTransaction mockTx = mock(IXdStorageTransaction.class);
-        when(mockTx.getTimeout()).thenReturn(5000L);
+        when(mockTx.getTimeout()).thenReturn(100L);
 
         XdStorageBTree localTree = new XdStorageBTree(new XdStorageBTreeId(String.class, "tree_seq_left_right"), false, 2);
 
@@ -1060,7 +1060,7 @@ public class XdStorageBTreeTest {
                 .when(mockStorage).load(any(Object.class), any());
 
         IXdStorageTransaction mockTx = mock(IXdStorageTransaction.class);
-        when(mockTx.getTimeout()).thenReturn(5000L);
+        when(mockTx.getTimeout()).thenReturn(100L);
 
         XdStorageBTree localTree = new XdStorageBTree(new XdStorageBTreeId(String.class, "tree_seq_right_left"), false, 2);
 

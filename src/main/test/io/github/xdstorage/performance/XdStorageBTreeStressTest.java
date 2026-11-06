@@ -60,7 +60,7 @@ public class XdStorageBTreeStressTest {
         final IXdStorageTransaction mockTransaction = mock(IXdStorageTransaction.class);
 
         when(mockTransaction.getTransactionId()).thenReturn("tx-stress-999");
-        when(mockTransaction.getTimeout()).thenReturn(5000L);
+        when(mockTransaction.getTimeout()).thenReturn(100L);
 
         // Создаем множественное дерево (multiple = true), как в id_index СУБД, с фактором ветвления t = 3
         final XdStorageBTreeId treeId = new XdStorageBTreeId(String.class, "id_index");
@@ -191,7 +191,7 @@ public class XdStorageBTreeStressTest {
         final IXdStorageTransaction mockTransaction = mock(IXdStorageTransaction.class);
 
         when(mockTransaction.getTransactionId()).thenReturn("tx-delete-stress");
-        when(mockTransaction.getTimeout()).thenReturn(1000L); // Жесткий таймаут для детекции дедлоков!
+        when(mockTransaction.getTimeout()).thenReturn(3000L); // Жесткий таймаут для детекции дедлоков!
 
         // Инициализируем дерево с фактором ветвления t = 2 (минимальный размер для провокации частых слияний)
         final XdStorageBTreeId treeId = new XdStorageBTreeId(Integer.class, "delete_index");

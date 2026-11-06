@@ -78,7 +78,7 @@ public class XdStorageFirstCommitterWinsTest {
     private FcwEntity insertOne(final String value) throws Exception {
         final FcwEntity entity = new FcwEntity();
         entity.setValue(value);
-        final IXdStorageTransaction tx = storage.beginTransaction(15000L);
+        final IXdStorageTransaction tx = storage.beginTransaction(100L);
         try {
             storage.save(entity, tx);
             tx.commit();
@@ -96,8 +96,8 @@ public class XdStorageFirstCommitterWinsTest {
 
         // The writer begins first, the reader second — the reader's read happens inside
         // the writer's lifetime (before the writer's commit).
-        final IXdStorageTransaction writer = storage.beginTransaction(15000L);
-        final IXdStorageTransaction reader = storage.beginTransaction(15000L);
+        final IXdStorageTransaction writer = storage.beginTransaction(100L);
+        final IXdStorageTransaction reader = storage.beginTransaction(100L);
 
         final FcwEntity writersCopy = storage.load(FcwEntity.class, id, writer);
         final FcwEntity readersCopy = storage.load(FcwEntity.class, id, reader);
@@ -117,7 +117,7 @@ public class XdStorageFirstCommitterWinsTest {
         reader.rollback();
 
         // The writer's version survived; the loser's stale state is nowhere.
-        final IXdStorageTransaction check = storage.beginTransaction(15000L);
+        final IXdStorageTransaction check = storage.beginTransaction(100L);
         final FcwEntity stored = storage.load(FcwEntity.class, id, check);
         check.commit();
         assertNotNull(stored);
@@ -131,13 +131,13 @@ public class XdStorageFirstCommitterWinsTest {
 
         // A transaction that reads AFTER the foreign commit is not stale — its update
         // must go through (guards against over-rejection of the first-committer-wins fix).
-        final IXdStorageTransaction late = storage.beginTransaction(15000L);
+        final IXdStorageTransaction late = storage.beginTransaction(100L);
         final FcwEntity lateCopy = storage.load(FcwEntity.class, id, late);
         lateCopy.setValue("late");
         storage.update(lateCopy, late);
         late.commit();
 
-        final IXdStorageTransaction check = storage.beginTransaction(15000L);
+        final IXdStorageTransaction check = storage.beginTransaction(100L);
         final FcwEntity stored = storage.load(FcwEntity.class, id, check);
         check.commit();
         assertNotNull(stored);

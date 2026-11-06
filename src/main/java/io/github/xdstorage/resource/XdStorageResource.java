@@ -372,6 +372,8 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
                 cache.prepareCommit(transaction, record);
                 writeObjects(objects);
             }
+        } else {
+            return;
         }
     }
 
@@ -514,7 +516,7 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
     public boolean isInfraQuietForRollbackOf(final XdStorageTransaction transaction) {
         for (final XdStorageCacheRecord record : cache.records().values()) {
             final XdStorageTransaction owner = record.getOwnerTransaction();
-            if (owner != null && owner != transaction && !record.isCommitedState()
+            if (owner != null && owner != transaction && !record.isCommittedState()
                     && services.getTransactionsManager().isTransactionAlive(owner)) {
                 return false;
             }

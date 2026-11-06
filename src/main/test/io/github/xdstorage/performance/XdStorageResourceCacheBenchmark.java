@@ -129,7 +129,7 @@ public class XdStorageResourceCacheBenchmark {
         XdStorageTransaction tx = mock(XdStorageTransaction.class);
         when(tx.getTransactionId()).thenReturn("tx-bench-" + threadId + "-" + randomId);
         when(tx.getTimestart()).thenReturn(System.nanoTime());
-        when(tx.getTimeout()).thenReturn(5000L);
+        when(tx.getTimeout()).thenReturn(100L);
 
         if (randomId % 2 == 0) {
             // Чтение по предикату

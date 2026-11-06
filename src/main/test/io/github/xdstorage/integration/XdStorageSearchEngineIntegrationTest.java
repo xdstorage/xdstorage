@@ -56,7 +56,7 @@ public class XdStorageSearchEngineIntegrationTest {
     }
 
     private static IXdStorageTransaction beginTx() throws XdStorageException {
-        return storage.beginTransaction(15000L);
+        return storage.beginTransaction(100L);
     }
 
     private static SearchEngineShip ship(final long id, final String name, final int tonnage) {

@@ -1042,7 +1042,7 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
                         .append(" update=").append(record.isUpdateChange())
                         .append(" insert=").append(record.isInsertChange())
                         .append(" delete=").append(record.isDeleteChange())
-                        .append(" committed=").append(record.isCommitedState())
+                        .append(" committed=").append(record.isCommittedState())
                         .append(" ownerAlive=").append(services.getTransactionsManager().isTransactionAlive(record.getOwnerTransaction()))
                         .append(" ownChange=").append(record.isChangedByTransaction(transaction))
                         .append(" readerSnap=").append(transaction instanceof XdStorageTransaction ? ((XdStorageTransaction) transaction).getSnapshotSerial() : null)
@@ -1073,7 +1073,7 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
         if (!isInvisibleUncommittedMutation(initialRecord, transaction)) {
             return false;
         }
-        final long timeout = Math.min(transaction.getTimeout() > 0 ? transaction.getTimeout() : 5000L, 3000L);
+        final long timeout = Math.min(transaction.getTimeout() > 0 ? transaction.getTimeout() : 100L, 3000L);
         final long deadlineNano = System.nanoTime() + timeout * 1_000_000L;
         XdStorageCacheRecord record = initialRecord;
 
@@ -1101,7 +1101,7 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
     }
 
     private boolean isInvisibleUncommittedMutation(final XdStorageCacheRecord record, final XdStorageTransaction transaction) {
-        if (record == null || record.isCommitedState()) {
+        if (record == null || record.isCommittedState()) {
             return false;
         }
         if (record.isChangedByTransaction(transaction)) {

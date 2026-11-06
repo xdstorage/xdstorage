@@ -66,7 +66,7 @@ public class XdStorageYamlWriterCmeTest {
                     "R-56: итерация YAML-писателя обязана идти по монитору-снимку коллекции, CME недопустим", cme);
         } finally {
             stop.set(true);
-            mutator.join(5000);
+            mutator.join(100L);
         }
         assertFalse(mutator.isAlive(), "Мутатор обязан завершиться");
     }

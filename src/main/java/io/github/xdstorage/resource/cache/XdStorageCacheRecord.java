@@ -129,7 +129,6 @@ public class XdStorageCacheRecord {
         record.id = field.get(newObject);
         record.object = null;
         record.newObject = newObject;
-        record.transaction = transaction;
         record.change = XdStorageCacheChange.insert;
         record.timestamp = transaction.getTimestart();
         record.state = State.locked;
@@ -310,8 +309,7 @@ public class XdStorageCacheRecord {
      *         exactly this transaction instance
      */
     public boolean isChangedByTransaction(final XdStorageTransaction transaction) {
-        return this.change != XdStorageCacheChange.read && this.transaction != null && this.transaction == transaction
-                && transaction.getTimestart() == timestamp;
+        return this.change != XdStorageCacheChange.read && this.transaction != null && this.transaction == transaction;
     }
 
     /**
@@ -348,7 +346,7 @@ public class XdStorageCacheRecord {
      *
      * @return {@code true} if the record's current version has been committed
      */
-    public boolean isCommitedState() {
+    public boolean isCommittedState() {
         return this.state == State.committed;
     }
 
@@ -405,7 +403,7 @@ public class XdStorageCacheRecord {
      */
     public Object resolveVisible(final XdStorageTransaction transaction, final View view, final long committingSerial) {
         if (isUpdateChange()) {
-            if (isCommitedState()) {
+            if (isCommittedState()) {
                 return object;
             }
             if (isChangedByTransaction(transaction)) {
@@ -427,7 +425,7 @@ public class XdStorageCacheRecord {
             return object;
         }
         if (isInsertChange()) {
-            if (isCommitedState()) {
+            if (isCommittedState()) {
                 return object;
             }
             if (isChangedByTransaction(transaction)) {
@@ -439,7 +437,7 @@ public class XdStorageCacheRecord {
             return null;
         }
         if (isDeleteChange()) {
-            if (!isCommitedState()) {
+            if (!isCommittedState()) {
                 return !isChangedByTransaction(transaction) ? object : null;
             }
             return servesSnapshotVersion(transaction) ? prevObject : null;
@@ -515,10 +513,10 @@ public class XdStorageCacheRecord {
      * transaction's lock timeout can abort the wait.
      *
      * @param transaction the transaction capturing the record
-     * @throws XdStorageException if the wait exceeds the transaction's lock timeout or is
+     * @throws XdStorageRuntimeException if the wait exceeds the transaction's lock timeout or is
      *                            interrupted
      */
-    public void lock(final XdStorageTransaction transaction) throws XdStorageException {
+    public void lock(final XdStorageTransaction transaction) {
         // R-27: инфраструктурные записи (деревья/узлы) НЕ захватывают latch. Структурная
         // конкуренция уже сериализована write-локом самого дерева; удержание latch-а до
         // конца транзакции-держателя на горячих узлах давало "locked for update" таймауты
@@ -530,34 +528,12 @@ public class XdStorageCacheRecord {
             }
             return;
         }
-        boolean isOwnerAlive = this.transaction != null &&
-                cache.isTransactionAlive(this.transaction);
-
-        if (this.transaction != null && !isOwnerAlive && this.transaction != transaction) {
-            log.debug("record {} adopted from dead transaction {} by {}",
-                    id, this.transaction.getTransactionId(), transaction.getTransactionId());
-            this.transaction = null;
-            synchronized (locked) {
-                locked.set(false);
-                locked.notify();
-            }
-        }
 
         if (this.transaction == null || this.transaction != transaction) {
             synchronized (locked) {
                 while (locked.get()) {
                     try {
                         final String transactionId = transaction.getTransactionId();
-
-                        boolean currentOwnerAlive = this.transaction != null &&
-                                cache.isTransactionAlive(this.transaction);
-                        if (this.transaction != null && !currentOwnerAlive) {
-                            log.debug("record {} owner {} died while waiting — adopted by {}",
-                                    id, this.transaction.getTransactionId(), transactionId);
-                            this.transaction = null;
-                            locked.set(false);
-                            break;
-                        }
 
                         final Long startTime = blockingTime.remove(transactionId);
                         final Long currentTime = System.nanoTime();
@@ -567,14 +543,14 @@ public class XdStorageCacheRecord {
                             log.warn("record {} locked by transaction {} (change={}) — waiter {} timed out after {} ms",
                                     id, this.transaction != null ? this.transaction.getTransactionId() : null,
                                     change, transactionId, transaction.getTimeout());
-                            throw new XdStorageException("transaction " + transactionId + " should be rolled back by timeout. Object with id " + id + " is locked for " + change);
+                            throw new XdStorageRuntimeException("transaction " + transactionId + " should be rolled back by timeout. Object with id " + id + " is locked for " + change);
                         } else {
                             blockingTime.put(transactionId, startTime);
                         }
 
                         locked.wait(transaction.getTimeout() / 5);
                     } catch (final InterruptedException e) {
-                        throw new XdStorageException("locking object interrupted", e);
+                        throw new XdStorageRuntimeException("locking object interrupted", e);
                     }
                 }
                 locked.set(true);
@@ -647,9 +623,7 @@ public class XdStorageCacheRecord {
             log.error("commit of record {} rejected: firstPhaseCommit={}, secondPhaseCommit={}, state={}, change={}, owner={}",
                     id, firstPhaseCommit, secondPhaseCommit, state, change,
                     transaction != null ? transaction.getTransactionId() : null);
-            if (!cache.isInfrastructureCache()) {
-                throw new XdStorageRuntimeException("Illegal state of record to commit");
-            }
+            throw new XdStorageRuntimeException("Illegal state of record to commit");
         }
 
         this.prevObject = this.object;
@@ -701,7 +675,7 @@ public class XdStorageCacheRecord {
      * undo point. A late or racing rollback of an already-committed record is suppressed with
      * a warning instead of inverting committed data (R-58).
      */
-    public void rollback() {
+    public void rollback(IXdStorageTransaction tx) {
         // R-58: откат ЗАКОММИЧЕННОЙ записи запрещен. Поздний/гонный откат (mark-rollback-only
         // «догнавший» уже идущий или завершенный коммит; commit-флаги к этому моменту уже
         // сброшены commit'ом) инвертировал закоммиченную вставку/обновление:
@@ -739,9 +713,9 @@ public class XdStorageCacheRecord {
      * любой транзакцией (state=undefined), его содержание совпадает с той версией
      * структуры, на которую и ссылается память дерева.
      */
-    public void rollbackInsertKeepServing() {
+    public void rollbackInsertKeepServing(IXdStorageTransaction tx) {
         final Object liveInstance = this.newObject;
-        rollback();
+        rollback(tx);
         this.object = liveInstance;
         this.state = State.undefined;
         this.change = XdStorageCacheChange.read;
@@ -829,5 +803,32 @@ public class XdStorageCacheRecord {
         return !cache.isInfrastructureCache()
                 && cache.getIsolationLevel() != XdStorageIsolationLevel.READ_COMMITTED
                 && transaction.getTimestart() < this.timestamp;
+    }
+
+    public XdStorageCacheRecord clone() {
+        XdStorageCacheRecord result = new XdStorageCacheRecord(cache);
+        result.fill(this);
+        return result;
+    }
+
+    public void fill(XdStorageCacheRecord src) {
+        this.id = src.id;
+        this.prevObject = src.prevObject;
+        this.object = src.object;
+        this.newObject = src.newObject;
+        this.transaction = src.transaction;
+        this.timestamp = src.timestamp;
+        this.prevTimestamp = src.prevTimestamp;
+        this.commitTimeNano = src.commitTimeNano;
+        this.prevCommitTimeNano = src.prevCommitTimeNano;
+        this.change = src.change;
+        this.previousChange = src.previousChange;
+        this.state = src.state;
+        this.previousState = src.previousState;
+        this.firstPhaseCommit = src.firstPhaseCommit;
+        this.secondPhaseCommit = src.secondPhaseCommit;
+        this.locked = new AtomicBoolean(src.locked.get());
+        this.version = src.version;
+        this.commitSerial = src.commitSerial;
     }
 }

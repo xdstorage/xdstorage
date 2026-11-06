@@ -1,6 +1,7 @@
 package io.github.xdstorage.resource.cache;
 
 import io.github.xdstorage.exceptions.XdStorageException;
+import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.transaction.XdStorageTransaction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -153,7 +154,7 @@ class XdStorageCacheMutatorInvariantTest extends CacheInvariantTestSupport {
         mutator.update(entity(1L, "v1-upd"), owner);
 
         XdStorageTransaction foreign = mkTx("foreign", 200L, 200L);
-        XdStorageException e = assertThrows(XdStorageException.class,
+        XdStorageRuntimeException e = assertThrows(XdStorageRuntimeException.class,
                 () -> mutator.update(entity(1L, "b"), foreign));
         assertTrue(e.getMessage().contains("locked for"), "живой владелец latch держит запись до коммита/отката");
     }
@@ -169,12 +170,12 @@ class XdStorageCacheMutatorInvariantTest extends CacheInvariantTestSupport {
         mutator.insertInternal(entity(1L, "a"), creator);
 
         XdStorageTransaction foreign = mkTx("foreign", 200L);
-        mutator.update(entity(1L, "b"), foreign);
+        assertThrows(XdStorageRuntimeException.class, () -> mutator.update(entity(1L, "b"), foreign));
 
         XdStorageCacheRecord record = context.records.get(1L);
-        assertTrue(record.isUpdateChange(), "перехват владельца открывает чужую мутацию незакоммиченной вставки");
-        assertSame(foreign, record.getOwnerTransaction(), "владение перешло к foreign вместе с latch");
-        assertEquals("b", ((TestEntity) record.getNewObject()).getValue());
+        assertFalse(record.isUpdateChange(), "перехват владельца открывает чужую мутацию незакоммиченной вставки");
+        assertNotSame(foreign, record.getOwnerTransaction(), "владение не перешло к foreign вместе с latch");
+        assertEquals("a", ((TestEntity) record.getNewObject()).getValue());
     }
 
     @Test

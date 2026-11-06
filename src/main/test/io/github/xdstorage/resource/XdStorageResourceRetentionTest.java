@@ -67,7 +67,7 @@ public class XdStorageResourceRetentionTest {
         storage = XdStorageProvider.newOrGetFileStorage(STORAGE_NAME, STORAGE_DIR, 250);
         try {
             final IXdStorage txStorage = (IXdStorage) storage;
-            io.github.xdstorage.transaction.IXdStorageTransaction tx = txStorage.beginTransaction(15000L);
+            io.github.xdstorage.transaction.IXdStorageTransaction tx = txStorage.beginTransaction(100L);
             try {
                 for (int i = 1; i <= 3; ++i) {
                     txStorage.save(new RetainedEntity("v" + i), tx);
@@ -109,7 +109,7 @@ public class XdStorageResourceRetentionTest {
         assertEquals(countBefore, objectsCountOf(retained), "Записи обязаны пережить release");
 
         // Функциональная санити: данные читаются из удержанного ресурса
-        io.github.xdstorage.transaction.IXdStorageTransaction tx = txStorage.beginTransaction(15000L);
+        io.github.xdstorage.transaction.IXdStorageTransaction tx = txStorage.beginTransaction(100L);
         try {
             final Collection<RetainedEntity> all = txStorage.load(RetainedEntity.class, tx);
             assertEquals(3, all.size());

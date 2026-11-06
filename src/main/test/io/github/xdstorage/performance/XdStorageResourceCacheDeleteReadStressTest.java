@@ -143,7 +143,7 @@ public class XdStorageResourceCacheDeleteReadStressTest {
         XdStorageTransaction tx = mock(XdStorageTransaction.class);
         when(tx.getTransactionId()).thenReturn(txId);
         when(tx.getTimestart()).thenReturn(timestart);
-        when(tx.getTimeout()).thenReturn(15_000L);
+        when(tx.getTimeout()).thenReturn(100L);
         return tx;
     }
 

@@ -86,7 +86,7 @@ public class XdStorageBTreeTargetedDeleteStressTest {
                     Random rand = new Random();
 
                     while (!stopFlag.get()) {
-                        IXdStorageTransaction tx = storage.beginTransaction(5000);
+                        IXdStorageTransaction tx = storage.beginTransaction(100L);
                         try {
                             XdStorageBTree bTree = storage.load(XdStorageBTree.class, treeId, tx);
 
