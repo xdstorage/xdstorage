@@ -92,7 +92,11 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
 
     private final AtomicBoolean prepared = new AtomicBoolean(false);
 
-    private final Lock lock = new ReentrantLock();
+    // RECIDENT (docs/tasks/2.1.0/47): the FAIR commit lock — the FIFO hand-off. The
+    // non-fair barging starved queued commits under the parallel storms (a released lock
+    // went to a barging newcomer; the waiter timed out while the lock sat free,
+    // queuedWaiters=false at expiry).
+    private final Lock lock = new ReentrantLock(true);
 
     private final Map<String, List<IXdStorageInternalListener>> listeners = new ConcurrentHashMap<>();
 

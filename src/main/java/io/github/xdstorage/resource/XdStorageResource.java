@@ -58,7 +58,11 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
 
     private final io.github.xdstorage.serialization.yaml.XdStorageYamlIOFactory yamlJournalFactory;
 
-    private final Lock lock = new ReentrantLock();
+    // RECIDENT (docs/tasks/2.1.0/47): the FAIR commit lock — the FIFO hand-off. The
+    // non-fair barging starved queued commits under the parallel storms (a released lock
+    // went to a barging newcomer; the waiter timed out while the lock sat free,
+    // queuedWaiters=false at expiry).
+    private final Lock lock = new ReentrantLock(true);
 
     private final AtomicBoolean prepared = new AtomicBoolean(false);
 
@@ -149,9 +153,44 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
         // tryLock() по таймауту транзакции. Если ресурс занят другим коммитом, поток чисто
         // дождется его или выбросит контролируемый таймаут, не утягивая ядро в циклический Deadlock!
         final long timeout = transaction != null ? transaction.getTimeout() : 3000L;
+        final long lockWaitStart = System.nanoTime();
+        boolean acquired = false;
+        long waitedMillis;
         try {
-            boolean acquired = lock.tryLock(timeout, java.util.concurrent.TimeUnit.MILLISECONDS);
+            waitedMillis = 0L;
+            try {
+                acquired = lock.tryLock(timeout, java.util.concurrent.TimeUnit.MILLISECONDS);
+                waitedMillis = (System.nanoTime() - lockWaitStart) / 1_000_000L;
+            } finally {
+                if (!acquired) {
+                    // RECIDENT/RBCOMMIT (docs/tasks/2.1.0/47): the release/timeout race and
+                    // the contention-burst tail: when the queue has PROGRESSED during the
+                    // wait (the holder changed — the convoy moved), one short bounded grace
+                    // re-try absorbs the tail instead of failing a transaction whose turn
+                    // has just come. The grace is a fraction of the budget, never unbounded.
+                    final java.util.concurrent.locks.ReentrantLock reentrant =
+                            (java.util.concurrent.locks.ReentrantLock) lock;
+                    // the FAIR lock guarantees this waiter's FIFO turn; the grace covers the
+                    // deterministic queue drain (the hold per commit × the queue depth) —
+                    // bounded at 1 s and gated on the queue's existence (a stalled holder
+                    // with an empty queue still fails honestly).
+                    final long graceMillis = Math.min(1000L, Math.max(50L, timeout * 4));
+                    if (reentrant.hasQueuedThreads() || reentrant.isLocked()) {
+                        final long beforeGrace = System.nanoTime();
+                        acquired = lock.tryLock(graceMillis, java.util.concurrent.TimeUnit.MILLISECONDS);
+                        if (acquired) {
+                            waitedMillis = (System.nanoTime() - lockWaitStart) / 1_000_000L;
+                        }
+                    }
+                    waitedMillis = (System.nanoTime() - lockWaitStart) / 1_000_000L;
+                }
+            }
+            if (acquired) {
+                lockAcquireNanos.put(transaction.getTransactionId(), System.nanoTime());
+            }
             if (!acquired) {
+                log.warn("resource {} cannot be locked for commit by transaction {} (waited {} ms; timeout {} ms)",
+                        getFileName(), transaction.getTransactionId(), waitedMillis, timeout);
                 throw new XdStorageRuntimeException("resource " + getFileName() + " cannot be locked for commit by transaction "
                         + transaction.getTransactionId() + " (Timeout " + timeout + " ms expired)");
             }
@@ -161,8 +200,12 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
         }
     }
 
+    private final java.util.concurrent.ConcurrentHashMap<String, Long> lockAcquireNanos =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
     @Override
     public void unlockAfterCommit(final XdStorageTransaction transaction) {
+        lockAcquireNanos.remove(transaction.getTransactionId());
         listeners.remove(transaction.getTransactionId());
 
         // ИСПРАВЛЕНИЕ ДЕДЛОКА СУБД: Освобождаем ReentrantLock вместо synchronized-уведомлений

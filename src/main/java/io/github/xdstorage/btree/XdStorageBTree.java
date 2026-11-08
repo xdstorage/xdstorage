@@ -52,9 +52,9 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
 
     /** R-36→R-54: бюджет ретраев спуска поиска — по ВРЕМЕНИ (см. find), не по попыткам.
      *  Верхняя граница дедлайна: даже при большом таймауте транзакции читатель не hangs дольше 10с. */
-    private static final long FIND_RETRY_BUDGET_CAP_MS = 1000;
+    private static final long FIND_RETRY_BUDGET_CAP_MS = 10000;
     /** R-54: потолок экспоненциального backoff между ретраями поиска. */
-    private static final long FIND_RETRY_BACKOFF_MAX_MILLIS = 25;
+    private static final long FIND_RETRY_BACKOFF_MAX_MILLIS = 1000;
 
     /** R-38: страховка предпрогрева цепи листьев от зацикливания (штатная цепь конечна). */
     private static final int PREWARM_STEP_BUDGET = 100;
@@ -215,7 +215,37 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      * @param transaction the owning transaction providing the lock timeout ({@code null} — engine default)
      * @throws XdStorageException when the acquiring thread is interrupted while waiting
      */
-    @Override
+    /**
+     * RECIDENT/R-36 (docs/tasks/2.1.0/47): the tree-level ENTRY write lock with the
+     * bounded contention retry. The entry lock is the only clean retry boundary (no
+     * in-place mutation exists before it); the MVCC write-lock contention bursts of the
+     * parallel workers are absorbed with a short backoff. Failures after the entry (the
+     * descent) mutate in place and are never retried.
+     */
+    private void lockWriteWithContentionRetry(final IXdStorageTransaction transaction) throws XdStorageException {
+        for (int attempt = 1; ; ++attempt) {
+            try {
+                lockWrite(transaction);
+                return;
+            } catch (final XdStorageException | XdStorageRuntimeException contention) {
+                final String message = contention.getMessage() != null ? contention.getMessage()
+                        : (contention.getCause() != null && contention.getCause().getMessage() != null
+                           ? contention.getCause().getMessage() : "");
+                final boolean transientContention = message.contains("Превышен таймаут ожидания")
+                        || message.contains("Ресурс монопольно занят на запись");
+                if (attempt >= 3 || !transientContention) {
+                    throw contention;
+                }
+                try {
+                    Thread.sleep(20L * attempt);
+                } catch (final InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw contention;
+                }
+            }
+        }
+    }
+
     public void lockWrite(final IXdStorageTransaction transaction) throws XdStorageException {
         try {
             lock.lockWrite(transaction);
@@ -420,7 +450,11 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
             throw new XdStorageException("interrupted", new InterruptedException("Поток прерван перед вставкой в B+ Дерево"));
         }
 
-        lockWrite(transaction);
+        // RECIDENT/R-36 (docs/tasks/2.1.0/47): the tree-level ENTRY lock is the only clean
+        // retry boundary — before it no in-place mutation exists, so a lock-timeout burst
+        // under parallel workers can be absorbed with a short bounded retry. Failures
+        // AFTER the entry (the descent) mutate in place and are never retried here.
+        lockWriteWithContentionRetry(transaction);
         try {
             if (root == null) {
                 createRoot(storage, transaction);

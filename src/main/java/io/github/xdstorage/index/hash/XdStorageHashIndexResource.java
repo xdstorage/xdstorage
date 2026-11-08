@@ -55,7 +55,11 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
 
     private final AtomicBoolean prepared = new AtomicBoolean(false);
 
-    private final Lock lock = new ReentrantLock();
+    // RECIDENT (docs/tasks/2.1.0/47): the FAIR commit lock — the FIFO hand-off. The
+    // non-fair barging starved queued commits under the parallel storms (a released lock
+    // went to a barging newcomer; the waiter timed out while the lock sat free,
+    // queuedWaiters=false at expiry).
+    private final Lock lock = new ReentrantLock(true);
 
     /** W-4a (docs/tasks/2.1.0/32, W4-DESIGN.md): journal the hash id-index — phase-1 becomes
      * an O(delta) append instead of the O(N) full-file rewrite of every cached record. */

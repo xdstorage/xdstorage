@@ -12,8 +12,9 @@
 
 ### The first priority
 
-- Find the reason why happens "Illegal state of record to commit" **[2.1.0 task 45]**
-- Fix rollback failed commit error **[2.1.0 task 45]**
+- Find the reason why happens "Illegal state of record to commit" **[2.1.0 task 45 — DONE: the timeout sweeper rolled commits behind their backs; fixed by the sweeper/commit mutual exclusion + the cause-surfaced refusal + the zombie guard]**
+- Fix rollback failed commit error **[2.1.0 task 45 — DONE: the failed-commit compensation is single-owner now (the sweeper excluded and deferred)]**
+- Residual: a compensating rollback can still disarm another owner's in-flight commit phases through the shared-record model **[2.1.0 task 47 — CORE DONE: the tx-scoped phase markers, the ownership-guarded rollback, the chain-shared finalize absorption, the fair commit locks, the reverse acquisition order, the clean-boundary retries; `Illegal state` = 0 across the suites; the throughput envelope residuals (FacadeStress 25×400, NestedIsolation 100 ms budgets) → FLAKY R-STORM-ENVELOPE + 2.2.0 task 10]**
 - B+Tree balancing and find on multi-tree (disabled tests should be enabled and b+tree should be fixed) **[2.2.0 task 01]**
 - Do CI as green and keep it + enabled stress tests for the gate and nightly build **[gate green = 2.1.0 task 36; the stress-gate policy = 2.2.0 task 10]**
 - Rebuild consistency core with standard primitives **[2.2.0 task 01 — amends the frozen F-2 with the new framing]**

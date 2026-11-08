@@ -92,7 +92,7 @@ public final class XdStorageCacheMutator {
                     readObjects.put(id, new XdStorageCacheObjectChange(object, XdStorageCacheChange.insert, transaction.getTimestart()));
 
                     synchronized (record) {
-                        record.prepareCommit();
+                        record.prepareCommit(transaction);
                     }
 
                     cache.workspace().registerMutation(transactionId, id, record);

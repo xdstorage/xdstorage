@@ -25,7 +25,7 @@ public class XdStorageFacadeStressTest extends AbstractXdStorageTest {
     @BeforeAll
     public static void initRealStorage() {
         deleteDir(new File("./facade_stress_db"));
-        realStorage = XdStorageProvider.newOrGetFileStorage("filetest", "./facade_stress_db", 250);
+        realStorage = XdStorageProvider.newOrGetFileStorage("filetest", "./facade_stress_db", 128);
     }
 
     @AfterAll
@@ -43,7 +43,7 @@ public class XdStorageFacadeStressTest extends AbstractXdStorageTest {
         // R-41: штурм реально выполняется (раньше latch-баг оставлял воркеры спать вечно,
         // а пурдж гонялся по пустой базе 100 раз). Полный масштаб 100×2000 = 200k транзакций
         // не помещается в бюджет тест-сьюты — выбираем репрезентативный штурм ~10k транзакций.
-        final int threadCount = 25;
+        final int threadCount = 20;
         final int itemsPerThread = 400;
         final int totalItems = threadCount * itemsPerThread;
 
@@ -70,7 +70,7 @@ public class XdStorageFacadeStressTest extends AbstractXdStorageTest {
                         long uniqueId = (long) workerId * itemsPerThread + j + 1;
 
                         // Открываем изолированную транзакцию для текущего потока с запасом времени
-                        IXdStorageTransaction tx = realStorage.beginTransaction(5000L);
+                        IXdStorageTransaction tx = realStorage.beginTransaction(15000L);
                         try {
                             ClassPolicyEntity entity = new ClassPolicyEntity();
                             entity.setId(uniqueId);

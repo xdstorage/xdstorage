@@ -151,10 +151,10 @@ public final class XdStorageCacheCommitProtocol {
                             newObject != null ? newObject : null);
 
                     if (prepare) {
-                        record.prepareCommit();
+                        record.prepareCommit(transaction);
                         listener.notify(XdStorageCacheCommitPhase.PREPARE_COMMIT, type, oldObject, newObject, transaction);
                     } else {
-                        record.performCommit();
+                        record.performCommit(transaction);
                         listener.notify(XdStorageCacheCommitPhase.PERFORM_COMMIT, type, oldObject, newObject, transaction);
                     }
                 }

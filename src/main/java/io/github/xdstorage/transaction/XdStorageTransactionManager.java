@@ -256,32 +256,50 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
         final XdStorageCommitTransactionStateHolder state = new XdStorageCommitTransactionStateHolder();
         final Map<Object, XdStorageTransactionResourceChanges> firstPhaseCommittedResources = new ConcurrentHashMap<>();
 
-        transaction.skipOrWaitForInternalTransactions();
+        // RBCOMMIT (docs/tasks/2.1.0/45): the commit and the timeout sweeper are mutually
+        // exclusive per transaction. The sweeper executes its whole rollback inside
+        // synchronized (transaction) (registerRollbackOnlyTransaction); the commit takes the
+        // same monitor so a rollback-only mark that landed between the transaction's
+        // operations — its critical count is zero there, so the mark lands instantly — can
+        // never interleave the sweeper's record rollback with the in-flight two phases.
+        // That interleaving produced "Illegal state of record to commit" (the record's
+        // phase flags disarmed between the phase arming and the finalize) and the
+        // committed-with-null zombie records. Inside the monitor the active-threads barrier
+        // additionally defers a sweep that starts while the commit is already running
+        // (R-31 reschedule), and the commit's own rollback-only gates fail a mid-commit
+        // mark cleanly, with the recorded first-cause.
+        synchronized (transaction) {
+            transaction.skipOrWaitForInternalTransactions();
 
-        try {
-            // R-45: резервируем ЕДИНЫЙ commit-serial всей транзакции ДО фаз коммита —
-            // атомарная граница видимости для всех ее записей.
-            transaction.assignCommitSerial();
-            transaction.startCriticalSection();
-            transaction.commitInternal(state, firstPhaseCommittedResources);
-            if (state.getState() == XdStorageCommitTransactionState.FINISHED) {
-                fireChanges(firstPhaseCommittedResources, transaction);
+            this.incrementActiveThreads(transaction.getTransactionId());
+            try {
+                // R-45: резервируем ЕДИНЫЙ commit-serial всей транзакции ДО фаз коммита —
+                // атомарная граница видимости для всех ее записей.
+                transaction.assignCommitSerial();
+                transaction.startCriticalSection();
+                transaction.commitInternal(state, firstPhaseCommittedResources);
+                if (state.getState() == XdStorageCommitTransactionState.FINISHED) {
+                    fireChanges(firstPhaseCommittedResources, transaction);
+                }
+            } catch (final Throwable e) {
+                log.warn("commit internal error", e);
+                // R-57: сначала компенсация ин-плейс индексных мутаций — вставок И удалений
+                // (деревья не откатываются record-механизмом; возврат удаленных ключей держит
+                // дерево read-committed после отката), затем штатный откат зафиксированных ресурсов.
+                // TREEFILE: rollbackFailedCommit ПЕРЕЗАГРУЖАЕТ деревья с закоммиченных файлов
+                // (recoverInfraFromCommittedFiles) — их ключевые компенсации пропускаются
+                // точечно, по факту перезагрузки (infraReloadedTrees).
+    //            transaction.rollbackIndexKeyInserts();
+    //            transaction.rollbackIndexKeyDeletes();
+                transaction.rollbackFailedCommit(firstPhaseCommittedResources);
+
+                throw new XdStorageRuntimeException(e);
+            } finally {
+                transaction.finishCriticalSection();
+                // RBCOMMIT: the sweeper barrier is released only after the critical section —
+                // the deferred sweep may proceed once both are gone.
+                this.decrementActiveThreads(transaction.getTransactionId());
             }
-        } catch (final Throwable e) {
-            log.warn("commit internal error", e);
-            // R-57: сначала компенсация ин-плейс индексных мутаций — вставок И удалений
-            // (деревья не откатываются record-механизмом; возврат удаленных ключей держит
-            // дерево read-committed после отката), затем штатный откат зафиксированных ресурсов.
-            // TREEFILE: rollbackFailedCommit ПЕРЕЗАГРУЖАЕТ деревья с закоммиченных файлов
-            // (recoverInfraFromCommittedFiles) — их ключевые компенсации пропускаются
-            // точечно, по факту перезагрузки (infraReloadedTrees).
-//            transaction.rollbackIndexKeyInserts();
-//            transaction.rollbackIndexKeyDeletes();
-            transaction.rollbackFailedCommit(firstPhaseCommittedResources);
-
-            throw new XdStorageRuntimeException(e);
-        } finally {
-            transaction.finishCriticalSection();
         }
 
         threadsByTransactionId.remove(transaction.getTransactionId());
@@ -431,7 +449,7 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
                         // утечка памяти и мертвые блокировки для всех последующих транзакций.
                         services.getExecutor().submit(() -> {
                             try {
-                                Thread.sleep(200); // дать активным потокам шанс выйти
+                                Thread.sleep(25); // RBCOMMIT: быстрая проверка барьера — удержанные мертвые локи мешают живым конкурентам (их бюджет 100 мс)
                             } catch (final InterruptedException ie) {
                                 Thread.currentThread().interrupt();
                             }

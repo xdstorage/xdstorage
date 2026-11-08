@@ -585,13 +585,53 @@ public class XdStorageTransaction implements IXdStorageTransaction {
         final List<ComparableResourceObject> activeChangesResources = new ArrayList<>();
         ComparableResourceObject checkObject;
 
+        // RECIDENT (docs/tasks/2.1.0/47): the LOCK acquisition order is the REVERSE of the
+        // execution order. The commit locks all its changed resources up-front and holds
+        // them through both phases; with the forward order a transaction acquires its
+        // unique resources first and then WAITS for the shared ones (the class-wide
+        // index/tree resources) while holding them — every waiter behind it inherits the
+        // stall, and the queue latency cascades past the transaction budgets. The reversed
+        // acquisition (the shared resources first, the unique last) means a transaction
+        // only holds anything while its remaining waits are on unique/fast resources; the
+        // order stays uniform across all transactions, so it remains deadlock-free. The
+        // PHASE EXECUTION order below is unchanged (the durability semantics preserved).
+        final List<ComparableResourceObject> acquisitionOrder = new ArrayList<>();
         while ((checkObject = forCommit.poll()) != null) {
-            final IXdStorageResourceObject res = checkObject.resource;
-            // Блокируем измененный дисковый ресурс на коммит и добавляем в локальную цепочку
-            res.lockForCommit(this);
-            lockedResources.add(res);
-            activeChangesResources.add(checkObject);
+            acquisitionOrder.add(checkObject);
         }
+        acquisitionOrder.sort(Collections.reverseOrder());
+
+        for (final ComparableResourceObject entry : acquisitionOrder) {
+            final IXdStorageResourceObject res = entry.resource;
+            // RECIDENT (docs/tasks/2.1.0/47): a commit-lock timeout here is PRE-PHASE — no
+            // mutation exists yet, the retry is clean. The drain-level bounded retry rides
+            // out the contention spikes instead of failing workers whose turn is next.
+            int lockRetry = 0;
+            while (true) {
+                try {
+                    res.lockForCommit(this);
+                    break;
+                } catch (final XdStorageRuntimeException lockTimeout) {
+                    final String message = lockTimeout.getMessage() != null ? lockTimeout.getMessage() : "";
+                    if (lockRetry >= 2 || !message.contains("cannot be locked for commit")) {
+                        throw lockTimeout;
+                    }
+                    ++lockRetry;
+                    log.warn("commit of tx {}: resource {} lock contention (round {}) — retrying the drain",
+                            transactionId, res.getResourceId(), lockRetry);
+                    try {
+                        Thread.sleep(50L * lockRetry);
+                    } catch (final InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        throw lockTimeout;
+                    }
+                }
+            }
+            lockedResources.add(res);
+            activeChangesResources.add(entry);
+        }
+        // restore the execution order for the phases
+        Collections.sort(activeChangesResources);
 
         // Выполняем первую фазу коммита (запись изменений на диск) строго для отфильтрованных ресурсов
         for (final ComparableResourceObject resObject : activeChangesResources) {
@@ -616,6 +656,17 @@ public class XdStorageTransaction implements IXdStorageTransaction {
         if (exceptions[0] != null)
             throw exceptions[0];
 
+        // RBCOMMIT (docs/tasks/2.1.0/45): a rollback-only mark that landed mid-commit (a
+        // timeout enforced at one of this transaction's own lock waits, a validation veto
+        // fired on the committing thread) aborts the commit BETWEEN the phases — loudly,
+        // with the recorded first-cause, so the failure compensation below runs against a
+        // consistent phase-1 state instead of letting the phases finalize records a
+        // compensating rollback has already reverted.
+        if (rollbackOnly.get()) {
+            throw buildRollbackOnlyFailure("commit aborted between phases: transaction " + transactionId
+                    + " was marked as rollback only while its commit was in flight");
+        }
+
         state.setState(XdStorageCommitTransactionState.PREPARED);
 
         // performing second phase commit (финальная очистка кэшей и подтверждение версий)
@@ -639,6 +690,13 @@ public class XdStorageTransaction implements IXdStorageTransaction {
 
         if (exceptions[0] != null)
             throw exceptions[0];
+
+        // RBCOMMIT: the symmetric gate before the FINISHED verdict — a mark that landed
+        // during phase 2 aborts before the state is declared committed.
+        if (rollbackOnly.get()) {
+            throw buildRollbackOnlyFailure("commit aborted after phase 2: transaction " + transactionId
+                    + " was marked as rollback only while its commit was in flight");
+        }
 
         state.setState(XdStorageCommitTransactionState.FINISHED);
 

@@ -239,7 +239,10 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
 
         final XdStorageSearchKeyIndexRecord hashIndexRecord = new XdStorageSearchKeyIndexRecord(record.getId(), record.getPrimaryIndexValue());
 
-        // Атомарно пишем данные в индексы в рамках ЕДИНОЙ транзакции
+        // Атомарно пишем данные в индексы в рамках ЕДИНОЙ транзакции.
+        // RECIDENT/R-36 (docs/tasks/2.1.0/47): the entry-lock contention bursts are
+        // absorbed INSIDE the btree (the retry wraps only the tree-level entry lock —
+        // a clean boundary before any in-place mutation).
         keyTree.insert((Comparable) record.getId(), hashIndexRecord, storage, transaction);
         // R-57: компенсация при откате — keyTree по id записи
         transaction.registerIndexKeyForRollback(keyTree, (Comparable) record.getId());

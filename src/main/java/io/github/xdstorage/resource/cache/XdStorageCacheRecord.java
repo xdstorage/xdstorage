@@ -6,6 +6,7 @@ import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.resource.XdStorageIsolationLevel;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
+import io.github.xdstorage.transaction.XdStorageRollbackOnlyCause;
 import io.github.xdstorage.transaction.XdStorageTransaction;
 import io.github.xdstorage.utils.XdStorageObjectIdField;
 
@@ -594,8 +595,55 @@ public class XdStorageCacheRecord {
      * Phase 1 of the record's two-phase commit protocol: arms the prepare flag so that the
      * subsequent {@code commit} accepts the record (both phase flags must be set by then).
      */
+    /**
+     * RBCOMMIT/RECIDENT (docs/tasks/2.1.0/47): the two-phase arming is TRANSACTION-SCOPED.
+     * The historical single boolean pair was global to the record: any co-staged
+     * transaction's rollback (the adoption handoff — an expired owner's record adopted by
+     * a live one — or the nested chain) disarmed the flags of whoever's commit was in
+     * flight, producing "Illegal state of record to commit" and the committed-with-null
+     * zombies. The markers are keyed by the arming transaction; a rollback clears only
+     * its own markers.
+     */
+    private static final Object LEGACY_ARMING_KEY = new Object();
+
+    private final java.util.Set<Object> phaseOneArmedFor = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+    private final java.util.Set<Object> phaseTwoArmedFor = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+
+    private static Object markerKey(final IXdStorageTransaction tx) {
+        return tx != null ? tx : LEGACY_ARMING_KEY;
+    }
+
+    /**
+     * RECIDENT (docs/tasks/2.1.0/47): whether the rolling transaction owns (or is a chain
+     * ancestor of the owner of) the record's pending state — the full content reset is
+     * allowed only then. {@code true} when nothing pending is owned (the legacy contours).
+     */
+    private boolean pendingStateOwnedByRollingChain(final IXdStorageTransaction rolling) {
+        if (this.transaction == null || rolling == null) {
+            return true;
+        }
+        if (this.transaction == rolling) {
+            return true;
+        }
+        // the R-40 nested chain: the rolling tx is an ancestor of the pending owner
+        Object link = this.transaction;
+        while (link instanceof XdStorageTransaction) {
+            final XdStorageTransaction chainTx = (XdStorageTransaction) link;
+            if (chainTx == rolling) {
+                return true;
+            }
+            link = chainTx.getGlobalTransaction();
+        }
+        return false;
+    }
+
     public void prepareCommit() {
+        prepareCommit(null);
+    }
+
+    public void prepareCommit(final IXdStorageTransaction transaction) {
         firstPhaseCommit = true;
+        phaseOneArmedFor.add(markerKey(transaction));
     }
 
     /**
@@ -603,7 +651,12 @@ public class XdStorageCacheRecord {
      * precondition pair checked by {@code commit}.
      */
     public void performCommit() {
+        performCommit(null);
+    }
+
+    public void performCommit(final IXdStorageTransaction transaction) {
         secondPhaseCommit = true;
+        phaseTwoArmedFor.add(markerKey(transaction));
     }
 
     /**
@@ -619,11 +672,52 @@ public class XdStorageCacheRecord {
      */
     public void commit(IXdStorageTransaction tx) {
         ++version;
-        if (!firstPhaseCommit || !secondPhaseCommit) {
-            log.error("commit of record {} rejected: firstPhaseCommit={}, secondPhaseCommit={}, state={}, change={}, owner={}",
-                    id, firstPhaseCommit, secondPhaseCommit, state, change,
+        boolean firstPhaseArmed = phaseOneArmedFor.remove(markerKey(tx));
+        boolean secondPhaseArmed = phaseTwoArmedFor.remove(markerKey(tx));
+        // the legacy contour compatibility: markers armed without a transaction (the
+        // no-arg overloads, third-party/mocked contours) satisfy any commit
+        if (!firstPhaseArmed) {
+            firstPhaseArmed = phaseOneArmedFor.remove(LEGACY_ARMING_KEY);
+        }
+        if (!secondPhaseArmed) {
+            secondPhaseArmed = phaseTwoArmedFor.remove(LEGACY_ARMING_KEY);
+        }
+        firstPhaseCommit = firstPhaseArmed;
+        secondPhaseCommit = secondPhaseArmed;
+        if (!firstPhaseArmed || !secondPhaseArmed) {
+            final String detail = "record " + id
+                    + " (tx " + (tx != null ? tx.getTransactionId() : null)
+                    + ", firstPhaseCommit=" + firstPhaseArmed
+                    + ", secondPhaseCommit=" + secondPhaseArmed
+                    + ", state=" + state + ", change=" + change
+                    + ", owner=" + (transaction != null ? transaction.getTransactionId() : null) + ")";
+            log.error("commit of {} rejected: the record's two-phase flags were disarmed while its commit was in flight", detail);
+            // RBCOMMIT (docs/tasks/2.1.0/45): the refusal carries the record id, the tx id,
+            // the actual flag/state and — when the committing transaction carries a
+            // rollback-only cause (the nested-expiry cascade, the timeout sweeper) — that
+            // cause, in the same (by <site> at tx-age <n> ms) discipline as the rollback
+            // marks.
+            if (tx instanceof XdStorageTransaction && ((XdStorageTransaction) tx).getRollbackOnlyCause() != null) {
+                throw XdStorageRollbackOnlyCause.buildFailure(
+                        "Illegal state of record to commit: " + detail,
+                        ((XdStorageTransaction) tx).getRollbackOnlyCause());
+            }
+            throw new XdStorageRuntimeException("Illegal state of record to commit: " + detail);
+        }
+        // RECIDENT (docs/tasks/2.1.0/47): the chain-shared single-slot record. When the
+        // pending content is gone (nulled) while this transaction's phases were armed, a
+        // chain member or a co-staged transaction has ALREADY finalized (or rolled back)
+        // the shared record between this transaction's arming and its finalize. Publishing
+        // the nulled content created the committed-with-null zombie; refusing it failed
+        // workers whose data the chain had already published. The record's CURRENT state
+        // stands (the chain's committed content, or the pre-transaction state after a
+        // rollback) and this finalize becomes a no-op: the first finalize of a shared
+        // record wins, loudly visible in the log. The historical null publish is dead.
+        if (newObject == null && change != XdStorageCacheChange.delete && id != null) {
+            log.warn("commit of record {} by tx {} skipped: the pending content was already finalized/reset by a chain or co-staged transaction (change={}, state={}, owner={}) — the record's current state stands, the shared record's first finalize wins",
+                    id, tx != null ? tx.getTransactionId() : null, change, state,
                     transaction != null ? transaction.getTransactionId() : null);
-            throw new XdStorageRuntimeException("Illegal state of record to commit");
+            return;
         }
 
         this.prevObject = this.object;
@@ -634,6 +728,8 @@ public class XdStorageCacheRecord {
 
         firstPhaseCommit = false;
         secondPhaseCommit = false;
+        phaseOneArmedFor.clear();
+        phaseTwoArmedFor.clear();
 
         this.prevTimestamp = this.timestamp;
         this.timestamp = tx.getTimestart();
@@ -676,6 +772,11 @@ public class XdStorageCacheRecord {
      * a warning instead of inverting committed data (R-58).
      */
     public void rollback(IXdStorageTransaction tx) {
+        // RBCOMMIT/RECIDENT (docs/tasks/2.1.0/47): the arming markers of the rolling
+        // transaction are dropped unconditionally — a foreign rollback must never disarm
+        // another transaction's in-flight phases.
+        phaseOneArmedFor.remove(markerKey(tx));
+        phaseTwoArmedFor.remove(markerKey(tx));
         // R-58: откат ЗАКОММИЧЕННОЙ записи запрещен. Поздний/гонный откат (mark-rollback-only
         // «догнавший» уже идущий или завершенный коммит; commit-флаги к этому моменту уже
         // сброшены commit'ом) инвертировал закоммиченную вставку/обновление:
@@ -687,6 +788,19 @@ public class XdStorageCacheRecord {
         if (this.state == State.committed) {
             log.warn("rollback ignored for record {} — record already committed (change={}, owner={}); late/racing rollback suppressed",
                     id, change, transaction != null ? transaction.getTransactionId() : null);
+            return;
+        }
+        // RECIDENT: the CONTENT reset is ownership-guarded. When the record's pending
+        // state has been handed to another transaction (the adoption handoff: an expired
+        // owner's record adopted by a live co-stager, whose commit may be in flight
+        // between its phase arming and its finalize), the rolling transaction's rollback
+        // must not null the pending content nor reset the state under the new owner —
+        // the historical behavior disarmed the new owner's phases and produced the
+        // committed-with-null zombies. The owner itself and its chain ancestors (R-40)
+        // keep the full reset.
+        if (!pendingStateOwnedByRollingChain(tx)) {
+            log.warn("rollback of record {} by tx {} skipped the content reset — the pending state is owned by another live transaction (adoption handoff)",
+                    id, tx != null ? tx.getTransactionId() : null);
             return;
         }
         this.object = this.prevObject;

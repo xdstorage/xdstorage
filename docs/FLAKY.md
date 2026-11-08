@@ -52,3 +52,21 @@ tests (20 classes × 10 consecutive surefire passes, 2026-10-19 night).
 - Un-quarantine a family only after its R-entry records a fix with A/B evidence.
 - Track-A gate (2026-10-19): **10/10 green consecutive runs of all 20 stress tests** +
   the full suite green except the in-suite BTreeStress tail (Track B3).
+
+## 2026-11-08: the saturated-storm envelope (R-STORM-ENVELOPE, task 47's residuals)
+
+- **Signature:** the worker lock-conflict/commit-lock-timeout failures in
+  `XdStorageFacadeStressTest` (25×400 = 10,000 commits, 5 s budgets) and
+  `XdStorageNestedTransactionIsolationStressTest` (8 workers, 100 ms budgets, one shared
+  planet fragment); 2 failures/run, stable across runs.
+- **Root cause:** the THROUGHPUT ENVELOPE, not the correctness defects — the per-record
+  YAML floor (~20–50 ms/commit serialized on the shared index resources) and the
+  commit-lock queue depth × the hold vs the tx budgets. The correctness families behind
+  the historical reds (the disarmed phases, the zombies, the sweeper races, the barging
+  starvation, the acquisition cascades) are FIXED (task 47); `Illegal state of record to
+  commit` = 0 across the suites; BTreeStress green ×3.
+- **Policy:** the release profile excludes the stress tag (2.1.0) — these belong to the
+  nightly/perf gate (2.2.0 task 10). The FacadeStress's scale additionally assumes the
+  "shadow buffer/flush orchestrator" subsystem referenced in its comments but not
+  present in the source — implement that subsystem or rescale the test before expecting
+  green in the default run.
