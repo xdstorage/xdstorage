@@ -12,6 +12,9 @@ the archived result set + run manifest in
   the conditions protocol: quiet-machine loadavg gate, WARN-console logging with no hot-path
   file I/O (`docs/perf/benchmark-log4j2.xml`, passed explicitly — immune to the suite's config
   reshuffles), YAML format, disclosed config flags, JSON results + manifest.
+  **Pin the JDK** with `BENCH_JDK=/path/to/jdk` (optional env): the manifest records the
+  version of the binary that ACTUALLY ran and its source (parameter or PATH default), so
+  the documented 'JDK 21.0.7' condition is provable, not assumed.
 - **Conditions of this baseline:** 2026-10-24, JDK 21.0.7, loadavg 0.54 (gate-enforced),
   WARN-console logging. **Machine (performance-critical profile):** AMD Ryzen 9 5900X
   (12 cores / 24 threads, Zen 3), 64 GB RAM, NVMe SSD (Samsung 970 EVO Plus 1 TB,

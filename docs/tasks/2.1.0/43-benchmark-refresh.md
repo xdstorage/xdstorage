@@ -33,7 +33,10 @@ baseline hides it; if the W-4a gains offset it, the baseline proves it. Either w
    `indexJournalWrites`/`enableForeignKeys` flags disclosed **and the machine profile —
    CPU model/cores, RAM GB, root filesystem, disk kind — disclosed in the manifest and
    restated in the doc header; performance-critical subset only: CPU/RAM/storage/fs, no
-   hostname or desktop details**).
+   hostname or desktop details**). **Pin the JDK via `BENCH_JDK=/path/to/jdk`** — the
+   canonical baseline is JDK 21.0.7; the manifest records the version REPORTED BY THE
+   BINARY THAT RUNS plus its source (parameter vs PATH), so a wrong-PATH run cannot be
+   mistaken for the documented baseline.
 3. **Archive**: copy the result set (jmh-full.json + manifest.json) to
    `docs/perf/canonical-baseline-<date>/` beside its two predecessors.
 4. **Regenerate**: `python3 scripts/render-bench-baseline.py <new-jmh-json>` → replace the

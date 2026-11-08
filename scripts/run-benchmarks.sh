@@ -33,6 +33,11 @@ MODE="${1:-quick}"
 FORCE="${2:-}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MAX_LOADAVG="${BENCH_MAX_LOADAVG:-2.0}"
+# BENCH_JDK (optional): path to the JDK HOME the benchmark RUNS on (e.g.
+# /usr/lib/jvm/temurin-21). Unset = the PATH 'java'. The version is recorded in the
+# manifest FROM THE BINARY THAT ACTUALLY RUNS, so a PATH/parameter mismatch cannot hide
+# (the baseline docs claim a specific JDK — the run must prove it).
+BENCH_JDK="${BENCH_JDK:-}"
 RESULTS_ROOT="$ROOT/target/bench-results"
 STAMP="$(date -u +%Y%m%d-%H%M%S)"
 OUT="$RESULTS_ROOT/$STAMP-$MODE"
@@ -59,6 +64,19 @@ RAM_GB=$(awk '/MemTotal/ {printf "%.0f", $2/1024/1024}' /proc/meminfo || echo "?
 REPO_FS=$(df -T "$ROOT" 2>/dev/null | awk 'NR==2 {print $2}' || echo "?")
 ROOT_DISK=$(findmnt -no SOURCE "$ROOT" 2>/dev/null | sed 's/[0-9]*$//' | sed 's|/dev/||' || echo "?")
 DISK_KIND=$( [ -f "/sys/block/$(basename $ROOT_DISK 2>/dev/null)/queue/rotational" ] && cat "/sys/block/$(basename $ROOT_DISK 2>/dev/null)/queue/rotational" 2>/dev/null | sed 's/0/non-rotational (SSD\/NVMe)/;s/1/rotational (HDD)/' || echo "?")
+
+if [ -n "$BENCH_JDK" ]; then
+  if [ ! -x "$BENCH_JDK/bin/java" ]; then
+    echo "BENCH_JDK='$BENCH_JDK' has no bin/java - refusing to run" >&2
+    exit 1
+  fi
+  JAVA_BIN="$BENCH_JDK/bin/java"
+  JDK_SOURCE="BENCH_JDK parameter ($BENCH_JDK)"
+else
+  JAVA_BIN="java"
+  JDK_SOURCE="PATH default"
+fi
+JDK_VERSION=$("$JAVA_BIN" -version 2>&1 | head -1)
 GIT_REV=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")
 GIT_DIRTY=$(git -C "$ROOT" status --porcelain 2>/dev/null | wc -l)
 
@@ -69,6 +87,8 @@ cat > "$OUT/manifest.json" << EOF
   "gitRev": "$GIT_REV",
   "gitDirtyFiles": $GIT_DIRTY,
   "jdk": "${JDK_VERSION//\"/\\\"}",
+  "jdkSource": "${JDK_SOURCE//\"/\\\"}",
+  "jdkHome": "${BENCH_JDK//\"/\\\"}",
   "cpuModel": "${CPU_MODEL//\"/\\\"}",
   "cpuCores": "$CPU_CORES",
   "ramGB": "$RAM_GB",
@@ -103,7 +123,7 @@ case "$MODE" in
       JMH_ARGS=( )   # full: each class's own annotations (canonical defaults)
     fi
     # the unified JMH set: the canonical CORE scenarios + the search-engine scenario family
-    java -Dlog4j.configurationFile="$LOG_CONF" -Xmx2g -cp "$CP" org.openjdk.jmh.Main \
+    "$JAVA_BIN" -Dlog4j.configurationFile="$LOG_CONF" -Xmx2g -cp "$CP" org.openjdk.jmh.Main \
       "XdStorageCanonicalBenchmark.*" "XdStorageSearchEngineBenchmark.*" \
       "${JMH_ARGS[@]}" -rf json -rff "$OUT/jmh-$MODE.json" \
       > "$OUT/jmh-$MODE.log" 2>&1 || { tail -40 "$OUT/jmh-$MODE.log"; exit 1; }
@@ -113,7 +133,7 @@ case "$MODE" in
     ;;
 
   sweep)
-    java -Dlog4j.configurationFile="$LOG_CONF" -Xmx2g -cp "$CP" \
+    "$JAVA_BIN" -Dlog4j.configurationFile="$LOG_CONF" -Xmx2g -cp "$CP" \
       io.github.xdstorage.performance.sweep.XdStorageConfigSweep \
       > "$OUT/sweep.log" 2>&1 || { tail -40 "$OUT/sweep.log"; exit 1; }
     if [ -d "$ROOT/target/sweep" ]; then
@@ -128,7 +148,7 @@ case "$MODE" in
     # heap MXBean snapshots need exact phase control, not JMH error bars. Each scenario is
     # budget-capped (120s) INSIDE the probe; a budget overrun is recorded as the finding.
     # Separate from quick/full — the <=15min quick budget is unaffected (task 20, acceptance).
-    java -Dlog4j.configurationFile="$LOG_CONF" -Xmx2g -cp "$CP" \
+    "$JAVA_BIN" -Dlog4j.configurationFile="$LOG_CONF" -Xmx2g -cp "$CP" \
       io.github.xdstorage.performance.XdStorageDesignPointProbe "$OUT" \
       > "$OUT/design-point.log" 2>&1 || { tail -40 "$OUT/design-point.log"; exit 1; }
     grep -E "^\[design-point\]" "$OUT/design-point.log" | tail -30 || true
