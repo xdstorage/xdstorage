@@ -16,6 +16,8 @@ as the 2.1.0 train.
 | 06 | [journal-wal-txid](journal-wal-txid.md → 06-journal-wal-txid.md) | transaction id + serial at the journal EOF (WAL hardening) | P1, engine, durability | 1 sess |
 | 07 | [indexes-subdirectory](07-indexes-subdirectory.md) | indexes/ subdirectory layout + one-time migration | P2, engine, chore | 1–2 sess |
 | 10 | [ci-stress-gate-policy](10-ci-stress-gate-policy.md) | CI green + the stress-in-gate/nightly policy decision | P1, ci | 0.5–1 sess |
+| 12 | [nested-transactions-load-safety](nested-transactions-load-safety.md) | nested transactions rework — OPTIONAL (fix or deprecate; the isolation stress test returns to the gate) | P2, engine, bug | 2–4 sess |
+| 13 | [facade-load-investigation](facade-load-investigation.md) | the facade load test: failure causes + the performance improvement plan | P1, engine, performance | 2–3 sess |
 
 Gates: the design rounds before 01/05 (the house rule); property tests grow as the core
 changes (03 protects 01); nightly ×3 green is the train's continuous gate.

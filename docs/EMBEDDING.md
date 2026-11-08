@@ -41,7 +41,11 @@ current code, stated so embedding surprises are design-time, not production-time
   at the mark, the cascade source), the commit failure names the site and chains the root exception as
   its cause, and repeat marks are counted on the record instead of overwriting it.
 - Nested transactions: `beginTransaction(parentTx, timeout)`; a nested rollback does not poison the
-  parent (downward-only rollback-only cascade).
+  parent (downward-only rollback-only cascade). **NOT RECOMMENDED for load-heavy use**: the
+  nested commit/rollback machinery is a known critical-under-load path (abandoned-nested
+  latch cascades, zombie sweeps, mid-commit poisoning — see the transaction-failure
+  diagnostics). Scheduled for rework in 2.2.0 (optional task); until then, prefer flat
+  transactions with explicit compensating code.
 - **Abandoned top-level transactions are NOT force-swept at `beginTransaction`** (the
   ZOMBIELATCH decision, docs/tasks/2.1.0/36-zombie-latch-purge): a worker that swallows a
   failure without commit/rollback leaves its transaction latched until the lazy timeout

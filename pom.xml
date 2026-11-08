@@ -317,11 +317,17 @@
                                 <include>**/*Test.java</include>
                             </includes>
                             <excludes>
-                                <!-- docs/FLAKY.md: документированные редкие флаки под пиковой нагрузкой
+                                <!-- docs/FLAKY.md: документированные редкие флаки под пиковой нагрузкой.
+                                     2026-10-26 (решение архитектора): список ВКЛЮЧЕН снова + пополнен —
+                                     вложенные транзакции не рекомендованы к использованию (критичны под
+                                     нагрузкой, docs/tasks/2.2.0/12), нагрузочный тест фасада уходит в 2.2.0
+                                     на исследование (docs/tasks/2.2.0/13). Остальные четыре — исторические
+                                     семейства из docs/FLAKY.md. -->
                                 <exclude>**/XdStorageGraphPhantomReadStressTest.java</exclude>
                                 <exclude>**/XdStorageFacadeStressTest.java</exclude>
                                 <exclude>**/XdStoragePhantomReadIsolationStressTest.java</exclude>
-                                <exclude>**/XmlDataStorageMultithreadsTest.java</exclude-->
+                                <exclude>**/XmlDataStorageMultithreadsTest.java</exclude>
+                                <exclude>**/XdStorageNestedTransactionIsolationStressTest.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>

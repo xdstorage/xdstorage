@@ -286,6 +286,12 @@ try {
 }
 ```
 
+> **Nested transactions (`beginTransaction(parentTx, timeout)`) are NOT RECOMMENDED for
+> load-heavy use.** A nested rollback correctly does not poison the parent, but the nested
+> commit/rollback machinery is a known critical-under-load path (abandoned-nested latch
+> cascades, zombie sweeps, mid-commit poisoning). Prefer flat transactions with explicit
+> compensating code; the rework is scheduled for 2.2.0.
+
 Semantics:
 
 - A transaction **times out** after the given number of milliseconds; using a dead transaction throws.

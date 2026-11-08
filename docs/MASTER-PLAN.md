@@ -240,6 +240,23 @@ grouping is tags, not layout.
     into this train as task 32 (P0) — W-4b follows W-4a's soak, W-4d stays decision-gated
     (2.2.0 if the RC timeline demands). The design-before-code rule is intact: task 32
     implements a finished design, not a sketch.
+14. **NESTED-TRANSACTIONS DECISION (2026-10-26, maintainer):** nested transactions
+    (`beginTransaction(parentTx, timeout)`) are **NOT RECOMMENDED for load-heavy use** —
+    the machinery is critical under load (the R-40/R-41 history + the stress evidence).
+    Documented in EMBEDDING/GUIDE/CHANGELOG; the isolation stress test is excluded from
+    the gate/release profiles; the **optional** rework task is 2.2.0 #12 (fix or
+    deprecate — decided inside that task).
+15. **FACADE LOAD TEST DECISION (2026-10-26, maintainer):** the facade load stress test is
+    excluded from the gate/release profiles and moves to 2.2.0 #13 — the failure-cause
+    investigation + the facade-flow performance improvement plan (the B3 striping and
+    W-4b become inputs to that investigation).
+16. **THE 2.2.0 TRAIN IS COMPILED** (docs/tasks/2.2.0/, from the maintainer's discovery
+    document): two parallel road maps — A: Memory/Consistency/Durability (the consistency
+    core on standard primitives with the disabled B+Tree tests enabled, the loud-failures
+    inventory, property tests, W-4d memory, WAL hardening, the indexes/ layout, the CI
+    stress-gate policy), B: platform (FP-3 JRE/AOT pulled forward per the maintainer's
+    demand, server mode as a design-only go/no-go). Plus tasks 45/46 added to 2.1.0 (the
+    commit-refusal diagnosis and the wrapper-observer leak — both defect-class).
 
 **2.1.0 exit:** RC protocol per RELEASE-PLAN §2 (full suite ×3 green, kill-9/torn-journal
 recovery, JMH vs baselines, fresh-clone README walkthrough) → tag `v2.1.0`.
