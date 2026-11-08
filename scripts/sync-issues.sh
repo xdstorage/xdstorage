@@ -261,7 +261,7 @@ for DIR in "$TASKS_ROOT"/*/; do
       else
         newnum=$(create_issue "$f" "$title" "$labels")
         echo "created #$newnum: $title"
-        if [ "$status" = "done" ]; then
+        if [ "$status_kw" = "done" ]; then
           close_issue "$newnum" "$f" "$status_note"
           echo "closed  #$newnum (status: done at creation)"
           closed=$((closed+1))
@@ -270,7 +270,7 @@ for DIR in "$TASKS_ROOT"/*/; do
       created=$((created+1)); continue
     fi
 
-    case "$state:$status" in
+    case "$state:$status_kw" in
       OPEN:open|CLOSED:done)
         if [ "$content_changed" = 1 ] || [ "$title_differs" = 1 ] || [ "$labels_differs" = 1 ]; then
           newtitle=""; [ "$title_differs" = 1 ] && newtitle="$title"
