@@ -222,6 +222,15 @@ train that discovered it**; BUG-A/C/D are fixed — see [Fixed](#fixed) below):
   `docs/examples/`; see EMBEDDING.md § Observability. **Migration:** code that relied on
   log4j2 arriving transitively declares a backend explicitly; an application without any
   backend sees at most SLF4J's single documented "no provider" notice.
+- **Nested transactions are NOT RECOMMENDED for load-heavy use** (decision 2026-10-26):
+  the nested commit/rollback machinery is a known critical-under-load path; flat
+  transactions with explicit compensating code are the recommended pattern. The rework is
+  scheduled for 2.2.0 (optional task). The isolation stress test is excluded from the
+  gate/release profiles (it stays in the nightly and the RC protocol).
+- **The facade load stress test moves to 2.2.0 for investigation**: the failure-cause
+  analysis and the write-performance improvement paths for the facade flow are planned
+  (docs/tasks/2.2.0/13); the test is excluded from the gate/release profiles.
+
 - **Quiet-by-default level discipline** (Track L-2). The engine's per-operation INFO lines
   (save/delete/commit/rollback/prepare traces) are demoted to DEBUG; INFO remains for rare
   lifecycle events (storage open/close, journal checkpoint). This addresses the log spam
