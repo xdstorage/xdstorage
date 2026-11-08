@@ -50,6 +50,19 @@ nothing an evaluator needs is buried.**
 7. **CHANGELOG style**: entries read as user-facing facts (not internal task references
    alone); the Keep-a-Changelog section order is consistent.
 
+## Discovery additions (2026-10-26, the maintainer's landing asks)
+
+- **The AI angle in the first screen**: "a new way for AI to search for data" — the
+  human-readable storage IS machine-readable for LLM agents; state it as a first-class
+  positioning line (it is a genuinely differentiating 2026-era argument and the format
+  already delivers it).
+- **The git-friendly fixtures example**: test fixtures and transactional configurations
+  stored as YAML — committed, diffed, reviewed; a concrete worked example (a fixture file
+  + its diff in the GUIDE or the decision guide's good-fits section).
+- **"Readable data without ORM and transformation layers"** and the **why-not-SQLite**
+  answer: both exist (GUIDE § data model; DECISION-GUIDE § comparison) — verify they are
+  cross-linked from the landing's first screens, not just from the deep docs.
+
 ## Out of scope
 
 - Writing NEW tutorials beyond what exists (the quickstart example covers the demo need);

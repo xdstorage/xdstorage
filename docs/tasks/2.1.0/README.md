@@ -47,6 +47,8 @@ there for the full decision record before starting an item.
 | 35 | [crash-residue-purge](35-crash-residue-purge.md) | CRASHPURGE | P1, engine, testing, bug | 1–2 d | — (2/3 red: the purge dies on dangling references; disabled by `b3aeacb`) |
 | 36 | [zombie-latch-purge](36-zombie-latch-purge.md) | ZOMBIELATCH | P1, engine, testing, bug | 1–2 d | — (3/3 red: the purge dies on zombie record latches; disabled by `b3aeacb`) |
 | 34 | [rollback-only-cause](34-rollback-only-cause.md) | RBCAUSE | P1, engine, bug | 1–2 d | — (first-cause capture on the tx; the generator site-descriptors are the careful half) |
+| 45 | [illegal-state-commit-diagnosis](45-illegal-state-commit-diagnosis.md) | RBCOMMIT | P1, engine, bug | 1–2 d | — (the discovery's item 1–2: diagnose + fix the commit-refusal path) |
+| 46 | [wrapper-observer-leak](46-wrapper-observer-leak.md) | WRAPLEAK | P1, engine, bug | 1–2 d | — (the discovery's memory item: the id-less wrapper leak) |
 | 32 | [w4-write-path-implementation](32-w4-write-path-implementation.md) | W4 | P0, engine, performance, feature | W-4a 2–3 sess + W-4c 1 sess (in-train); W-4b next; W-4d gated | 31 (the governing [W4-DESIGN.md](../../W4-DESIGN.md)); before-numbers FIRST |
 | 34 | [cache-commit-protocol-audit](34-cache-commit-protocol-audit.md) | CACHE2PC | P2, engine, bug | 0.5–1 d | — (found by 28: phase-1/2 duplication + legacy rollback order) |
 | 35 | [silent-failure-hazards-codegen-observer-cloner](35-silent-failure-hazards-codegen-observer-cloner.md) | SILENTFAIL | P2, engine, bug | 1–1.5 d | — (found by 28: three swallow-and-continue paths) |
@@ -146,6 +148,9 @@ it starts).
   docs/proposals/OPTIMIZATION-PROPSAL-01-ANALYSIS.md)
 - **Lane L (release polish):** 43 → 44 (the benchmark refresh lands first; the writer pass
   aligns every surface to it — the last tasks before the RC protocol)
+- **Lane M (the 2.2.0 discovery — defect-class items pulled into 2.1.0):** 45 ∥ 46; the
+  full 2.2.0 planning (two parallel road maps) is compiled in
+  [../2.2.0/README.md](../2.2.0/README.md)
 - **Lane K (the disabled release-gate stress tests):** 35 ∥ 36 — un-disable is the exit
   criterion; both must pass the 10-consecutive-pass gate before closing
 - **Lane D (docs, last):** 12 — after the query pack lands, so it describes what ships.
