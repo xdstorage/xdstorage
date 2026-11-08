@@ -244,10 +244,10 @@ grouping is tags, not layout.
     (`beginTransaction(parentTx, timeout)`) are **NOT RECOMMENDED for load-heavy use** —
     the machinery is critical under load (the R-40/R-41 history + the stress evidence).
     Documented in EMBEDDING/GUIDE/CHANGELOG; the isolation stress test is excluded from
-    the gate/release profiles; the **optional** rework task is 2.2.0 #12 (fix or
+    the gate/release profiles AND the nightly build; the **optional** rework task is 2.2.0 #12 (fix or
     deprecate — decided inside that task).
 15. **FACADE LOAD TEST DECISION (2026-10-26, maintainer):** the facade load stress test is
-    excluded from the gate/release profiles and moves to 2.2.0 #13 — the failure-cause
+    excluded from the gate/release profiles AND the nightly build, and moves to 2.2.0 #13 — the failure-cause
     investigation + the facade-flow performance improvement plan (the B3 striping and
     W-4b become inputs to that investigation).
 16. **THE 2.2.0 TRAIN IS COMPILED** (docs/tasks/2.2.0/, from the maintainer's discovery
