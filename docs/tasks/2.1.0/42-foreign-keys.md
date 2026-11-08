@@ -1,5 +1,5 @@
 ---
-title: "[2.1.0][FNKEY] Child objects with policies StoreAsSingleObject or StoreAsClassObjects should have foreign keys in relation with parent object
+title: "[2.1.0][FNKEY] Child objects with policies StoreAsSingleObject or StoreAsClassObjects should have foreign keys in relation with parent object"
 labels: [2.1.0-train, P1, engine, feature]
 status: done
 ---
