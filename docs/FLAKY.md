@@ -31,6 +31,13 @@ tests (20 classes × 10 consecutive surefire passes, 2026-10-19 night).
 | `XdStorageBTreeTargetedDeleteStressTest` (@Tag stress) | targeted deletes under heavy concurrency collect lock-deadlock/structure-anomaly exceptions on a single hot B+Tree | fixed-2026-11-01 (task 42 session): the `IllegalMonitorStateException` storm (unguarded unlocks in `findChildAndDeletePair` after mid-descent rebalances) is fixed with R-33 guarded unlocks; the worker filter tolerates the two transient races ("does not exists", first-committer-wins on the hot tree-record re-save). Residual (~1/3 runs under full-suite load): the DESIGNED `REBALANCE_RETRY_BUDGET` exhaustion (10 attempts) on one hot subtree — livelock containment, not corruption; retry-budget tuning is the open question |
 | `BTreeResourceCacheIntegrationTest.testIntegration_HeavyParallelLoad_NoDeadlocksOrTimeouts` (@Tag integration) | 15 workers on one index tree: retry-budget exhaustion + latch timeouts on the hot node (id 15) | open — same family; the failures are lock-contention backpressure, no structure corruption reported |
 
+## Excluded by decision (2026-10-26, maintainer)
+
+| Test class | Signature | Decision |
+|------------|-----------|----------|
+| `XdStorageNestedTransactionIsolationStressTest` (@Tag stress) | the nested commit/rollback machinery is critical under load (latch cascades, zombie sweeps) | excluded from the gate/release profiles **and the nightly** (ci.yml `-Dtest='!…'`); rework is OPTIONAL 2.2.0 task 12 (fix or deprecate); the feature is documented NOT RECOMMENDED (EMBEDDING/GUIDE/CHANGELOG) |
+| `XdStorageFacadeStressTest` (@Tag stress) | the facade load flow: the historical families (hot-node latches, retry budgets, validator divergence) | excluded from the gate/release profiles **and the nightly**; 2.2.0 task 13 = the failure-cause investigation + the performance improvement plan |
+
 ## Conventions
 
 - A run is judged by Maven's own `BUILD SUCCESS`/`Tests run: N, Failures: M` line — **never by a
