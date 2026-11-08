@@ -63,7 +63,7 @@ per the protocol.
 | 22 | [22-autosave-cascade-children](22-autosave-cascade-children.md) | AUTOSAVE | done | 2–4 dev-days (spik |
 | 23 | [23-power-loss-recovery](23-power-loss-recovery.md) | PWRLOSS | done | 2–3 dev-days (the  |
 | 24 | [24-journal-file-naming](24-journal-file-naming.md) | JRNLNAME | done | 0 |
-| 25 | [25-explain-query-plan](25-explain-query-plan.md) | EXPLAIN | open | 1–2 dev-days (the  |
+| 25 | [25-explain-query-plan](25-explain-query-plan.md) | EXPLAIN | done | 1–2 dev-days (the  |
 | 26 | [26-verify-integrity-walk](26-verify-integrity-walk.md) | VERIFY | done | 1–2 dev-days (the  |
 | 27 | [27-jdk21-ci-matrix](27-jdk21-ci-matrix.md) | JDK21 | open | 0 |
 | 28 | [28-javadoc-coverage](28-javadoc-coverage.md) | JAVADOC | done | 3–5 dev-days (para |

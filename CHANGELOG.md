@@ -266,6 +266,11 @@ The 2.0 engineering campaign is journaled in detail in
 
 ### Added
 
+- **EXPLAIN** (task 25): `storage.explain(Class, indexName, query)` — the read-only query
+  plan (`XdStorageQueryPlan`): INDEX_SEEK / INDEX_RANGE_WALK / SCAN, the bound shape, the
+  post-filters, the degradation reason (including the FP-1a "range on a Hash id index →
+  scan" fallback) and the shaping summary. Extracted from the routing classification the
+  execution lives by (the plan cannot disagree with it); never executes.
 - **Commit journal** (W-1..W-3): append-only per-transaction journal with O(delta) appends,
   prepare-replay, size-threshold checkpoint, failed-commit compensation; per-transaction
   materialization budget (`txMaterializedObjectsCap`) with loud failure instead of unbounded

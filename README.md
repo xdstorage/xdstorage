@@ -62,7 +62,18 @@ In a query, the *primary criterion* evaluates against that index's primary value
 `io.github.xdstorage.{IXdFileStorage, XdStorageProvider, XdStoragePolicy}`,
 `io.github.xdstorage.annotations.*`, `io.github.xdstorage.search.query.*`,
 `io.github.xdstorage.transaction.IXdStorageTransaction`,
+`io.github.xdstorage.search.query.XdStorageQueryPlan`,
 `java.util.{Arrays, Collection}`.
+
+**Query plans** (`storage.explain(Class, indexName, query)`): see the path the engine would
+take **before** running the query — `INDEX_SEEK` (an `EQUALS` primary criterion on the
+search tree), `INDEX_RANGE_WALK` (a `GT`/`GTE`/`LT`/`LTE`/`BETWEEN`/`IN` criterion on a
+B+tree id-index class, with the bound shape reported) or `SCAN` (no criteria,
+`NOT_EQUALS`/non-seekable criteria, an index tree not built yet, or the FP-1a fallback: a
+range on a class whose **id index is Hash** degrades to a scan, with the reason in the
+plan). The plan also lists which secondary criteria ride as post-filters and the active
+`ORDER BY`/`LIMIT`/`OFFSET` shaping. Read-only: no records are materialized and no
+transaction is required.
 
 From Maven Central (Java 8+ bytecode; runtime dependencies: `slf4j-api` and `commons-lang3` only —
 no logging backend ships, bind your own):

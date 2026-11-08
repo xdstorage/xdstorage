@@ -141,6 +141,17 @@ Every number above has its field frame and a per-family "in real terms" reading 
 [BENCHMARKS.md](BENCHMARKS.md) (§ In context — what the figures measure, the sourced
 order-of-magnitude cross-product comparisons, and the write-gap fix plan).
 
+## Query plans: the runtime face of this cost model (EXPLAIN, 2.1.0 task 25)
+
+`storage.explain(Class, indexName, query)` returns the plan the engine would take — the
+runtime face of the table above. Paths: `INDEX_SEEK` (EQUALS on the search tree),
+`INDEX_RANGE_WALK` (the FP-1a bounded ordered walk — requires a B+tree; a range on a class
+whose **id index is Hash** falls back to `SCAN` per the fallback contract), `SCAN` (no
+criteria, `NOT_EQUALS`/non-seekable criteria, an index tree not yet built). The plan
+reports the bound shape, the post-filters, the shaping and the degradation reason; it is
+built from the same routing classification the execution lives by, so it cannot disagree
+with it, and it never executes anything.
+
 ## Where to go next
 
 - [README.md](../README.md) — the full guide (data model, transactions, search engine).

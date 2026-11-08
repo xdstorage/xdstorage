@@ -566,6 +566,188 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
     }
 
     /** FP-1a: the range-operator family routed to the ordered bounded walk. */
+    // =========================================================================
+    // EXPLAIN (docs/tasks/2.1.0/25): the routing decision, EXTRACTED (not forked) —
+    // explain() and the execution consult the same classification, so the plan cannot
+    // disagree with what the engine does. The function is pure: no records, no side
+    // effects; treeAvailable mirrors the "index tree exists" probe of search()/count().
+    // =========================================================================
+
+    /** The plan step description for one OR-alternative's primary criterion. */
+    private static String describeStep(final IXdStoragePrimaryCriterion primary) {
+        final IXdStorageCriterionOperator operator = primary.getOperator();
+        final Object value = primary.getValue();
+        if (operator == IXdStorageCriterionOperator.EQUALS) {
+            return "INDEX_SEEK: primary == " + value;
+        }
+        if (isRangeOperator(operator)) {
+            return "INDEX_RANGE_WALK: " + describeBoundShape(primary);
+        }
+        return "SCAN_ALTERNATIVE: primary " + operatorName(operator) + " " + value
+                + " — not seekable, forces the full index scan for this OR-alternative";
+    }
+
+    /** The bound-shape line for a range criterion (mirrors handleRangePrimaryCriterion). */
+    private static String describeBoundShape(final IXdStoragePrimaryCriterion primary) {
+        final IXdStorageCriterionOperator operator = primary.getOperator();
+        final Object value = primary.getValue();
+        final String field = "primary";
+        switch (operatorName(operator)) {
+            case "GT":
+                return field + " > " + value;
+            case "GTE":
+                return field + " >= " + value;
+            case "LT":
+                return field + " < " + value;
+            case "LTE":
+                return field + " <= " + value;
+            case "BETWEEN":
+                return field + " BETWEEN " + boundOf(value, true) + " AND " + boundOf(value, false) + " (inclusive)";
+            case "IN":
+                return field + " IN (membership-filtered walk)";
+            default:
+                return field + " " + operatorName(operator) + " " + value;
+        }
+    }
+
+    private static Object boundOf(final Object rangeValue, final boolean from) {
+        if (rangeValue instanceof io.github.xdstorage.search.query.XdStorageRange) {
+            final io.github.xdstorage.search.query.XdStorageRange range =
+                    (io.github.xdstorage.search.query.XdStorageRange) rangeValue;
+            return from ? range.getFrom() : range.getTo();
+        }
+        return rangeValue;
+    }
+
+    private static String operatorName(final IXdStorageCriterionOperator operator) {
+        // the operator constants are anonymous classes (toString = the JVM name) —
+        // resolve the human name by the constant identity
+        if (operator == IXdStorageCriterionOperator.EQUALS) return "EQUALS";
+        if (operator == IXdStorageCriterionOperator.NOT_EQUALS) return "NOT_EQUALS";
+        if (operator == IXdStorageCriterionOperator.CONTAINS) return "CONTAINS";
+        if (operator == IXdStorageCriterionOperator.GT) return "GT";
+        if (operator == IXdStorageCriterionOperator.GTE) return "GTE";
+        if (operator == IXdStorageCriterionOperator.LT) return "LT";
+        if (operator == IXdStorageCriterionOperator.LTE) return "LTE";
+        if (operator == IXdStorageCriterionOperator.BETWEEN) return "BETWEEN";
+        if (operator == IXdStorageCriterionOperator.IN) return "IN";
+        return String.valueOf(operator);
+    }
+
+    private static String describeShaping(final XdStorageSearchQuery query) {
+        final StringBuilder builder = new StringBuilder();
+        if (query.hasShaping()) {
+            builder.append("ORDER BY primary ").append(query.isOrderByPrimaryDescending() ? "DESC" : "ASC");
+            if (query.getLimit() >= 0) {
+                builder.append(" LIMIT ").append(query.getLimit());
+            }
+            if (query.effectiveOffset() > 0) {
+                builder.append(" OFFSET ").append(query.effectiveOffset());
+            }
+        }
+        return builder.length() > 0 ? builder.toString() : null;
+    }
+
+    @Override
+    public io.github.xdstorage.search.query.XdStorageQueryPlan explain(final Class<?> cl, final String indexName,
+                                                                       final XdStorageSearchQuery query,
+                                                                       final XdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException {
+        final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
+        final XdStorageSearchIndex index = clInfo.getIndexes().get(indexName);
+        if (index == null) {
+            throw new XdStorageException("required index '" + indexName + "' for class " + cl.getName() + " doesn't exist");
+        }
+        final String idIndexType = clInfo.getIndexType() != null ? clInfo.getIndexType().name() : "BTree";
+
+        boolean treeAvailable = true;
+        if (transaction != null) {
+            final IXdStorage storage = services.getStorage();
+            final XdStorageBTree tree = storage.load(XdStorageBTree.class,
+                    new XdStorageBTreeId(clInfo.getClazz(), indexName), transaction);
+            treeAvailable = tree != null;
+        }
+        return buildQueryPlan(clInfo, indexName, query, treeAvailable);
+    }
+
+    /**
+     * The plan builder — THE single source of the routing truth. The classification mirrors
+     * handleQuery's branching exactly: EQUALS → seek; the range family → the ordered walk;
+     * everything else (NOT_EQUALS, CONTAINS, a null primary) → the scan alternative; the
+     * pairs are OR-alternatives so one non-seekable alternative forces the full scan for
+     * its records; the secondary criteria ride as post-filters on the fetched records.
+     * The Hash-id degradation implements the FP-1a fallback contract made visible: a range
+     * on a class with a Hash id index plans as SCAN with the reason.
+     */
+    io.github.xdstorage.search.query.XdStorageQueryPlan buildQueryPlan(final XdStorageClassInfo clInfo,
+                                                                       final String indexName,
+                                                                       final XdStorageSearchQuery query,
+                                                                       final boolean treeAvailable) {
+        final String idIndexType = clInfo.getIndexType() != null ? clInfo.getIndexType().name() : "BTree";
+        final List<String> steps = new ArrayList<>();
+        final List<String> postFilters = new ArrayList<>();
+        String boundShape = null;
+        boolean hasSeek = false;
+        boolean hasWalk = false;
+        boolean hasScan = false;
+
+        String structuralReason = null;
+        if (!treeAvailable) {
+            steps.add("SCAN: the search index tree is not built yet (no indexed records)");
+            structuralReason = "the search index tree is not built yet (no indexed records) — scan";
+            hasScan = true;
+        } else if (query.getCriterions().isEmpty()) {
+            steps.add("SCAN: no criteria — the whole index scan");
+            structuralReason = "no criteria — the whole index scan";
+            hasScan = true;
+        } else {
+            for (final XdStoragePair<IXdStoragePrimaryCriterion, IXdStorageCriterion> pair : query.getCriterions()) {
+                if (pair.a == null) {
+                    steps.add("SCAN_ALTERNATIVE: no primary criterion — the whole index scan");
+                    hasScan = true;
+                } else if (pair.a.getOperator() == IXdStorageCriterionOperator.EQUALS) {
+                    steps.add(describeStep(pair.a));
+                    hasSeek = true;
+                } else if (isRangeOperator(pair.a.getOperator())) {
+                    final String shape = describeBoundShape(pair.a);
+                    steps.add("INDEX_RANGE_WALK: " + shape);
+                    if (boundShape == null) {
+                        boundShape = shape;
+                    }
+                    hasWalk = true;
+                } else {
+                    steps.add(describeStep(pair.a));
+                    hasScan = true;
+                }
+                if (pair.b != null) {
+                    postFilters.add("secondary criterion on the fetched record: " + pair.b);
+                }
+            }
+        }
+
+        io.github.xdstorage.search.query.XdStorageQueryPlan.Path path;
+        String fallbackReason = null;
+        if (hasScan) {
+            path = io.github.xdstorage.search.query.XdStorageQueryPlan.Path.SCAN;
+            fallbackReason = structuralReason;
+        } else if (hasWalk) {
+            path = io.github.xdstorage.search.query.XdStorageQueryPlan.Path.INDEX_RANGE_WALK;
+        } else {
+            path = io.github.xdstorage.search.query.XdStorageQueryPlan.Path.INDEX_SEEK;
+        }
+        // the FP-1a fallback contract made visible: a range plan on a class with a Hash id
+        // index degrades to SCAN with the reason (the DECISION-GUIDE cost model, enforced)
+        if (path == io.github.xdstorage.search.query.XdStorageQueryPlan.Path.INDEX_RANGE_WALK
+                && "Hash".equals(idIndexType)) {
+            path = io.github.xdstorage.search.query.XdStorageQueryPlan.Path.SCAN;
+            fallbackReason = "range on a Hash id index → scan (the FP-1a ordered contract falls back)";
+        }
+
+        final String shaping = describeShaping(query);
+        return new io.github.xdstorage.search.query.XdStorageQueryPlan(
+                indexName, idIndexType, path, boundShape, postFilters, steps, fallbackReason, shaping);
+    }
+
     private static boolean isRangeOperator(final IXdStorageCriterionOperator operator) {
         return operator == IXdStorageCriterionOperator.GT
                 || operator == IXdStorageCriterionOperator.GTE

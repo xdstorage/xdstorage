@@ -939,6 +939,46 @@ class XdStorage implements IXdFileStorage {
     }
 
     @Override
+    public io.github.xdstorage.search.query.XdStorageQueryPlan explain(final Class<?> cl, final String indexName,
+                                                                       final XdStorageSearchQuery query)
+            throws XdStorageException, XdStorageConnectionException {
+        ensureOpen();
+        if (cl == null)
+            throw new XdStorageException("class cannot be null");
+        if (query == null)
+            throw new XdStorageException("query cannot be null");
+
+        // EXPLAIN (docs/tasks/2.1.0/25): the plan is static (the index metadata is
+        // class-level) — no transaction is required; the internal probe tx only guards the
+        // index-tree availability probe and is rolled back immediately (no side effects).
+        final IXdStorageTransactionManager txManager = services.getTransactionsManager();
+        final XdStorageTransaction probeTx = (XdStorageTransaction) txManager.beginTransaction(60_000L);
+        try {
+            return services.getSearchManager().explain(cl, indexName, query, probeTx);
+        } finally {
+            txManager.rollbackTransaction(probeTx);
+        }
+    }
+
+    @Override
+    public io.github.xdstorage.search.query.XdStorageQueryPlan explain(final Class<?> cl, final String indexName,
+                                                                       final XdStorageSearchQuery query,
+                                                                       final IXdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException {
+        ensureOpen();
+        if (cl == null)
+            throw new XdStorageException("class cannot be null");
+        if (query == null)
+            throw new XdStorageException("query cannot be null");
+        if (transaction == null)
+            throw new XdStorageException("transaction cannot be null");
+        if (!isTransactionAlive(transaction))
+            throw new XdStorageException("transaction " + transaction.getTransactionId() + " is not alive");
+
+        return services.getSearchManager().explain(cl, indexName, query, cast(transaction));
+    }
+
+    @Override
     public long count(final Class<?> cl, final String indexName, final XdStorageSearchQuery query) throws XdStorageException, XdStorageConnectionException {
         ensureOpen();
         if (!checkIsInTransaction())

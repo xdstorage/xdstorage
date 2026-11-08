@@ -143,6 +143,41 @@ public interface IXdFileStorage extends IXdStorage {
     long count(Class<?> cl, String indexName, XdStorageSearchQuery query) throws XdStorageException, XdStorageConnectionException;
 
     /**
+     * EXPLAIN (docs/tasks/2.1.0/25): the read-only query plan — which path the engine would
+     * take (INDEX_SEEK / INDEX_RANGE_WALK / SCAN), the index, the bound shape, the
+     * post-filters, the degradation reason and the shaping summary — WITHOUT executing the
+     * query. No records are materialized; no transaction is required (the plan is static:
+     * the index metadata is class-level).
+     *
+     * @param cl        the indexed entity class
+     * @param indexName the declared index to explain against
+     * @param query     the criteria plus optional shaping
+     * @return the query plan value object
+     * @throws XdStorageException           when the index does not exist for the class
+     * @throws XdStorageConnectionException on a storage I/O failure
+     */
+    io.github.xdstorage.search.query.XdStorageQueryPlan explain(Class<?> cl, String indexName,
+                                                                XdStorageSearchQuery query)
+            throws XdStorageException, XdStorageConnectionException;
+
+    /**
+     * EXPLAIN: transactional form — the plan is still static, the transaction only guards
+     * the index-tree availability probe (an index tree not yet built plans as SCAN).
+     *
+     * @param cl          the indexed entity class
+     * @param indexName   the declared index to explain against
+     * @param query       the criteria plus optional shaping
+     * @param transaction the caller's transaction
+     * @return the query plan value object
+     * @throws XdStorageException           when the index does not exist for the class
+     * @throws XdStorageConnectionException on a storage I/O failure
+     */
+    io.github.xdstorage.search.query.XdStorageQueryPlan explain(Class<?> cl, String indexName,
+                                                                XdStorageSearchQuery query,
+                                                                IXdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException;
+
+    /**
      * FP-1b: transactional form of {@link #count(Class, String, XdStorageSearchQuery)} — the
      * count reflects exactly the given transaction's snapshot.
      *

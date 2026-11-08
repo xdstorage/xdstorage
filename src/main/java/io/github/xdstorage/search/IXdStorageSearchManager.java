@@ -120,4 +120,24 @@ public interface IXdStorageSearchManager {
      */
     long count(Class<?> cl, String indexName, XdStorageSearchQuery query,
                XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+
+    /**
+     * EXPLAIN (docs/tasks/2.1.0/25): the read-only query plan — the path the engine would
+     * take (seek / ordered range walk / scan), the bound shape, the post-filters, the
+     * degradation reason — WITHOUT executing the query. Built from the same classification
+     * the execution lives by (handleQuery), so the plan cannot disagree with it. No records
+     * are materialized; the plan is static (index metadata is class-level), the transaction
+     * only guards the index-tree availability probe.
+     *
+     * @param cl          the indexed entity class
+     * @param indexName   the declared index to explain against
+     * @param query       the criteria plus optional shaping
+     * @param transaction the caller's transaction ({@code null} — an internal probe)
+     * @return the query plan value object
+     * @throws XdStorageException when the index does not exist for the class
+     */
+    io.github.xdstorage.search.query.XdStorageQueryPlan explain(Class<?> cl, String indexName,
+                                                                XdStorageSearchQuery query,
+                                                                XdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException;
 }
