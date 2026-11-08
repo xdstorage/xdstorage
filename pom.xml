@@ -323,10 +323,7 @@
                                      нагрузкой, docs/tasks/2.2.0/12), нагрузочный тест фасада уходит в 2.2.0
                                      на исследование (docs/tasks/2.2.0/13). Остальные четыре — исторические
                                      семейства из docs/FLAKY.md. -->
-                                <exclude>**/XdStorageGraphPhantomReadStressTest.java</exclude>
                                 <exclude>**/XdStorageFacadeStressTest.java</exclude>
-                                <exclude>**/XdStoragePhantomReadIsolationStressTest.java</exclude>
-                                <exclude>**/XmlDataStorageMultithreadsTest.java</exclude>
                                 <exclude>**/XdStorageNestedTransactionIsolationStressTest.java</exclude>
                             </excludes>
                         </configuration>
