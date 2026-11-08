@@ -179,9 +179,11 @@ update_issue_content() { # $1 = number, $2 = new title ("" = unchanged), $3 = fi
   rm -f "$tmp"
 }
 
-close_issue() { # $1 = number, $2 = task file path
+close_issue() { # $1 = number, $2 = task file path, $3 = the status explanation (may be empty)
+  local extra=""
+  [ -n "$3" ] && extra=" Completion note: $3"
   gh issue close "$1" --reason completed --comment \
-    "Automatically closed by the issues-sync workflow: the task file \`$2\` is marked \`status: done\` (the developer's completion mark)."
+    "Automatically closed by the issues-sync workflow: the task file \`$2\` is marked \`status: done\` (the developer's completion mark).$extra"
 }
 
 # --- 4. Per train directory, per task file -------------------------------------------------
@@ -200,12 +202,18 @@ for DIR in "$TASKS_ROOT"/*/; do
     labels=$(sed -n 's/^labels: \[\(.*\)\]$/\1/p' "$f" | tr -d ' ')
     status=$(sed -n 's/^status: \(.*\)$/\1/p' "$f")
     status=${status:-open}
+    # 2026-10-26: the status may carry a short explanation — "done (core fixed; ...)".
+    # The KEYWORD (first word, case-insensitive) drives the state machine; the explanation
+    # rides in the closing comment so the issue records WHY it closed.
+    status_kw=$(printf '%s' "$status" | tr '[:upper:]' '[:lower:]' | cut -d' ' -f1)
+    status_note=""
+    [[ "$status" == *" "* ]] && status_note="${status#* }"
     if [ -z "$title" ] || [ -z "$labels" ]; then
       echo "WARN: $f - missing/invalid frontmatter (title/labels), skipped"
       warned=$((warned+1)); continue
     fi
-    case "$status" in open|done) ;; *)
-      echo "WARN: $f - invalid status '$status' (open|done), skipped"
+    case "$status_kw" in open|done) ;; *)
+      echo "WARN: $f - invalid status '$status' (expected: open|done [explanation]), skipped"
       warned=$((warned+1)); continue ;;
     esac
 
@@ -254,7 +262,7 @@ for DIR in "$TASKS_ROOT"/*/; do
         newnum=$(create_issue "$f" "$title" "$labels")
         echo "created #$newnum: $title"
         if [ "$status" = "done" ]; then
-          close_issue "$newnum" "$relpath"
+          close_issue "$newnum" "$f" "$status_note"
           echo "closed  #$newnum (status: done at creation)"
           closed=$((closed+1))
         fi
@@ -283,7 +291,7 @@ for DIR in "$TASKS_ROOT"/*/; do
           if [ "$content_changed" = 1 ] || [ "$title_differs" = 1 ]; then
             update_issue_content "$num" "$title" "$f" "$cur_labels" "$labels"
           fi
-          close_issue "$num" "$relpath"
+          close_issue "$num" "$relpath" "$status_note"
           echo "closed  #$num: $title (status: done)"
         fi
         closed=$((closed+1)) ;;

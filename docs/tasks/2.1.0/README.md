@@ -152,6 +152,12 @@ Issues are managed automatically by the **issues-sync workflow**
 | `done`, content changed | issue open | update the body (if drifted), then close it with an explanatory comment |
 | `done` | issue closed, content unchanged | nothing — already in sync |
 
+**Status format:** `status: open` or `status: done` — and since 2026-10-26 the status may
+carry a short **explanation**: `status: done (core fixed; the envelope residuals → FLAKY)`.
+The keyword drives the sync; the parenthetical explanation is copied into the issue's
+closing comment, so the issue records WHY it closed. Unknown keywords are warned and
+skipped (never guessed).
+
 **Content-drift detection:** every created/updated issue body ends with an invisible
 ownership marker — `<!-- xdstorage-task: <task-file path> -->`. The sync matches issues by
 that marker first (so a title edit in the file updates the issue's title instead of creating
