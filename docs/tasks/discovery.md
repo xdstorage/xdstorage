@@ -26,7 +26,7 @@
 
 - I would like to avoid holding full data of database in memory. **[2.2.0 task 05 = W-4d]**
 - I would like to hold the data resource during transactions working with it. **[2.2.0 task 05, the retention contract]**
-- Memory leak: XdStorageObjectUtils.getWrappedObjectOrSameObject doesn't clean objects if the object does't get identifier. **[2.1.0 task 46]**
+- Memory leak: XdStorageObjectUtils.getWrappedObjectOrSameObject doesn't clean objects if the object does't get identifier. **[2.1.0 task 46 — DONE: the observer registry's WeakHashMap values strongly referenced their keys (the wrapper holds its target) — the entries never evicted; now the segments hold WeakReference values and the dead entries are cleaned eagerly; the four deregistration paths audited and pinned by tests; EMBEDDING § static state updated]**
 - Location of b+tree indexes moving to indexes subdirectory of database directory **[2.2.0 task 07]**
 
 ### Durability

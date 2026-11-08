@@ -64,7 +64,12 @@ current code, stated so embedding surprises are design-time, not production-time
   metadata computed once, never evicted — warm them once, share across storages.
 - **`COMMIT_SEQUENCE` is a single global counter** shared by all storages in the JVM — required for
   consistent cross-storage MVCC ordering.
-- The deferred-id observer registry is JVM-global and keyed by class.
+- The deferred-id observer registry is JVM-global and keyed by class. **Not a leak since
+  2.1.0 (task 46)**: the segments hold weak-reference values — a wrapper lives exactly as
+  long as somebody holds it (its owning transaction); a registration whose id never lands
+  and whose transaction completed is reclaimed by the GC, so the registry no longer
+  survives `storage.shutdown()` with dead entries (the historical WeakHashMap leaked
+  because its values strongly referenced their keys).
 - The generated-class loader is a static `URLClassLoader` over `./gencode` — **created relative to
   the process working directory at first use and pinned for the JVM's life**. App-server redeploys
   that expect classloader isolation will not work with engine-generated wrappers.

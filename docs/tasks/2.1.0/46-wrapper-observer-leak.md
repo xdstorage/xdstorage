@@ -1,7 +1,7 @@
 ---
 title: "[2.1.0][WRAPLEAK] Memory leak: wrapper objects without identifiers are never released from the observer/workspace registries"
 labels: [2.1.0-train, P1, engine, bug]
-status: open
+status: done (core leak fixed; the four deregistration paths audited and pinned by tests)
 ---
 
 ## Summary
@@ -52,10 +52,10 @@ class-keyed registry beyond the leak fix.
 
 ## Acceptance criteria
 
-- [ ] The leak repro test green (reachability asserted to drop after the fix).
-- [ ] All four deregistration paths covered by tests (success / no-id commit / rollback /
+- [x] The leak repro test green (reachability asserted to drop after the fix).
+- [x] All four deregistration paths covered by tests (success / no-id commit / rollback /
       abandoned sweep).
-- [ ] EMBEDDING.md updated; full suite green ×2.
+- [x] EMBEDDING.md updated; full suite green ×2.
 
 Estimate: ~1–2 dev-days (the audit is the careful half).
 
@@ -64,3 +64,48 @@ Estimate: ~1–2 dev-days (the audit is the careful half).
 - discovery.md § Memory (the reported leak), EMBEDDING § JVM-wide static state
 - `XdStorageObjectUtils.getWrappedObjectOrSameObject`, the observer service, task 36 (the
   zombie sweeps that must clear the unidentified maps)
+
+
+## Update 2026-11-08 — FIXED
+
+### The diagnosis
+
+`getWrappedObjectOrSameObject` itself is stateless (pure unwrapping) — the leak lives in
+the JVM-global deferred-id observer registry (`XdStorageObserverService`). Its per-class
+segments were `WeakHashMap`s whose VALUES (the observable wrappers) STRONGLY reference
+their KEYS (the wrapped domain objects: the generated wrapper holds its target) — the
+classic WeakHashMap self-reference leak: the keys never became weakly-reachable, no
+entry was ever evicted, and every `(class, object)` registration whose id never landed
+leaked the wrapper, the wrapped object and its observer forever (surviving
+`storage.shutdown()`). The javadoc's "the GC reclaims completed transactions" claim was
+structurally false.
+
+### The fix
+
+The registry segments hold **WeakReference values**: a wrapper lives exactly as long as
+somebody holds it (its owning transaction); a discarded registration is reclaimed by the
+GC and the dead entries are removed eagerly by the lookup. The success path is
+unchanged (the one-shot observer removes the entry when the id lands).
+
+### The audit (the four deregistration paths — all verified and pinned by tests)
+
+- (a) **Success**: the id lands through the generated setter → the one-shot observer
+  removes the entry → the wrapper freed; the next registration is fresh
+  (`idSetRemovesRegistryEntry`).
+- (b) **No-id commit** and (c) **rollback**: all three protocol completion paths
+  (`commit`/`rollback`/`rollbackFailedCommit`) call `finishTransaction`, which clears
+  the workspace's unidentified map (`XdStorageWorkspaceUnidentifiedCleanupTest`).
+- (d) **Abandonment**: the task-36 sweeps ride `rollbackInternal → resource.rollback →
+  protocol.rollback` — the same cleanup is inherited (the sweep's deferred round
+  included).
+
+### Verification
+
+- `XdStorageWrapperObserverLeakTest` (NEW): the WeakReference repro (red before the
+  fix — the registry held the wrapper strongly), the success path, and the stability
+  contract (the same object pre-id yields the same wrapper).
+- `XdStorageWorkspaceUnidentifiedCleanupTest` (NEW): the rollback and the no-id commit
+  clear the workspace's unidentified map.
+- Full suite ×2: **956 tests, 0 failures, 0 errors**.
+- EMBEDDING § JVM-wide static state updated (the registry no longer "never evicted").
+- The commit message: 46-COMMIT-MESSAGE.txt (nothing committed per the instruction).

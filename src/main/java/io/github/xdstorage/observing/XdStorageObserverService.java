@@ -3,7 +3,6 @@ package io.github.xdstorage.observing;
 import io.github.xdstorage.utils.XdStorageObjectUtils;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
@@ -26,12 +25,16 @@ public class XdStorageObserverService {
     public XdStorageObserverService() {
     }
 
-    // АРХИТЕКТУРНОЕ ИСПРАВЛЕНИЕ ЯДРА (Ликвидация скрытой утечки памяти Heap):
-    // Переводим внутренние сегменты кэша на Collections.synchronizedMap(new WeakHashMap<>()).
-    // Использование слабых ссылок (Weak References) гарантирует, что как только транзакция пользователя
-    // завершится, сборщик мусора (GC) мгновенно и бесследно вычистит объекты из памяти СУБД,
-    // полностью исключая OutOfMemory и race conditions на фазе параллельного вызова .remove()!
-    private static final Map<Class<?>, Map<Object, IXdStorageIdObservableWrapper>> wrappers = new ConcurrentHashMap<>();
+    // WRAPLEAK (docs/tasks/2.1.0/46): the segments hold WEAK REFERENCE VALUES. The
+    // historical WeakHashMap<Object, wrapper> leaked: the map's VALUE (the wrapper)
+    // strongly references the map's KEY (the wrapped domain object — the generated
+    // wrapper holds its target), so the key never became weakly-reachable and no entry
+    // was ever evicted — every (class, object) registration without a landing id leaked
+    // the wrapper, the object and its observer forever (surviving storage.shutdown()).
+    // The value is now a WeakReference: the wrapper lives exactly as long as somebody
+    // holds it (the owning transaction), and a discarded registration is reclaimed by
+    // the GC; the dead entries are cleaned eagerly by the lookup.
+    private static final Map<Class<?>, Map<Object, java.lang.ref.WeakReference<IXdStorageIdObservableWrapper>>> wrappers = new ConcurrentHashMap<>();
 
     /**
      * Returns the observable wrapper registered for the given object, creating and
@@ -47,7 +50,7 @@ public class XdStorageObserverService {
         final Class<?> cl = object.getClass();
 
         // Атомарно инициализируем потокобезопасный сегмент Weak-ссылок для конкретного доменного класса
-        final Map<Object, IXdStorageIdObservableWrapper> clWrappers = wrappers.computeIfAbsent(cl,
+        final Map<Object, java.lang.ref.WeakReference<IXdStorageIdObservableWrapper>> clWrappers = wrappers.computeIfAbsent(cl,
                 k -> Collections.synchronizedMap(new WeakHashMap<>()));
 
         // SILENTFAIL (docs/tasks/2.1.0/35): проверка-генерация-вставка — КОМПОЗИТНОЕ
@@ -56,15 +59,28 @@ public class XdStorageObserverService {
         // берет сегментную блокировку и повторно проверяет внутри — гонка
         // check-then-act (два потока генерировали две обертки, побеждала последняя,
         // наблюдатели дублировались) закрыта для контура создания.
-        IXdStorageIdObservableWrapper wrapper = clWrappers.get(object);
+        // WRAPLEAK: a dead weak reference (the wrapper reclaimed — its id never landed and
+        // nobody holds it) is removed eagerly here.
+        IXdStorageIdObservableWrapper wrapper = null;
+        final java.lang.ref.WeakReference<IXdStorageIdObservableWrapper> cached = clWrappers.get(object);
+        if (cached != null) {
+            wrapper = cached.get();
+            if (wrapper == null) {
+                clWrappers.remove(object);
+            }
+        }
         if (wrapper != null) {
             return wrapper;
         }
 
         synchronized (clWrappers) {
-            wrapper = clWrappers.get(object);
+            final java.lang.ref.WeakReference<IXdStorageIdObservableWrapper> rechecked = clWrappers.get(object);
+            wrapper = rechecked != null ? rechecked.get() : null;
             if (wrapper != null) {
                 return wrapper;
+            }
+            if (rechecked != null) {
+                clWrappers.remove(object);
             }
 
             // Генерируем реактивную Observable-обертку. SILENTFAIL: отказ генерации не
@@ -86,7 +102,7 @@ public class XdStorageObserverService {
                 }
             });
 
-            clWrappers.put(object, wrapper);
+            clWrappers.put(object, new java.lang.ref.WeakReference<>(wrapper));
             return wrapper;
         }
     }
