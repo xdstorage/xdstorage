@@ -67,28 +67,44 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
                     }
                 }
             } else {
-                // do nothing
-            }
-        } else if (type == XdStorageForeignKeyObjectChangeType.UPDATE) {
-            // TODO implement
-            if (childObjectId != null) {
+                // FNKEY: a child INSERTED with an id under a parent-anchored relation
+                // DECLARES the (parent, child) pair. The parent's save in this transaction
+                // must make the pair registerable: when the child's parent reference
+                // carries an id the pair registers immediately; when the parent is not
+                // saved yet the deferred parent-id waiter registers it when the id lands —
+                // and if it never lands, the phase-1 insert-waiter check vetoes (the
+                // "save a child without saving its parent" pin).
                 for (XdStorageForeignKeyRelation relation : incomeRelations) {
-                    if (!relation.isReverseRelation()) {
-                        if (relation.isParentAnchored()) {
-                            IXdStorageForeignKeyResource resource = foreignKeyResourcesManager.lockForeignKeyResource(
-                                    relation.getClassFrom(), relation.getClassTo(), relation.getField(), transaction
-                            );
-
-                            Collection<Object> parentIds = resource.readByChildObjectId(childObjectId, transaction);
-                            for (Object parentObjectId : parentIds) {
-                                resource.update(null, (Comparable<?>) parentObjectId, object, childObjectId, transaction);
+                    if (!relation.isReverseRelation() && relation.isParentAnchored()) {
+                        IXdStorageForeignKeyResource resource = foreignKeyResourcesManager.lockForeignKeyResource(
+                                relation.getClassFrom(), relation.getClassTo(), relation.getField(), transaction
+                        );
+                        final Object parentReference = findParentReference(clInfo, object, relation.getClassFrom());
+                        if (parentReference != null) {
+                            final Comparable<?> parentObjectId = relation.getClassFrom().getIdField().get(parentReference);
+                            if (parentObjectId != null && !resource.readByChildObjectId(childObjectId, transaction).contains(parentObjectId)) {
+                                resource.insert(parentObjectId, childObjectId, transaction);
+                            } else if (parentObjectId != null) {
+                                // the pair is already registered (a re-save of an existing child)
+                            } else {
+                                IXdStorageIdObservableWrapper observableParent =
+                                        XdStorageObserverService.getObservableWrapper(parentReference);
+                                resource.insert(observableParent, childObjectId, transaction);
                             }
                         }
-                    } else {
-
                     }
                 }
             }
+        } else if (type == XdStorageForeignKeyObjectChangeType.UPDATE) {
+            // do nothing — a child update dissolves no pairs on its own. The pair
+            // bookkeeping for child updates is owned by the PARENT-update diff (it
+            // registers the waitForChildDelete expectation resolved by THIS child's own
+            // commit event) and by the parent's commit-time reference check. Registering
+            // a parent-update waiter here cannot work: the cascade rewrite hands this
+            // engine a stored-state clone whose parent reference is null, so "the child
+            // still references the parent" is undecidable here, and a waiter registered
+            // for a still-referenced child never resolves (the parent's update event
+            // never reports the reference removed) — the commit dead-locks on the veto.
         } else if (type == XdStorageForeignKeyObjectChangeType.DELETE) {
             if (childObjectId != null) {
                 for (XdStorageForeignKeyRelation relation : incomeRelations) {
@@ -108,6 +124,33 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
             }
         } else {
             throw new XdStorageException("undefined change type " + type);
+        }
+    }
+
+    /**
+     * FNKEY: the child's parent-reference object (the {@code @XdStorageParentObject}
+     * field typed as the relation's parent class). {@code null} when the child declares
+     * no parent at all — no pair expectation.
+     */
+    private Object findParentReference(final XdStorageClassInfo childClInfo, final Object childObject,
+                                       final XdStorageClassInfo parentClInfo) {
+        final Object entity = XdStorageObjectUtils.getWrappedObjectOrSameObject(childObject);
+        io.github.xdstorage.utils.XdStorageObjectField parentReferenceField =
+                childClInfo.getFields().values().stream()
+                        .filter(f -> f.isParent() && f.getFieldInfo().getValueClass() == parentClInfo.getClazz())
+                        .findFirst().orElse(null);
+        if (parentReferenceField == null) {
+            parentReferenceField = childClInfo.getFields().values().stream()
+                    .filter(f -> f.getFieldInfo().getValueClass() == parentClInfo.getClazz())
+                    .findFirst().orElse(null);
+        }
+        if (parentReferenceField == null) {
+            return null;
+        }
+        try {
+            return parentReferenceField.get(entity);
+        } catch (final Exception e) {
+            return null;
         }
     }
 

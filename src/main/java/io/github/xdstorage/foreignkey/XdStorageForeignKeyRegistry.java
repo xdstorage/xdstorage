@@ -65,6 +65,12 @@ public class XdStorageForeignKeyRegistry {
                             .findFirst().orElse(null);
                     final boolean parentHasAutoSaveBack = parentAutosaveField != null;
 
+                    // FNKEY (docs/tasks/2.1.0/42): the child-side declaration stays
+                    // registered as the child-anchored relation (parentAnchored=false) — the
+                    // registry pin requires it among the parent's incoming relations. The
+                    // parent-anchored flows (pair registration, diff, waiters) filter on
+                    // isParentAnchored(), so this relation mirrors no pairs and holds no
+                    // waiters: it is a declaration marker, not a second enforcement owner.
                     relations.computeIfAbsent(classInfo.getClazz(), cl -> new ConcurrentHashMap<>())
                             .putIfAbsent(field, new XdStorageForeignKeyRelation(
                                     classInfo, parentClassInfo, false, false, field

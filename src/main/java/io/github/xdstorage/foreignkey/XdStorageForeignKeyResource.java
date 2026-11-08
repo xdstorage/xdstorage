@@ -333,9 +333,52 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
         }
 
         if (parentObject == null) {
+            // FNKEY: a child UPDATE whose parent reference still points at the pair's
+            // parent (the AutoSave cascade re-writing an untouched child) dissolves
+            // nothing — the reference-removal case is owned by the parent-update diff.
+            // Registering a waiter here would hang forever: isReferenceToChildObjectDeleted
+            // can never become true for a child the parent still references.
+            if (childReferencesParent(childObject, parentObjectId)) {
+                return;
+            }
             waitForParentUpdate(parentObjectId, childObjectId, transaction, storage, treeParentChild, treeChildParent);
         } else {
             throw new XdStorageException("parent and child objects cannot be null both");
+        }
+    }
+
+    /**
+     * FNKEY: whether the child's {@code @XdStorageParentObject} reference still points at
+     * the given parent. The no-op discriminator for the child-update flow.
+     */
+    private boolean childReferencesParent(final Object childObject, final Comparable<?> parentObjectId) {
+        if (childObject == null) {
+            return false;
+        }
+        try {
+            final Object entity = io.github.xdstorage.utils.XdStorageObjectUtils.getWrappedObjectOrSameObject(childObject);
+            // the parent-reference field: the @XdStorageParentObject flag when present,
+            // otherwise the first field typed as the parent class
+            XdStorageObjectField parentReferenceField = clChildInfo.getFields().values().stream()
+                    .filter(f -> f.isParent() && f.getFieldInfo().getValueClass() == clParentInfo.getClazz())
+                    .findFirst().orElse(null);
+            if (parentReferenceField == null) {
+                parentReferenceField = clChildInfo.getFields().values().stream()
+                        .filter(f -> f.getFieldInfo().getValueClass() == clParentInfo.getClazz())
+                        .findFirst().orElse(null);
+            }
+            if (parentReferenceField == null) {
+                return false;
+            }
+            final Object referenced = parentReferenceField.get(entity);
+            if (referenced == null) {
+                return false;
+            }
+            final Object referencedId = clParentInfo.getIdField().get(
+                    io.github.xdstorage.utils.XdStorageObjectUtils.getWrappedObjectOrSameObject(referenced));
+            return parentObjectId.equals(referencedId);
+        } catch (final Exception probeFailure) {
+            return false;
         }
     }
 
@@ -487,8 +530,8 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
                     public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
                         if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT
                                 && (change == XdStorageObjectOperationType.Delete || change == XdStorageObjectOperationType.Update)) {
-                            Object cId = childIdField.get(oldObject);
-                            if (cId.equals(childObjectId)) {
+                            Object cId = oldObject == null ? null : childIdField.get(oldObject);
+                            if (childObjectId.equals(cId)) {
                                 try {
                                     treeParentChild.delete(parentObjectId, childObjectId, storage, transaction);
                                     treeChildParent.delete(childObjectId, parentObjectId, storage, transaction);
