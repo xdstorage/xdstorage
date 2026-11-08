@@ -1,7 +1,7 @@
 ---
 title: "[2.1.0][WRAPLEAK] Memory leak: wrapper objects without identifiers are never released from the observer/workspace registries"
 labels: [2.1.0-train, P1, engine, bug]
-status: done (core leak fixed; the four deregistration paths audited and pinned by tests)
+status: done
 ---
 
 ## Summary
