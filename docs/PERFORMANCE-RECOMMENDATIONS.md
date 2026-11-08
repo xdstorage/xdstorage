@@ -15,7 +15,10 @@
 > `scripts/run-benchmarks.sh full` result sets). Use this document for the reasoning and the
 > studies; use BENCHMARKS.md for the numbers you quote.
 
-Recorded: 2026-10-19 (**post-fix re-run** — re-measured after the B+Tree re-open fix R-53, commit `cf36f7f`; re-open sanity `SweepReopenRepro` = 0/0/0 before this run) · Branch `xdstorage-2.0` · Runner: OpenJDK **21.0.7**, Ubuntu Linux, 24 cores / 62 GB, quiet load (loadavg < 0.5)
+Recorded: 2026-10-19 (**post-fix re-run** — re-measured after the B+Tree re-open fix R-53, commit `cf36f7f`; re-open sanity `SweepReopenRepro` = 0/0/0 before this run) · Branch `xdstorage-2.0` · Runner: OpenJDK **21.0.7**, Ubuntu Linux 20.04 (kernel 5.15), AMD Ryzen 9 5900X
+(12 cores / 24 threads), 62 GB RAM, **NVMe SSD (Samsung 970 EVO Plus), ext4** — quiet load (loadavg < 0.5).
+The storage type matters for this study's durability guidance: the fsync costs in §8 are
+NVMe-ext4 fsyncs — on an HDD they are materially higher.
 Harness: `io.github.xdstorage.performance.sweep.XdStorageConfigSweep` (test sources), raw results in [`docs/perf/`](perf/)
 
 **Study scope:** how the two storage-engine structural knobs — the **B+Tree fill factor `t`** and the

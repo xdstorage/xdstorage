@@ -2,7 +2,9 @@
 
 Task 32 (docs/tasks/2.1.0/32) · measured 2026-10-23 · harness:
 `performance/sweep/W4aWriteScalingMeasure` (single-run, not canonical-JMH — the canonical
-integration follows with the W-4b phase). Run twice on one quiet machine, same JVM setup:
+integration follows with the W-4b phase). **Machine:** AMD Ryzen 9 5900X (12 cores / 24
+threads), 64 GB RAM, NVMe SSD (Samsung 970 EVO Plus), ext4, Ubuntu 20.04 / kernel 5.15,
+JDK 21.0.7 — quiet, single run per cell. Run twice on the same machine, same JVM setup:
 `indexJournalWrites=false` (the legacy path — behaviorally identical to pre-W-4a) and
 `=true`.
 

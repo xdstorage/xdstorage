@@ -12,8 +12,12 @@ the archived result set + run manifest in
   the conditions protocol: quiet-machine loadavg gate, WARN-console logging with no hot-path
   file I/O (`docs/perf/benchmark-log4j2.xml`, passed explicitly — immune to the suite's config
   reshuffles), YAML format, disclosed config flags, JSON results + manifest.
-- **Conditions of this baseline:** 2026-10-24, JDK 21.0.7, 24-core box, loadavg 0.54
-  (gate-enforced), WARN-console logging. **This is the first post-W-4a baseline:** the hash
+- **Conditions of this baseline:** 2026-10-24, JDK 21.0.7, loadavg 0.54 (gate-enforced),
+  WARN-console logging. **Machine (performance-critical profile):** AMD Ryzen 9 5900X
+  (12 cores / 24 threads, Zen 3), 64 GB RAM, NVMe SSD (Samsung 970 EVO Plus 1 TB,
+  non-rotational), ext4, Ubuntu 20.04 (kernel 5.15). The NVMe/ext4 pair matters directly
+  for the durability numbers: the `writeDurable` scenario's fsync cost is an NVMe-ext4
+  fsync — an HDD or a different filesystem shifts that scenario materially. **This is the first post-W-4a baseline:** the hash
   id-index commit journal is DEFAULT ON (task 32), so the write scenarios carry the fix —
   the 2026-10-22 set
   ([`docs/perf/canonical-baseline-2026-10-22/`](perf/canonical-baseline-2026-10-22/)) is the

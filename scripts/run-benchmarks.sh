@@ -54,7 +54,11 @@ fi
 
 # --- conditions protocol: manifest -------------------------------------------
 CPU_MODEL=$(grep -m1 "model name" /proc/cpuinfo | cut -d: -f2 | sed 's/^ *//' || echo "unknown")
-JDK_VERSION=$(java -version 2>&1 | head -1)
+CPU_CORES=$(grep -m1 "siblings" /proc/cpuinfo | awk '{print $4}' || echo "?")
+RAM_GB=$(awk '/MemTotal/ {printf "%.0f", $2/1024/1024}' /proc/meminfo || echo "?")
+REPO_FS=$(df -T "$ROOT" 2>/dev/null | awk 'NR==2 {print $2}' || echo "?")
+ROOT_DISK=$(findmnt -no SOURCE "$ROOT" 2>/dev/null | sed 's/[0-9]*$//' | sed 's|/dev/||' || echo "?")
+DISK_KIND=$( [ -f "/sys/block/$(basename $ROOT_DISK 2>/dev/null)/queue/rotational" ] && cat "/sys/block/$(basename $ROOT_DISK 2>/dev/null)/queue/rotational" 2>/dev/null | sed 's/0/non-rotational (SSD\/NVMe)/;s/1/rotational (HDD)/' || echo "?")
 GIT_REV=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")
 GIT_DIRTY=$(git -C "$ROOT" status --porcelain 2>/dev/null | wc -l)
 
@@ -66,6 +70,10 @@ cat > "$OUT/manifest.json" << EOF
   "gitDirtyFiles": $GIT_DIRTY,
   "jdk": "${JDK_VERSION//\"/\\\"}",
   "cpuModel": "${CPU_MODEL//\"/\\\"}",
+  "cpuCores": "$CPU_CORES",
+  "ramGB": "$RAM_GB",
+  "rootFilesystem": "$REPO_FS",
+  "rootDiskKind": "$DISK_KIND",
   "loadavg1m": $LOADAVG,
   "maxLoadavg": $MAX_LOADAVG,
   "loadGateForced": $([ "$FORCE" = "--force" ] && echo true || echo false),

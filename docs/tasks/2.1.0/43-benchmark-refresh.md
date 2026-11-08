@@ -30,7 +30,10 @@ baseline hides it; if the W-4a gains offset it, the baseline proves it. Either w
    (BUILD SUCCESS verdict) before measuring — never benchmark a red tree.
 2. **Run**: `bash scripts/run-benchmarks.sh full` — the ONE entry point (conditions
    protocol owned by the script: quiet-gate, WARN-console logging, manifest with git rev +
-   `indexJournalWrites`/`enableForeignKeys` flags disclosed).
+   `indexJournalWrites`/`enableForeignKeys` flags disclosed **and the machine profile —
+   CPU model/cores, RAM GB, root filesystem, disk kind — disclosed in the manifest and
+   restated in the doc header; performance-critical subset only: CPU/RAM/storage/fs, no
+   hostname or desktop details**).
 3. **Archive**: copy the result set (jmh-full.json + manifest.json) to
    `docs/perf/canonical-baseline-<date>/` beside its two predecessors.
 4. **Regenerate**: `python3 scripts/render-bench-baseline.py <new-jmh-json>` → replace the

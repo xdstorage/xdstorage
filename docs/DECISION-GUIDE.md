@@ -129,9 +129,11 @@ embedded configuration/feature-flag stores with queries and triggers.
 | Batch commit | 2,435 tx/s @ 10 obj → 31 tx/s @ 1000 obj; objects/s now **flat ~24k–31k** at every batch size | `commitBatch` |
 | Small write at N=50k | **0.13 ms/tx** (flat from 10³ to 5·10⁴ — was 64.9 ms/tx pre-W-4a) | docs/perf/w4a-write-scaling.md |
 
-Conditions: 2026-10-24 (post-W-4a index journaling), JDK 21, quiet 24-core Linux box,
-WARN-console logging, YAML format — full manifest in
-`docs/perf/canonical-baseline-2026-10-24/` (the before-set:
+Conditions: 2026-10-24 (post-W-4a index journaling), JDK 21.0.7, quiet Linux box —
+**AMD Ryzen 9 5900X (12 cores / 24 threads), 64 GB RAM, NVMe SSD (970 EVO Plus), ext4** —
+WARN-console logging, YAML format. The storage pair matters: the durability cost (~107×
+with `durableWrites`) is an NVMe-ext4 fsync cost — an HDD shifts it materially. Full
+manifest in `docs/perf/canonical-baseline-2026-10-24/` (the before-set:
 `docs/perf/canonical-baseline-2026-10-22/`; the full before/after delta table lives in
 BENCHMARKS.md § Before/after W-4a). Re-run: `bash scripts/run-benchmarks.sh full`.
 
