@@ -63,8 +63,12 @@ jobs:
           cache: maven
       - name: Full suite x3 (flake-rate tracking)
         run: |
+          # 2026-10-26: XdStorageNestedTransactionIsolationStressTest (nested tx = NOT
+          # RECOMMENDED, 2.2.0 task 12) and XdStorageFacadeStressTest (2.2.0 task 13, the
+          # load investigation) are excluded per the maintainer's decision — the surefire
+          # '!' prefix is an EXCLUSION (everything else runs).
           for i in 1 2 3; do
-            mvn clean test > /tmp/mvn-nightly-$i.log 2>&1 || { tail -100 /tmp/mvn-nightly-$i.log; exit 1; }
+            mvn clean test '-Dtest=!XdStorageNestedTransactionIsolationStressTest,!XdStorageFacadeStressTest' > /tmp/mvn-nightly-$i.log 2>&1 || { tail -100 /tmp/mvn-nightly-$i.log; exit 1; }
             grep -E "Tests run: [0-9]+, Failures" /tmp/mvn-nightly-$i.log | tail -1
           done
       - name: JMH smoke (canonical suite, quick mode — BENCH docs/tasks/2.1.0/13)

@@ -6,9 +6,12 @@ checklist, the recurring release procedure, and standing recommendations.
 
 - **Quality bar — split by who runs it:**
   - **The RC protocol (human, before the tag is cut)** — the FULL suite (`mvn clean test`,
-    stress families included) green ×3 with a Maven `BUILD SUCCESS` verdict (never a piped
-    grep's exit code — the R-52 gotcha), the JMH smoke row assertion passing, and every open
-    [FLAKY.md](FLAKY.md) row named in the release notes.
+    stress families included, EXCEPT the two tests excluded by the 2026-10-26 decision —
+    XdStorageNestedTransactionIsolationStressTest and XdStorageFacadeStressTest, see
+    [FLAKY.md](FLAKY.md) § Excluded by decision — the nightly applies the same exclusion)
+    green ×3 with a Maven `BUILD SUCCESS` verdict (never a piped grep's exit code — the R-52
+    gotcha), the JMH smoke row assertion passing, and every open [FLAKY.md](FLAKY.md) row
+    named in the release notes.
   - **The tag pipeline (automated, on tag push)** — the NON-STRESS suite via the `release`
     profile (`mvn clean deploy -Prelease`: the profile excludes the `stress` / `integration`
     **tags** (T-2, primary mechanism since 2.1.0) with the legacy filename patterns
