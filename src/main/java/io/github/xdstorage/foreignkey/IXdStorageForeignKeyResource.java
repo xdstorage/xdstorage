@@ -22,12 +22,7 @@ public interface IXdStorageForeignKeyResource extends IXdStorageResourceObject {
 
     void insert(IXdStorageIdObservableWrapper parentObject, IXdStorageIdObservableWrapper childObject, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
 
-//    void delete(Object parentObject, Object childObject, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
-//
-//    void delete(Object parentObject, Comparable<?> childObjectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
-//
-//    void delete(Comparable<?> parentObjectId, Object childObject, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void update(Object parentObject, Comparable<?> parentObjectId, Object childObject, Comparable<?> childObjectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
 
-    void delete(Object parentObject, Comparable<?> parentObjectId, Object childObject, Comparable<?> childObjectId,
-                XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void delete(Object parentObject, Comparable<?> parentObjectId, Object childObject, Comparable<?> childObjectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
 }

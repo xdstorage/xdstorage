@@ -53,8 +53,8 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
                                         Collection<XdStorageForeignKeyRelation> incomeRelations, XdStorageTransaction transaction)
             throws XdStorageException, XdStorageConnectionException {
 
+        Comparable<?> childObjectId = clInfo.getIdField().get(object);
         if (type == XdStorageForeignKeyObjectChangeType.INSERT) {
-            Comparable<?> childObjectId = clInfo.getIdField().get(object);
             if (childObjectId == null) {
                 for (XdStorageForeignKeyRelation relation : incomeRelations) {
                     if (relation.isReverseRelation()) {
@@ -70,9 +70,26 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
                 // do nothing
             }
         } else if (type == XdStorageForeignKeyObjectChangeType.UPDATE) {
-            // do nothing - income reference is not changed
+            // TODO implement
+            if (childObjectId != null) {
+                for (XdStorageForeignKeyRelation relation : incomeRelations) {
+                    if (!relation.isReverseRelation()) {
+                        if (relation.isParentAnchored()) {
+                            IXdStorageForeignKeyResource resource = foreignKeyResourcesManager.lockForeignKeyResource(
+                                    relation.getClassFrom(), relation.getClassTo(), relation.getField(), transaction
+                            );
+
+                            Collection<Object> parentIds = resource.readByChildObjectId(childObjectId, transaction);
+                            for (Object parentObjectId : parentIds) {
+                                resource.update(null, (Comparable<?>) parentObjectId, object, childObjectId, transaction);
+                            }
+                        }
+                    } else {
+
+                    }
+                }
+            }
         } else if (type == XdStorageForeignKeyObjectChangeType.DELETE) {
-            Comparable<?> childObjectId = clInfo.getIdField().get(object);
             if (childObjectId != null) {
                 for (XdStorageForeignKeyRelation relation : incomeRelations) {
                     if (!relation.isReverseRelation()) {
@@ -110,7 +127,7 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
             }
         } else if (type == XdStorageForeignKeyObjectChangeType.UPDATE) {
             for (XdStorageForeignKeyRelation relation : outcomeRelations) {
-                if (!relation.isReverseRelation()) {
+                if (!relation.isReverseRelation() && relation.isParentAnchored()) {
                     XdStorageClassInfo clInfoTo = relation.getClassTo();
                     XdStorageObjectField clField = relation.getField();
 
