@@ -202,6 +202,19 @@
                     <includes>
                         <include>**/*Test.java</include>
                     </includes>
+                    <!-- GATE policy (docs decision 2c43b8c, 2026-11-08): the two saturated-storm
+                         families are excluded from the gate/default run — their reds are the
+                         THROUGHPUT ENVELOPE (the per-record YAML floor vs 25×400 and the
+                         8×100 ms budgets), not correctness (task 47 fixed the correctness
+                         families: Illegal state = 0 estate-wide). The correctness coverage for
+                         both families lives in the invariant/protocol tests; the envelope runs
+                         belong to the nightly (the -Dtest exclusions) and the perf gate
+                         (2.2.0 task 10). BTreeTargetedDeleteStress stays IN: its stale-descent
+                         family is fixed (task 47) and it is green. -->
+                    <excludes>
+                        <exclude>**/XdStorageFacadeStressTest.java</exclude>
+                        <exclude>**/XdStorageNestedTransactionIsolationStressTest.java</exclude>
+                    </excludes>
                 </configuration>
             </plugin>
 

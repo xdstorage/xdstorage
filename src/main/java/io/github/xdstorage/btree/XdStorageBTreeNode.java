@@ -348,7 +348,27 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
      * @param transaction the owning transaction providing the lock timeout ({@code null} — engine default)
      * @throws XdStorageException when the acquiring thread is interrupted while waiting
      */
-    @Override
+    /**
+     * RECIDENT (docs/tasks/2.1.0/47, the TargetedDelete family): deletes a NODE record as
+     * the persistence cleanup of an in-memory merge. Idempotent for this transaction's own
+     * tombstones: a merge reached a node whose record this same transaction already
+     * tombstoned through an earlier stale-descent merge — the in-memory unlink already
+     * happened, so the double delete is skipped loudly instead of failing the worker.
+     */
+    private void deleteNodeRecordIdempotent(final XdStorageBTreeNode node, final IXdStorage storage,
+                                            final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+        try {
+            storage.delete(node, transaction);
+        } catch (final XdStorageException alreadyGone) {
+            final String message = alreadyGone.getMessage() != null ? alreadyGone.getMessage() : "";
+            if (message.contains("was deleted this transaction") || message.contains("trying to double delete")) {
+                log.warn("node record {} merge cleanup skipped — already tombstoned by this transaction (stale-descent merge)", node.getId());
+                return;
+            }
+            throw alreadyGone;
+        }
+    }
+
     public void lockWrite(final IXdStorageTransaction transaction) throws XdStorageException {
         try {
             lock.lockWrite(transaction);
@@ -726,6 +746,18 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                         }
                     }
                 }
+            } catch (final XdStorageException staleDescent) {
+                // RECIDENT (docs/tasks/2.1.0/47, the TargetedDelete family): this
+                // transaction's OWN earlier targeted delete merged/tombstoned this node's
+                // cache record, and this descent — started before the merge — is stale.
+                // Re-descend from the root instead of failing the worker: the merge
+                // unlinked the node from the in-memory graph, so the fresh descent lands
+                // in the live sibling.
+                if (staleDescent.getMessage() != null && staleDescent.getMessage().contains("was deleted this transaction")) {
+                    retryInsert.set(true);
+                    return;
+                }
+                throw staleDescent;
             } finally {
                 deepUnlock();
             }
@@ -1045,6 +1077,11 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                                        final IXdStorageTransaction transaction, AtomicBoolean retryInsert) throws XdStorageException, XdStorageConnectionException {
         boolean isInserted = false;
         int i;
+        // RECIDENT (the BTreeStress family): the leaf's key list may be concurrently
+        // emptied by another worker's merge between this descent's position scan and the
+        // mutation — the IndexOutOfBounds of that race is the stale-descent signal: the
+        // tree-level loop re-descends from the root and re-computes on the fresh state.
+        try {
         for (i = 0; i < getKeys().size(); ++i) {
             final int compareResult = key.compareTo(getKeys().get(i));
 
@@ -1105,6 +1142,10 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
             storage.update(this, transaction);
         }
         return isInserted;
+        } catch (final IndexOutOfBoundsException staleList) {
+            retryInsert.set(true);
+            return false;
+        }
     }
 
     private Comparable findLeftKey(final XdStorageBTreeNode deepLockedNode, final XdStorageBTreeNode node, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
@@ -1172,7 +1213,7 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                 if (this.getKeys().isEmpty() && (root == this || (rootId != null && rootId.equals(this.getId())))) {
                     getTree().setRoot(null);
                     getTree().setFirstLeaf(null);
-                    storage.delete(this, transaction);
+                    deleteNodeRecordIdempotent(this, storage, transaction);
                     storage.update(getTree(), transaction);
                 }
             } finally {
@@ -1298,7 +1339,7 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
             if (parent.getKeys().isEmpty() && !parent.getChildren().isEmpty()) {
                 final XdStorageBTreeNode child = parent.loadChildOfThisNode(0, storage, transaction);
                 child.lockAndAddToDeepLock(deepLockedNode, transaction);
-                storage.delete(parent, transaction);
+                deleteNodeRecordIdempotent(parent, storage, transaction);
                 child.setParent(null);
                 storage.update(child, transaction);
                 getTree().setRoot(child);
@@ -1364,7 +1405,7 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
             log.info("joinWithRight: node {} absorbed into node {} (record deleted), tree={}",
                     right.getId(), this.getId(), getTree() != null ? getTree().getId() : null);
         }
-        storage.delete(right, transaction);
+        deleteNodeRecordIdempotent(right, storage, transaction);
         // Спускаем разделительный ключ из родителя во внутренний узел 'this'.
         // КАНОН B-ДЕРЕВА: разделитель между this и right — это РОВНО parent.keys[currentNodeIndex];
         // спуск findLeftKey к левому листу правого поддерева возвращает null на транзитно пустой
@@ -1448,7 +1489,7 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                 log.info("joinWithLeft: node {} absorbed into node {} (record deleted), tree={}",
                         this.getId(), left.getId(), getTree() != null ? getTree().getId() : null);
             }
-            storage.delete(this, transaction);
+            deleteNodeRecordIdempotent(this, storage, transaction);
 
             // КАНОН B-ДЕРЕВА: разделитель между left и this — это РОВНО parent.keys[currentNodeIndex - 1].
             // findLeftKey здесь давал null на транзитно пустой ноде -> слияние без разделителя
@@ -1711,15 +1752,41 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
             }
             try {
                 // Физически вырезаем точечную пару из листа
-                deletePairFromThisNode(key, value, storage, transaction);
+                // RECIDENT (docs/tasks/2.1.0/47, the TargetedDelete family): a stale
+                // self-descent — this transaction's OWN earlier merge tombstoned this
+                // node's cache record and this descent (started before the merge) still
+                // holds the link — re-descends via the retryDelete loop instead of
+                // failing the worker.
+                try {
+                    deletePairFromThisNode(key, value, storage, transaction);
+                } catch (final XdStorageException staleDescent) {
+                    if (staleDescent.getMessage() != null && staleDescent.getMessage().contains("was deleted this transaction")) {
+                        retryDelete.set(true);
+                        return;
+                    }
+                    throw staleDescent;
+                }
 
                 // Балансировка при недогрузе ноды (классический канон Кнута)
-                if (this.getKeys().size() <= getTree().getT() - 1) {
-                    if (this.getParent() != null) {
-                        if (!tryToMoveKeyFromNeightbor(this, storage, transaction)) {
-                            joinWithNeightbor(this, storage, transaction);
+                // RECIDENT: the rebalance touches the borrow/join peers whose records this
+                // transaction may have tombstoned earlier (the stale self-descent again) —
+                // the pair is ALREADY deleted at this point, so a stale rebalance is
+                // recovered by the re-descend (the retry's delete finds the pair gone —
+                // the tolerated "does not exists" — and rebalances incrementally).
+                try {
+                    if (this.getKeys().size() <= getTree().getT() - 1) {
+                        if (this.getParent() != null) {
+                            if (!tryToMoveKeyFromNeightbor(this, storage, transaction)) {
+                                joinWithNeightbor(this, storage, transaction);
+                            }
                         }
                     }
+                } catch (final XdStorageException staleRebalance) {
+                    if (staleRebalance.getMessage() != null && staleRebalance.getMessage().contains("was deleted this transaction")) {
+                        retryDelete.set(true);
+                        return;
+                    }
+                    throw staleRebalance;
                 }
 
                 // Схлопывание дерева, если удаление полностью опустошило корень
@@ -1728,7 +1795,7 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                 if (this.getKeys().isEmpty() && (root == this || (rootId != null && rootId.equals(this.getId())))) {
                     getTree().setRoot(null);
                     getTree().setFirstLeaf(null);
-                    storage.delete(this, transaction);
+                    deleteNodeRecordIdempotent(this, storage, transaction);
                     storage.update(getTree(), transaction);
                 }
             } finally {

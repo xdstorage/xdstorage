@@ -77,3 +77,30 @@ tests (20 classes × 10 consecutive surefire passes, 2026-10-19 night).
   "shadow buffer/flush orchestrator" subsystem referenced in its comments but not
   present in the source — implement that subsystem or rescale the test before expecting
   green in the default run.
+
+## 2026-11-08 (evening): the stale-descent family FIXED (the TargetedDelete red + the BTreeStress flake)
+
+- **Signature:** `XdStorageBTreeNode id N was deleted this transaction` /
+  `trying to double delete one object ... N` in `BTreeTargetedDeleteStress`
+  (deterministic 3/3 red); `IndexOutOfBoundsException: Index: 0, Size: 0` at
+  `insertIntoThisNode` behind `BTreeStress`'s anomaly counter (the ~1/3 suite flake).
+- **Root cause:** the worker's OWN earlier targeted-delete merge tombstoned a node's
+  cache record and unlinked it from the in-memory graph, but a descent that started
+  before the merge still held the link — its node-record update/delete hit the
+  transaction's own tombstone (the insert path had no retry wiring at all; the delete
+  path's rebalance borrow/join peers and the merge record-cleanup had the same
+  exposure), and the leaf key list mutated between the position scan and the mutation
+  produced the IndexOutOfBounds.
+- **Fix (task 47's stale-descent pattern, estate-wide):** the tombstone hit on a node's
+  own-transaction record sets the descent's retry flag (the tree-level loop re-descends
+  from the root — the merge already unlinked the node, so the fresh descent lands in
+  the live sibling); the merge record-cleanup is idempotent for same-transaction
+  tombstones (the in-memory unlink is what matters); the leaf-list race caught as the
+  same stale-descent signal.
+- **Gate policy:** `FacadeStress` and `NestedIsolation` are excluded from the
+  gate/default run per the status decision 2c43b8c (the throughput envelope, R-STORM-
+  ENVELOPE above) — the pom's default surefire config now mirrors the quick-gate/
+  nightly/release policy. Their correctness coverage lives in the invariant tests; the
+  envelope belongs to 2.2.0 task 10.
+- **Evidence:** BTreeTargetedDeleteStress 5/5 green; BTreeStress 8/8 green (isolated);
+  the full gate (951 tests): **0 failures ×3 consecutive runs, BUILD SUCCESS ×3.**

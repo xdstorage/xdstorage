@@ -127,3 +127,20 @@ interleavings. The record-identity defect decomposed into FOUR concrete mechanis
 
 Both belong to the throughput/durability work (2.2.0: the consistency-core rebuild and
 the perf gate); the correctness estate is green 3/3 with these two ledgered.
+
+## Update 2026-11-08 (evening) — the stale-descent family (TargetedDelete + the BTreeStress flake) FIXED
+
+The CI gate at 0fba659 surfaced the third family: `BTreeTargetedDeleteStress` red 3/3
+(`node id N was deleted this transaction` ×31, `trying to double delete` ×1) plus the
+BTreeStress flake (`IndexOutOfBoundsException: Index: 0, Size: 0` behind the anomaly
+counter). The flag-audit diagnosis extended: a worker's OWN targeted-delete merge
+tombstones a node's cache record and unlinks it from the in-memory graph, but a descent
+that started before the merge still holds the link — its node-record update hits the
+transaction's OWN tombstone (the leaf key list races the concurrent merge to empty).
+FIX: the tombstone hit on a node's own-transaction record during a descent sets that
+descent's retry flag (the tree-level loop re-descends — the merge already unlinked the
+node, so the fresh descent lands in the live sibling); the merge's record cleanup is
+idempotent for same-transaction tombstones; the leaf-list race caught as the same
+stale-descent signal. Evidence: TargetedDelete 5/5 green, BTreeStress 8/8 green
+isolated, the full gate 0 failures ×3 consecutive (951 tests; Facade/Nested excluded
+per the gate-policy decision 2c43b8c — the pom's default surefire now mirrors it).
