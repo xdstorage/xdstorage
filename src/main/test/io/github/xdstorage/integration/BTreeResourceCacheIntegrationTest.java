@@ -214,7 +214,11 @@ public class BTreeResourceCacheIntegrationTest {
                         long targetId = ((workerId + j) % entitiesCount) + 1;
 
                         // Выставляем промышленный таймаут в 15 000 мс для стабильного прохождения пиковой ForkJoin нагрузки
-                        XdStorageTransaction tx = createTx("tx-heavy-worker-" + workerId + "-" + j, 100L);
+                        // (RECIDENT: бюджет обязан соответствовать комментарию — 100 мс при 12-волновом
+                        // столкновении на одном ключе ((workerId+j) % 100 == 12) истекают раньше,
+                        // чем очередь на запись hot-записи успевает дрейнить, и lazy-насильство
+                        // по таймауту валило рабочих; 15 000 мс поглощают очередь и спайки диска)
+                        XdStorageTransaction tx = createTx("tx-heavy-worker-" + workerId + "-" + j, 15000L);
 
                         // Фаза Чтения -> Валидация версий
                         Object obj = resourceCache.read(targetId, tx);

@@ -25,16 +25,18 @@ public class XdStorageObserverService {
     public XdStorageObserverService() {
     }
 
-    // WRAPLEAK (docs/tasks/2.1.0/46): the segments hold WEAK REFERENCE VALUES. The
-    // historical WeakHashMap<Object, wrapper> leaked: the map's VALUE (the wrapper)
-    // strongly references the map's KEY (the wrapped domain object — the generated
-    // wrapper holds its target), so the key never became weakly-reachable and no entry
-    // was ever evicted — every (class, object) registration without a landing id leaked
-    // the wrapper, the object and its observer forever (surviving storage.shutdown()).
-    // The value is now a WeakReference: the wrapper lives exactly as long as somebody
-    // holds it (the owning transaction), and a discarded registration is reclaimed by
-    // the GC; the dead entries are cleaned eagerly by the lookup.
-    private static final Map<Class<?>, Map<Object, java.lang.ref.WeakReference<IXdStorageIdObservableWrapper>>> wrappers = new ConcurrentHashMap<>();
+    // WRAPLEAK (docs/tasks/2.1.0/46): the values are STRONG by contract — the deferred-id
+    // consumers (the search finalization, the FK waiters, the cascade persistence) rely on
+    // "one stable wrapper per (class, object) until the id lands": the CI regression
+    // 425d7e6 proved a weak-value holder lets the GC collect a wrapper between a
+    // deferred-flow registration and the id assignment, silently detaching every observer
+    // registered on it. The LEAK (the never-id wrappers) is fixed by the EXPLICIT
+    // deregistration on the transaction completion instead: the workspace's contour
+    // (finishTransaction — the commit/rollback/rollbackFailedCommit paths and the task-36
+    // sweeps through the same rollback) calls deregister(wrapper) for every unidentified
+    // wrapper it discards. A registration outside any transaction context lives until its
+    // id lands — the caller's lifecycle by contract.
+    private static final Map<Class<?>, Map<Object, IXdStorageIdObservableWrapper>> wrappers = new ConcurrentHashMap<>();
 
     /**
      * Returns the observable wrapper registered for the given object, creating and
@@ -49,8 +51,8 @@ public class XdStorageObserverService {
     public static IXdStorageIdObservableWrapper getObservableWrapper(final Object object) {
         final Class<?> cl = object.getClass();
 
-        // Атомарно инициализируем потокобезопасный сегмент Weak-ссылок для конкретного доменного класса
-        final Map<Object, java.lang.ref.WeakReference<IXdStorageIdObservableWrapper>> clWrappers = wrappers.computeIfAbsent(cl,
+        // Атомарно инициализируем потокобезопасный сегмент для конкретного доменного класса
+        final Map<Object, IXdStorageIdObservableWrapper> clWrappers = wrappers.computeIfAbsent(cl,
                 k -> Collections.synchronizedMap(new WeakHashMap<>()));
 
         // SILENTFAIL (docs/tasks/2.1.0/35): проверка-генерация-вставка — КОМПОЗИТНОЕ
@@ -59,28 +61,15 @@ public class XdStorageObserverService {
         // берет сегментную блокировку и повторно проверяет внутри — гонка
         // check-then-act (два потока генерировали две обертки, побеждала последняя,
         // наблюдатели дублировались) закрыта для контура создания.
-        // WRAPLEAK: a dead weak reference (the wrapper reclaimed — its id never landed and
-        // nobody holds it) is removed eagerly here.
-        IXdStorageIdObservableWrapper wrapper = null;
-        final java.lang.ref.WeakReference<IXdStorageIdObservableWrapper> cached = clWrappers.get(object);
-        if (cached != null) {
-            wrapper = cached.get();
-            if (wrapper == null) {
-                clWrappers.remove(object);
-            }
-        }
+        IXdStorageIdObservableWrapper wrapper = clWrappers.get(object);
         if (wrapper != null) {
             return wrapper;
         }
 
         synchronized (clWrappers) {
-            final java.lang.ref.WeakReference<IXdStorageIdObservableWrapper> rechecked = clWrappers.get(object);
-            wrapper = rechecked != null ? rechecked.get() : null;
+            wrapper = clWrappers.get(object);
             if (wrapper != null) {
                 return wrapper;
-            }
-            if (rechecked != null) {
-                clWrappers.remove(object);
             }
 
             // Генерируем реактивную Observable-обертку. SILENTFAIL: отказ генерации не
@@ -102,8 +91,40 @@ public class XdStorageObserverService {
                 }
             });
 
-            clWrappers.put(object, new java.lang.ref.WeakReference<>(wrapper));
+            clWrappers.put(object, wrapper);
             return wrapper;
+        }
+    }
+
+    /**
+     * WRAPLEAK (docs/tasks/2.1.0/46): the explicit deregistration for the transaction
+     * completion paths. Removes the registry entry when the owning transaction finished
+     * without assigning the id — the failure-side counterpart of the one-shot success
+     * observer. The entry is removed only when it still maps to THIS wrapper (a newer
+     * registration for the same object is never dropped).
+     *
+     * @param wrapper the wrapper being discarded by a completing transaction
+     */
+    public static void deregister(final IXdStorageIdObservableWrapper wrapper) {
+        if (wrapper == null) {
+            return;
+        }
+        try {
+            final Object target = io.github.xdstorage.utils.XdStorageObjectUtils.getWrappedObjectOrSameObject(wrapper);
+            final Map<Object, IXdStorageIdObservableWrapper> segment = wrappers.get(target.getClass());
+            if (segment != null) {
+                synchronized (segment) {
+                    // the IDENTITY-strict removal: the generated wrappers override equals
+                    // by their wrapped target, so remove(key, value) would match a NEWER
+                    // registration for the same object — only the exact wrapper's entry
+                    // is dropped (a renewed registration survives a stale deregistration).
+                    if (segment.get(target) == wrapper) {
+                        segment.remove(target);
+                    }
+                }
+            }
+        } catch (final Exception ignored) {
+            // the deregistration is a cleanup: never mask a completion path with it
         }
     }
 }

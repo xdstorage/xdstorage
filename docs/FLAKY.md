@@ -104,3 +104,17 @@ tests (20 classes × 10 consecutive surefire passes, 2026-10-19 night).
   envelope belongs to 2.2.0 task 10.
 - **Evidence:** BTreeTargetedDeleteStress 5/5 green; BTreeStress 8/8 green (isolated);
   the full gate (951 tests): **0 failures ×3 consecutive runs, BUILD SUCCESS ×3.**
+
+## 2026-11-08 (evening): BTreeResourceCacheIntegrationTest — the hot-key budget vs its own spec (FIXED)
+
+- **Signature (CI 425d7e6):** 8 workers failed with "transaction ... should be rolled
+  back by timeout. Object with id 13 is locked for update" — the 12-wave collision on
+  one key (`(workerId + j) % 100 == 12`) exhausting a **100 ms** lock budget on the 2-core
+  runner.
+- **Root cause:** the test's own budget/contract mismatch — the comment specifies
+  "промышленный таймаут в 15 000 мс для стабильного прохождения пиковой ForkJoin
+  нагрузки" while the code passed `100L`. The lazy timeout enforcement worked as
+  designed.
+- **Fix:** the budget corrected to the documented 15000 ms (the queue of a 12-deep
+  hot-key collision plus the disk spikes fits comfortably). Green ×3 isolated,
+  957/0/0 ×2 full suites.

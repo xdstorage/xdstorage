@@ -184,12 +184,23 @@ public class XdStorageTransactionWorkspace {
     }
 
     /** Завершение коммита/отката: транзитные и неидентифицированные объекты больше не нужны.
+     * WRAPLEAK (docs/tasks/2.1.0/46): незакрывающиеся обертки (id не назначен к моменту
+     * завершения транзакции — провал вставки, отброшенный объект, брошенная транзакция)
+     * явно дерегистрируются из JVM-глобального реестра наблюдателей: реестр держит их
+     * сильно по контракту стабильности (одна обертка на объект до назначения id), поэтому
+     * путь завершения обязан снимать запись — иначе реестр течет пропорционально
+     * неудачным регистрациям и переживает shutdown.
      *
      * @param transactionId id of the finished transaction
      */
     public void finishTransaction(final String transactionId) {
-        unidentified.remove(transactionId);
+        final Map<Object, IXdStorageIdObservableWrapper> abandoned = unidentified.remove(transactionId);
+        if (abandoned != null && !abandoned.isEmpty()) {
+            for (final IXdStorageIdObservableWrapper wrapper : abandoned.values()) {
+                io.github.xdstorage.observing.XdStorageObserverService.deregister(wrapper);
+            }
+        }
         readObjects.remove(transactionId);
-        log.debug("transient contours of {} closed (read objects, unidentified wrappers)", transactionId);
+        log.debug("transient contours of {} closed (read objects, unidentified wrappers deregistered)", transactionId);
     }
 }

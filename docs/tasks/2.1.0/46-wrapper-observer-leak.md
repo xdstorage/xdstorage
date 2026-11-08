@@ -109,3 +109,27 @@ unchanged (the one-shot observer removes the entry when the id lands).
 - Full suite ×2: **956 tests, 0 failures, 0 errors**.
 - EMBEDDING § JVM-wide static state updated (the registry no longer "never evicted").
 - The commit message: 46-COMMIT-MESSAGE.txt (nothing committed per the instruction).
+
+## Update 2026-11-08 (evening) — the registry semantics CORRECTED (the CI regression 425d7e6)
+
+The CI gate caught that the WeakReference-value fix **broke the registry's core
+contract**: the deferred-id consumers (the search finalization, the FK waiters, the
+cascade persistence) rely on "one stable wrapper per (class, object) **until the id
+lands**" — the weak-value holder let the GC collect a wrapper between a deferred-flow
+registration and the id assignment, silently detaching every observer registered on it
+(`SearchManagerTest.testInsertDefersFinalizationUntilIdsAssigned`: the captain's id
+assigned to a REGENERATED wrapper; the record never completed).
+
+CORRECTED: the values are STRONG again (the stability contract restored), and the leak
+is fixed by the EXPLICIT failure-path deregistration — the task's own alternative (b):
+- `XdStorageObserverService.deregister(wrapper)`: the identity-strict entry removal
+  (the generated wrappers override equals by their target, so remove(key, value) would
+  match a newer registration — only the exact wrapper's entry is dropped);
+- the workspace's `finishTransaction` (the commit/rollback/rollbackFailedCommit paths
+  and the task-36 sweeps through the same rollback) deregisers every unidentified
+  wrapper it discards;
+- a registration outside any transaction context lives until its id lands — the
+  caller's lifecycle by contract (documented in the service).
+TESTS: the leak repro rewritten to drive the dereg path (`abandonedRegistrationIs
+ReclaimedAfterDeregistration`), the stale-deregistration pin
+(`staleDeregistrationDoesNotDropNewerEntry`), the SearchManager suite green.

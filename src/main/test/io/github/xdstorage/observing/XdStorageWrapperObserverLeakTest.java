@@ -40,8 +40,8 @@ class XdStorageWrapperObserverLeakTest {
     }
 
     @Test
-    @DisplayName("Обертка без назначенного id освобождается GC после отброса ссылок (репродукция утечки)")
-    void wrapperWithoutIdIsReclaimable() throws Exception {
+    @DisplayName("Репродукция утечки: явная дерегистрация завершившейся транзакции отпускает обертку без id")
+    void abandonedRegistrationIsReclaimedAfterDeregistration() throws Exception {
         io.github.xdstorage.entities.foreignkeys.ChildAutoId object = new io.github.xdstorage.entities.foreignkeys.ChildAutoId();
         IXdStorageIdObservableWrapper wrapper = XdStorageObserverService.getObservableWrapper(object);
         assertNotNull(wrapper);
@@ -49,16 +49,34 @@ class XdStorageWrapperObserverLeakTest {
         final WeakReference<IXdStorageIdObservableWrapper> wrapperRef = new WeakReference<>(wrapper);
         final WeakReference<io.github.xdstorage.entities.foreignkeys.ChildAutoId> objectRef = new WeakReference<>(object);
 
-        // The application discards the object mid-registration: the id never lands.
+        // WRAPLEAK: the registry holds wrappers STRONGLY by contract (the deferred flows
+        // rely on the stability until the id lands — the CI regression 425d7e6). The
+        // never-id wrappers are released by the EXPLICIT deregistration on the owning
+        // transaction's completion (the workspace's finishTransaction calls this).
+        XdStorageObserverService.deregister(wrapper);
+
         wrapper = null;
         object = null;
         forceGc();
 
         assertNull(wrapperRef.get(),
-                "обертка, чей id так и не был назначен, обязана стать досягаемой только для GC — "
-                        + "реестр удерживает ее сильно (значение WeakHashMap сильно ссылается на ключ)");
+                "после дерегистрации завершившейся транзакции обертка обязана освободиться "
+                        + "(историческая утечка: запись держалась вечно)");
         assertNull(objectRef.get(),
-                "завернутый доменный объект удерживается оберткой из реестра — утечка пары (класс, объект)");
+                "завернутый доменный объект не обязан переживать дерегистрацию");
+    }
+
+    @Test
+    @DisplayName("Контракт: устаревшая дерегистрация не снимает новую запись того же объекта")
+    void staleDeregistrationDoesNotDropNewerEntry() {
+        io.github.xdstorage.entities.foreignkeys.ChildAutoId object = new io.github.xdstorage.entities.foreignkeys.ChildAutoId();
+        IXdStorageIdObservableWrapper original = XdStorageObserverService.getObservableWrapper(object);
+        XdStorageObserverService.deregister(original);
+        IXdStorageIdObservableWrapper renewed = XdStorageObserverService.getObservableWrapper(object);
+        // a deregistration of the OLD wrapper must not drop the RENEWED registration
+        XdStorageObserverService.deregister(original);
+        assertTrue(XdStorageObserverService.getObservableWrapper(object) == renewed,
+                "устаревшая дерегистрация не снимает новую запись для того же объекта");
     }
 
     @Test
