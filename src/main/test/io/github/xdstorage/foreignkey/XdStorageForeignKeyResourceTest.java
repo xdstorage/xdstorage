@@ -29,6 +29,7 @@ public class XdStorageForeignKeyResourceTest {
     private XdStorageServicesLocator mockServices;
     private IXdFileStorage mockStorage;
     private XdStorageTransaction mockTx;
+    private io.github.xdstorage.resource.XdStorageAbstractResourcesManager mockManager;
 
     private XdStorageClassInfo mockParentInfo;
     private XdStorageClassInfo mockChildInfo;
@@ -55,6 +56,7 @@ public class XdStorageForeignKeyResourceTest {
         mockServices = mock(XdStorageServicesLocator.class);
         mockStorage = mock(IXdFileStorage.class);
         mockTx = mock(XdStorageTransaction.class);
+        mockManager = mock(io.github.xdstorage.resource.XdStorageAbstractResourcesManager.class);
 
         mockParentInfo = mock(XdStorageClassInfo.class);
         mockChildInfo = mock(XdStorageClassInfo.class);
@@ -90,7 +92,7 @@ public class XdStorageForeignKeyResourceTest {
                     }
                 });
 
-        fkResource = new XdStorageForeignKeyResource(mockServices, "fk_resource_id_01", mockParentInfo, mockChildInfo, mockParentField);
+        fkResource = new XdStorageForeignKeyResource(mockServices, mockManager, "fk_resource_id_01", mockParentInfo, mockChildInfo, mockParentField);
     }
 
     @Test

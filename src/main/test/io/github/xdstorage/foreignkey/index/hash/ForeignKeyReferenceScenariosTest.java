@@ -1,7 +1,7 @@
-package io.github.xdstorage.foreignkey;
+package io.github.xdstorage.foreignkey.index.hash;
 
-import io.github.xdstorage.entities.foreignkeys.ChildAutoId;
-import io.github.xdstorage.entities.foreignkeys.ParentAutoId;
+import io.github.xdstorage.entities.foreignkeys.index.hash.HashIndexChildAutoId;
+import io.github.xdstorage.entities.foreignkeys.index.hash.HashIndexParentAutoId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,9 +20,9 @@ public class ForeignKeyReferenceScenariosTest extends AbstractForeignKeyBaseSpec
     @BeforeEach
     void prepareBaselineData() throws Exception {
         tx = storage.beginTransaction();
-        ParentAutoId parent = new ParentAutoId();
-        ChildAutoId child1 = new ChildAutoId(); child1.setParent(parent); parent.addChild(child1);
-        ChildAutoId child2 = new ChildAutoId(); child2.setParent(parent); parent.addChild(child2);
+        HashIndexParentAutoId parent = new HashIndexParentAutoId();
+        HashIndexChildAutoId child1 = new HashIndexChildAutoId(); child1.setParent(parent); parent.addChild(child1);
+        HashIndexChildAutoId child2 = new HashIndexChildAutoId(); child2.setParent(parent); parent.addChild(child2);
 
         storage.save(parent);
         storage.commitTransaction(tx);
@@ -38,9 +38,9 @@ public class ForeignKeyReferenceScenariosTest extends AbstractForeignKeyBaseSpec
         tx = storage.beginTransaction();
 
         // 1. Читаем родительскую сущность и все дочерние сущности
-        ParentAutoId parent = storage.load(ParentAutoId.class, parentId);
-        ChildAutoId targetChild = null;
-        for (ChildAutoId c : parent.getChildren()) {
+        HashIndexParentAutoId parent = storage.load(HashIndexParentAutoId.class, parentId);
+        HashIndexChildAutoId targetChild = null;
+        for (HashIndexChildAutoId c : parent.getChildren()) {
             if (c.getId().equals(childrenIds.get(0))) {
                 targetChild = c;
                 break;

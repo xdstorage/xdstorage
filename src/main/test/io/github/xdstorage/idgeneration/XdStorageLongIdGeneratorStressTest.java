@@ -7,6 +7,7 @@ import io.github.xdstorage.exceptions.XdStorageConnectionException;
 import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.object.XdStorageIdentifiableObject;
 import io.github.xdstorage.resource.IXdStorageDaoResource;
+import io.github.xdstorage.resource.IXdStorageInternalListener;
 import io.github.xdstorage.resource.XdStorageAbstractResourcesManager;
 import io.github.xdstorage.services.XdStorageServicesLocator;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
@@ -140,6 +141,11 @@ public class XdStorageLongIdGeneratorStressTest {
             public Object read(Object id, XdStorageTransaction tx) throws XdStorageException {
                 Class<?> targetClass = (Class<?>) id;
                 return dbTable.get(targetClass);
+            }
+
+            @Override
+            public void registerListener(IXdStorageInternalListener listener, IXdStorageTransaction transaction) {
+
             }
         };
 

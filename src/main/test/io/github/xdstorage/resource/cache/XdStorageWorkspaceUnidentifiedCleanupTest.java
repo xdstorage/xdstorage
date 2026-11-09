@@ -1,5 +1,6 @@
 package io.github.xdstorage.resource.cache;
 
+import io.github.xdstorage.entities.foreignkeys.index.hash.HashIndexChildAutoId;
 import io.github.xdstorage.observing.IXdStorageIdObservableWrapper;
 import io.github.xdstorage.observing.XdStorageObserverService;
 import io.github.xdstorage.transaction.XdStorageTransaction;
@@ -38,7 +39,7 @@ class XdStorageWorkspaceUnidentifiedCleanupTest extends CacheInvariantTestSuppor
     @DisplayName("Откат транзакции очищает unidentified-обертки workspace")
     void rolledBackTransactionClearsUnidentifiedWrappers() throws Exception {
         XdStorageTransaction tx = mkTx("tx-unid-1", 100L);
-        final Object entity = new io.github.xdstorage.entities.foreignkeys.ChildAutoId();
+        final Object entity = new HashIndexChildAutoId();
         final IXdStorageIdObservableWrapper wrapper = XdStorageObserverService.getObservableWrapper(entity);
         mutator.insertInternal(wrapper, tx);
         assertTrue(context.workspace.hasChanges(tx.getTransactionId()), "неидентифицированная обертка — изменение транзакции");
@@ -54,7 +55,7 @@ class XdStorageWorkspaceUnidentifiedCleanupTest extends CacheInvariantTestSuppor
     @DisplayName("Коммит без назначения id очищает unidentified-обертки workspace")
     void committedWithoutIdClearsUnidentifiedWrappers() throws Exception {
         XdStorageTransaction tx = mkTx("tx-unid-2", 100L);
-        final Object entity = new io.github.xdstorage.entities.foreignkeys.ChildAutoId();
+        final Object entity = new HashIndexChildAutoId();
         final IXdStorageIdObservableWrapper wrapper = XdStorageObserverService.getObservableWrapper(entity);
         mutator.insertInternal(wrapper, tx);
         assertNotNull(context.workspace.unidentified(tx.getTransactionId()));
