@@ -1,0 +1,97 @@
+package io.github.xdstorage.foreignkey.index.hash;
+
+import io.github.xdstorage.IXdFileStorage;
+import io.github.xdstorage.XdStorageProvider;
+import io.github.xdstorage.entities.foreignkeys.index.hash.manual.HashIndexChildManualId;
+import io.github.xdstorage.entities.foreignkeys.index.hash.manual.HashIndexParentManualId;
+import io.github.xdstorage.exceptions.XdStorageRuntimeException;
+import io.github.xdstorage.serialization.FilesFormat;
+import io.github.xdstorage.transaction.IXdStorageTransaction;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.io.File;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+@DisplayName("API Инварианты: Барьеры удаления Foreign Keys на хэш-индексах с РУЧНЫМ заданием ID")
+public class XdStorageForeignKeyManualIdDeletionTest {
+
+    private static final String STORAGE_PATH = "./target/test_fk_hash_manualid_deletion_db";
+    private IXdFileStorage storage;
+
+    // Идентификаторы жестко фиксируются непосредственно в логике теста
+    private final Long manualParentId = 111111L;
+    private final Long manualChildId = 222222L;
+
+    @BeforeEach
+    public void setUp() throws Exception {
+        deleteDir(new File(STORAGE_PATH));
+        storage = XdStorageProvider.newOrGetFileStorage("fk_hash_manualid_delete_test", STORAGE_PATH, 128, FilesFormat.YAML);
+
+        // Преднаполняем базу связанным графом с явным ручным указанием ID
+        IXdStorageTransaction tx = storage.beginTransaction();
+        HashIndexParentManualId p = new HashIndexParentManualId();
+        p.setId(manualParentId);
+
+        HashIndexChildManualId c = new HashIndexChildManualId();
+        c.setId(manualChildId);
+
+        p.addChild(c);
+        c.setParent(p);
+
+        storage.save(p, tx);
+        storage.save(c, tx);
+        tx.commit();
+    }
+
+    @AfterEach
+    public void tearDown() {
+        if (storage != null) {
+            storage.shutdown();
+        }
+        deleteDir(new File(STORAGE_PATH));
+    }
+
+    private static void deleteDir(File file) {
+        File[] contents = file.listFiles();
+        if (contents != null) {
+            for (File f : contents) deleteDir(f);
+        }
+        file.delete();
+    }
+
+    @Test
+    @DisplayName("Инвариант: Попытка удалить родителя по явно заданному ID при живом ребенке должна вызывать эксепшен")
+    public void testFK_Hash_ManualId_DeleteParentAlone_ShouldThrowException() throws Exception {
+        IXdStorageTransaction tx = storage.beginTransaction();
+
+        HashIndexParentManualId parentInDb = storage.load(HashIndexParentManualId.class, manualParentId, tx);
+
+        // ТРЕБОВАНИЕ: Наличие записи в reverse Hash-индексе по ручному Long-ключу должно ветировать удаление!
+        assertThrows(XdStorageRuntimeException.class, () -> {
+            storage.delete(parentInDb, tx);
+            tx.commit();
+        }, "🚨 СУБД позволила удалить родительский объект по ручному ID, оставив ребенка сиротой!");
+
+        tx.rollback();
+    }
+
+    @Test
+    @DisplayName("Сценарий: Совместное каскадное удаление по ручным числовым ID должно завершаться успехом")
+    public void testFK_Hash_ManualId_DeleteBoth_ShouldSucceed() throws Exception {
+        IXdStorageTransaction tx = storage.beginTransaction();
+
+        HashIndexParentManualId p = storage.load(HashIndexParentManualId.class, manualParentId, tx);
+        HashIndexChildManualId c = storage.load(HashIndexChildManualId.class, manualChildId, tx);
+
+        // Удаляем канонически — сначала зависимый, потом родительский
+        storage.delete(c, tx);
+        storage.delete(p, tx);
+
+        assertDoesNotThrow(() -> tx.commit());
+    }
+}

@@ -1,9 +1,9 @@
-package io.github.xdstorage.foreignkey;
+package io.github.xdstorage.foreignkey.index.hash;
 
 import io.github.xdstorage.IXdFileStorage;
 import io.github.xdstorage.XdStorageProvider;
-import io.github.xdstorage.entities.foreignkeys.ChildAutoId;
-import io.github.xdstorage.entities.foreignkeys.ParentAutoId;
+import io.github.xdstorage.entities.foreignkeys.index.hash.HashIndexChildAutoId;
+import io.github.xdstorage.entities.foreignkeys.index.hash.HashIndexParentAutoId;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.serialization.FilesFormat;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
@@ -46,8 +46,8 @@ public class XdStorageForeignKeyAutoIdInsertionTest {
     public void testFK_AutoId_CascadeInsert_ShouldSucceed() throws Exception {
         IXdStorageTransaction tx = storage.beginTransaction();
 
-        ParentAutoId parent = new ParentAutoId(); // id = null
-        ChildAutoId child = new ChildAutoId();   // id = null
+        HashIndexParentAutoId parent = new HashIndexParentAutoId(); // id = null
+        HashIndexChildAutoId child = new HashIndexChildAutoId();   // id = null
 
         parent.addChild(child);
         child.setParent(parent);
@@ -69,8 +69,8 @@ public class XdStorageForeignKeyAutoIdInsertionTest {
     public void testFK_AutoId_SaveIsolatedChild_ShouldThrowException() throws Exception {
         IXdStorageTransaction tx = storage.beginTransaction();
 
-        ChildAutoId isolatedChild = new ChildAutoId();
-        ParentAutoId emptyParent = new ParentAutoId(); // Не сохранен в СУБД, id = null
+        HashIndexChildAutoId isolatedChild = new HashIndexChildAutoId();
+        HashIndexParentAutoId emptyParent = new HashIndexParentAutoId(); // Не сохранен в СУБД, id = null
         isolatedChild.setParent(emptyParent);
 
         // ТРЕБОВАНИЕ: Вставка дочернего элемента, у которого родитель не имеет сгенерированного ID, запрещена!

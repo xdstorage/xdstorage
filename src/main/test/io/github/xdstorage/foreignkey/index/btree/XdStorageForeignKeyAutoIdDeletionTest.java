@@ -1,13 +1,16 @@
-package io.github.xdstorage.foreignkey;
+package io.github.xdstorage.foreignkey.index.btree;
 
 import io.github.xdstorage.IXdFileStorage;
 import io.github.xdstorage.XdStorageProvider;
-import io.github.xdstorage.entities.foreignkeys.ChildAutoId;
-import io.github.xdstorage.entities.foreignkeys.ParentAutoId;
+import io.github.xdstorage.entities.foreignkeys.index.btree.BTreeIndexChildAutoId;
+import io.github.xdstorage.entities.foreignkeys.index.btree.BTreeIndexParentAutoId;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.serialization.FilesFormat;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 
@@ -28,8 +31,8 @@ public class XdStorageForeignKeyAutoIdDeletionTest {
 
         // Преднаполняем базу связанным графом с автогенерацией ключей
         IXdStorageTransaction tx = storage.beginTransaction();
-        ParentAutoId p = new ParentAutoId();
-        ChildAutoId c = new ChildAutoId();
+        BTreeIndexParentAutoId p = new BTreeIndexParentAutoId();
+        BTreeIndexChildAutoId c = new BTreeIndexChildAutoId();
         p.addChild(c);
         c.setParent(p);
 
@@ -64,7 +67,7 @@ public class XdStorageForeignKeyAutoIdDeletionTest {
     public void testFK_AutoId_DeleteParentAlone_ShouldThrowException() throws Exception {
         IXdStorageTransaction tx = storage.beginTransaction();
 
-        ParentAutoId parentInDb = storage.load(ParentAutoId.class, generatedParentId, tx);
+        BTreeIndexParentAutoId parentInDb = storage.load(BTreeIndexParentAutoId.class, generatedParentId, tx);
         assertNotNull(parentInDb);
 
         // ТРЕБОВАНИЕ: Наличие записи в reverse FK-индексе по сгенерированному Long-ключу должно ветировать удаление!
@@ -81,8 +84,8 @@ public class XdStorageForeignKeyAutoIdDeletionTest {
     public void testFK_AutoId_DeleteBoth_ShouldSucceed() throws Exception {
         IXdStorageTransaction tx = storage.beginTransaction();
 
-        ParentAutoId p = storage.load(ParentAutoId.class, generatedParentId, tx);
-        ChildAutoId c = storage.load(ChildAutoId.class, generatedChildId, tx);
+        BTreeIndexParentAutoId p = storage.load(BTreeIndexParentAutoId.class, generatedParentId, tx);
+        BTreeIndexChildAutoId c = storage.load(BTreeIndexChildAutoId.class, generatedChildId, tx);
 
         // Удаляем канонически — сначала зависимый, потом родительский
         storage.delete(c, tx);

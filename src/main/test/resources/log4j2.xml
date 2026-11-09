@@ -14,14 +14,14 @@
         <Console name="STDOUT" target="SYSTEM_OUT">
             <!-- physical gate: nothing below WARN reaches stdout, whichever logger routes
                  to this appender (AppenderRef level= alone is not reliably applied) -->
-            <ThresholdFilter level="warn" onMatch="ACCEPT" onMismatch="DENY"/>
+            <ThresholdFilter level="debug" onMatch="ACCEPT" onMismatch="DENY"/>
             <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
         </Console>
     </Appenders>
     <Loggers>
         <!-- Engine: INFO+ to the file; the console (shared, ThresholdFilter=warn) shows
              engine WARN/ERROR only — no per-operation INFO on stdout during builds. -->
-        <Logger name="io.github.xdstorage" level="info" additivity="false">
+        <Logger name="io.github.xdstorage" level="debug" additivity="false">
             <AppenderRef ref="xdstorage-file"/>
             <AppenderRef ref="STDOUT"/>
         </Logger>

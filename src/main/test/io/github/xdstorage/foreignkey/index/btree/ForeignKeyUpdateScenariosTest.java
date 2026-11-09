@@ -1,8 +1,7 @@
-package io.github.xdstorage.foreignkey;
+package io.github.xdstorage.foreignkey.index.btree;
 
-import io.github.xdstorage.entities.foreignkeys.ChildAutoId;
-import io.github.xdstorage.entities.foreignkeys.ParentAutoId;
-import io.github.xdstorage.exceptions.XdStorageException;
+import io.github.xdstorage.entities.foreignkeys.index.btree.BTreeIndexChildAutoId;
+import io.github.xdstorage.entities.foreignkeys.index.btree.BTreeIndexParentAutoId;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -11,7 +10,8 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @DisplayName("Вторичные ключи: Сценарии обновления")
 public class ForeignKeyUpdateScenariosTest extends AbstractForeignKeyBaseSpecificationTest {
@@ -22,9 +22,9 @@ public class ForeignKeyUpdateScenariosTest extends AbstractForeignKeyBaseSpecifi
     @BeforeEach
     void prepareBaselineData() throws Exception {
         tx = storage.beginTransaction();
-        ParentAutoId parent = new ParentAutoId();
-        ChildAutoId child1 = new ChildAutoId(); child1.setParent(parent); parent.addChild(child1);
-        ChildAutoId child2 = new ChildAutoId(); child2.setParent(parent); parent.addChild(child2);
+        BTreeIndexParentAutoId parent = new BTreeIndexParentAutoId();
+        BTreeIndexChildAutoId child1 = new BTreeIndexChildAutoId(); child1.setParent(parent); parent.addChild(child1);
+        BTreeIndexChildAutoId child2 = new BTreeIndexChildAutoId(); child2.setParent(parent); parent.addChild(child2);
 
         storage.save(parent);
         storage.commitTransaction(tx);
@@ -38,10 +38,10 @@ public class ForeignKeyUpdateScenariosTest extends AbstractForeignKeyBaseSpecifi
     @DisplayName("1. Удаление ребенка из коллекции родителя и обновление только родителя -> Ошибка на commit")
     void testUpdateOnlyParentAfterRemovingChildThrows() throws Exception {
         tx = storage.beginTransaction();
-        ParentAutoId parent = storage.load(ParentAutoId.class, parentId);
+        BTreeIndexParentAutoId parent = storage.load(BTreeIndexParentAutoId.class, parentId);
 
         // Находим и удаляем первого ребенка локально из коллекции
-        ChildAutoId targetChild = parent.getChildren().iterator().next();
+        BTreeIndexChildAutoId targetChild = parent.getChildren().iterator().next();
         parent.getChildren().remove(targetChild);
 
         storage.update(parent); // Дочерний узел не удален из СУБД
@@ -53,8 +53,8 @@ public class ForeignKeyUpdateScenariosTest extends AbstractForeignKeyBaseSpecifi
     @DisplayName("2. Удаление ребенка из коллекции родителя и удаление только ребенка (без апдейта родителя) -> Ошибка на commit")
     void testDeleteOnlyChildWithoutUpdatingParentThrows() throws Exception {
         tx = storage.beginTransaction();
-        ParentAutoId parent = storage.load(ParentAutoId.class, parentId);
-        ChildAutoId targetChild = parent.getChildren().iterator().next();
+        BTreeIndexParentAutoId parent = storage.load(BTreeIndexParentAutoId.class, parentId);
+        BTreeIndexChildAutoId targetChild = parent.getChildren().iterator().next();
 
         storage.delete(targetChild); // Родительский узел не обновлен, ссылка в индексе зависла
 
@@ -65,10 +65,10 @@ public class ForeignKeyUpdateScenariosTest extends AbstractForeignKeyBaseSpecifi
     @DisplayName("3. Удаление ребенка из коллекции родителя, обновление родителя и удаление ребенка -> Успешный commit")
     void testUpdateParentAndDeleteChildSuccess() throws Exception {
         tx = storage.beginTransaction();
-        ParentAutoId parent = storage.load(ParentAutoId.class, parentId);
+        BTreeIndexParentAutoId parent = storage.load(BTreeIndexParentAutoId.class, parentId);
 
-        ChildAutoId targetChild = null;
-        for (ChildAutoId c : parent.getChildren()) {
+        BTreeIndexChildAutoId targetChild = null;
+        for (BTreeIndexChildAutoId c : parent.getChildren()) {
             if (c.getId().equals(childrenIds.get(0))) { targetChild = c; break; }
         }
 
@@ -84,7 +84,7 @@ public class ForeignKeyUpdateScenariosTest extends AbstractForeignKeyBaseSpecifi
     @DisplayName("4. Удаление всех детей из коллекции родителя и обновление только родителя -> Ошибка на commit")
     void testUpdateOnlyParentAfterRemovingAllChildrenThrows() throws Exception {
         tx = storage.beginTransaction();
-        ParentAutoId parent = storage.load(ParentAutoId.class, parentId);
+        BTreeIndexParentAutoId parent = storage.load(BTreeIndexParentAutoId.class, parentId);
 
         parent.getChildren().clear();
         storage.update(parent);
@@ -96,13 +96,13 @@ public class ForeignKeyUpdateScenariosTest extends AbstractForeignKeyBaseSpecifi
     @DisplayName("5. Удаление всех детей из коллекции родителя, обновление родителя и удаление всех детей -> Успешный commit")
     void testUpdateParentAndDeleteAllChildrenSuccess() throws Exception {
         tx = storage.beginTransaction();
-        ParentAutoId parent = storage.load(ParentAutoId.class, parentId);
+        BTreeIndexParentAutoId parent = storage.load(BTreeIndexParentAutoId.class, parentId);
 
-        List<ChildAutoId> toDelete = new ArrayList<>(parent.getChildren());
+        List<BTreeIndexChildAutoId> toDelete = new ArrayList<>(parent.getChildren());
         parent.getChildren().clear();
 
         storage.update(parent);
-        for (ChildAutoId child : toDelete) {
+        for (BTreeIndexChildAutoId child : toDelete) {
             storage.delete(child);
         }
 
@@ -113,11 +113,11 @@ public class ForeignKeyUpdateScenariosTest extends AbstractForeignKeyBaseSpecifi
     @DisplayName("6. Удаление ребенка из коллекции родителя, обновление родителя и удаление другого ребенка -> Ошибка на commit")
     void testUpdateParentAndDeleteAnotherChildSuccess() throws Exception {
         tx = storage.beginTransaction();
-        ParentAutoId parent = storage.load(ParentAutoId.class, parentId);
+        BTreeIndexParentAutoId parent = storage.load(BTreeIndexParentAutoId.class, parentId);
 
-        ChildAutoId targetChild = null;
-        ChildAutoId deleteChild = null;
-        for (ChildAutoId c : parent.getChildren()) {
+        BTreeIndexChildAutoId targetChild = null;
+        BTreeIndexChildAutoId deleteChild = null;
+        for (BTreeIndexChildAutoId c : parent.getChildren()) {
             if (c.getId().equals(childrenIds.get(0))) { targetChild = c; }
             else { deleteChild = c; }
         }
