@@ -1,7 +1,7 @@
-package io.github.xdstorage.foreignkey;
+package io.github.xdstorage.foreignkey.index.hash;
 
-import io.github.xdstorage.entities.foreignkeys.ChildAutoId;
-import io.github.xdstorage.entities.foreignkeys.ParentAutoId;
+import io.github.xdstorage.entities.foreignkeys.index.hash.HashIndexChildAutoId;
+import io.github.xdstorage.entities.foreignkeys.index.hash.HashIndexParentAutoId;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,9 +21,9 @@ public class ForeignKeyDeleteScenariosTest extends AbstractForeignKeyBaseSpecifi
     @BeforeEach
     void prepareBaselineData() throws Exception {
         tx = storage.beginTransaction();
-        ParentAutoId parent = new ParentAutoId();
-        ChildAutoId child1 = new ChildAutoId(); child1.setParent(parent); parent.addChild(child1);
-        ChildAutoId child2 = new ChildAutoId(); child2.setParent(parent); parent.addChild(child2);
+        HashIndexParentAutoId parent = new HashIndexParentAutoId();
+        HashIndexChildAutoId child1 = new HashIndexChildAutoId(); child1.setParent(parent); parent.addChild(child1);
+        HashIndexChildAutoId child2 = new HashIndexChildAutoId(); child2.setParent(parent); parent.addChild(child2);
 
         storage.save(parent);
         storage.commitTransaction(tx);
@@ -37,7 +37,7 @@ public class ForeignKeyDeleteScenariosTest extends AbstractForeignKeyBaseSpecifi
     @DisplayName("1. Прямое удаление родительской сущности без удаления детей -> Ошибка на commit")
     void testDeleteOnlyParentThrows() throws Exception {
         tx = storage.beginTransaction();
-        ParentAutoId parent = storage.load(ParentAutoId.class, parentId);
+        HashIndexParentAutoId parent = storage.load(HashIndexParentAutoId.class, parentId);
 
         storage.delete(parent);
 
@@ -48,7 +48,7 @@ public class ForeignKeyDeleteScenariosTest extends AbstractForeignKeyBaseSpecifi
     @DisplayName("2. Удаление только одного ребенка из сохраненной цепочки -> Ошибка на commit")
     void testDeleteOnlyOneChildThrows() throws Exception {
         tx = storage.beginTransaction();
-        ChildAutoId child = storage.load(ChildAutoId.class, childrenIds.get(0));
+        HashIndexChildAutoId child = storage.load(HashIndexChildAutoId.class, childrenIds.get(0));
 
         storage.delete(child); // Индекс front-направления у родителя всё ещё держит ссылку
 
@@ -59,9 +59,9 @@ public class ForeignKeyDeleteScenariosTest extends AbstractForeignKeyBaseSpecifi
     @DisplayName("3. Чтение всего графа и удаление только родительской сущности -> Ошибка на commit")
     void testLoadAllAndCleanOnlyParentThrows() throws Exception {
         tx = storage.beginTransaction();
-        ParentAutoId parent = storage.load(ParentAutoId.class, parentId);
+        HashIndexParentAutoId parent = storage.load(HashIndexParentAutoId.class, parentId);
         for (Long cid : childrenIds) {
-            storage.load(ChildAutoId.class, cid);
+            storage.load(HashIndexChildAutoId.class, cid);
         }
 
         storage.delete(parent);
@@ -73,14 +73,14 @@ public class ForeignKeyDeleteScenariosTest extends AbstractForeignKeyBaseSpecifi
     @DisplayName("4. Чтение родителя и всех детей с последующим их полным удалением в одной TX -> Успешный commit")
     void testLoadAllAndPurgeAllSuccess() throws Exception {
         tx = storage.beginTransaction();
-        ParentAutoId parent = storage.load(ParentAutoId.class, parentId);
-        List<ChildAutoId> children = new ArrayList<>();
+        HashIndexParentAutoId parent = storage.load(HashIndexParentAutoId.class, parentId);
+        List<HashIndexChildAutoId> children = new ArrayList<>();
         for (Long cid : childrenIds) {
-            children.add(storage.load(ChildAutoId.class, cid));
+            children.add(storage.load(HashIndexChildAutoId.class, cid));
         }
 
         // Согласно правилу ТЗ: сначала вырезаются дети, затем родитель
-        for (ChildAutoId child : children) {
+        for (HashIndexChildAutoId child : children) {
             storage.delete(child);
         }
         storage.delete(parent);

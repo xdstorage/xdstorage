@@ -1,6 +1,6 @@
 package io.github.xdstorage.observing;
 
-import io.github.xdstorage.observing.IXdStorageIdObservableWrapper;
+import io.github.xdstorage.entities.foreignkeys.index.hash.HashIndexChildAutoId;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -42,12 +42,12 @@ class XdStorageWrapperObserverLeakTest {
     @Test
     @DisplayName("Репродукция утечки: явная дерегистрация завершившейся транзакции отпускает обертку без id")
     void abandonedRegistrationIsReclaimedAfterDeregistration() throws Exception {
-        io.github.xdstorage.entities.foreignkeys.ChildAutoId object = new io.github.xdstorage.entities.foreignkeys.ChildAutoId();
+        HashIndexChildAutoId object = new HashIndexChildAutoId();
         IXdStorageIdObservableWrapper wrapper = XdStorageObserverService.getObservableWrapper(object);
         assertNotNull(wrapper);
 
         final WeakReference<IXdStorageIdObservableWrapper> wrapperRef = new WeakReference<>(wrapper);
-        final WeakReference<io.github.xdstorage.entities.foreignkeys.ChildAutoId> objectRef = new WeakReference<>(object);
+        final WeakReference<HashIndexChildAutoId> objectRef = new WeakReference<>(object);
 
         // WRAPLEAK: the registry holds wrappers STRONGLY by contract (the deferred flows
         // rely on the stability until the id lands — the CI regression 425d7e6). The
@@ -69,7 +69,7 @@ class XdStorageWrapperObserverLeakTest {
     @Test
     @DisplayName("Контракт: устаревшая дерегистрация не снимает новую запись того же объекта")
     void staleDeregistrationDoesNotDropNewerEntry() {
-        io.github.xdstorage.entities.foreignkeys.ChildAutoId object = new io.github.xdstorage.entities.foreignkeys.ChildAutoId();
+        HashIndexChildAutoId object = new HashIndexChildAutoId();
         IXdStorageIdObservableWrapper original = XdStorageObserverService.getObservableWrapper(object);
         XdStorageObserverService.deregister(original);
         IXdStorageIdObservableWrapper renewed = XdStorageObserverService.getObservableWrapper(object);
@@ -82,7 +82,7 @@ class XdStorageWrapperObserverLeakTest {
     @Test
     @DisplayName("Успех: назначение id снимает запись реестра — новый запрос создает новую обертку")
     void idSetRemovesRegistryEntry() throws Exception {
-        io.github.xdstorage.entities.foreignkeys.ChildAutoId object = new io.github.xdstorage.entities.foreignkeys.ChildAutoId();
+        HashIndexChildAutoId object = new HashIndexChildAutoId();
         IXdStorageIdObservableWrapper first = XdStorageObserverService.getObservableWrapper(object);
         assertNotNull(first);
 
@@ -104,7 +104,7 @@ class XdStorageWrapperObserverLeakTest {
     @Test
     @DisplayName("Стабильность: повторный запрос до назначения id возвращает ту же обертку")
     void repeatedRequestYieldsSameWrapperWhileEntryLives() {
-        io.github.xdstorage.entities.foreignkeys.ChildAutoId object = new io.github.xdstorage.entities.foreignkeys.ChildAutoId();
+        HashIndexChildAutoId object = new HashIndexChildAutoId();
         IXdStorageIdObservableWrapper first = XdStorageObserverService.getObservableWrapper(object);
         IXdStorageIdObservableWrapper second = XdStorageObserverService.getObservableWrapper(object);
         assertTrue(first == second, "реестр hands out одну стабильную обертку на (класс, объект)");

@@ -30,6 +30,8 @@ public abstract class AbstractForeignKeyEngineIntegrationTest {
     protected Map<XdStorageBTreeId, XdStorageBTree> databaseStorage;
     protected XdStorageCanonicalInstanceRegistry canonicalRegistry;
     protected XdStorageResourceNamingService namingService;
+    protected io.github.xdstorage.serialization.IXdStorageObjectsReader mockReader;
+    protected io.github.xdstorage.serialization.IXdStorageObjectsWriter mockWriter;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -43,8 +45,19 @@ public abstract class AbstractForeignKeyEngineIntegrationTest {
         classesInfoField.setAccessible(true);
         ((Map<?, ?>) classesInfoField.get(null)).clear();
 
+        final io.github.xdstorage.serialization.IXdStorageObjectsReader mockReader = org.mockito.Mockito.mock(io.github.xdstorage.serialization.IXdStorageObjectsReader.class);
+        final io.github.xdstorage.serialization.IXdStorageObjectsWriter mockWriter = org.mockito.Mockito.mock(io.github.xdstorage.serialization.IXdStorageObjectsWriter.class);
+
+        // XdStorageYamlIOFactory for commit-journal replay — must be created before the
+        // services locator because getIoFactory() references it (see T-FK-006 fix).
+        final io.github.xdstorage.serialization.yaml.XdStorageYamlIOFactory yamlFactory =
+                new io.github.xdstorage.serialization.yaml.XdStorageYamlIOFactory(
+                        new io.github.xdstorage.services.XdStorageServicesLocator() {
+                            @Override public io.github.xdstorage.resource.IXdStorageResourceNamingService getNamingService() { return namingService; }
+                        }, null);
+
         // Сборка локатора сервисов на реальных in-memory структурах
-        XdStorageServicesLocator services = new XdStorageServicesLocator() {
+        final XdStorageServicesLocator services = new XdStorageServicesLocator() {
             @Override
             public IXdStorage getStorage() {
                 return new IXdStorage() {
@@ -98,10 +111,17 @@ public abstract class AbstractForeignKeyEngineIntegrationTest {
 
             @Override public io.github.xdstorage.resource.IXdStorageResourceNamingService getNamingService() { return namingService; }
             @Override public XdStorageCanonicalInstanceRegistry getCanonicalInstances() { return canonicalRegistry; }
+            @Override public io.github.xdstorage.serialization.IXdStorageIOFactory getIoFactory() {
+                // Return a real XdStorageYamlIOFactory (not a bare mock) so that
+                // XdStorageResource.yamlJournalFactory != null and commit-journal replay
+                // does not crash on NPE from a null factory.
+                return yamlFactory;
+            }
+            @Override public io.github.xdstorage.idgeneration.IXdStorageIdGenerator getIdGenerator() { return null; }
         };
 
         abstractResourcesManager = new XdStorageResourcesManager(services, 64);
-        resourcesManager = new XdStorageForeignKeyResourcesManager(services, null);
+        resourcesManager = new XdStorageForeignKeyResourcesManager(services, abstractResourcesManager);
         engine = new XdStorageForeignKeyEngine(resourcesManager, registry, true);
 
         transaction = new XdStorageTransaction(null, "THREAD_1", null, 100L, "TX_1") {

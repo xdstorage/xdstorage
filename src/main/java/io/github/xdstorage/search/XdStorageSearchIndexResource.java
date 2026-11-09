@@ -7,6 +7,8 @@ import io.github.xdstorage.btree.XdStorageBTree;
 import io.github.xdstorage.btree.XdStorageBTreeId;
 import io.github.xdstorage.code.IXdStorageSimpleWrapper;
 import io.github.xdstorage.exceptions.XdStorageConnectionException;
+import io.github.xdstorage.resource.IXdStorageInternalListener;
+import io.github.xdstorage.transaction.IXdStorageTransaction;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import io.github.xdstorage.exceptions.XdStorageException;
@@ -418,5 +420,10 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
                         searchIndex.getPrimaryField().field.getType(),
                         objectClInfo.getIdField().field.getType()),
                 storage, transaction);
+    }
+
+    @Override
+    public void registerListener(IXdStorageInternalListener listener, IXdStorageTransaction transaction) {
+        // do nothing
     }
 }

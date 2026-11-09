@@ -54,7 +54,7 @@ public class XdStorageForeignKeyResourcesManager {
     }
 
     protected IXdStorageForeignKeyResource createFkResource(Object resourceId, XdStorageClassInfo clParentInfo, XdStorageClassInfo clChildInfo, XdStorageObjectField clParentField) {
-        return new XdStorageForeignKeyResource(services, resourceId, clParentInfo, clChildInfo, clParentField);
+        return new XdStorageForeignKeyResource(services, manager, resourceId, clParentInfo, clChildInfo, clParentField);
     }
 
     /**

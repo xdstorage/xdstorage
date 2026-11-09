@@ -43,6 +43,13 @@ public abstract class AbstractForeignKeySpecificationTest {
         classesInfoField.setAccessible(true);
         ((Map<?, ?>) classesInfoField.get(null)).clear();
 
+        final io.github.xdstorage.serialization.IXdStorageObjectsReader mockReader = org.mockito.Mockito.mock(io.github.xdstorage.serialization.IXdStorageObjectsReader.class);
+        final io.github.xdstorage.serialization.IXdStorageObjectsWriter mockWriter = org.mockito.Mockito.mock(io.github.xdstorage.serialization.IXdStorageObjectsWriter.class);
+        final io.github.xdstorage.resource.XdStorageAbstractResourcesManager mockResourcesManager = org.mockito.Mockito.mock(io.github.xdstorage.resource.XdStorageAbstractResourcesManager.class);
+        // stub lockReferencesResource → mock dao that returns non-null from read()
+        final io.github.xdstorage.resource.IXdStorageDaoResource mockDao = org.mockito.Mockito.mock(io.github.xdstorage.resource.IXdStorageDaoResource.class);
+        org.mockito.Mockito.when(mockDao.read(org.mockito.ArgumentMatchers.any(Object.class), org.mockito.ArgumentMatchers.any(io.github.xdstorage.transaction.XdStorageTransaction.class))).thenReturn(mockDao);
+
         // Сборка локатора сервисов на реальных in-memory структурах
         XdStorageServicesLocator services = new XdStorageServicesLocator() {
             @Override
@@ -93,9 +100,20 @@ public abstract class AbstractForeignKeySpecificationTest {
 
             @Override public io.github.xdstorage.resource.IXdStorageResourceNamingService getNamingService() { return namingService; }
             @Override public XdStorageCanonicalInstanceRegistry getCanonicalInstances() { return canonicalRegistry; }
+            @Override public io.github.xdstorage.serialization.IXdStorageIOFactory getIoFactory() {
+                // Mock factory — FK engine tests never serialize; provide a no-op reader/writer
+                return new io.github.xdstorage.serialization.IXdStorageIOFactory() {
+                    @Override public io.github.xdstorage.serialization.IXdStorageObjectsReader newInstanceReader() { return mockReader; }
+                    @Override public io.github.xdstorage.serialization.IXdStorageObjectsWriter newInstanceWriter() { return mockWriter; }
+                };
+            }
+            @Override public io.github.xdstorage.idgeneration.IXdStorageIdGenerator getIdGenerator() { return null; }
+            @Override public io.github.xdstorage.resource.XdStorageAbstractResourcesManager getResourcesManager() { return mockResourcesManager; }
         };
 
-        resourcesManager = new XdStorageForeignKeyResourcesManager(services, null);
+        org.mockito.Mockito.when(mockResourcesManager.lockReferencesResource(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(mockDao);
+
+        resourcesManager = new XdStorageForeignKeyResourcesManager(services, mockResourcesManager);
         engine = new XdStorageForeignKeyEngine(resourcesManager, registry, true);
 
         // Инициализируем транзакцию с отслеживанием rollback-only статуса

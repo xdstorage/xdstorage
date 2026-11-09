@@ -21,10 +21,6 @@ public class XdStorageResourceNamingService implements IXdStorageResourceNamingS
     private static final String INDEX_DIR = "indexes";
     private static final String DATA_DIR = "data";
 
-    static {
-        System.err.println("[NAMING] INDEX_DIR=" + INDEX_DIR);
-    }
-
     private final String folder;
 
     private final String fileSuffix;

@@ -1,7 +1,7 @@
-package io.github.xdstorage.foreignkey;
+package io.github.xdstorage.foreignkey.index.hash;
 
-import io.github.xdstorage.entities.foreignkeys.ChildAutoId;
-import io.github.xdstorage.entities.foreignkeys.ParentAutoId;
+import io.github.xdstorage.entities.foreignkeys.index.hash.HashIndexChildAutoId;
+import io.github.xdstorage.entities.foreignkeys.index.hash.HashIndexParentAutoId;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -16,9 +16,9 @@ public class ForeignKeySaveScenariosTest extends AbstractForeignKeyBaseSpecifica
     void testSaveParentWithoutChildrenThrows() throws Exception {
         tx = storage.beginTransaction();
 
-        ParentAutoId parent = new ParentAutoId();
+        HashIndexParentAutoId parent = new HashIndexParentAutoId();
         // Наполняем дочернюю ссылку, но не добавляем её в коллекцию родителя
-        ChildAutoId child = new ChildAutoId();
+        HashIndexChildAutoId child = new HashIndexChildAutoId();
         child.setParent(parent);
 
         storage.save(parent);
@@ -31,8 +31,8 @@ public class ForeignKeySaveScenariosTest extends AbstractForeignKeyBaseSpecifica
     void testSaveSingleChildWithoutParentThrows() throws Exception {
         tx = storage.beginTransaction();
 
-        ParentAutoId parent = new ParentAutoId();
-        ChildAutoId child = new ChildAutoId();
+        HashIndexParentAutoId parent = new HashIndexParentAutoId();
+        HashIndexChildAutoId child = new HashIndexChildAutoId();
         child.setParent(parent);
         parent.addChild(child);
 
@@ -46,9 +46,9 @@ public class ForeignKeySaveScenariosTest extends AbstractForeignKeyBaseSpecifica
     void testSaveAllChildrenWithoutParentThrows() throws Exception {
         tx = storage.beginTransaction();
 
-        ParentAutoId parent = new ParentAutoId();
-        ChildAutoId child1 = new ChildAutoId(); child1.setParent(parent); parent.addChild(child1);
-        ChildAutoId child2 = new ChildAutoId(); child2.setParent(parent); parent.addChild(child2);
+        HashIndexParentAutoId parent = new HashIndexParentAutoId();
+        HashIndexChildAutoId child1 = new HashIndexChildAutoId(); child1.setParent(parent); parent.addChild(child1);
+        HashIndexChildAutoId child2 = new HashIndexChildAutoId(); child2.setParent(parent); parent.addChild(child2);
 
         storage.save(child1);
         storage.save(child2);
@@ -61,9 +61,9 @@ public class ForeignKeySaveScenariosTest extends AbstractForeignKeyBaseSpecifica
     void testSaveAllChildrenWithParentSuccess() throws Exception {
         tx = storage.beginTransaction();
 
-        ParentAutoId parent = new ParentAutoId();
-        ChildAutoId child1 = new ChildAutoId(); child1.setParent(parent); parent.addChild(child1);
-        ChildAutoId child2 = new ChildAutoId(); child2.setParent(parent); parent.addChild(child2);
+        HashIndexParentAutoId parent = new HashIndexParentAutoId();
+        HashIndexChildAutoId child1 = new HashIndexChildAutoId(); child1.setParent(parent); parent.addChild(child1);
+        HashIndexChildAutoId child2 = new HashIndexChildAutoId(); child2.setParent(parent); parent.addChild(child2);
 
         storage.save(child1);
         storage.save(child2);

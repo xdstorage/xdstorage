@@ -1,10 +1,11 @@
-package io.github.xdstorage.foreignkey;
+package io.github.xdstorage.foreignkey.index.btree;
 
 import io.github.xdstorage.IXdFileStorage;
 import io.github.xdstorage.XdStorageProvider;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+
 import java.io.File;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
