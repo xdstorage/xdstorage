@@ -29,6 +29,10 @@ public class XdStorageForeignKeyChangeRegistry {
     private final Map<String, AtomicLong> insertWaitingIdentifiers = new ConcurrentHashMap<>();
     private final Map<String, AtomicLong> deleteWaitingIdentifiers = new ConcurrentHashMap<>();
 
+    // FNKEYS-EAGER: map [transactionId, list of (parentId, childId)] — рукопоставленный id родителя
+    // без записи за ним; резолв лениво в фазе 1 (см. FKResource.resolveParentRecordWaiters).
+    private final Map<String, java.util.List<Comparable<?>[]>> parentRecordWaiters = new ConcurrentHashMap<>();
+
     public XdStorageForeignKeyChangeRegistry(IXdStorageForeignKeyRegistry registry) {
         this.registry = registry;
     }
@@ -54,6 +58,7 @@ public class XdStorageForeignKeyChangeRegistry {
     public void release(IXdStorageTransaction transaction) {
         insertWaitingIdentifiers.remove(transaction.getTransactionId());
         deleteWaitingIdentifiers.remove(transaction.getTransactionId());
+        parentRecordWaiters.remove(transaction.getTransactionId());
     }
 
     public void registerInsertParentChildListener(IXdStorageListenableResource parentResource, Comparable<?> parentObjectId, XdStorageObjectIdField parentIdField,
@@ -400,6 +405,30 @@ public class XdStorageForeignKeyChangeRegistry {
                 }
             }
         });
+    }
+
+    /**
+     * FNKEYS-EAGER (manual parent id, parent record absent): ребёнок сохранён со ссылкой на
+     * родителя с рукопоставленным id, за которым записи нет (ни закоммиченной, ни стейджнутой
+     * этой транзакцией). Пара НЕ регистрируется в PREPARE_COMMIT-слушателе: инфраструктура,
+     * создаваемая посреди коммита, не попадает на диск (флаш данных уже прошёл — корень
+     * потерянных вето). Вместо этого вейтер резолвится лениво в фазе 1: пара считается
+     * зарегистрированной, если она уже в деревьях отношений (собственный save родителя в этой
+     * транзакции зарегистрировал её из коллекции) или запись родителя появилась; непоявившийся
+     * родитель оставляет вейтер неразрешённым — и проверка insert-waiter ветирует коммит.
+     */
+    public void registerParentRecordWaiter(Comparable<?> parentObjectId, Comparable<?> childObjectId,
+                                           IXdStorageTransaction transaction) {
+        incrementInsertWaitingIdentifier(transaction);
+        parentRecordWaiters.computeIfAbsent(transaction.getTransactionId(), tId -> java.util.Collections.synchronizedList(new java.util.ArrayList<>()))
+                .add(new Comparable<?>[]{parentObjectId, childObjectId});
+    }
+
+    /**
+     * FNKEYS-EAGER: неразрешённые вейтеры родительских записей транзакции (parentId, childId).
+     */
+    public java.util.List<Comparable<?>[]> parentRecordWaitersOf(IXdStorageTransaction transaction) {
+        return parentRecordWaiters.get(transaction.getTransactionId());
     }
 
     public void incrementInsertWaitingIdentifier(IXdStorageTransaction transaction) {

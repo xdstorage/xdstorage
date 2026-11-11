@@ -168,9 +168,37 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
      * @throws XdStorageException on a storage-level failure
      */
     @Override
-    public void performFirstPhaseCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges record) throws XdStorageException {
+    public void performFirstPhaseCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges record) throws XdStorageException, XdStorageConnectionException {
+        resolveParentRecordWaiters(transaction);
         changeRegistry.checkAllNotificationsReceived(transaction);
     }
+
+    /**
+     * FNKEYS-EAGER: ленивый фазовый резолв вейтеров родительских записей. Вейтер удовлетворён,
+     * если пара уже в деревьях отношений (собственный save родителя в этой транзакции
+     * зарегистрировал её из коллекции) или запись родителя появилась (тогда пара регистрируется
+     * здесь). Родитель, так и не появившийся, оставляет вейтер неразрешённым — и проверка
+     * insert-waiter сразу после этого ветирует коммит.
+     */
+    private void resolveParentRecordWaiters(final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+        final java.util.List<Comparable<?>[]> waiters = changeRegistry.parentRecordWaitersOf(transaction);
+        if (waiters == null || waiters.isEmpty()) {
+            return;
+        }
+        for (final Comparable<?>[] waiter : new java.util.ArrayList<>(waiters)) {
+            final Comparable<?> parentObjectId = waiter[0];
+            final Comparable<?> childObjectId = waiter[1];
+            if (readByChildObjectId(childObjectId, transaction).contains(parentObjectId)) {
+                waiters.remove(waiter);
+                changeRegistry.decrementInsertWaitingIdentifier(transaction);
+            } else if (services.getStorage().load(clParentInfo.getClazz(), parentObjectId, transaction) != null) {
+                registerForeignKey(parentObjectId, childObjectId, transaction);
+                waiters.remove(waiter);
+                changeRegistry.decrementInsertWaitingIdentifier(transaction);
+            }
+        }
+    }
+
 
     /**
      * Phase 2 of the two-phase commit: publishes the phase-1 persisted changes into the
@@ -255,13 +283,28 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
 
     @Override
     public void insert(Comparable<?> parentObjectId, Comparable<?> childObjectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
-        IXdStorageListenableResource parentResource = getListenableResource(clParentInfo, parentObjectId, transaction);
-        IXdStorageListenableResource childResource = getListenableResource(clChildInfo, childObjectId, transaction);
+        // FNKEYS-EAGER (корень потерянных вето): оба id известны — пара регистрируется
+        // НЕМЕДЛЕННО, при save, до флаша данных. PREPARE_COMMIT-слушатель регистрировал её
+        // посреди коммита: создаваемые там деревья отношений не попадали на диск (флаш уже
+        // прошёл), следующая транзакция видела ноль пар — и все delete-вето умирали.
+        // Регистрация БЕЗУСЛОВНА — контракт запинован юнит-тестами ресурса (моки деревьев
+        // ждут прямой insert); проверку «запись родителя существует» делает движок и по
+        // отрицательному ответу зовёт insertAwaitingParentRecord (ленивый резолв, фаза 1).
+        registerForeignKey(parentObjectId, childObjectId, transaction);
+    }
 
-        XdStorageObjectIdField parentIdField = clParentInfo.getIdField();
-        XdStorageObjectIdField childIdField = clChildInfo.getIdField();
-
-        changeRegistry.registerInsertParentChildListener(parentResource, parentObjectId, parentIdField, childResource, childObjectId, childIdField, transaction);
+    /**
+     * FNKEYS-EAGER (manual parent id, parent record absent): the ENGINE has established that
+     * no parent record exists behind the hand-set id. The pair registers neither eagerly nor
+     * by a PREPARE_COMMIT listener (infrastructure created mid-commit never reaches the disk —
+     * the root of the lost delete-vetoes): a waiter arms with the lazy phase-1 resolution
+     * (see resolveParentRecordWaiters). A parent never saved leaves the waiter unresolved —
+     * the insert-waiter check vetoes the commit ("a child without its parent", the manual
+     * analogue of the auto-id waiter).
+     */
+    @Override
+    public void insertAwaitingParentRecord(Comparable<?> parentObjectId, Comparable<?> childObjectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+        changeRegistry.registerParentRecordWaiter(parentObjectId, childObjectId, transaction);
     }
 
     @Override
@@ -270,8 +313,9 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
 
         Comparable<?> parentObjectId = parentIdField.get(parentObject);
         if (parentObjectId != null) {
-            IXdStorageListenableResource resource = getListenableResource(clParentInfo, parentObjectId, transaction);
-            changeRegistry.registerInsertParentListener(resource, parentObjectId, childObjectId, parentIdField, transaction);
+            // FNKEYS-EAGER: id уже стоит — регистрируем сейчас (см. insert(Comparable, Comparable));
+            // вейтер родительской записи внутри доберёт случай отсутствующей записи.
+            insert(parentObjectId, childObjectId, transaction);
         } else {
             changeRegistry.registerParentIdWaiter(childObjectId, parentObject, transaction);
         }
@@ -283,8 +327,8 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
 
         Comparable<?> childObjectId = childIdField.get(childObject);
         if (childObjectId != null) {
-            IXdStorageListenableResource resource = getListenableResource(clChildInfo, childObjectId, transaction);
-            changeRegistry.registerInsertChildListener(resource, parentObjectId, childObjectId, childIdField, transaction);
+            // FNKEYS-EAGER: id уже стоит — регистрируем сейчас (см. insert(Comparable, Comparable)).
+            insert(parentObjectId, childObjectId, transaction);
         } else {
             changeRegistry.registerChildIdWaiter(parentObjectId, childObject, transaction);
         }
