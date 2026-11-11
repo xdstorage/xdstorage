@@ -21,7 +21,7 @@ import java.util.Collection;
  *
  * @param <DaoInterface> the DAO view type exposed by {@link #getDao()}
  */
-public interface IXdStorageResourceObject<DaoInterface> {
+public interface IXdStorageResourceObject<DaoInterface> extends IXdStorageListenableResource {
 
     /**
      * The storage-wide unique id of this resource (its relative file path).
@@ -143,8 +143,4 @@ public interface IXdStorageResourceObject<DaoInterface> {
      * @return the DAO view
      */
     DaoInterface getDao();
-
-    default void registerListener(IXdStorageInternalListener listener, IXdStorageTransaction transaction) {
-        // do nothing
-    }
 }

@@ -4,6 +4,7 @@ import io.github.xdstorage.IXdStoragePredicate;
 import io.github.xdstorage.IXdStorageWatcher;
 import io.github.xdstorage.exceptions.XdStorageConnectionException;
 import io.github.xdstorage.exceptions.XdStorageException;
+import io.github.xdstorage.resource.IXdStorageListenableResource;
 import io.github.xdstorage.transaction.XdStorageTransaction;
 
 import java.util.Collection;
@@ -17,7 +18,7 @@ import java.util.Collection;
  *
  * <p>Engine-internal — not part of the public API.</p>
  */
-public interface IXdStorageIndexDaoResource {
+public interface IXdStorageIndexDaoResource extends IXdStorageListenableResource {
 
     /**
      * Resolves the id of the data-fragment resource that holds the record of the given

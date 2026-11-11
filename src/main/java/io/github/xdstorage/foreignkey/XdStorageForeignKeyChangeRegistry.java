@@ -7,9 +7,7 @@ import io.github.xdstorage.index.btree.XdStorageBTreeIndexResource;
 import io.github.xdstorage.index.hash.XdStorageHashIndexResource;
 import io.github.xdstorage.observing.IXdStorageIdObservableWrapper;
 import io.github.xdstorage.observing.XdStorageAbstractIdObserver;
-import io.github.xdstorage.resource.IXdStorageInternalListener;
-import io.github.xdstorage.resource.XdStorageObjectOperationType;
-import io.github.xdstorage.resource.XdStorageResource;
+import io.github.xdstorage.resource.*;
 import io.github.xdstorage.resource.cache.XdStorageCacheCommitPhase;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import io.github.xdstorage.transaction.XdStorageTransaction;
@@ -56,6 +54,94 @@ public class XdStorageForeignKeyChangeRegistry {
     public void release(IXdStorageTransaction transaction) {
         insertWaitingIdentifiers.remove(transaction.getTransactionId());
         deleteWaitingIdentifiers.remove(transaction.getTransactionId());
+    }
+
+    public void registerInsertParentChildListener(IXdStorageListenableResource parentResource, Comparable<?> parentObjectId, XdStorageObjectIdField parentIdField,
+                                                  IXdStorageListenableResource childResource, Comparable<?> childObjectId, XdStorageObjectIdField childIdField,
+                                                  IXdStorageTransaction transaction) {
+        Comparable<?>[] identifiers = new Comparable<?>[2];
+
+        incrementInsertWaitingIdentifier(transaction);
+        parentResource.registerListener(new IXdStorageInternalListener() {
+            @Override
+            public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
+                if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT && change == XdStorageObjectOperationType.Insert) {
+                    Comparable<?> pId = parentIdField.get(newObject);
+                    if (parentObjectId.equals(pId)) {
+                        identifiers[0] = pId;
+                        if (identifiers[1] != null) {
+                            try {
+                                registry.registerForeignKey(parentObjectId, childObjectId, transaction);
+                                decrementInsertWaitingIdentifier(transaction);
+                            } catch (XdStorageException e) {
+                                throw new XdStorageRuntimeException(e);
+                            }
+                        }
+                    }
+                }
+            }
+        }, transaction);
+        childResource.registerListener(new IXdStorageInternalListener() {
+            @Override
+            public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
+                if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT && change == XdStorageObjectOperationType.Insert) {
+                    Comparable<?> oId = childIdField.get(newObject);
+                    if (childObjectId.equals(oId)) {
+                        identifiers[1] = oId;
+                        if (identifiers[0] != null) {
+                            try {
+                                registry.registerForeignKey(parentObjectId, childObjectId, transaction);
+                                decrementInsertWaitingIdentifier(transaction);
+                            } catch (XdStorageException e) {
+                                throw new XdStorageRuntimeException(e);
+                            }
+                        }
+                    }
+                }
+            }
+        }, transaction);
+    }
+
+    public void registerInsertParentListener(IXdStorageListenableResource resource, Comparable<?> parentObjectId, Comparable<?> childObjectId,
+                                             XdStorageObjectIdField parentIdField, IXdStorageTransaction transaction) {
+        incrementInsertWaitingIdentifier(transaction);
+        resource.registerListener(new IXdStorageInternalListener() {
+            @Override
+            public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
+                if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT && change == XdStorageObjectOperationType.Insert) {
+                    Comparable<?> pId = parentIdField.get(newObject);
+                    if (parentObjectId.equals(pId)) {
+                        try {
+                            registry.registerForeignKey(parentObjectId, childObjectId, transaction);
+                            decrementInsertWaitingIdentifier(transaction);
+                        } catch (XdStorageException e) {
+                            throw new XdStorageRuntimeException(e);
+                        }
+                    }
+                }
+            }
+        }, transaction);
+    }
+
+    public void registerInsertChildListener(IXdStorageListenableResource resource, Comparable<?> parentObjectId, Comparable<?> childObjectId,
+                                            XdStorageObjectIdField childIdField, IXdStorageTransaction transaction) {
+        incrementInsertWaitingIdentifier(transaction);
+        resource.registerListener(new IXdStorageInternalListener() {
+            @Override
+            public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
+                if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT && change == XdStorageObjectOperationType.Insert) {
+                    Comparable<?> oId = childIdField.get(newObject);
+                    if (childObjectId.equals(oId)) {
+                        try {
+                            registry.registerForeignKey(parentObjectId, childObjectId, transaction);
+                            decrementInsertWaitingIdentifier(transaction);
+                        } catch (XdStorageException e) {
+                            throw new XdStorageRuntimeException(e);
+                        }
+                    }
+                }
+            }
+        }, transaction);
     }
 
     public void registerUpdateListener(XdStorageResource resource, Comparable<?> parentObjectId, Comparable<?> childObjectId,

@@ -20,7 +20,7 @@ import java.util.Collection;
  *
  * <p>Engine-internal — not part of the public API.</p>
  */
-public interface IXdStorageDaoResource {
+public interface IXdStorageDaoResource extends IXdStorageListenableResource {
 
     /**
      * The storage-wide unique id of this resource (its relative file path).

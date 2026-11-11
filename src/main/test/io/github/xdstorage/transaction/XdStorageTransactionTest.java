@@ -3,6 +3,7 @@ package io.github.xdstorage.transaction;
 import io.github.xdstorage.IXdStorage;
 import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
+import io.github.xdstorage.resource.IXdStorageInternalListener;
 import io.github.xdstorage.resource.IXdStorageResourceObject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -71,6 +72,11 @@ public class XdStorageTransactionTest {
         @Override public void release(XdStorageTransaction tx) {}
         @Override public void lockForCommit(XdStorageTransaction tx) {}
         @Override public void unlockAfterCommit(XdStorageTransaction tx) {}
+
+        @Override
+        public void registerListener(IXdStorageInternalListener listener, IXdStorageTransaction transaction) {
+
+        }
     }
 
     private DummyTransactionManager mockManager;

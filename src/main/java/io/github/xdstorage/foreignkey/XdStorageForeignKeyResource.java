@@ -27,7 +27,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -256,16 +255,23 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
 
     @Override
     public void insert(Comparable<?> parentObjectId, Comparable<?> childObjectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
-        registerForeignKey(parentObjectId, childObjectId, transaction);
+        IXdStorageListenableResource parentResource = getListenableResource(clParentInfo, parentObjectId, transaction);
+        IXdStorageListenableResource childResource = getListenableResource(clChildInfo, childObjectId, transaction);
+
+        XdStorageObjectIdField parentIdField = clParentInfo.getIdField();
+        XdStorageObjectIdField childIdField = clChildInfo.getIdField();
+
+        changeRegistry.registerInsertParentChildListener(parentResource, parentObjectId, parentIdField, childResource, childObjectId, childIdField, transaction);
     }
 
     @Override
     public void insert(IXdStorageIdObservableWrapper parentObject, Comparable<?> childObjectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
         XdStorageObjectIdField parentIdField = clParentInfo.getIdField();
 
-        Object parentObjectId = parentIdField.get(parentObject);
+        Comparable<?> parentObjectId = parentIdField.get(parentObject);
         if (parentObjectId != null) {
-            registerForeignKey((Comparable<?>) parentObjectId, childObjectId, transaction);
+            IXdStorageListenableResource resource = getListenableResource(clParentInfo, parentObjectId, transaction);
+            changeRegistry.registerInsertParentListener(resource, parentObjectId, childObjectId, parentIdField, transaction);
         } else {
             changeRegistry.registerParentIdWaiter(childObjectId, parentObject, transaction);
         }
@@ -275,11 +281,55 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
     public void insert(Comparable<?> parentObjectId, IXdStorageIdObservableWrapper childObject, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
         XdStorageObjectIdField childIdField = clChildInfo.getIdField();
 
-        Object childObjectId = childIdField.get(childObject);
+        Comparable<?> childObjectId = childIdField.get(childObject);
         if (childObjectId != null) {
-            registerForeignKey(parentObjectId, (Comparable<?>) childObjectId, transaction);
+            IXdStorageListenableResource resource = getListenableResource(clChildInfo, childObjectId, transaction);
+            changeRegistry.registerInsertChildListener(resource, parentObjectId, childObjectId, childIdField, transaction);
         } else {
             changeRegistry.registerChildIdWaiter(parentObjectId, childObject, transaction);
+        }
+    }
+
+    private IXdStorageListenableResource getListenableResource(XdStorageClassInfo clInfo, Object objectId, XdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException {
+        XdStoragePolicy policy = clInfo.getPolicy();
+
+        XdStorageAbstractResourcesManager resourcesManager = services.getResourcesManager();
+
+        if (policy == XdStoragePolicy.StoreAsClassObjects) {
+            final IXdStorageIndexDaoResource resource = resourcesManager.lockIndexResource(clInfo, transaction);
+
+            if (resource instanceof XdStorageBTreeIndexResource) {
+                Object objectResourceId = resource.getObjectResourceId(objectId, transaction);
+                IXdStorageDaoResource objectResource = null;
+                if (objectResourceId != null) {
+                    objectResource = resourcesManager.lockResource(objectResourceId, clInfo, transaction);
+                }
+
+                if (objectResource != null) {
+                    return objectResource;
+                } else {
+                    return resource;
+                }
+            } else if (resource instanceof XdStorageHashIndexResource) {
+                Object objectResourceId = resource.getObjectResourceId(objectId, transaction);
+                IXdStorageDaoResource objectResource = null;
+                if (objectResourceId != null) {
+                    objectResource = resourcesManager.lockResource(objectResourceId, clInfo, transaction);
+                }
+
+                if (objectResource != null) {
+                    return objectResource;
+                } else {
+                    return resource;
+                }
+            } else {
+                throw new XdStorageException("unsupported resource type " + resource.getClass());
+            }
+        } else if (policy == XdStoragePolicy.StoreAsSingleObject) {
+            return resourcesManager.lockReferencesResource(clInfo, transaction);
+        } else {
+            throw new XdStorageException("unsupported delete operation for object with policy " + XdStoragePolicy.StoreWithParentObject);
         }
     }
 
@@ -288,12 +338,12 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
         XdStorageObjectIdField parentIdField = clParentInfo.getIdField();
         XdStorageObjectIdField childIdField = clChildInfo.getIdField();
 
-        Object parentObjectId = parentIdField.get(parentObject);
-        Object childObjectId = childIdField.get(childObject);
+        Comparable<?> parentObjectId = parentIdField.get(parentObject);
+        Comparable<?> childObjectId = childIdField.get(childObject);
 
         if (parentObjectId != null) {
             if (childObjectId != null) {
-                registerForeignKey((Comparable<?>) parentObjectId, (Comparable<?>) childObjectId, transaction);
+                insert(parentObjectId, childObjectId, transaction);
             } else {
                 changeRegistry.registerChildIdWaiter((Comparable<?>) parentObjectId, childObject, transaction);
             }
@@ -609,6 +659,11 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
             }
             return result;
         }
+    }
+
+    @Override
+    public void registerListener(IXdStorageInternalListener listener, IXdStorageTransaction transaction) {
+        // do nothing
     }
 
     @Override
