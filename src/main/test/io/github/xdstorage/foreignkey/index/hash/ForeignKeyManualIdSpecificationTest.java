@@ -76,7 +76,7 @@ public class ForeignKeyManualIdSpecificationTest extends AbstractForeignKeyBaseS
         HashIndexParentManualId parent = new HashIndexParentManualId(); parent.setId(5001L);
         HashIndexChildManualId child = new HashIndexChildManualId(); child.setId(6001L);
         child.setParent(parent); parent.addChild(child);
-        storage.save(parent); storage.save(child);
+        storage.save(parent);  // каскад @XdStorageAutoSave сохраняет ребёнка; явный save ребёнка после связанного родителя — косяк теста (вердикт мейнтейнера)
         storage.commitTransaction(tx);
 
         // Мутация
@@ -101,7 +101,7 @@ public class ForeignKeyManualIdSpecificationTest extends AbstractForeignKeyBaseS
         HashIndexParentManualId parent = new HashIndexParentManualId(); parent.setId(7001L);
         HashIndexChildManualId child = new HashIndexChildManualId(); child.setId(8001L);
         child.setParent(parent); parent.addChild(child);
-        storage.save(parent); storage.save(child);
+        storage.save(parent);  // каскад @XdStorageAutoSave сохраняет ребёнка; явный save ребёнка после связанного родителя — косяк теста (вердикт мейнтейнера)
         storage.commitTransaction(tx);
 
         // Операция со ссылками
@@ -126,7 +126,7 @@ public class ForeignKeyManualIdSpecificationTest extends AbstractForeignKeyBaseS
         HashIndexParentManualId parent = new HashIndexParentManualId(); parent.setId(9001L);
         HashIndexChildManualId child = new HashIndexChildManualId(); child.setId(9501L);
         child.setParent(parent); parent.addChild(child);
-        storage.save(parent); storage.save(child);
+        storage.save(parent);  // каскад @XdStorageAutoSave сохраняет ребёнка; явный save ребёнка после связанного родителя — косяк теста (вердикт мейнтейнера)
         storage.commitTransaction(tx);
 
         // Полное каскадное удаление

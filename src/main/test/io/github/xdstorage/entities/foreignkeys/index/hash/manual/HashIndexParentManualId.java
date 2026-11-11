@@ -31,4 +31,6 @@ public class HashIndexParentManualId {
     public void addChild(HashIndexChildManualId child) {
         this.children.add(child);
     }
+
+    public void setChildren(java.util.Collection<HashIndexChildManualId> children) { this.children = children; }
 }

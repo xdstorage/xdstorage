@@ -4,11 +4,14 @@ import io.github.xdstorage.XdStoragePolicy;
 import io.github.xdstorage.annotations.XdStorageAutoSave;
 import io.github.xdstorage.annotations.XdStorageObjectId;
 import io.github.xdstorage.annotations.XdStorageObjectPolicy;
+import io.github.xdstorage.annotations.XdStorageObjectIdIndexType;
+import io.github.xdstorage.index.XdStorageIndexType;
 
 import java.util.ArrayList;
 import java.util.Collection;
 
 @XdStorageObjectPolicy(policy = XdStoragePolicy.StoreAsClassObjects)
+@XdStorageObjectIdIndexType(indexType = XdStorageIndexType.BTree, t = 64)
 public class BTreeIndexParentManualId {
     @XdStorageObjectId
     private Long id;
@@ -31,4 +34,6 @@ public class BTreeIndexParentManualId {
     public void addChild(BTreeIndexChildManualId child) {
         this.children.add(child);
     }
+
+    public void setChildren(java.util.Collection<BTreeIndexChildManualId> children) { this.children = children; }
 }

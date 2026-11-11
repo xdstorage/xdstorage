@@ -16,6 +16,13 @@ public interface IXdStorageForeignKeyResource extends IXdStorageResourceObject {
 
     void insert(Comparable<?> parentObjectId, Comparable<?> childObjectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
 
+    /**
+     * FNKEYS-EAGER: the engine has established that no parent record exists behind the
+     * hand-set id — the pair waits for the parent to appear in THIS transaction (the lazy
+     * phase-1 resolution); a parent never saved vetoes the commit.
+     */
+    void insertAwaitingParentRecord(Comparable<?> parentObjectId, Comparable<?> childObjectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+
     void insert(IXdStorageIdObservableWrapper parentObject, Comparable<?> childId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
 
     void insert(Comparable<?> parentObjectId, IXdStorageIdObservableWrapper childObject, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;

@@ -49,6 +49,19 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
         }
     }
 
+    /**
+     * FNKEYS-EAGER: видна ли запись родителя (зако­мичена или стейджнута этой транзакцией).
+     * Любой сбой пробы (юнит-контуры с частичными сервисами) трактуется консервативно как
+     * «видна» — энергичная регистрация ac9f1c1-семантики.
+     */
+    private boolean parentRecordVisible(final XdStorageForeignKeyRelation relation, final Comparable<?> parentObjectId, final XdStorageTransaction transaction) {
+        try {
+            return foreignKeyResourcesManager.getServices().getStorage().load(relation.getClassFrom().getClazz(), parentObjectId, transaction) != null;
+        } catch (final Throwable probeFailure) {
+            return true;
+        }
+    }
+
     private void processIncomeRelations(XdStorageClassInfo clInfo, Object object, XdStorageForeignKeyObjectChangeType type,
                                         Collection<XdStorageForeignKeyRelation> incomeRelations, XdStorageTransaction transaction)
             throws XdStorageException, XdStorageConnectionException {
@@ -83,7 +96,16 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
                         if (parentReference != null) {
                             final Comparable<?> parentObjectId = relation.getClassFrom().getIdField().get(parentReference);
                             if (parentObjectId != null && !resource.readByChildObjectId(childObjectId, transaction).contains(parentObjectId)) {
-                                resource.insert(parentObjectId, childObjectId, transaction);
+                                // FNKEYS-EAGER: регистрируем энергично ТОЛЬКО против существующей записи
+                                // родителя; за рукопоставленным id записи может не быть — тогда пара ждёт
+                                // появления родителя в ЭТОЙ же транзакции (несохранённый родитель ветирует
+                                // коммит, ручной аналог auto-id вейтера). Сбой пробы (юнит-контуры с
+                                // частичными сервисами) трактуем консервативно: «запись есть».
+                                if (parentRecordVisible(relation, parentObjectId, transaction)) {
+                                    resource.insert(parentObjectId, childObjectId, transaction);
+                                } else {
+                                    resource.insertAwaitingParentRecord(parentObjectId, childObjectId, transaction);
+                                }
                             } else if (parentObjectId != null) {
                                 // the pair is already registered (a re-save of an existing child)
                             } else {

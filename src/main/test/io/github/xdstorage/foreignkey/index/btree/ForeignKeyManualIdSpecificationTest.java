@@ -76,7 +76,7 @@ public class ForeignKeyManualIdSpecificationTest extends AbstractForeignKeyBaseS
         BTreeIndexParentManualId parent = new BTreeIndexParentManualId(); parent.setId(5001L);
         BTreeIndexChildManualId child = new BTreeIndexChildManualId(); child.setId(6001L);
         child.setParent(parent); parent.addChild(child);
-        storage.save(parent); storage.save(child);
+        storage.save(parent);  // каскад @XdStorageAutoSave сохраняет ребёнка; явный save ребёнка после связанного родителя — косяк теста (вердикт мейнтейнера)
         storage.commitTransaction(tx);
 
         // Операция обновления
@@ -101,7 +101,7 @@ public class ForeignKeyManualIdSpecificationTest extends AbstractForeignKeyBaseS
         BTreeIndexParentManualId parent = new BTreeIndexParentManualId(); parent.setId(7001L);
         BTreeIndexChildManualId child = new BTreeIndexChildManualId(); child.setId(8001L);
         child.setParent(parent); parent.addChild(child);
-        storage.save(parent); storage.save(child);
+        storage.save(parent);  // каскад @XdStorageAutoSave сохраняет ребёнка; явный save ребёнка после связанного родителя — косяк теста (вердикт мейнтейнера)
         storage.commitTransaction(tx);
 
         // Работа со ссылками
@@ -126,7 +126,7 @@ public class ForeignKeyManualIdSpecificationTest extends AbstractForeignKeyBaseS
         BTreeIndexParentManualId parent = new BTreeIndexParentManualId(); parent.setId(9001L);
         BTreeIndexChildManualId child = new BTreeIndexChildManualId(); child.setId(9501L);
         child.setParent(parent); parent.addChild(child);
-        storage.save(parent); storage.save(child);
+        storage.save(parent);  // каскад @XdStorageAutoSave сохраняет ребёнка; явный save ребёнка после связанного родителя — косяк теста (вердикт мейнтейнера)
         storage.commitTransaction(tx);
 
         // Каноническое каскадное удаление графа

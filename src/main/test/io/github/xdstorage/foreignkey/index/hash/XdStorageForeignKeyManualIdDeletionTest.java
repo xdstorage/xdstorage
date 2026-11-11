@@ -44,7 +44,7 @@ public class XdStorageForeignKeyManualIdDeletionTest {
         c.setParent(p);
 
         storage.save(p, tx);
-        storage.save(c, tx);
+         // каскад @XdStorageAutoSave сохраняет ребёнка; явный save ребёнка после связанного родителя — косяк теста (вердикт мейнтейнера)
         tx.commit();
     }
 
