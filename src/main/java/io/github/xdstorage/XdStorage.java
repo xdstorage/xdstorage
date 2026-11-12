@@ -12,6 +12,8 @@ import io.github.xdstorage.search.IXdStorageSearchManager;
 import io.github.xdstorage.search.query.XdStorageSearchQuery;
 import io.github.xdstorage.serialization.FilesFormat;
 import io.github.xdstorage.services.XdStorageServicesLocator;
+import java.io.File;
+
 import io.github.xdstorage.structure.update.IXdStorageStructureUpdater;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import io.github.xdstorage.transaction.IXdStorageTransactionManager;
@@ -85,6 +87,7 @@ class XdStorage implements IXdFileStorage {
         }
         services = new XdStorageServicesLocator();
         services.initFileConfiguration(this, folder, fragmentSize, format, this.config);
+        migrateLegacyBTreeFiles(folder);
         if (this.config.isRegisterShutdownHook()) {
             // S-4: best-effort закрытие при выходе JVM. НЕ заменяет daemonWorkerThreads:
             // хуки запускаются только после завершения последнего не-daemon потока, поэтому
@@ -1540,4 +1543,44 @@ class XdStorage implements IXdFileStorage {
     }
 
 
+    /** W-4e: one-time migration — legacy data/XdStorageBTree/ and data/XdStorageBTreeNode/
+     *  are moved into indexes/; legacy index/ → indexes/ (id-index layout). New storages
+     *  create the layout directly. */
+    private void migrateLegacyBTreeFiles(final String folderPath) {
+        // 1. move index/ → indexes/ (id-index files)
+        final File indexDir = new File(folderPath, "index");
+        final File indexesDir = new File(folderPath, "indexes");
+        if (indexDir.isDirectory() && !indexesDir.exists()) {
+            log.info("migration: moving index/ → indexes/ (id-index layout)");
+            if (!indexDir.renameTo(indexesDir)) {
+                log.warn("migration failed for index/: could not rename to indexes/");
+            }
+        }
+        // 2. move data/XdStorageBTree/ and data/XdStorageBTreeNode/ into indexes/
+        final File dataDir = new File(folderPath, "data");
+        // indexes/ may not exist yet (no legacy index/ to rename to it)
+        if (!indexesDir.exists()) {
+            indexesDir.mkdirs();
+        }
+        final File[] subDirs = dataDir.listFiles();
+        if (subDirs != null) {
+            for (final File sub : subDirs) {
+                if (!sub.isDirectory()) {
+                    continue;
+                }
+                final String name = sub.getName();
+                if (!"XdStorageBTree".equals(name) && !"XdStorageBTreeNode".equals(name)) {
+                    continue;
+                }
+                final File dest = new File(indexesDir, name);
+                if (dest.exists()) {
+                    continue; // already migrated
+                }
+                log.info("migration: moving data/{} → indexes/{} (indexes/ layout)", name, name);
+                if (!sub.renameTo(dest)) {
+                    log.warn("migration failed for data/{}: could not rename to indexes/{}", name, name);
+                }
+            }
+        }
+    }
 }

@@ -73,7 +73,7 @@ public class XdStorageBTreeFullCollapseTest {
     }
 
     private static File nodeDir() {
-        return new File(STORAGE_DIR, "index/XdStorageBTreeNode");
+        return new File(STORAGE_DIR, "indexes/XdStorageBTreeNode");
     }
 
     private static List<File> nodeFiles() {

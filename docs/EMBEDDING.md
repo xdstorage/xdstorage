@@ -85,9 +85,13 @@ current code, stated so embedding surprises are design-time, not production-time
 
 ## Files and durability
 
-- The storage folder is engine-owned: `structure/*.yaml`, `data/<Class>/*.yaml` (YAML default) plus
-  `.xdstorage.lock` and the format marker `.xdstorage.meta`. Do not edit files while the storage is
+- The storage folder is engine-owned: `structure/*.yaml`, `data/<Class>/*.yaml` (YAML default),
+  `indexes/<Class>/<Class>.yaml` (id-index / B+Tree heads and nodes — see [IDXLAYOUT](../tasks/2.2.0/07-indexes-subdirectory.md))
+  plus `.xdstorage.lock` and the format marker `.xdstorage.meta`. Do not edit files while the storage is
   open.
+- On open, legacy `data/XdStorageBTree/` and `data/XdStorageBTreeNode/` directories are
+  **moved** into `indexes/` (one-time, loud INFO); new storages create the layout directly. This
+  is a **layout discovery** — not a format break — the format version stays the same.
 - Default write-out is process-crash-safe (atomic rename), NOT power-loss-safe. Enable
   `XdStorageConfig.builder().durableWrites(true)` for fsync-per-commit power-loss safety.
 - Resource files carry an EOF sentinel; a truncated file fails loudly at open. Pre-sentinel legacy
@@ -113,7 +117,7 @@ back with its tail missing. The verified behavior matrix
 | Damage (simulated) | Outcome with defaults | Recovery |
 |---|---|---|
 | commit journal tail torn | **opens clean** (lost-tail WARN; records after the cut discarded by design) | none — recent commits since the cut are lost |
-| index/tree metadata (`index.yaml`, tree files) torn | **fails LOUDLY at open/use** (sentinel refusal) | reopen once with `XdStorageConfig.builder().acceptMissingEofSentinel(true)` and verify your objects; rebuild indexes if reads misbehave |
+| index/tree metadata (`indexes/<Class>/index.yaml`, tree files) torn | **fails LOUDLY at open/use** (sentinel refusal) | reopen once with `XdStorageConfig.builder().acceptMissingEofSentinel(true)` and verify your objects; rebuild indexes if reads misbehave |
 | structure files/journals torn | opens clean (the same lost-tail semantics) | none |
 | redundant copies (the search tree holds entity copies) | a torn data journal is masked — reads keep working | none (do not rely on this: it is redundancy, not a guarantee) |
 

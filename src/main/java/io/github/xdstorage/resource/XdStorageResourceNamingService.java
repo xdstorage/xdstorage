@@ -18,8 +18,12 @@ import io.github.xdstorage.utils.XdStorageStringUtils;
 public class XdStorageResourceNamingService implements IXdStorageResourceNamingService {
 
     private static final String STRUCTURE_DIR = "structure";
-    private static final String INDEX_DIR = "index";
+    private static final String INDEX_DIR = "indexes";
     private static final String DATA_DIR = "data";
+
+    static {
+        System.err.println("[NAMING] INDEX_DIR=" + INDEX_DIR);
+    }
 
     private final String folder;
 

@@ -51,7 +51,7 @@ public final class XdStorageFolderVerifier {
     private static final String BTREE_NODE_DIR = "XdStorageBTreeNode";
 
     private static final String DATA_DIR = "data";
-    private static final String INDEX_DIR = "index";
+    private static final String INDEX_DIR = "indexes";
     private static final String STRUCTURE_DIR = "structure";
 
     private XdStorageFolderVerifier() {
@@ -69,6 +69,7 @@ public final class XdStorageFolderVerifier {
      *         verdict ({@code OK} / {@code WARNINGS} / {@code CORRUPT})
      */
     public static XdStorageVerifyReport verify(final File folder) {
+        System.err.println("[VERIFY] START folder=" + folder);
         final List<FileReport> files = new ArrayList<>();
         final List<String> findings = new ArrayList<>();
         final String folderPath = folder.toString();
@@ -268,8 +269,11 @@ public final class XdStorageFolderVerifier {
             }
         }
 
-        // ---- StoreAsClassObjects: data dir vs id-index (index/<Class>/) count check ----
+        System.err.println("[VERIFY] after data/index.yaml check, moving to id-index check");
+
+        // ---- StoreAsClassObjects: data dir vs id-index (indexes/<Class>/) count check ----
         final File indexDir = new File(folder, INDEX_DIR);
+        System.err.println("[VERIFY-IDX] folder=" + folder + " INDEX_DIR=" + INDEX_DIR + " indexDir=" + indexDir + " exists=" + indexDir.isDirectory() + " dataDir=" + dataDir + " dataDirExists=" + dataDir.isDirectory() + " dataDirFiles=" + java.util.Arrays.toString(dataDir.listFiles()));
         if (indexDir.isDirectory()) {
             final File[] indexClassDirs = indexDir.listFiles();
             if (indexClassDirs != null) {
@@ -278,6 +282,7 @@ public final class XdStorageFolderVerifier {
                         continue;
                     }
                     final String idxDirName = indexClassDir.getName();
+                    System.err.println("[VERIFY-IDX] class=" + idxDirName + " indexesDir=" + indexClassDir + " dataDir=" + new File(dataDir, idxDirName));
                     // match against a data dir by the same name
                     final File dataClassDir = new File(dataDir, idxDirName);
                     if (!dataClassDir.isDirectory()) {
@@ -294,6 +299,7 @@ public final class XdStorageFolderVerifier {
                             final Parsed p = parseStructurally(idxFile.toPath(), false);
                             if (p.state == State.OK) {
                                 idxEntries += p.entries;
+                                System.err.println("[VERIFY-IDX]   idxFile=" + idxFile.getName() + " entries=" + p.entries);
                             }
                         }
                     }
@@ -308,9 +314,11 @@ public final class XdStorageFolderVerifier {
                             final Parsed p = parseStructurally(dbFile.toPath(), false);
                             if (p.state == State.OK) {
                                 dbEntries += p.entries;
+                                System.err.println("[VERIFY-IDX]   dbFile=" + dbFile.getName() + " entries=" + p.entries);
                             }
                         }
                     }
+                    System.err.println("[VERIFY-IDX]   " + idxDirName + " data=" + dbEntries + " index=" + idxEntries);
                     if (idxEntries != dbEntries) {
                         findings.add("COUNT MISMATCH: " + DATA_DIR + "/" + idxDirName + "/ holds " + dbEntries
                                 + " data object(s) vs " + idxEntries + " id-index entries — "
