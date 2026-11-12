@@ -122,7 +122,7 @@ public class YamlDataStorageMultithreadsTest {
     @BeforeEach
     public void initStorage() {
         deleteDir(new File("./teststorage"));
-        storage = XdStorageProvider.newOrGetFileStorage("filetest", "./teststorage", 200, FilesFormat.YAML,
+        storage = XdStorageProvider.newOrGetFileStorage("filetest", "./teststorage", 128, FilesFormat.YAML,
                 io.github.xdstorage.XdStorageConfig.builder().journalWrites(false).build()); // W-1: журнал YAML-only
     }
 

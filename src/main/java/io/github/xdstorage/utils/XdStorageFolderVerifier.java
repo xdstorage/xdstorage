@@ -51,6 +51,7 @@ public final class XdStorageFolderVerifier {
     private static final String BTREE_NODE_DIR = "XdStorageBTreeNode";
 
     private static final String DATA_DIR = "data";
+    private static final String INDEX_DIR = "index";
     private static final String STRUCTURE_DIR = "structure";
 
     private XdStorageFolderVerifier() {
@@ -248,7 +249,7 @@ public final class XdStorageFolderVerifier {
                     if (!parent.equals(classDirPath) && !parent.equals(classJournalDirPath)) {
                         continue;
                     }
-                    if ("journal".equals(row.kind)) {
+                    if ("journal".equals(row.kind) && row.state != State.EMPTY) {
                         journalsPresent = true;
                     } else if ("base".equals(row.kind)) {
                         baseEntries += row.entries;
@@ -263,6 +264,59 @@ public final class XdStorageFolderVerifier {
                             + " data object(s) vs " + indexParsed.entries + " id-index entries — "
                             + "hand-edited or partially lost content");
                     corrupt = true;
+                }
+            }
+        }
+
+        // ---- StoreAsClassObjects: data dir vs id-index (index/<Class>/) count check ----
+        final File indexDir = new File(folder, INDEX_DIR);
+        if (indexDir.isDirectory()) {
+            final File[] indexClassDirs = indexDir.listFiles();
+            if (indexClassDirs != null) {
+                for (final File indexClassDir : indexClassDirs) {
+                    if (!indexClassDir.isDirectory()) {
+                        continue;
+                    }
+                    final String idxDirName = indexClassDir.getName();
+                    // match against a data dir by the same name
+                    final File dataClassDir = new File(dataDir, idxDirName);
+                    if (!dataClassDir.isDirectory()) {
+                        continue;
+                    }
+                    // sum id-index entries from index/<Class>/ (may be fragmented)
+                    long idxEntries = 0;
+                    final File[] idxFiles = indexClassDir.listFiles();
+                    if (idxFiles != null) {
+                        for (final File idxFile : idxFiles) {
+                            if (!idxFile.isFile() || !idxFile.getName().endsWith(".yaml")) {
+                                continue;
+                            }
+                            final Parsed p = parseStructurally(idxFile.toPath(), false);
+                            if (p.state == State.OK) {
+                                idxEntries += p.entries;
+                            }
+                        }
+                    }
+                    // sum data entries from data/<Class>/ (fragmented)
+                    long dbEntries = 0;
+                    final File[] dbFiles = dataClassDir.listFiles();
+                    if (dbFiles != null) {
+                        for (final File dbFile : dbFiles) {
+                            if (!dbFile.isFile() || !dbFile.getName().endsWith(".yaml")) {
+                                continue;
+                            }
+                            final Parsed p = parseStructurally(dbFile.toPath(), false);
+                            if (p.state == State.OK) {
+                                dbEntries += p.entries;
+                            }
+                        }
+                    }
+                    if (idxEntries != dbEntries) {
+                        findings.add("COUNT MISMATCH: " + DATA_DIR + "/" + idxDirName + "/ holds " + dbEntries
+                                + " data object(s) vs " + idxEntries + " id-index entries — "
+                                + "hand-edited or partially lost content");
+                        corrupt = true;
+                    }
                 }
             }
         }

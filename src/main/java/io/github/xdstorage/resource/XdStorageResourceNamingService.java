@@ -1,6 +1,8 @@
 package io.github.xdstorage.resource;
 
 import io.github.xdstorage.XdStoragePolicy;
+import io.github.xdstorage.btree.XdStorageBTree;
+import io.github.xdstorage.btree.XdStorageBTreeNode;
 import io.github.xdstorage.utils.XdStorageObjectIdField;
 import io.github.xdstorage.utils.XdStorageObjectUtils;
 import io.github.xdstorage.utils.XdStorageStringUtils;
@@ -16,7 +18,7 @@ import io.github.xdstorage.utils.XdStorageStringUtils;
 public class XdStorageResourceNamingService implements IXdStorageResourceNamingService {
 
     private static final String STRUCTURE_DIR = "structure";
-
+    private static final String INDEX_DIR = "index";
     private static final String DATA_DIR = "data";
 
     private final String folder;
@@ -51,13 +53,13 @@ public class XdStorageResourceNamingService implements IXdStorageResourceNamingS
 
     @Override
     public Object getIndexResourceId(final String indexName, final XdStoragePolicy policy, final Class<?> cl) {
-        return folder + "/" + DATA_DIR + "/" + cl.getSimpleName() + "/" + indexName + "." + fileSuffix;
+        return folder + "/" + INDEX_DIR + "/" + cl.getSimpleName() + "/" + indexName + "." + fileSuffix;
     }
 
     @Override
     public Object getForeignKeyResourceId(String suffix, Class<?> parentClass, Class<?> childClass, String parentClassField) {
         String foreignKeyName = parentClass.getSimpleName() + "-" + childClass.getSimpleName() + "-" + parentClassField;
-        return folder + "/" + DATA_DIR + "/" + parentClass.getSimpleName() + "/" + foreignKeyName + "-fk" + "." + fileSuffix;
+        return folder + "/" + INDEX_DIR + "/" + parentClass.getSimpleName() + "/" + foreignKeyName + "-fk" + "." + fileSuffix;
     }
 
     @Override
@@ -68,7 +70,13 @@ public class XdStorageResourceNamingService implements IXdStorageResourceNamingS
     private Object getObjectResourceName(final XdStoragePolicy policy, final Class<?> cl, final String objectId, final String fragmentId) {
         Object resourceName = null;
 
-        if (policy == XdStoragePolicy.StoreAsClassObjects) {
+        if (cl == XdStorageBTree.class || cl == XdStorageBTreeNode.class) {
+            if (XdStorageStringUtils.isBlank(objectId)) {
+                resourceName = folder + "/" + INDEX_DIR + "/" + cl.getSimpleName() + "/" + cl.getSimpleName() + "-" + fragmentId + "." + fileSuffix;
+            } else {
+                resourceName = folder + "/" + INDEX_DIR + "/" + cl.getSimpleName() + "/" + cl.getSimpleName() + "-" + objectId + "." + fileSuffix;
+            }
+        } else if (policy == XdStoragePolicy.StoreAsClassObjects) {
             if (XdStorageStringUtils.isBlank(fragmentId)) {
                 resourceName = folder + "/" + DATA_DIR + "/" + cl.getSimpleName() + "/" + cl.getSimpleName() + "." + fileSuffix;
             } else {
