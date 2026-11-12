@@ -213,7 +213,7 @@ public class XdStoragePowerLossRecoveryMatrixTest {
     public void tornSearchTreeNodeLoudOnSearch() throws Exception {
         final Path built = buildStorage("t1", false);
         final Path cell = copyOf(built, "cell-t1");
-        truncate(cell.resolve("data/XdStorageBTreeNode/XdStorageBTreeNode-3.yaml"), 0.6);
+        truncate(cell.resolve("index/XdStorageBTreeNode/XdStorageBTreeNode-3.yaml"), 0.6);
 
         final IXdFileStorage storage = open(cell, false, false);
         try {
@@ -244,7 +244,7 @@ public class XdStoragePowerLossRecoveryMatrixTest {
     public void tornIdIndexTreeFailsLoud() throws Exception {
         final Path built = buildStorage("t2", false);
         final Path cell = copyOf(built, "cell-t2");
-        truncate(cell.resolve("data/XdStorageBTree/XdStorageBTree-XdStorageW2SearchShip-id_index.yaml"), 0.6);
+        truncate(cell.resolve("index/XdStorageBTree/XdStorageBTree-XdStorageW2SearchShip-id_index.yaml"), 0.6);
 
         // strict: the tree metadata is read lazily — the OPEN may succeed, but the first
         // USE (a scan through the id-index) fails LOUDLY, never silently-partial
