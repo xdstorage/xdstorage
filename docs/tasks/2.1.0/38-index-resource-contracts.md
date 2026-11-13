@@ -1,7 +1,7 @@
 ---
 title: "[2.1.0][IDXCONTRACT] Align the index-resource implementations with their declared contracts"
 labels: [2.1.0-train, P2, engine, tech-debt]
-status: open
+status: done
 ---
 
 ## Summary
