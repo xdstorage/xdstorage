@@ -213,9 +213,9 @@
                          family is fixed (task 47) and it is green. -->
                     <excludes>
                         <exclude>**/XdStorageFacadeStressTest.java</exclude>
+                        <exclude>**/XdStorageNestedTransactionIsolationStressTest.java</exclude>
                         <exclude>**/XdStorageMassFillAndCleanFirstStressTest.java</exclude>
                         <exclude>**/XdStorageMassFillAndCleanSecondStressTest.java</exclude>
-                        <exclude>**/XdStorageNestedTransactionIsolationStressTest.java</exclude>
                     </excludes>
                 </configuration>
             </plugin>
