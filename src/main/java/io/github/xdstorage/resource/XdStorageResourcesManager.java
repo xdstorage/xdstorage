@@ -61,7 +61,7 @@ public class XdStorageResourcesManager
     @Override
     protected IXdStorageSearchIndexResourceObject createSearchIndexResource(final Object resourceId, final String indexName,
                                                                             final XdStorageClassInfo clInfo) {
-        return new XdStorageSearchIndexResource(services, this, indexName, resourceId, clInfo, services.getIoFactory(), fragmentSize);
+        return new XdStorageSearchIndexResource(services, this, indexName, resourceId, clInfo, services.getIoFactory());
     }
 
 }

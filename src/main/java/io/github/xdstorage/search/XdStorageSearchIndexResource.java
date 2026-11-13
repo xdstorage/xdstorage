@@ -72,12 +72,6 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
     /** The id field of the key-tree record type. */
     protected final XdStorageObjectIdField idField;
 
-    private Map<String, Stack<IXdStorageChangeIndexRollback>> rollbacks = new ConcurrentHashMap<String, Stack<IXdStorageChangeIndexRollback>>();
-
-    private final IXdStorageObjectsReader reader;
-
-    private final IXdStorageObjectsWriter writer;
-
     /**
      * Creates the resource for one declared index of one entity class.
      *
@@ -87,13 +81,11 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
      * @param resourceId   the storage-wide unique resource id
      * @param objectClInfo the metadata of the indexed entity class
      * @param factory      the serialization factory for the record reader/writer
-     * @param fragmentSize the engine's fragmentation setting (objects per file); accepted
-     *                     per the resource contract, unused here — the payload lives in the B+trees
      */
     public XdStorageSearchIndexResource(final XdStorageServicesLocator services,
                                         final XdStorageAbstractResourcesManager manager,
                                         final String indexName, final Object resourceId,
-                                        final XdStorageClassInfo objectClInfo, final IXdStorageIOFactory factory, final int fragmentSize) {
+                                        final XdStorageClassInfo objectClInfo, final IXdStorageIOFactory factory) {
         this.services = services;
         this.manager = manager;
         this.indexName = indexName;
@@ -101,8 +93,6 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
         this.objectClInfo = objectClInfo;
         this.clInfo = XdStorageObjectUtils.getClassInfo(XdStorageSearchKeyIndexRecord.class);
         this.idField = clInfo.getIdField();
-        this.reader = factory.newInstanceReader();
-        this.writer = factory.newInstanceWriter();
     }
 
     @Override
@@ -115,6 +105,14 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
         return clInfo.getClazz();
     }
 
+    /**
+     * Returns 0 — the search-index resource holds no records of its own; the persisted
+     * payload lives in the B+tree pairs (search tree keyed by composite key and address
+     * key tree keyed by object id) that this resource manages. The resource is a
+     * transactional facade over those trees.
+     *
+     * @return {@code 0} — no records of this resource type are stored here
+     */
     @Override
     public long getObjectsCount() {
         return 0;
@@ -325,8 +323,12 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
             keyTree.update((Comparable) record.getId(), newHashIndexRecord, storage, transaction);
 
             final XdStorageSearchIndexKey searchIndexKeyToDelete = new XdStorageSearchIndexKey(oldHashIndexRecord.getValue(), oldHashIndexRecord.getObjectId(), XdStorageSearchIndexOperationType.Delete);
+            // R-57: компенсация при откате — старое search-key (переименование: old key removed)
+            transaction.registerIndexKeyForRollback(tree, searchIndexKeyToDelete);
             tree.delete(searchIndexKeyToDelete, storage, transaction);
             final XdStorageSearchIndexKey searchIndexKeyToInsert = new XdStorageSearchIndexKey(newHashIndexRecord.getValue(), newHashIndexRecord.getObjectId(), XdStorageSearchIndexOperationType.Insert);
+            // R-57: компенсация при откате — новое search-key (переименование: new key inserted)
+            transaction.registerIndexKeyForRollback(tree, searchIndexKeyToInsert);
             tree.insert(searchIndexKeyToInsert, record, storage, transaction);
         }
     }
@@ -355,6 +357,8 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
         }
 
         final XdStorageSearchKeyIndexRecord oldHashIndexRecord = (XdStorageSearchKeyIndexRecord) findResult.get(0);
+        // R-57: компенсация при откате — keyTree по id записи
+        transaction.registerIndexKeyForRollback(keyTree, (Comparable) record.getId());
         keyTree.delete((Comparable) record.getId(), storage, transaction);
 
         final XdStorageBTreeId searchBTreeId = new XdStorageBTreeId(objectClInfo.getClazz(), indexName);
@@ -369,6 +373,8 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
         restoreSearchKeyTypesIfNeeded(tree, storage, transaction);
 
         final XdStorageSearchIndexKey searchIndexKey = new XdStorageSearchIndexKey(oldHashIndexRecord.getValue(), oldHashIndexRecord.getObjectId(), XdStorageSearchIndexOperationType.Insert);
+        // R-57: компенсация при откате — search tree по составному ключу
+        transaction.registerIndexKeyForRollback(tree, searchIndexKey);
         tree.delete(searchIndexKey, storage, transaction);
     }
 

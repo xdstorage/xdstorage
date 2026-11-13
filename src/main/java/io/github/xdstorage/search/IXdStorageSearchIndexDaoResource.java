@@ -57,6 +57,12 @@ public interface IXdStorageSearchIndexDaoResource {
     /**
      * Streams every record of the index tree to the watcher, in the tree's iteration order.
      *
+     * <p><b>Semantics:</b> the B+tree iteration is snapshot-aware — records that became
+     * invisible due to a concurrent commit during the walk are skipped (the tree's
+     * versioned entries provide the visibility boundary). This contrasts with the hash
+     * id-index's committed-state walk: the search B+tree IS versioned, while the hash
+     * id-map is not.
+     *
      * @param <T>         the record type the watcher observes
      * @param transaction the caller's transaction
      * @param watcher     the per-record callback

@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 
 import io.github.xdstorage.exceptions.XdStorageConnectionException;
 import io.github.xdstorage.exceptions.XdStorageException;
+import io.github.xdstorage.exceptions.XdStorageIOException;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.helpers.XdStorageDefaultSimpleTypeHelper;
 import io.github.xdstorage.idgeneration.IXdStorageIdGenerator;
@@ -224,7 +225,13 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
                     xmlReader.close();
                 }
             }
-        } catch (final Throwable e) {
+        } catch (final XdStorageIOException e) {
+            throw new XdStorageRuntimeException("I/O error reading resource " + resourceId, e);
+        } catch (final IOException e) {
+            throw new XdStorageRuntimeException("I/O error reading resource " + resourceId, e);
+        } catch (final XdStorageException e) {
+            throw new XdStorageRuntimeException("invalid state of database: error by reading resource " + resourceId, e);
+        } catch (final RuntimeException e) {
             throw new XdStorageRuntimeException("invalid state of database: error by reading resource " + resourceId, e);
         }
         return objects;
@@ -265,7 +272,7 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
      * @throws XdStorageRuntimeException when the file exists but cannot be parsed — treated
      *         as an invalid database state
      */
-    public Collection<XdStorageIdentifiableObject> readAsData(XdStorageTransaction transaction) {
+    public Collection<XdStorageIdentifiableObject> readAsData(XdStorageTransaction transaction) throws XdStorageConnectionException {
         Collection<XdStorageIdentifiableObject> objects = null;
         try {
             final File file = new File(getFileName());
@@ -277,7 +284,13 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
                     xmlReader.close();
                 }
             }
-        } catch (final Throwable e) {
+        } catch (final XdStorageIOException e) {
+            throw new XdStorageConnectionException("I/O error reading resource " + resourceId, e);
+        } catch (final IOException e) {
+            throw new XdStorageConnectionException("I/O error reading resource " + resourceId, e);
+        } catch (final XdStorageException e) {
+            throw new XdStorageRuntimeException("invalid state of database: error by reading resource " + resourceId, e);
+        } catch (final RuntimeException e) {
             throw new XdStorageRuntimeException("invalid state of database: error by reading resource " + resourceId, e);
         }
         return objects;
@@ -360,7 +373,7 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
      * @throws XdStorageRuntimeException when the journal append fails — treated as an
      *         invalid database state
      */
-    public void performFirstPhaseCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges record) throws XdStorageException {
+    public void performFirstPhaseCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges record) throws XdStorageException, XdStorageConnectionException {
         if (cache.hasChanges(transaction)) {
             if (indexJournal && yamlJournalFactory != null) {
                 // W-4a: O(delta) journal append instead of the O(N) full-file rewrite — the
@@ -371,7 +384,7 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
                             transaction.getCommitSerial(), record.getChangesObjects(),
                             services, yamlJournalFactory, services.getStorageConfig().isDurableWrites());
                 } catch (final Throwable e) {
-                    throw new XdStorageRuntimeException("invalid state of database: error by appending commit journal of index resource " + resourceId, e);
+                    throw new XdStorageConnectionException("I/O error appending commit journal of index resource " + resourceId, e);
                 }
                 checkpointIndexJournalIfTooBig(transaction);
             } else {
@@ -411,7 +424,7 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
      * @throws XdStorageRuntimeException when the journal compensation append fails —
      *         treated as an invalid database state
      */
-    public void rollbackPerformingFirstPhaseCommit(final XdStorageTransaction transaction, final Collection<XdStorageObjectChange> changes) throws XdStorageException {
+    public void rollbackPerformingFirstPhaseCommit(final XdStorageTransaction transaction, final Collection<XdStorageObjectChange> changes) throws XdStorageException, XdStorageConnectionException {
         cache.rollbackFailedCommit(transaction, changes);
         if (indexJournal && yamlJournalFactory != null) {
             // W-4a: compensation — the restored (pre-tx committed) state per changed id, so a
@@ -420,7 +433,7 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
                 io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.appendCompensation(indexJournalFile,
                         changes, services, yamlJournalFactory, services.getStorageConfig().isDurableWrites());
             } catch (final Throwable e) {
-                throw new XdStorageRuntimeException("invalid state of database: error by appending index journal compensation of resource " + resourceId, e);
+                throw new XdStorageConnectionException("I/O error appending index journal compensation of resource " + resourceId, e);
             }
         } else {
             writeObjects(cache.readUnsafe(transaction));

@@ -45,8 +45,13 @@ public interface IXdStorageIndexDaoResource {
 
     /**
      * Reads every object of the indexed class by walking the index and loading each id's
-     * record from its data fragment. Snapshot-invisible objects (removed by a concurrent
-     * commit during the walk) are skipped.
+     * record from its data fragment.
+     *
+     * <p><b>Semantics:</b> the id-map walk uses committed (globally visible) state —
+     * objects removed by a concurrent commit during the walk ARE returned (they survive
+     * in the fragment until their own transaction commits deletion). This is by design
+     * for the hash id-index: the id-map is not versioned, so a concurrent delete that
+     * removed an id from the map is not visible here.
      *
      * @param <T>         the element type the result collection is viewed as
      * @param transaction the transaction whose snapshot defines visibility

@@ -14,6 +14,7 @@ import io.github.xdstorage.btree.XdStorageBTreeNode;
 import io.github.xdstorage.btree.XdStorageBTreeId;
 import io.github.xdstorage.exceptions.XdStorageConnectionException;
 import io.github.xdstorage.exceptions.XdStorageException;
+import io.github.xdstorage.exceptions.XdStorageIOException;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.idgeneration.IXdStorageIdGenerator;
 import io.github.xdstorage.idgeneration.XdStorageIdGeneratorType;
@@ -234,7 +235,13 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
                     xmlReader.close();
                 }
             }
-        } catch (final Throwable e) {
+        } catch (final XdStorageIOException e) {
+            throw new XdStorageRuntimeException("I/O error reading resource " + resourceId, e);
+        } catch (final IOException e) {
+            throw new XdStorageRuntimeException("I/O error reading resource " + resourceId, e);
+        } catch (final XdStorageException e) {
+            throw new XdStorageRuntimeException("invalid state of database: error by reading resource " + resourceId, e);
+        } catch (final RuntimeException e) {
             throw new XdStorageRuntimeException("invalid state of database: error by reading resource " + resourceId, e);
         }
         return objects;
@@ -271,7 +278,7 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
      * @throws XdStorageRuntimeException when the file exists but cannot be parsed — treated
      *         as an invalid database state
      */
-    public Collection<XdStorageIdentifiableObject> readAsData(final XdStorageTransaction transaction) {
+    public Collection<XdStorageIdentifiableObject> readAsData(final XdStorageTransaction transaction) throws XdStorageConnectionException {
         Collection<XdStorageIdentifiableObject> objects = null;
         try {
             final File file = new File(getFileName());
@@ -283,7 +290,13 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
                     xmlReader.close();
                 }
             }
-        } catch (final Throwable e) {
+        } catch (final XdStorageIOException e) {
+            throw new XdStorageConnectionException("I/O error reading resource " + resourceId, e);
+        } catch (final IOException e) {
+            throw new XdStorageConnectionException("I/O error reading resource " + resourceId, e);
+        } catch (final XdStorageException e) {
+            throw new XdStorageRuntimeException("invalid state of database: error by reading resource " + resourceId, e);
+        } catch (final RuntimeException e) {
             throw new XdStorageRuntimeException("invalid state of database: error by reading resource " + resourceId, e);
         }
         return objects;

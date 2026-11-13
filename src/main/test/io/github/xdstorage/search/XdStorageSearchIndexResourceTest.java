@@ -37,7 +37,7 @@ public class XdStorageSearchIndexResourceTest {
         when(factory.newInstanceWriter()).thenReturn(mock(IXdStorageObjectsWriter.class));
 
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(SearchEngineShip.class);
-        resource = new XdStorageSearchIndexResource(services, manager, "ship_idx", "idx-file-1", clInfo, factory, 250);
+        resource = new XdStorageSearchIndexResource(services, manager, "ship_idx", "idx-file-1", clInfo, factory);
     }
 
     @Test
