@@ -23,12 +23,14 @@ import io.github.xdstorage.serialization.IXdStorageIOFactory;
 import io.github.xdstorage.serialization.IXdStorageObjectsReader;
 import io.github.xdstorage.serialization.IXdStorageObjectsWriter;
 import io.github.xdstorage.services.XdStorageServicesLocator;
+import io.github.xdstorage.resource.IXdStorageJournalCheckpoint;
 import io.github.xdstorage.transaction.XdStorageTransaction;
 import io.github.xdstorage.transaction.XdStorageTransactionResourceChanges;
 import io.github.xdstorage.utils.XdStorageClassInfo;
 import io.github.xdstorage.utils.XdStorageObjectIdField;
 import io.github.xdstorage.utils.XdStorageObjectUtils;
 
+import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
@@ -49,7 +51,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * is guarded by an internal lock, and the commit lifecycle is inherited from the
  * resource-object contract.</p>
  */
-public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResourceObject, IXdStorageSearchIndexDaoResource {
+public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResourceObject, IXdStorageSearchIndexDaoResource, IXdStorageJournalCheckpoint {
 
     private static final Logger log = LoggerFactory.getLogger(XdStorageSearchIndexResource.class);
 
@@ -65,6 +67,31 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
     /** The storage-wide unique resource id of this index resource. */
     protected final Object resourceId;
 
+    // W-4b (docs/tasks/2.1.0/49): search-index journal support
+    /** Whether this resource uses the O(delta) journal write path (default OFF → soak → flip). */
+    private final boolean searchIndexJournal;
+
+    /** The search-index commit journal file path (created when journal is enabled). */
+    private java.nio.file.Path searchIndexJournalFile;
+
+    /** JRNLNAME: older-named search-index journals present at resolution (replay sources / superseded twins). */
+    private java.util.List<java.nio.file.Path> supersededSearchIndexJournals;
+
+    /** The journal size-threshold for open-time checkpoint (16 MB default). */
+    private final long searchIndexJournalCheckpointBytes;
+
+    /** Whether this resource has been prepared (loaded from disk and replayed). */
+    private final java.util.concurrent.atomic.AtomicBoolean prepared = new java.util.concurrent.atomic.AtomicBoolean(false);
+
+    /** Reentrant lock guarding prepare/commit against concurrent access. */
+    private final java.util.concurrent.locks.Lock journalLock = new java.util.concurrent.locks.ReentrantLock();
+
+    /** The search-tree B+Tree instance (canonical instance loaded from disk at open). */
+    private XdStorageBTree searchTree;
+
+    /** The key-tree B+Tree instance (canonical instance loaded from disk at open). */
+    private XdStorageBTree keyTree;
+
     /** Class metadata of the indexed entity class (its declared indexes and id field). */
     protected final XdStorageClassInfo objectClInfo;
 
@@ -76,6 +103,7 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
 
     /**
      * Creates the resource for one declared index of one entity class.
+     * Resolves the commit-journal file when search-index journaling is enabled.
      *
      * @param services     the engine's service locator
      * @param manager      the resources manager issuing this resource
@@ -95,6 +123,23 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
         this.objectClInfo = objectClInfo;
         this.clInfo = XdStorageObjectUtils.getClassInfo(XdStorageSearchKeyIndexRecord.class);
         this.idField = clInfo.getIdField();
+        // W-4b: enable journal if the storage config permits (default OFF — soak → flip)
+        final io.github.xdstorage.XdStorageConfig storageConfig = services.getStorageConfig();
+        this.searchIndexJournal = storageConfig != null && storageConfig.isSearchIndexJournalWrites();
+        this.searchIndexJournalCheckpointBytes = storageConfig != null
+                ? storageConfig.getJournalCheckpointBytes()
+                : 16L * 1024 * 1024;  // 16 MB default
+        // JRNLNAME: search-index journals live in the indexes/ subdirectory (same as the base);
+        // legacy resolutions are also supported (stacked + sibling spellings)
+        this.supersededSearchIndexJournals = java.util.Collections.emptyList();
+        if (searchIndexJournal) {
+            final io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.Resolution resolution =
+                    io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.searchIndexJournalResolveFor(getFileName());
+            this.searchIndexJournalFile = resolution.file;
+            this.supersededSearchIndexJournals = resolution.superseded;
+        } else {
+            this.searchIndexJournalFile = null;
+        }
     }
 
     @Override
@@ -134,24 +179,286 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
         return resourceId.toString();
     }
 
-    public void prepare(final XdStorageTransaction transaction) {
-        // do nothing
+    /**
+     * Prepares the resource for use: if search-index journal is enabled,
+     * loads the B+Tree pair from the canonical registry (creating empty trees
+     * if none exist), replays the search-index journal against them, and
+     * applies the open-time size-threshold checkpoint. The trees are then
+     * ready for normal operation — inserts, updates, deletes go to the
+     * canonical tree and are journaled.
+     *
+     * @throws XdStorageException when the journal cannot be replayed
+     * @throws XdStorageConnectionException when tree persistence fails
+     */
+    public void prepare(final XdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException {
+        if (prepared.get()) {
+            return;
+        }
+
+        if (!searchIndexJournal) {
+            prepared.set(true);
+            return;
+        }
+
+        try {
+            if (!journalLock.tryLock(30, java.util.concurrent.TimeUnit.SECONDS)) {
+                log.warn("search-index resource {} prepare: lock timeout — prepared will be lazy",
+                        getFileName());
+                return;
+            }
+        } catch (final java.lang.InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new XdStorageException("search-index resource " + resourceId + " prepare interrupted",
+                    e);
+        }
+
+        try {
+            if (prepared.get()) {
+                return;
+            }
+
+            final IXdStorage storage = services.getStorage();
+            final XdStorageBTreeId searchBTreeId = new XdStorageBTreeId(objectClInfo.getClazz(), indexName);
+            final XdStorageBTreeId keyBTreeId = new XdStorageBTreeId(objectClInfo.getClazz(), "key_" + indexName);
+
+            // Create or load the search tree (canonical instance)
+            searchTree = (XdStorageBTree) services.getCanonicalInstances().get(XdStorageBTree.class, searchBTreeId);
+            if (searchTree == null) {
+                searchTree = new XdStorageBTree(searchBTreeId, false,
+                        objectClInfo.getIndexes().get(indexName).getIndexFillingValue());
+                services.getCanonicalInstances().register(XdStorageBTree.class, searchBTreeId, searchTree);
+                // Persist the empty tree to disk so it survives a shutdown
+                storage.save(searchTree, transaction);
+            }
+
+            // Create or load the key tree (canonical instance)
+            keyTree = (XdStorageBTree) services.getCanonicalInstances().get(XdStorageBTree.class, keyBTreeId);
+            if (keyTree == null) {
+                keyTree = new XdStorageBTree(keyBTreeId, false,
+                        objectClInfo.getIndexes().get(indexName).getIndexFillingValue());
+                services.getCanonicalInstances().register(XdStorageBTree.class, keyBTreeId, keyTree);
+                storage.save(keyTree, transaction);
+            }
+
+            // Replay the search-index journal into the live trees
+            replaySearchIndexJournal(storage);
+
+            prepared.set(true);
+        } finally {
+            journalLock.unlock();
+        }
     }
 
-    public void performFirstPhaseCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges record) {
-        // do nothing
+    /**
+     * W-4b: recovery replay of the search-index journal against the live
+     * canonical B+Tree pair. ADDKEY records insert, DELKEY records delete.
+     * The replay is idempotent (the tree's own insert/delete handles
+     * duplicates silently).
+     *
+     * @throws XdStorageException when the journal cannot be read
+     * @throws XdStorageConnectionException when tree I/O fails
+     */
+    private void replaySearchIndexJournal(final IXdStorage storage)
+            throws XdStorageException, XdStorageConnectionException {
+        final XdStorageBTreeId searchBTreeId = new XdStorageBTreeId(objectClInfo.getClazz(), indexName);
+        final XdStorageBTreeId keyBTreeId = new XdStorageBTreeId(objectClInfo.getClazz(), "key_" + indexName);
+
+        if (searchIndexJournalFile == null) {
+            return;  // journal disabled
+        }
+
+        try {
+            final List<io.github.xdstorage.serialization.XdStorageSearchIndexJournalRecord> records =
+                    io.github.xdstorage.serialization.search.XdStorageSearchIndexJournal.readForReplay(searchIndexJournalFile);
+
+            int addCount = 0, delCount = 0, treeMissCount = 0;
+            for (final io.github.xdstorage.serialization.XdStorageSearchIndexJournalRecord rec : records) {
+                XdStorageBTree target = null;
+
+                if (searchBTreeId.toString().equals(rec.treeId)) {
+                    target = searchTree;
+                } else if (keyBTreeId.toString().equals(rec.treeId)) {
+                    target = keyTree;
+                }
+
+                if (target == null) {
+                    treeMissCount++;
+                    continue;  // record belongs to an unknown tree — skip
+                }
+
+                if (rec.isAddKey()) {
+                    final XdStorageSearchIndexKey key = new XdStorageSearchIndexKey(
+                            rec.key, rec.objectId,
+                            io.github.xdstorage.search.key.XdStorageSearchIndexOperationType.Insert);
+                    target.insert(key, new io.github.xdstorage.search.data.XdStorageSearchKeyIndexRecord(
+                            rec.objectId, rec.key), storage, null);
+                    addCount++;
+                } else if (rec.isDelKey()) {
+                    final XdStorageSearchIndexKey key = new XdStorageSearchIndexKey(
+                            rec.key, rec.objectId,
+                            io.github.xdstorage.search.key.XdStorageSearchIndexOperationType.Delete);
+                    target.delete(key, storage, null);
+                    delCount++;
+                }
+            }
+
+            if (addCount > 0 || delCount > 0) {
+                log.debug("search-index resource {} replayed journal: {} ADDKEY, {} DELKEY ({} tree-miss)",
+                        getFileName(), addCount, delCount, treeMissCount);
+            }
+
+            // JRNLNAME: settle after replay — migrate legacy namings into the canonical same-dir location
+            if (!supersededSearchIndexJournals.isEmpty()) {
+                try {
+                    final Path settled = io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal
+                            .searchIndexJournalSettleAfterReplay(searchIndexJournalFile,
+                                    supersededSearchIndexJournals, getFileName());
+                    this.searchIndexJournalFile = settled;
+                } catch (final java.io.IOException e) {
+                    log.warn("search-index journal settle-after-replay failed for {}: {} (safe: replay is idempotent)",
+                            getFileName(), e.getMessage());
+                }
+            }
+
+            // W-4c (task 48): open-time guard — silently checkpoint if too big
+            checkpointSearchIndexJournalIfTooBig();
+
+        } catch (final java.io.IOException e) {
+            throw new XdStorageException("search-index journal of resource " + resourceId + " cannot be replayed",
+                    e);
+        }
     }
 
+    /**
+     * W-4c (task 48): open-time guard — silently checkpoints the search-index
+     * journal if it exceeds the threshold after replay. No WARN per task spec.
+     */
+    private void checkpointSearchIndexJournalIfTooBig() {
+        if (searchIndexJournalFile == null) {
+            return;
+        }
+        try {
+            final long size = java.nio.file.Files.size(searchIndexJournalFile);
+            if (size >= searchIndexJournalCheckpointBytes) {
+                log.debug("search-index resource {} open-time guard: journal {} bytes > {} threshold — silent checkpoint",
+                        getFileName(), size, searchIndexJournalCheckpointBytes);
+                checkpointSearchIndexJournal();
+            }
+        } catch (final java.io.IOException e) {
+            log.warn("search-index resource {} open-time guard checkpoint failed (safe: journal replays at next open): {}",
+                    getFileName(), e.getMessage());
+        }
+    }
+
+    /**
+     * W-4c (task 48): shutdown checkpoint — full tree rewrite + journal reset.
+     */
+    private void checkpointSearchIndexJournal() {
+        if (searchIndexJournalFile == null) {
+            return;
+        }
+        try {
+            log.info("search-index resource {} shutdown checkpoint: full tree rewrite + journal reset",
+                    getFileName());
+            // Write empty trees to disk (clears the data)
+            if (searchTree != null) {
+                try {
+                    services.getStorage().save(searchTree, null);
+                } catch (final XdStorageException e) {
+                    log.warn("search-index resource {} shutdown checkpoint tree save failed (safe): {}",
+                            getFileName(), e.getMessage());
+                } catch (final XdStorageConnectionException e) {
+                    log.warn("search-index resource {} shutdown checkpoint tree save failed (safe): {}",
+                            getFileName(), e.getMessage());
+                }
+            }
+            if (keyTree != null) {
+                try {
+                    services.getStorage().save(keyTree, null);
+                } catch (final XdStorageException e) {
+                    log.warn("search-index resource {} shutdown checkpoint tree save failed (safe): {}",
+                            getFileName(), e.getMessage());
+                } catch (final XdStorageConnectionException e) {
+                    log.warn("search-index resource {} shutdown checkpoint tree save failed (safe): {}",
+                            getFileName(), e.getMessage());
+                }
+            }
+            // Delete the journal file
+            java.nio.file.Files.deleteIfExists(searchIndexJournalFile);
+        } catch (final java.io.IOException e) {
+            log.warn("search-index resource {} shutdown checkpoint failed (safe: journal replays at next open): {}",
+                    getFileName(), e.getMessage());
+        }
+    }
+
+    /**
+     * W-4b: commit phase-1 for the search-index journal.
+     * The journal is written directly in the insert/update/delete methods
+     * (which are called from the engine's commit protocol). This method
+     * is a no-op placeholder for the resource contract.
+     */
+    @Override
+    public void performFirstPhaseCommit(final XdStorageTransaction transaction,
+                                        final XdStorageTransactionResourceChanges record)
+            throws XdStorageException {
+        // no-op — journal is written in insert/update/delete methods
+    }
+
+    @Override
     public void performSecondPhaseCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges record) throws XdStorageException {
         // do nothing
     }
 
+    @Override
     public void rollbackPerformingFirstPhaseCommit(final XdStorageTransaction transaction, final Collection<XdStorageObjectChange> changes) throws XdStorageException {
         // do nothing
     }
 
+    @Override
     public void rollback(final XdStorageTransaction transaction) throws XdStorageException {
         // do nothing
+    }
+
+    /**
+     * W-4c (task 48): shutdown checkpoint for the search-index journal.
+     * Best-effort: deletes the journal file. The tree data is already
+     * persisted via the normal save path. Never throws.
+     */
+    @Override
+    public boolean checkpointJournalOnShutdown() {
+        if (searchIndexJournalFile == null) {
+            return false;
+        }
+        try {
+            // Unprepared resource — journal belongs to NEXT open's replay
+            if (!prepared.get()) {
+                return false;
+            }
+            // Busy? (live commit in progress) — leave journal for replay
+            if (!journalLock.tryLock(5, java.util.concurrent.TimeUnit.SECONDS)) {
+                return false;
+            }
+            try {
+                final java.io.File jf = searchIndexJournalFile.toFile();
+                if (!jf.exists() || jf.length() == 0) {
+                    return false;  // empty journal — nothing to checkpoint
+                }
+                java.nio.file.Files.deleteIfExists(searchIndexJournalFile);
+                log.info("search-index resource {} shutdown checkpoint: journal deleted",
+                        getFileName());
+                return true;
+            } finally {
+                journalLock.unlock();
+            }
+        } catch (final java.io.IOException e) {
+            log.warn("search-index resource {} shutdown checkpoint failed (safe: journal replays at next open): {}",
+                    getFileName(), e.getMessage());
+            return false;
+        } catch (final java.lang.InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
     }
 
     @Override
@@ -250,6 +557,9 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
         tree.insert(searchIndexKey, XdStorageObjectUtils.getWrappedObjectOrSameObject(record), storage, transaction);
         // R-57: и поисковое дерево по составному ключу
         transaction.registerIndexKeyForRollback(tree, searchIndexKey);
+        // W-4b: journal the ADDKEY
+        appendSearchIndexJournal(XdStorageSearchIndexOperationType.Insert,
+                String.valueOf(record.getPrimaryIndexValue()), String.valueOf(record.getId()));
     }
 
     public void update(final Object object, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
@@ -333,6 +643,11 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
             transaction.registerIndexKeyForRollback(tree, searchIndexKeyToInsert);
             tree.insert(searchIndexKeyToInsert, record, storage, transaction);
         }
+        // W-4b: journal the update (DELKEY old + ADDKEY new)
+        appendSearchIndexJournal(XdStorageSearchIndexOperationType.Delete,
+                String.valueOf(oldHashIndexRecord.getValue()), String.valueOf(oldHashIndexRecord.getObjectId()));
+        appendSearchIndexJournal(XdStorageSearchIndexOperationType.Insert,
+                String.valueOf(record.getPrimaryIndexValue()), String.valueOf(record.getId()));
     }
 
     @Override
@@ -378,6 +693,9 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
         // R-57: компенсация при откате — search tree по составному ключу
         transaction.registerIndexKeyForRollback(tree, searchIndexKey);
         tree.delete(searchIndexKey, storage, transaction);
+        // W-4b: journal the DELKEY (search tree)
+        appendSearchIndexJournal(XdStorageSearchIndexOperationType.Delete,
+                String.valueOf(oldHashIndexRecord.getValue()), String.valueOf(oldHashIndexRecord.getObjectId()));
     }
 
     public <T> void watch(final XdStorageTransaction transaction, final IXdStorageWatcher<T> watcher) throws XdStorageException, XdStorageConnectionException {
@@ -399,6 +717,38 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
     @Override
     public IXdStorageSearchIndexDaoResource getDao() {
         return this;
+    }
+
+    // W-4b: append a search-index journal record (ADDKEY/DELKEY) to the journal file
+    private void appendSearchIndexJournal(final XdStorageSearchIndexOperationType op,
+                                          final String key, final String objectId) {
+        if (!searchIndexJournal || searchIndexJournalFile == null) {
+            return;
+        }
+        try {
+            if (!journalLock.tryLock(10, java.util.concurrent.TimeUnit.SECONDS)) {
+                log.warn("search-index resource {} journal append timed out (live commit in progress), skipping journal",
+                        getFileName());
+                return;
+            }
+            try {
+                final java.util.List<io.github.xdstorage.serialization.XdStorageSearchIndexJournalRecord> records =
+                        java.util.Collections.singletonList(
+                                new io.github.xdstorage.serialization.XdStorageSearchIndexJournalRecord(
+                                        -1, getFileName(), op.name(), key, objectId));
+                io.github.xdstorage.serialization.search.XdStorageSearchIndexJournal.append(
+                        searchIndexJournalFile, -1, records);
+            } finally {
+                journalLock.unlock();
+            }
+        } catch (final java.lang.InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("search-index resource {} journal append interrupted (safe: tree was mutated)",
+                    getFileName());
+        } catch (final java.io.IOException e) {
+            log.warn("search-index resource {} journal append failed (safe: tree was mutated): {}",
+                    getFileName(), e.getMessage());
+        }
     }
 
     /**

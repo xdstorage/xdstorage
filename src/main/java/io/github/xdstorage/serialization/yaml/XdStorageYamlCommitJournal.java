@@ -193,6 +193,70 @@ public final class XdStorageYamlCommitJournal {
         return target;
     }
 
+    /**
+     * JRNLNAME for search-index journals: resolution priority is
+     * (1) same-dir sibling (the canonical placement for search-indexes),
+     * (2) legacy stacked name in the base's dir, (3) sibling 2.1.0-dev spelling.
+     * Search-indexes keep journals in the {@code indexes/} subdirectory, not in {@link #JOURNAL_DIR}.
+     *
+     * @param baseFileName the path of the search-index's base file
+     * @return the resolution: the journal file all future I/O must use, plus any
+     *         older-named twins found on disk
+     */
+    public static Resolution searchIndexJournalResolveFor(final String baseFileName) {
+        final String baseName = stripFormatExtension(baseFileName);
+        final String journalName = baseName + JOURNAL_SUFFIX;
+        Path chosen = null;
+        final java.util.List<Path> superseded = new java.util.ArrayList<>();
+        // Priority: 1) same-dir sibling (canonical), 2) legacy stacked, 3) sibling 2.1.0-dev
+        for (final Path candidate : new Path[]{
+                new File(new File(baseFileName).getParentFile(), journalName).toPath(),
+                new File(baseFileName + LEGACY_JOURNAL_SUFFIX).toPath(),
+                siblingJournalFileFor(baseFileName)}) {
+            if (Files.exists(candidate)) {
+                if (chosen == null) {
+                    chosen = candidate;
+                } else {
+                    superseded.add(candidate);
+                }
+            }
+        }
+        return new Resolution(chosen == null
+                ? new File(new File(baseFileName).getParentFile(), journalName).toPath()
+                : chosen, superseded);
+    }
+
+    /**
+     * Search-index journal settlement: moves the replayed file into the same-dir
+     * sibling position, drops any superseded twin.
+     *
+     * @param replayedFile the journal actually replayed
+     * @param superseded   the lower-priority journals
+     * @param baseFileName the path of the search-index's base file
+     * @return the canonical same-dir journal path for all future I/O
+     */
+    public static Path searchIndexJournalSettleAfterReplay(final Path replayedFile,
+                                                            final java.util.List<Path> superseded,
+                                                            final String baseFileName)
+            throws java.io.IOException {
+        final File base = new File(baseFileName);
+        final Path target = new File(base.getParentFile(),
+                stripFormatExtension(base.getName()) + JOURNAL_SUFFIX).toPath();
+        if (!replayedFile.equals(target)) {
+            java.nio.file.Files.move(replayedFile, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            log.info("search-index journal migrated to same dir: {} -> {}", replayedFile, target);
+        }
+        for (final Path stale : superseded) {
+            if (stale.equals(replayedFile)) {
+                continue;
+            }
+            java.nio.file.Files.delete(stale);
+            log.warn("superseded search-index journal naming removed for {}: {} ({} wins)",
+                    baseFileName, stale, replayedFile);
+        }
+        return target;
+    }
+
     /** One durable redo/compensation record waiting to be appended. */
     public static final class Record {
         /** The commit serial of the owning commit (0 for compensation records). */

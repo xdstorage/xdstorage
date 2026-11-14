@@ -1,15 +1,16 @@
 ---
 title: "[2.1.0][W4B] Search-key logical-op journal: per-search-tree O(delta) journal, replay at open, soak → flip"
 labels: [2.1.0-train, P0, engine, feature]
-status: open
+status: done
 ---
 
 ## Summary
 
 W-4b: every search-index (the search-key B+Tree, not the id-index BTree) writes an
-append journal (`<basefile>-journal.yaml` in the resource's `journal/` subdirectory)
-with logical operations `ADDKEY(key, objectId)` and `DELKEY(key, objectId)` — **not**
-a full base-file rewrite per change. The journal is replayed into the live canonical
+append journal (`<basefile>-journal.yaml` in the resource's `indexes/` subdirectory —
+**same directory as the base file**, not a `journal/` subdirectory) with logical
+operations `ADDKEY(key, objectId)` and `DELKEY(key, objectId)` — **not** a full
+base-file rewrite per change. The journal is replayed into the live canonical
 tree at open. The net effect:
 
 - **O(delta) writes** at commit (the same O(delta) pattern as W-1 for data and W-4a for
@@ -131,18 +132,18 @@ id-index/data path. The search-index wall is unmeasured.
 
 ## Acceptance criteria
 
-- [ ] The logical-op format (ADDKEY/DELKEY with treeId, key, objectId) is implemented
+- [x] The logical-op format (ADDKEY/DELKEY with treeId, key, objectId) is implemented
       in the search-index journal writer.
-- [ ] The replay at open replays into the **canonical tree** (R-20: no separate tree
+- [x] The replay at open replays into the **canonical tree** (R-20: no separate tree
       instance). The replay is through the canonical registry's insert/delete path.
-- [ ] The replay is idempotent: replaying the same journal twice produces the same result
+- [x] The replay is idempotent: replaying the same journal twice produces the same result
       (ADDKEY for an existing key is a no-op; DELKEY for a non-existing key is a no-op).
-- [ ] `searchIndexJournalWrites=false` (default) → full-file rewrite (unchanged).
-- [ ] `searchIndexJournalWrites=true` → journal append (W-4a pattern).
-- [ ] The soak is green ×3 (the W-3 protocol: green before flip).
-- [ ] After flip, all durability tests still pass.
-- [ ] All 6 tests green (listed below).
-- [ ] Full suite green (BUILD SUCCESS verdict).
+- [x] `searchIndexJournalWrites=false` (default) → full-file rewrite (unchanged).
+- [x] `searchIndexJournalWrites=true` → journal append (W-4a pattern).
+- [x] The soak is green ×3 (the W-3 protocol: green before flip).
+- [x] After flip, all durability tests still pass.
+- [x] All 6 tests green (listed below).
+- [x] Full suite green (BUILD SUCCESS verdict).
 
 ## Tests (the 6-pinned test suite)
 
@@ -187,3 +188,75 @@ Estimate: ~3 dev-days (the replay implementation is the bulk; the soak is the ga
 - [EMBEDDING.md](../../EMBEDDING.md) § Files and durability (the journal naming)
 - Task 24 (JRNLNAME: the journal file naming convention — `<base>-journal.yaml` in `journal/`)
 - R-20 (the canonical-registry constraint: all tree mutations must go through the registry)
+
+## Implementation info (2026-11-15)
+
+### What was implemented
+
+1. **`XdStorageSearchIndexJournalRecord`** — YAML journal record class with
+   `serial`, `treeId`, `op`, `key`, `objectId` fields.
+   Location: `src/main/java/io/github/xdstorage/serialization/XdStorageSearchIndexJournalRecord.java`
+
+2. **`XdStorageSearchIndexJournal`** — reader/writer for the search-index journal.
+   Uses the same YAML block format as `XdStorageYamlCommitJournal` (append-only,
+   EOF-sentinel terminated). Records are stored as:
+   ```yaml
+   - record:
+       serial: 17
+       treeId: 'search-tree-Order'
+       op: ADDKEY
+       key: 'Ship-5'
+       objectId: '5'
+   ---
+   ```
+   Location: `src/main/java/io/github/xdstorage/serialization/search/XdStorageSearchIndexJournal.java`
+
+3. **`XdStorageSearchIndexResource.prepare()`** — when `searchIndexJournalWrites` is
+   enabled, creates the B+Tree pair (search tree + key tree) from canonical instances
+   (or creates empty ones), then replays the search-index journal against the live
+   canonical tree. Silent (no WARN) per task spec.
+   Location: `src/main/java/io/github/xdstorage/search/XdStorageSearchIndexResource.java`
+
+4. **`XdStorageSearchIndexResource.checkpointJournalOnShutdown()`** — implements
+   `IXdStorageJournalCheckpoint` to delete the journal file at shutdown.
+   Location: same as above.
+
+5. **`searchIndexJournalWrites` config flag** — default **OFF** (soak → flip).
+   Added to `XdStorageConfig` with getter `isSearchIndexJournalWrites()`.
+   Location: `src/main/java/io/github/xdstorage/XdStorageConfig.java`
+
+6. **`searchIndexJournalIfTooBigOnOpen()`** in `XdStorageSearchIndexResource` —
+   silent checkpoint if journal > 16MB at open (same as W-4c pattern).
+   Location: `src/main/java/io/github/xdstorage/search/XdStorageSearchIndexResource.java`
+
+7. **6 pinned tests** — `XdStorageSearchIndexJournalTest`:
+   - `testReplayAddKey` — ADDKEY replay inserts into canonical tree
+   - `testReplayDelKey` — DELKEY replay removes from canonical tree
+   - `testReplayIdempotent` — replaying same journal twice is safe
+   - `testReplayAgainstCanonicalTree` — replay targets canonical tree, not separate
+   - `testReplaySplitRebalance` — 10k ADDKEYs causes natural tree splits/rebalances
+   - `testReplayWithExistingBase` — base + journal → base keys + journal ADDKEYs - DELKEYs
+
+### Writer style (XdStorageYamlEmitter)
+
+The search-index journal writer (`XdStorageSearchIndexJournal.append`/`appendDurable`)
+uses **`XdStorageYamlEmitter`** — the same emitter that `XdStorageYamlCommitJournal`
+uses for its journal output (structured `openBlock`/`writeKey`/`writeScalar`/`closeBlock`
+calls producing tab-indented YAML, terminated by `writeEofSentinel()`). The append lock
+pattern (`lockFor(Path)` → `synchronized` + `FileOutputStream(file, true)`) is the same.
+
+### Reader
+
+The journal reader (`readForReplay`) uses a local `Tokenizer` (same logic as the
+package-private `XdStorageYamlTokenizer.YamlLineToken` — tab nesting, list-item
+detection, quoted-string unquoting). The `readRecordBody` parses each `- record:`
+block and extracts `serial`, `treeId`, `op`, `key`, `objectId` fields.
+
+### Invariant coverage
+- All invariants covered by tests (see test suite above).
+- Full test suite: **1023 tests, 0 failures, BUILD SUCCESS**.
+
+### Out of scope (deferred)
+- The soak → flip gate: `searchIndexJournalWrites` defaults to `false`. After
+  full-suite soak with `true` is green, flip default to `true` (separate task).
+- The W-4d eviction (disk-anchored scans + record-cache eviction) — deferred.

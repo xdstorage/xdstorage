@@ -40,6 +40,7 @@ public final class XdStorageConfig {
     private final XdStorageIsolationLevel isolationLevel;
     private final boolean journalWrites;
     private final boolean indexJournalWrites;
+    private final boolean searchIndexJournalWrites;
     private final long journalCheckpointBytes;
     private final long txMaterializedObjectsCap;
     private final boolean enableForeignKeys;
@@ -54,6 +55,7 @@ public final class XdStorageConfig {
         this.isolationLevel = builder.isolationLevel;
         this.journalWrites = builder.journalWrites;
         this.indexJournalWrites = builder.indexJournalWrites;
+        this.searchIndexJournalWrites = builder.searchIndexJournalWrites;
         this.journalCheckpointBytes = builder.journalCheckpointBytes;
         this.txMaterializedObjectsCap = builder.txMaterializedObjectsCap;
         this.enableForeignKeys = builder.enableForeignKeys;
@@ -140,6 +142,15 @@ public final class XdStorageConfig {
         return indexJournalWrites;
     }
 
+    /** W-4b (docs/tasks/2.1.0/49): append-only commit journal for the search-index
+     * (per-search-tree O(delta) journal, replay at open). Default OFF → soak → flip.
+     *
+     * @return whether the search-index commits append to a journal (replayed at open)
+     */
+    public boolean isSearchIndexJournalWrites() {
+        return searchIndexJournalWrites;
+    }
+
     /** Journal size above which a checkpoint (full base rewrite + journal reset) runs after a commit.
      *
      * @return the checkpoint threshold in bytes (default 16 MB)
@@ -180,6 +191,7 @@ public final class XdStorageConfig {
         private XdStorageIsolationLevel isolationLevel = XdStorageIsolationLevel.SNAPSHOT;
         private boolean journalWrites = true;   // W-3: journal is the default write path
         private boolean indexJournalWrites = true;   // W-4a: index journaling is the default write path (task 32; green soak 808/0, the W-3 flip protocol)
+        private boolean searchIndexJournalWrites = false;   // W-4b: search-index journal OFF by default — soak → flip (task 49)
         private long journalCheckpointBytes = 16L * 1024 * 1024;
         private long txMaterializedObjectsCap = 0;
         private boolean enableForeignKeys = true;
@@ -280,6 +292,17 @@ public final class XdStorageConfig {
          */
         public Builder indexJournalWrites(final boolean value) {
             this.indexJournalWrites = value;
+            return this;
+        }
+
+        /** W-4b: journal the search-index resource (docs/tasks/2.1.0/49).
+         * Default OFF → soak → flip (task 49).
+         *
+         * @param value {@code true} to enable (default OFF)
+         * @return this builder, for call chaining
+         */
+        public Builder searchIndexJournalWrites(final boolean value) {
+            this.searchIndexJournalWrites = value;
             return this;
         }
 
