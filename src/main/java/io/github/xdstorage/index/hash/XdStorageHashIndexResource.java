@@ -472,6 +472,9 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
                 log.debug("index resource {} replayed commit journal: {} upsert(s), {} delete(s), {} discarded tail record(s)",
                         getFileName(), replay.upserts.size(), replay.deletes.size(), replay.discardedTailRecords);
             }
+            // W-4c (docs/tasks/2.1.0/48): open-time guard for index journals — silently
+            // checkpoint if too big after replay
+            checkpointIndexJournalIfTooBigOnOpen();
             // JRNLNAME: a replayed older-named index journal migrates into the journal directory;
             // superseded twins (both-present anomaly) are removed — after a clean replay
             indexJournalFile = io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.settleAfterReplay(
@@ -496,6 +499,53 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
         } catch (final Throwable e) {
             log.warn("index journal {} could not be reset after checkpoint (safe: replay is idempotent): {}",
                     indexJournalFile, e.getMessage());
+        }
+    }
+
+    /**
+     * W-4c (docs/tasks/2.1.0/48): open-time guard — silently checkpoints the index journal
+     * if it exceeds the threshold after replay. No WARN per task spec.
+     */
+    private void checkpointIndexJournalIfTooBigOnOpen() {
+        if (!indexJournal || indexJournalFile == null) {
+            return;
+        }
+        final long threshold = services.getStorageConfig().getJournalCheckpointBytes();
+        if (io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.sizeOf(indexJournalFile) <= threshold) {
+            return;
+        }
+        log.debug("index resource {} open-time guard: journal {} bytes > {} threshold — silent checkpoint",
+                getFileName(), io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.sizeOf(indexJournalFile), threshold);
+        try {
+            boolean locked = false;
+            try {
+                locked = lock.tryLock(200, java.util.concurrent.TimeUnit.MILLISECONDS);
+            } catch (final InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            if (!locked) {
+                return;
+            }
+            try {
+                synchronized (io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.lockFor(indexJournalFile)) {
+                    if (io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.sizeOf(indexJournalFile) <= threshold) {
+                        return;
+                    }
+                    writeObjects(cache.readCommittedForCheckpoint());
+                    io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.reset(indexJournalFile);
+                }
+            } catch (final Throwable e) {
+                log.warn("index resource {} open-time guard checkpoint failed (safe: journal replays at next open): {}",
+                        getFileName(), e.getMessage());
+            } finally {
+                if (((ReentrantLock) lock).isHeldByCurrentThread()) {
+                    lock.unlock();
+                }
+            }
+        } catch (final Throwable e) {
+            log.warn("index resource {} open-time guard checkpoint failed (safe: journal replays at next open): {}",
+                    getFileName(), e.getMessage());
         }
     }
 

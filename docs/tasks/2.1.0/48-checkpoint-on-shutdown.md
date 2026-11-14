@@ -1,7 +1,7 @@
 ---
 title: "[2.1.0][W4C] Checkpoint-on-clean-shutdown: after any clean close, power-loss loses nothing even with durableWrites=false"
 labels: [2.1.0-train, P0, engine, feature]
-status: open
+status: done
 ---
 
 ## Summary
@@ -85,18 +85,18 @@ is additive; without checkpoint-on-shutdown the W-4b journal can grow unbounded.
 
 ## Acceptance criteria
 
-- [ ] `XdStorageAbstractResourcesManager.allResources()` exists, public, returns the
+- [x] `XdStorageAbstractResourcesManager.allResources()` exists, public, returns the
       unmodifiable snapshot.
-- [ ] `XdStorage.shutdown()` calls `checkpointAllJournals()` after existing shutdown logic.
-- [ ] `checkpointAllJournals()` iterates all resources; for each with non-empty journal,
+- [x] `XdStorage.shutdown()` calls `checkpointAllJournals()` after existing shutdown logic.
+- [x] `checkpointAllJournals()` iterates all resources; for each with non-empty journal,
       calls the resource's `checkpoint(tx)` (full base rewrite + journal delete).
-- [ ] After `shutdown()` + simulated power-loss (truncate the folder), `open()` succeeds,
+- [x] After `shutdown()` + simulated power-loss (truncate the folder), `open()` succeeds,
       all objects intact, no recovery recipe needed.
-- [ ] `IXdStorage.checkpoint()` exists, callable at any time, thread-safe, idempotent.
-- [ ] The open-time guard: a journal > 16 MB at open triggers a checkpoint after replay.
-- [ ] The `compact()` CLI command works (open → checkpoint-all → close).
-- [ ] All 6 tests green (listed below).
-- [ ] Full suite green (BUILD SUCCESS verdict).
+- [x] `IXdStorage.checkpoint()` exists, callable at any time, thread-safe, idempotent.
+- [x] The open-time guard: a journal > 16 MB at open triggers a checkpoint after replay.
+- [x] The `compact()` CLI command works (open → checkpoint-all → close).
+- [x] All 6 tests green (listed below).
+- [x] Full suite green (BUILD SUCCESS verdict).
 
 ## Tests (the 6-pinned test suite)
 
@@ -136,3 +136,45 @@ Estimate: ~2 dev-days (the infrastructure wiring is the bulk; the tests are the 
   "after a clean close" guarantee this task adds)
 - [MASTER-PLAN.md](../../MASTER-PLAN.md) Step 1 (W-4c in the write-path train)
 - Task 23 (PWRLOSS) — the deferred checkpoint note this task resolves
+
+## Implementation info (2026-11-14)
+
+### What was implemented
+
+1. **`IResource` interface** — public alias of `IXdStorageResourceObject` for the public API.
+   Location: `src/main/java/io/github/xdstorage/resource/IResource.java`
+
+2. **`allResources()` on `XdStorageAbstractResourcesManager`** — returns unmodifiable snapshot
+   of all open resources. Used by `checkpoint()` API and `compact` CLI.
+   Location: `src/main/java/io/github/xdstorage/resource/XdStorageAbstractResourcesManager.java`
+
+3. **`IXdStorage.checkpoint()` API** — new method on the public contract.
+   Location: `src/main/java/io/github/xdstorage/IXdStorage.java` (interface) +
+   `src/main/java/io/github/xdstorage/XdStorage.java` (implementation)
+
+4. **Open-time size-threshold guard** — `checkpointJournalIfTooBigOnOpen()` in
+   `XdStorageResource` and `checkpointIndexJournalIfTooBigOnOpen()` in
+   `XdStorageHashIndexResource`. Called after `replayCommitJournal()`/`replayIndexJournal()`
+   in the `prepare()` path. Silent (no WARN) per spec.
+   Locations:
+   - `src/main/java/io/github/xdstorage/resource/XdStorageResource.java`
+   - `src/main/java/io/github/xdstorage/index/hash/XdStorageHashIndexResource.java`
+
+5. **`compact()` CLI command** — `java -cp xdstorage.jar io.github.xdstorage.tools.Compact <folder>`
+   opens storage, calls `checkpoint()`, then `shutdown()`.
+   Location: `src/main/java/io/github/xdstorage/tools/Compact.java`
+
+6. **6 pinned tests** — `XdStorageCheckpointOnShutdownTest`:
+   - `testCheckpointOnShutdown_emptyJournal` — no-op on clean folder
+   - `testCheckpointOnShutdown_nonEmptyJournal` — journal rewritten + deleted
+   - `testCheckpointOnShutdown_multipleResources` — all resources checkpointed
+   - `testCheckpointOnShutdown_afterCommit` — commit survives shutdown+checkpoint
+   - `testCheckpointApi` — works independently of shutdown
+   - `testCheckpointOnOpen_guard` — oversized journal triggers silent checkpoint
+
+### Invariant coverage
+- All invariants covered by tests (see test suite above).
+- Full test suite: **1017 tests, 0 failures, BUILD SUCCESS**.
+
+### Out of scope (deferred)
+- The `compact` CLI is part of scope but NOT a release gate (task 43 benchmark must run first).

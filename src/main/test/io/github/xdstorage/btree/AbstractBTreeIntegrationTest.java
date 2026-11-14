@@ -99,6 +99,7 @@ public abstract class AbstractBTreeIntegrationTest {
             @Override public void delete(Collection<?> r, IXdStorageTransaction tx) {}
             @Override public io.github.xdstorage.transaction.IXdStorageTransactionManager getTransactionManager() { return null; }
             @Override public void shutdown() {}
+            @Override public void checkpoint() {}
         };
 
         // Живая транзакция для прохождения таймстамп-контроля и лимитов блокировок

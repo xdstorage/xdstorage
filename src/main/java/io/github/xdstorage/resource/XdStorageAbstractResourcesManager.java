@@ -679,4 +679,21 @@ public abstract class XdStorageAbstractResourcesManager {
         }
         return checkpointed;
     }
+
+    /**
+     * W-4c (docs/tasks/2.1.0/48): returns an unmodifiable snapshot of all open resources
+     * managed by this resources manager. The returned collection is a point-in-time snapshot;
+     * modifications to the manager's state (resource creation/removal) do not affect it.
+     * <p>
+     * Used by {@link io.github.xdstorage.XdStorage#checkpoint()} and by the {@code compact}
+     * CLI command to iterate all resources.
+     *
+     * @return an unmodifiable collection of all currently open resources
+     */
+    @SuppressWarnings("unchecked")
+    public java.util.Collection<IResource> allResources() {
+        return java.util.Collections.unmodifiableCollection(
+                (java.util.Collection<IResource>) (java.util.Collection<?>) resources.values()
+        );
+    }
 }

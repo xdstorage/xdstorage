@@ -863,6 +863,7 @@ public class XdStorageBTreeTest {
             }
 
             @Override public void shutdown() {}
+            @Override public void checkpoint() {}
         };
 
         // Настраиваем дерево на поддержку дубликатов (multiple = true)

@@ -175,4 +175,9 @@ public class MockStorage implements IXdStorage {
     public void shutdown() {
 
     }
+
+    @Override
+    public void checkpoint() {
+
+    }
 }

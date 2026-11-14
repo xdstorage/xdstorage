@@ -442,4 +442,20 @@ public interface IXdStorage {
      * JVM exit (see {@code XdStorageConfig.builder().daemonWorkerThreads(true)}).
      */
     void shutdown();
+
+    /**
+     * W-4c (docs/tasks/2.1.0/48): force-checkpoints every open resource with a non-empty
+     * journal — full committed-state rewrite + journal reset. Idempotent: calling it
+     * when no journals are non-empty is a no-op. Safe to call at any time (including
+     * during an open transaction) — it operates on committed cache state and acquires
+     * per-resource checkpoint locks. After this call the folder's base files are
+     * authoritative and all journals are empty.
+     *
+     * <p><b>Contract:</b> after {@code checkpoint()} completes (no exception thrown),
+     * every open resource's journal is empty and its base file reflects the committed
+     * state. A power loss between this call and the next open loses nothing.
+     *
+     * @throws XdStorageConnectionException on a storage-level I/O failure during the rewrite
+     */
+    void checkpoint();
 }

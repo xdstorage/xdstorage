@@ -374,6 +374,9 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
                 log.debug("resource {} replayed commit journal: {} upsert(s), {} delete(s), {} discarded tail record(s)",
                         getFileName(), replay.upserts.size(), replay.deletes.size(), replay.discardedTailRecords);
             }
+            // W-4c (docs/tasks/2.1.0/48): open-time guard — if the journal is too big after
+            // replay, checkpoint silently (no WARN) to keep the folder clean
+            checkpointJournalIfTooBigOnOpen();
             // JRNLNAME: a replayed older-named journal migrates into the journal directory;
             // superseded twins (both-present anomaly) are removed — after a clean replay
             journalFile = io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.settleAfterReplay(
@@ -435,6 +438,36 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
             // безвредно: база уже содержит все закоммиченное; повтор реплея поверх нее идемпотентен
             log.warn("commit journal {} could not be reset after checkpoint (safe: replay is idempotent): {}",
                     journalFile, e.getMessage());
+        }
+    }
+
+    /**
+     * W-4c (docs/tasks/2.1.0/48): open-time guard — silently checkpoints the journal if
+     * it exceeds the threshold after replay. Unlike {@link #checkpointIfJournalTooBig}
+     * this does NOT log an INFO/WARN (it is an automatic, silent cleanup at open).
+     */
+    private void checkpointJournalIfTooBigOnOpen() {
+        if (!journalWrites || journalFile == null) {
+            return;
+        }
+        final long threshold = services.getStorageConfig().getJournalCheckpointBytes();
+        if (io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.sizeOf(journalFile) <= threshold) {
+            return;
+        }
+        log.debug("resource {} open-time guard: journal {} bytes > {} threshold — silent checkpoint",
+                getFileName(), io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.sizeOf(journalFile), threshold);
+        // checkpoint silently (no WARN per task spec)
+        try {
+            synchronized (io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.lockFor(journalFile)) {
+                if (io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.sizeOf(journalFile) <= threshold) {
+                    return;
+                }
+                writeObjects(cache.readCommittedForCheckpoint());
+                io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.reset(journalFile);
+            }
+        } catch (final Throwable e) {
+            log.warn("resource {} open-time guard checkpoint failed (safe: journal replays at next open): {}",
+                    getFileName(), e.getMessage());
         }
     }
 

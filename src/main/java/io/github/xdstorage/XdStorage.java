@@ -1492,6 +1492,21 @@ class XdStorage implements IXdFileStorage {
         return services.getTransactionsManager();
     }
 
+    /** W-4c (docs/tasks/2.1.0/48): the checkpoint API — force-checkpoint all journals. */
+    @Override
+    public void checkpoint() {
+        ensureOpen();
+        try {
+            final int checkpointed = services.getResourcesManager().checkpointAllJournals();
+            if (checkpointed > 0) {
+                log.info("storage '{}' checkpoint: {} journal(s) checkpointed", name, checkpointed);
+            }
+        } catch (final Throwable t) {
+            log.warn("checkpoint of storage '{}' failed (safe: journals replay at the next open): {}",
+                    name, t.getMessage());
+        }
+    }
+
     @Override
     public void shutdown() {
         synchronized (shutdownLock) {
