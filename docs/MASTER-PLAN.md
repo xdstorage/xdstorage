@@ -14,7 +14,7 @@ explicitly to 2.2.0**. Detailed journals stay authoritative per scope:
 | [PERFORMANCE-RECOMMENDATIONS.md](PERFORMANCE-RECOMMENDATIONS.md) | Config study (2nd ed, post-R-53) | Recommendations APPLIED (t=64, frag=128); §5.3 **CLOSED** (2.1.0 B2: verified 0.6–0.7 ms/op flat, BENCHMARKS addendum) |
 | [ARCHITECT-EVALUATION.md](ARCHITECT-EVALUATION.md) | Outside-architect review, competitive comparison, FP-0..FP-12 feature plan | Adopted; FP-0..FP-12 tracked here as Track F |
 | [ANALYSIS-ARCHITECTURE.md](ANALYSIS-ARCHITECTURE.md) | The full engine specification (architecture, modules, transaction model, indexes, serialization, FK, migration, codegen, cache) | Current; maintained alongside the code |
-| [PRODUCT_REVIEW.md](PRODUCT_REVIEW.md) | External product review (the evaluator's perspective: positives, gaps, the agent-integration direction, adoption criteria) | Adopted: tasks 15-18 compiled from its §4 asks |
+| [docs/PRODUCT_REVIEW.md](PRODUCT_REVIEW.md) | External product review (the evaluator's perspective: positives, gaps, the agent-integration direction, adoption criteria) | Adopted: tasks 15-18 compiled from its §4 asks |
 | [BENCHMARKS.md](BENCHMARKS.md) / [FLAKY.md](FLAKY.md) | Baselines / flake ledger | Current; **one open row** (BTreeStress contention → B3) |
 
 **Verified state (2026-10-21, post-release):** **2.0.0 is PUBLISHED on Maven Central**

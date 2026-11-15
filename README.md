@@ -204,6 +204,8 @@ Notes:
 | [docs/GUIDE.md](docs/GUIDE.md) | the full reference manual (all sections above) |
 | [docs/ANALYSIS-ARCHITECTURE.md](docs/ANALYSIS-ARCHITECTURE.md) | the full engine specification: architecture, modules, transaction model, indexes, serialization, FK, migration, codegen, the MVCC cache |
 | [docs/PRODUCT_REVIEW.md](docs/PRODUCT_REVIEW.md) | an external product review: the evaluator's positives, gaps, and the adoption criteria |
+| [docs/ANALYSIS-ARCHITECTURE.md](docs/ANALYSIS-ARCHITECTURE.md) | the full engine specification: architecture, modules, transaction model, indexes, serialization, FK, migration, codegen, the MVCC cache |
+| [docs/PRODUCT_REVIEW.md](docs/PRODUCT_REVIEW.md) | an external product review: the evaluator's positives, gaps, and the adoption criteria |
 | [docs/DECISION-GUIDE.md](docs/DECISION-GUIDE.md) | the competitive comparison, the design point, the honest limits |
 | [docs/EMBEDDING.md](docs/EMBEDDING.md) | the operational contract: lifecycle, threads, codegen, durability, compatibility |
 | [docs/BENCHMARKS.md](docs/BENCHMARKS.md) | the JMH methodology and the canonical baseline, with run manifests |
