@@ -100,6 +100,8 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
         if (config != null && config.getIsolationLevel() != null) {
             this.isolationLevel = config.getIsolationLevel();
         }
+        // FNKEY: wire FK engine into 2PC protocol
+        this.commitProtocol.setForeignKeyEngine(services.getForeignKeyEngine());
     }
 
     private IXdStorageCacheInternalListener internalListener =

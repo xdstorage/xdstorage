@@ -236,8 +236,8 @@ public class XdStorageMassFillAndCleanFirstStressTest {
                                     // Вычищаем подчиненные спутники, если они есть
                                     storage.delete(planetRef, cleanTx);
                                 }
-                                storage.delete(systemRef, cleanTx);
                             }
+                            storage.delete(systemRef, cleanTx);
                         }
                         storage.delete(galaxy, cleanTx);
                     } catch (Exception e) {

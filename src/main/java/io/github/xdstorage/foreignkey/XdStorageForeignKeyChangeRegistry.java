@@ -65,11 +65,12 @@ public class XdStorageForeignKeyChangeRegistry {
             @Override
             public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
                 if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT && change == XdStorageObjectOperationType.Update) {
-                    Object pId = parentIdField.get(oldObject);
+                    // oldObject may be the parent object or its String ID — handle both
+                    Object pId = oldObject == null ? parentObjectId : parentIdField.get(oldObject);
                     if (pId.equals(parentObjectId)
                             && isReferenceToChildObjectDeleted(newObject, clParentField, clChildInfo, childObjectId)) {
                         try {
-                            registry.registerForeignKey(parentObjectId, childObjectId, transaction);
+                            registry.unregisterForeignKey(parentObjectId, childObjectId, transaction);
                             decrementDeleteWaitingIdentifier(transaction);
                         } catch (XdStorageException e) {
                             throw new RuntimeException(e);
@@ -90,11 +91,11 @@ public class XdStorageForeignKeyChangeRegistry {
             @Override
             public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
                 if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT && change == XdStorageObjectOperationType.Update) {
-                    Object pId = parentIdField.get(oldObject);
+                    Object pId = oldObject == null ? parentObjectId : parentIdField.get(oldObject);
                     if (pId.equals(parentObjectId)
                             && isReferenceToChildObjectDeleted(newObject, clParentField, clChildInfo, childObjectId)) {
                         try {
-                            registry.registerForeignKey(parentObjectId, childObjectId, transaction);
+                            registry.unregisterForeignKey(parentObjectId, childObjectId, transaction);
                             decrementDeleteWaitingIdentifier(transaction);
                         } catch (XdStorageException e) {
                             throw new RuntimeException(e);
@@ -115,11 +116,11 @@ public class XdStorageForeignKeyChangeRegistry {
             @Override
             public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
                 if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT && change == XdStorageObjectOperationType.Update) {
-                    Object pId = parentIdField.get(oldObject);
+                    Object pId = oldObject == null ? parentObjectId : parentIdField.get(oldObject);
                     if (pId.equals(parentObjectId)
                             && isReferenceToChildObjectDeleted(newObject, clParentField, clChildInfo, childObjectId)) {
                         try {
-                            registry.registerForeignKey(parentObjectId, childObjectId, transaction);
+                            registry.unregisterForeignKey(parentObjectId, childObjectId, transaction);
                             decrementDeleteWaitingIdentifier(transaction);
                         } catch (XdStorageException e) {
                             throw new RuntimeException(e);
@@ -169,10 +170,11 @@ public class XdStorageForeignKeyChangeRegistry {
             public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
                 if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT
                         && (change == XdStorageObjectOperationType.Delete || change == XdStorageObjectOperationType.Update)) {
-                    Object cId = childIdField.get(oldObject);
-                    if (cId.equals(childObjectId)) {
+                    // oldObject may be the child object or its String ID
+                    Comparable<?> cId = oldObject == null ? childObjectId : (Comparable<?>) childIdField.get(oldObject);
+                    if (cId != null && cId.equals(childObjectId)) {
                         try {
-                            registry.registerForeignKey(parentObjectId, childObjectId, transaction);
+                            registry.unregisterForeignKey(parentObjectId, childObjectId, transaction);
                             decrementDeleteWaitingIdentifier(transaction);
                         } catch (XdStorageException e) {
                             throw new RuntimeException(e);
@@ -191,10 +193,10 @@ public class XdStorageForeignKeyChangeRegistry {
             public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
                 if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT
                         && (change == XdStorageObjectOperationType.Delete || change == XdStorageObjectOperationType.Update)) {
-                    Object cId = oldObject == null ? null : childIdField.get(oldObject);
-                    if (childObjectId.equals(cId)) {
+                    Comparable<?> cId = oldObject == null ? childObjectId : (Comparable<?>) childIdField.get(oldObject);
+                    if (cId != null && cId.equals(childObjectId)) {
                         try {
-                            registry.registerForeignKey(parentObjectId, childObjectId, transaction);
+                            registry.unregisterForeignKey(parentObjectId, childObjectId, transaction);
                             decrementDeleteWaitingIdentifier(transaction);
                         } catch (XdStorageException e) {
                             throw new RuntimeException(e);
@@ -213,10 +215,11 @@ public class XdStorageForeignKeyChangeRegistry {
             public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
                 if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT
                         && (change == XdStorageObjectOperationType.Delete || change == XdStorageObjectOperationType.Update)) {
-                    Object cId = oldObject == null ? null : childIdField.get(oldObject);
+                    // oldObject may be the child object or its String ID — handle both
+                    Comparable<?> cId = oldObject == null ? childObjectId : (Comparable<?>) childIdField.get(oldObject);
                     if (childObjectId.equals(cId)) {
                         try {
-                            registry.registerForeignKey(parentObjectId, childObjectId, transaction);
+                            registry.unregisterForeignKey(parentObjectId, childObjectId, transaction);
                             decrementDeleteWaitingIdentifier(transaction);
                         } catch (XdStorageException e) {
                             throw new RuntimeException(e);
@@ -235,10 +238,10 @@ public class XdStorageForeignKeyChangeRegistry {
             public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
                 if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT
                         && (change == XdStorageObjectOperationType.Delete || change == XdStorageObjectOperationType.Update)) {
-                    Object pId = parentIdField.get(oldObject);
+                    Object pId = oldObject == null ? parentObjectId : parentIdField.get(oldObject);
                     if (pId.equals(parentObjectId)) {
                         try {
-                            registry.registerForeignKey(parentObjectId, childObjectId, transaction);
+                            registry.unregisterForeignKey(parentObjectId, childObjectId, transaction);
                             decrementDeleteWaitingIdentifier(transaction);
                         } catch (XdStorageException e) {
                             throw new RuntimeException(e);

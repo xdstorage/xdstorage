@@ -188,6 +188,15 @@ public class XdStorageSmartCloner implements IXdStorageCloner {
             lockable.lock__();
             try {
                 fillAndWrapForOneLevel(reference, object, storage, transaction);
+                // RECIDENT (the ClearLink family, docs/analysis/FOREIGN_KEY_REDESIGN.md
+                // integration): a fully populated reference is NO LONGER a bare stub — the
+                // reference mark must flip here exactly like the infrastructure branch
+                // does. Left true, the memoized wrapper stays "unpacked" and ANY later
+                // cloneAndWrap re-packs the stored state over the caller's mutations:
+                // proven by the FKDIAG hop traces, the update-window resource.read
+                // resurrected setParent(null) from the record, the staged child still
+                // claimed the parent, and the ClearLink commit vetoed.
+                lockable.setReference__(false);
             } catch (Exception e) {
                 throw new XdStorageException("cannot clone and wrap object", e);
             } finally {

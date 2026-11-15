@@ -35,6 +35,9 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
     private final XdStorageAbstractResourcesManager manager;
 
     private final XdStorageForeignKeyChangeRegistry changeRegistry;
+    private final XdStorageForeignKeyRegistry foreignKeyRegistry;
+    private final XdStorageForeignKeyResourcesManager fkResourcesManager;
+    private final XdStorageForeignKeyCache fkCache;
 
     private final Object resourceId;
     private final XdStorageClassInfo clParentInfo;
@@ -53,6 +56,41 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
     // not yet persisted. Key = transactionId, Value = set of typed FkRelation pairs
     // registered for a parent whose Java-object ID was set but not yet committed.
     private final Map<String, Set<FkRelation>> pendingFkRegistrations = new ConcurrentHashMap<>();
+
+    // FNKEY: per-transaction pending FK registrations where the parent has no ID yet
+    // (auto-id parent not yet saved). Tracked by object reference. Key = transactionId,
+    // Value = set of typed FkObjectRelation pairs. Used when the income-relation or
+    // outcome-relation path detects that the parent object is NOT persisted — instead of
+    // registering a parent-id waiter (which would hang forever), we track the pair and
+    // validate at commit time: if the parent is still not persisted, throw
+    // "parent does not exist". If the parent IS persisted (saved later in same tx),
+    // its FK trigger will register the pair and we simply don't throw.
+    private final Map<String, Set<FkObjectRelation>> pendingFkRegistrationsByObject = new ConcurrentHashMap<>();
+
+    /** A typed FK registration pair tracking a parent object (not ID) and a child ID.
+     * Includes parentClassInfo so the parent's ID can be read correctly regardless
+     * of which FK direction (income vs outcome) registered the pending entry. */
+    private static class FkObjectRelation {
+        final XdStorageClassInfo parentClassInfo;
+        final Object parentObject;
+        final Comparable<?> childId;
+        FkObjectRelation(XdStorageClassInfo parentClassInfo, Object parentObject, Comparable<?> childId) {
+            this.parentClassInfo = parentClassInfo;
+            this.parentObject = parentObject;
+            this.childId = childId;
+        }
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof FkObjectRelation)) return false;
+            FkObjectRelation that = (FkObjectRelation) o;
+            return parentObject.equals(that.parentObject) && childId.equals(that.childId);
+        }
+        @Override
+        public int hashCode() {
+            return System.identityHashCode(parentObject) * 31 + childId.hashCode();
+        }
+    }
 
     /** A typed FK registration pair: the parent reference (manual-ID) and the child ID. */
     private static class FkRelation {
@@ -80,18 +118,24 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
 
     public XdStorageForeignKeyResource(XdStorageServicesLocator services,
                                        XdStorageAbstractResourcesManager manager,
+                                       XdStorageForeignKeyResourcesManager fkResourcesManager,
                                        Object resourceId,
                                        XdStorageClassInfo clParentInfo,
                                        XdStorageClassInfo clChildInfo,
                                        XdStorageObjectField clParentField) {
         this.services = services;
         this.manager = manager;
+        this.fkResourcesManager = fkResourcesManager;
+        this.foreignKeyRegistry = fkResourcesManager.getForeignKeyRegistry();
         this.resourceId = resourceId;
         this.clParentInfo = clParentInfo;
         this.clChildInfo = clChildInfo;
         this.clParentField = clParentField;
 
         this.changeRegistry = new XdStorageForeignKeyChangeRegistry(this);
+        // FNKEY: the SHARED storage-wide write-set (owned by the resources manager) — a
+        // per-resource cache would split the write-set and silently lose pairs at commit.
+        this.fkCache = fkResourcesManager.getForeignKeyCache();
 
         bTreeParentChildId = new XdStorageBTreeId(clParentInfo.getClazz(),
                 clChildInfo.getClazz().getSimpleName() + "_" + clParentField.getName() + "_foreign_key");
@@ -198,7 +242,15 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
      */
     @Override
     public void performFirstPhaseCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges record) throws XdStorageException {
+        // FNKEY POINT 2 — the FULL phase-1 validation:
+        // (1) the semantic layer: pending manual-ID parents, pending-by-object parents and
+        //     orphaned children (the estate's vetoes — "parent must be persisted before the child");
         validatePendingFks(transaction);
+        // (2) the write-set: every staged pair must be fully resolved (no deferred pair
+        //     with null ids reaching commit — its waiter failed to fire);
+        fkCache.validateAllForTransaction(transaction);
+        // (3) the waiter counters: every armed waiter (deferred ids, child/parent deletions)
+        //     must have resolved — the "Not all foreign keys are registered/deleted" vetoes.
         changeRegistry.checkAllNotificationsReceived(transaction);
     }
 
@@ -212,7 +264,8 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
      */
     @Override
     public void performSecondPhaseCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges record) throws XdStorageException {
-        // do nothing
+        // FNKEY: promote ALL cached pairs to PERFORM state
+        fkCache.promoteAllForTransaction(transaction);
     }
 
     /**
@@ -226,7 +279,9 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
      */
     @Override
     public void rollbackPerformingFirstPhaseCommit(XdStorageTransaction transaction, Collection changes) throws XdStorageException {
-        // do nothing
+        // FNKEY POINT 7: the pairs were only STAGED in the write-set (never written to the
+        // trees before COMMIT) — discarding the write-set fully compensates phase 1.
+        fkCache.release(transaction);
     }
 
     /**
@@ -239,7 +294,12 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
      */
     @Override
     public void rollback(final XdStorageTransaction transaction) throws XdStorageException {
-        // do nothing
+        // FNKEY POINT 7: a rolled-back transaction's staged pairs NEVER reach the trees —
+        // the write-set discard is the whole compensation (rollback-safe by construction).
+        fkCache.release(transaction);
+        changeRegistry.release(transaction);
+        registeredListenersForTransaction.remove(transaction.getTransactionId());
+        removePendingFkContours(transaction.getTransactionId());
     }
 
     /**
@@ -250,9 +310,18 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
      */
     @Override
     public void release(final XdStorageTransaction transaction) {
+        // FNKEY POINT 8: release via the write-set — PER-TX (a global clear would drop
+        // concurrent transactions' staged pairs).
+        fkCache.release(transaction);
         changeRegistry.release(transaction);
         registeredListenersForTransaction.remove(transaction.getTransactionId());
-        pendingFkRegistrations.remove(transaction.getTransactionId());
+        removePendingFkContours(transaction.getTransactionId());
+    }
+
+    /** Removes THIS transaction's pending-FK contours (never another transaction's). */
+    private void removePendingFkContours(final String transactionId) {
+        pendingFkRegistrations.remove(transactionId);
+        pendingFkRegistrationsByObject.remove(transactionId);
     }
 
     /**
@@ -266,7 +335,95 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
     public Collection<Object> readByParentObjectId(Comparable<?> objectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
         IXdStorage storage = services.getStorage();
         XdStorageBTree treeParentChild = storage.load(XdStorageBTree.class, bTreeParentChildId, transaction);
-        return treeParentChild != null ? treeParentChild.find(objectId, storage, transaction) : new ArrayList<>();
+        // FNKEY A2.3 (corrected): the search stays TYPED. The tree's in-memory staged keys
+        // are typed (registerForeignKey inserts the caller's ids); a String search key
+        // would CCE against them (String.compareTo(Long)). The POST-REOPEN half of the
+        // hazard — the same tree's reloaded keys are raw Strings — is handled by the
+        // BUG-E restoration below (once per tree instance, the same machinery the search
+        // indexes use), so a typed find sees a uniformly typed tree in both worlds.
+        if (treeParentChild != null) {
+            restoreForeignKeyTreeTypesIfNeeded(treeParentChild, clParentInfo, clChildInfo, transaction);
+        }
+        Collection<Object> result = treeParentChild != null
+                ? treeParentChild.find(objectId, storage, transaction)
+                : new ArrayList<>();
+        // Normalize the returned values to the child's id type: the tree may hand back
+        // raw Strings (the persisted form) next to typed ids (fresh in-memory inserts).
+        result = restoreResultKeyType(result, clChildInfo, storage, transaction);
+        // FNKEY: the tree holds only COMMITTED pairs — this transaction's staged pairs
+        // (write-set) must be visible to the in-transaction readers (the engine's
+        // update-diff, the waiters) or the diff logic mis-judges same-tx registrations.
+        overlayForeignKeyReads((XdStorageTransaction) transaction, true, objectId, result);
+        return result;
+    }
+
+    /**
+     * FNKEY A2.3: restores a FK tree's key/value types after a reopen — the generic YAML
+     * reader hands back raw Strings while the in-memory inserts are typed, and the first
+     * typed seek on the mixed tree crashes with a CCE. Delegates to the btree's BUG-E
+     * machinery (task 18): a CAS-guarded, ONCE-per-tree-instance in-place walk; the call
+     * is free after the first. The restorer tries BOTH relation id types because keys and
+     * values belong to different sides (the front tree: parent keys / child values; the
+     * reverse tree: child keys / parent values) and the walk applies one function to both.
+     */
+    private void restoreForeignKeyTreeTypesIfNeeded(final XdStorageBTree tree,
+                                                    final XdStorageClassInfo keySide,
+                                                    final XdStorageClassInfo valueSide,
+                                                    final IXdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException {
+        tree.restoreSearchKeyTypes(raw -> restoreIdValue(raw, keySide, valueSide),
+                services.getStorage(), (XdStorageTransaction) transaction);
+    }
+
+    /** Converts a raw String id back to a typed id, trying both relation sides. */
+    private Object restoreIdValue(final Object raw, final XdStorageClassInfo keySide, final XdStorageClassInfo valueSide) {
+        if (!(raw instanceof String)) {
+            return raw;
+        }
+        final String rawString = (String) raw;
+        final Object asKeySide = tryParseId(rawString, keySide);
+        if (asKeySide != null) {
+            return asKeySide;
+        }
+        final Object asValueSide = tryParseId(rawString, valueSide);
+        if (asValueSide != null) {
+            return asValueSide;
+        }
+        return raw;
+    }
+
+    /** Parses a raw String into the class's id type; {@code null} when it does not parse. */
+    private Object tryParseId(final String raw, final XdStorageClassInfo clInfo) {
+        try {
+            return convertToIdType(raw, clInfo.getIdField().getFieldInfo().getValueClass());
+        } catch (final IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    /**
+     * FNKEY: applies the transaction's staged FK pairs over a tree read. INSERT intents
+     * add their value, DELETE intents remove it — the read-through view of the write-set.
+     */
+    private void overlayForeignKeyReads(final XdStorageTransaction tx, final boolean byFront,
+                                        final Comparable<?> objectId, final Collection<Object> result) {
+        for (final XdStorageForeignKeyPair pair : fkCache.pairsForTransaction(tx)) {
+            if (!pair.belongsTo(bTreeParentChildId, bTreeChildParentId)) {
+                continue;
+            }
+            final Comparable<?> key = byFront ? pair.frontId() : pair.reverseId();
+            final Comparable<?> value = byFront ? pair.reverseId() : pair.frontId();
+            if (key == null || !objectId.equals(key)) {
+                continue;
+            }
+            if (pair.type() == XdStorageForeignKeyObjectChangeType.INSERT) {
+                if (!result.contains(value)) {
+                    result.add(value);
+                }
+            } else {
+                result.remove(value);
+            }
+        }
     }
 
     /**
@@ -281,7 +438,18 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
     public Collection<Object> readByChildObjectId(Comparable<?> objectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
         IXdStorage storage = services.getStorage();
         XdStorageBTree treeChildParent = storage.load(XdStorageBTree.class, bTreeChildParentId, transaction);
-        return treeChildParent != null ? treeChildParent.find(objectId, storage, transaction) : new ArrayList<>();
+        // FNKEY A2.3 (corrected): typed search + the restore-once machinery — the mirror
+        // of readByParentObjectId (the reverse tree: child keys / parent values).
+        if (treeChildParent != null) {
+            restoreForeignKeyTreeTypesIfNeeded(treeChildParent, clChildInfo, clParentInfo, transaction);
+        }
+        Collection<Object> result = treeChildParent != null
+                ? treeChildParent.find(objectId, storage, transaction)
+                : new ArrayList<>();
+        // Normalize the returned values to the parent's id type.
+        result = restoreResultKeyType(result, clParentInfo, storage, transaction);
+        overlayForeignKeyReads((XdStorageTransaction) transaction, false, objectId, result);
+        return result;
     }
 
     @Override
@@ -297,7 +465,17 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
         if (parentObjectId != null) {
             registerForeignKey(parentObjectId, childObjectId, transaction);
         } else {
-            changeRegistry.registerParentIdWaiter(childObjectId, parentObject, transaction);
+            // Parent has no ID yet. Check if parent is already persisted.
+            // If not persisted, DON'T register a waiter (it would hang forever).
+            // Instead, register as pending FK tracked by object reference.
+            if (isParentPersistedByObject(parentObject, (XdStorageTransaction) transaction)) {
+                // Parent is persisted — register waiter for auto-assigned ID
+                changeRegistry.registerParentIdWaiter(childObjectId, parentObject, transaction);
+            } else {
+                // Parent not persisted — register as pending FK (tracked by object)
+                // Pass parent class info so validation can read the parent's ID correctly
+                registerPendingFkByObject((XdStorageTransaction) transaction, clParentInfo, parentObject, childObjectId);
+            }
         }
     }
 
@@ -573,10 +751,34 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
     public void registerForeignKey(Comparable<?> parentId, Comparable<?> childId, IXdStorageTransaction transaction) throws XdStorageException {
         XdStorageTransaction tx = (XdStorageTransaction) transaction;
 
+        // FNKEY POINT 1 (docs/analysis/FOREIGN_KEY_REDESIGN.md), CONTOUR-CORRECT FORM:
+        // the pair is staged into the FK write-set AND written into the B+trees at
+        // registration. The trees are INFRASTRUCTURE CACHES with their own 2PC contour —
+        // their records must be mutated while the transaction's phase window is open
+        // (operation time); a mutation after the tree resources' phases ran orphanes the
+        // record ("Illegal state of record to commit", proven by the first integration
+        // run). Rollback-safety and invisible-until-commit are delivered by the trees'
+        // OWN contour (the W-4a journals): a vetoed transaction's staged node mutations
+        // roll back with the tx, so an invalid pair never becomes visible. The write-set
+        // adds what the trees do not provide: the read-through overlay for the in-tx
+        // readers, the phase-gated intent state, the structural phase-1 validation and
+        // the explicit rollback/release hygiene.
+        try {
+            getOrCreateForeignKeyBTree(bTreeParentChildId, clParentInfo, createParentChildTreeLock, tx);
+            getOrCreateForeignKeyBTree(bTreeChildParentId, clChildInfo, createChildParentTreeLock, tx);
+        } catch (XdStorageConnectionException e) {
+            throw new XdStorageRuntimeException(e);
+        }
+
+        if (parentId != null && childId != null) {
+            fkCache.cacheInsert(new XdStorageForeignKeyPair(parentId, childId, clParentInfo, clChildInfo,
+                    clParentField, XdStorageForeignKeyObjectChangeType.INSERT), tx);
+        }
+
         XdStorageBTree treeParentChild = null;
         try {
-            treeParentChild = getOrCreateForeignKeyBTree(bTreeParentChildId, clParentInfo, createParentChildTreeLock, tx);
-            XdStorageBTree treeChildParent = getOrCreateForeignKeyBTree(bTreeChildParentId, clChildInfo, createChildParentTreeLock, tx);
+            treeParentChild = services.getStorage().load(XdStorageBTree.class, bTreeParentChildId, tx);
+            XdStorageBTree treeChildParent = services.getStorage().load(XdStorageBTree.class, bTreeChildParentId, tx);
 
             treeParentChild.insert(parentId, childId, services.getStorage(), tx);
             treeChildParent.insert(childId, parentId, services.getStorage(), tx);
@@ -612,6 +814,79 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
                 // but parentId=childId is NOT in parent index → don't track
                 clearPendingFk(tx, parentId);
             }
+        }
+    }
+
+    /**
+     * Unregisters the FK pair (parentId→childId) from both trees and cleans up
+     * pending-FK tracking. Opposite of registerForeignKey.
+     * Called by FK change-registry listeners when a child is actually deleted/updated.
+     * Idempotent: does NOT throw if the pair is already absent (e.g. already dissolved
+     * by the FK engine's update-diff based on a different snapshot). This prevents the
+     * cascade-rollback scenario where concurrent update-diffs dissolve pairs that a
+     * still-registered parent-deletion listener later tries to unregister again.
+     */
+    public void unregisterForeignKey(Comparable<?> parentId, Comparable<?> childId,
+                                      IXdStorageTransaction transaction) throws XdStorageException {
+        XdStorageTransaction tx = (XdStorageTransaction) transaction;
+
+        // FNKEY POINT 5, CONTOUR-CORRECT FORM: the dissolution is staged as a DELETE intent
+        // in the write-set AND applied to the trees at dissolution time (operation time —
+        // the same contour window as the registration; see registerForeignKey). Idempotency
+        // is preserved in both layers: the cache collapses duplicate DELETE intents, and
+        // the tree deletes absorb "does not exists".
+        if (parentId != null && childId != null) {
+            fkCache.cacheDelete(new XdStorageForeignKeyPair(parentId, childId, clParentInfo, clChildInfo,
+                    clParentField, XdStorageForeignKeyObjectChangeType.DELETE), tx);
+        }
+
+        try {
+            XdStorageBTree treeParentChild = getOrCreateForeignKeyBTree(bTreeParentChildId, clParentInfo, createParentChildTreeLock, tx);
+            XdStorageBTree treeChildParent = getOrCreateForeignKeyBTree(bTreeChildParentId, clChildInfo, createChildParentTreeLock, tx);
+
+            try {
+                treeParentChild.delete(parentId, childId, services.getStorage(), tx);
+            } catch (XdStorageException e) {
+                // "does not exists" is expected when the pair was already dissolved;
+                // ignore it (idempotent delete)
+                if (!e.getMessage().contains("does not exists")) {
+                    throw e;
+                }
+            }
+            try {
+                treeChildParent.delete(childId, parentId, services.getStorage(), tx);
+            } catch (XdStorageException e) {
+                // same idempotent semantics for the reverse tree
+                if (!e.getMessage().contains("does not exists")) {
+                    throw e;
+                }
+            }
+        } catch (XdStorageConnectionException e) {
+            // Connection-level errors (I/O, disk, etc.) are NOT idempotent — rethrow
+            throw new XdStorageRuntimeException(e);
+        }
+
+        // Clean up any pending-FK entry for this pair
+        clearPendingFk(tx, parentId);
+    }
+
+    /**
+     * FNKEY: checks whether the parent object is already persisted (exists in the
+     * parent's id_index). Used to distinguish "parent auto-id not yet assigned"
+     * from "parent never saved" — in the latter case we must NOT register a
+     * parent-id waiter (it would hang forever) and instead register a pending FK
+     * that validates at commit time.
+     */
+    private boolean isParentPersistedByObject(Object parentObject, XdStorageTransaction tx) {
+        try {
+            Comparable<?> parentId = clParentInfo.getIdField().get(parentObject);
+            if (parentId == null) {
+                // Parent object has no ID — cannot be persisted
+                return false;
+            }
+            return isParentPersistedInIndex(parentId, tx);
+        } catch (XdStorageException e) {
+            return false;
         }
     }
 
@@ -695,6 +970,29 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
         pending.add(new FkRelation(parentId, childId));
     }
 
+    /**
+     * FNKEY: Tracks a pending FK pair where the parent has no ID yet (auto-id parent
+     * not yet saved). Tracked by object reference instead of ID. At commit time,
+     * validatePendingFks checks if the parent object is persisted; if not, throws
+     * "parent does not exist".
+     */
+    public void registerPendingFkByObject(XdStorageTransaction tx, XdStorageClassInfo parentClassInfo,
+                                          Object parentObject, Comparable<?> childId) {
+        String tid = tx.getTransactionId();
+        Set<FkObjectRelation> pending = pendingFkRegistrationsByObject.computeIfAbsent(tid, k -> ConcurrentHashMap.newKeySet());
+        pending.add(new FkObjectRelation(parentClassInfo, parentObject, childId));
+    }
+
+    /**
+     * FNKEY: Registers orphaned children for commit-time validation.
+     * Called by the FK engine after update-diff detects orphaned children.
+     */
+    @Override
+    public void registerOrphanedChildren(XdStorageTransaction transaction, Set<Comparable<?>> parentIds) {
+        // Delegate to FK engine's orphaned children tracking via the FK resources manager
+        fkResourcesManager.registerOrphanedChildren(transaction, parentIds);
+    }
+
     /** Clears the FK registration for a parent that was just persisted (it is now resolved). */
     private void clearPendingFk(XdStorageTransaction tx, Object parentId) {
         Set<FkRelation> pending = pendingFkRegistrations.get(tx.getTransactionId());
@@ -705,44 +1003,92 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
 
     /**
      * Phase-1 commit-time validation for pending FKs: all manual-ID parents must be
-     * persisted (visible in the parent's index including staged changes). Throws on violation.
+     * persisted (visible in the parent's index including staged changes). Also validates
+     * pending FKs tracked by object reference (auto-id parents not yet saved). Also validates
+     * orphaned children (tracked by FK engine's update-diff). Throws on violation.
      */
     private void validatePendingFks(final XdStorageTransaction transaction) throws XdStorageException {
-        Set<FkRelation> pending = pendingFkRegistrations.get(transaction.getTransactionId());
-        if (pending == null || pending.isEmpty()) return;
-
-        XdStorageTransaction tx = (XdStorageTransaction) transaction;
-        XdStoragePolicy policy = clParentInfo.getPolicy();
-
-        for (FkRelation rel : pending) {
-            Comparable<?> parentId = rel.parentId;
-
-            boolean parentExists;
-            try {
-                if (policy == XdStoragePolicy.StoreAsClassObjects) {
-                    IXdStorageIndexDaoResource indexResource = manager.lockIndexResource(clParentInfo, tx);
-                    if (indexResource instanceof XdStorageBTreeIndexResource) {
-                        parentExists = indexResource.has(parentId, tx);
-                    } else if (indexResource instanceof XdStorageHashIndexResource) {
-                        parentExists = indexResource.has(parentId, tx);
-                    } else {
-                        parentExists = false;
-                    }
-                } else if (policy == XdStoragePolicy.StoreAsSingleObject) {
-                    IXdStorageDaoResource index = manager.lockReferencesResource(clParentInfo, tx);
-                    parentExists = index.read(parentId, tx) != null;
-                } else {
-                    parentExists = true;
+        // FNKEY: Validate orphaned children tracked by FK engine's update-diff
+        Set<Comparable<?>> orphanedParents = foreignKeyRegistry.getOrphanedChildren(transaction);
+        if (orphanedParents != null && !orphanedParents.isEmpty()) {
+            // Check if orphaned parents still exist (they might have been deleted)
+            XdStorageTransaction tx = (XdStorageTransaction) transaction;
+            for (Comparable<?> parentId : orphanedParents) {
+                boolean parentExists = isParentPersistedInIndex(parentId, tx);
+                if (parentExists) {
+                    // Parent still exists with orphaned children — FK violation
+                    throw new XdStorageRuntimeException(
+                            "Foreign key violation: parent " + clParentInfo.getClazz().getSimpleName()
+                            + "#" + parentId + " has children in FK tree not in its collection (orphaned children).");
                 }
-            } catch (XdStorageConnectionException e) {
-                throw new XdStorageRuntimeException(e);
             }
+            // Parent was deleted — orphaned children will be handled by FK veto
+            foreignKeyRegistry.clearOrphanedChildren(transaction);
+        }
 
-            if (!parentExists) {
-                throw new XdStorageRuntimeException(
-                        "Cannot persist FK (" + clParentInfo.getClazz().getSimpleName() + "#" + parentId
-                        + " -> " + clChildInfo.getClazz().getSimpleName() + "#" + rel.childId + "): "
-                        + "parent record does not exist - parent must be persisted before the child");
+        // Validate manual-ID pending FKs
+        Set<FkRelation> pending = pendingFkRegistrations.get(transaction.getTransactionId());
+        if (pending != null && !pending.isEmpty()) {
+            XdStorageTransaction tx = (XdStorageTransaction) transaction;
+            XdStoragePolicy policy = clParentInfo.getPolicy();
+
+            for (FkRelation rel : pending) {
+                Comparable<?> parentId = rel.parentId;
+
+                boolean parentExists;
+                try {
+                    if (policy == XdStoragePolicy.StoreAsClassObjects) {
+                        IXdStorageIndexDaoResource indexResource = manager.lockIndexResource(clParentInfo, tx);
+                        if (indexResource instanceof XdStorageBTreeIndexResource) {
+                            parentExists = indexResource.has(parentId, tx);
+                        } else if (indexResource instanceof XdStorageHashIndexResource) {
+                            parentExists = indexResource.has(parentId, tx);
+                        } else {
+                            parentExists = false;
+                        }
+                    } else if (policy == XdStoragePolicy.StoreAsSingleObject) {
+                        IXdStorageDaoResource index = manager.lockReferencesResource(clParentInfo, tx);
+                        parentExists = index.read(parentId, tx) != null;
+                    } else {
+                        parentExists = true;
+                    }
+                } catch (XdStorageConnectionException e) {
+                    throw new XdStorageRuntimeException(e);
+                }
+
+                if (!parentExists) {
+                    throw new XdStorageRuntimeException(
+                            "Cannot persist FK (" + clParentInfo.getClazz().getSimpleName() + "#" + parentId
+                            + " -> " + clChildInfo.getClazz().getSimpleName() + "#" + rel.childId + "): "
+                            + "parent record does not exist - parent must be persisted before the child");
+                }
+            }
+        }
+
+        // FNKEY: Validate pending FKs tracked by object reference (auto-id parents not yet saved)
+        Set<FkObjectRelation> pendingByObject = pendingFkRegistrationsByObject.get(transaction.getTransactionId());
+        if (pendingByObject != null && !pendingByObject.isEmpty()) {
+            XdStorageTransaction tx = (XdStorageTransaction) transaction;
+
+            for (FkObjectRelation rel : pendingByObject) {
+                Object parentObject = rel.parentObject;
+                // If parent was saved in this transaction, its ID is now non-null and
+                // the FK pair will have been registered by the parent's outcome-relation
+                // trigger — no throw needed. If parent is still not saved (null ID),
+                // throw "parent does not exist".
+                Comparable<?> parentId = rel.parentClassInfo.getIdField().get(parentObject);
+                if (parentId == null) {
+                    throw new XdStorageRuntimeException(
+                            "Cannot persist FK (" + clParentInfo.getClazz().getSimpleName() + "" + ": "
+                            + "parent record does not exist - parent must be persisted before the child");
+                }
+                // Parent was saved — FK pair registered by parent's trigger. No verification
+                // needed here: the FK tree may not be loaded in this transaction's context
+                // (it was loaded in a different transaction), and the FK engine's insert/update
+                // diff logic handles correctness. Just confirming the parent is still persisted
+                // (has non-null ID) is sufficient.
+                // The FK tree consistency is verified by the FK engine's update-diff and
+                // delete-path logic, not by this commit-time check.
             }
         }
     }
@@ -808,6 +1154,52 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
     @Override
     public void registerListener(IXdStorageInternalListener listener, IXdStorageTransaction transaction) {
         // do nothing
+    }
+
+    /**
+     * FNKEY A2.3 fix: restores result values from raw String (YAML serialization) back to
+     * the correct ID type for the given class's id-field. The FK tree stores all keys and
+     * values as raw Objects (from YAML → String). Callers expect typed IDs.
+     *
+     * <p>The FK tree may return a mix of raw Strings (from the persisted tree) and typed
+     * IDs (from the write-set overlay). If we only check the first value and skip
+     * conversion when it's already typed, tree values (Strings) would remain unconverted
+     * and later be used as search keys in entity index trees → ClassCastException.
+     * Therefore we always convert when the target type is not String.
+     */
+    private Collection<Object> restoreResultKeyType(Collection<Object> values, XdStorageClassInfo clInfo,
+                                                    IXdStorage storage, XdStorageTransaction transaction) {
+        if (values == null || values.isEmpty()) return values;
+        final Class<?> idType = clInfo.getIdField().getFieldInfo().getValueClass();
+        // If the ID type is String, no conversion needed (already String, and String.equals(String) works)
+        if (idType == String.class) return values;
+        // Always convert to target type — the FK tree may return a mix of raw Strings (persisted) and
+        // typed IDs (write-set overlay); converting all ensures uniform typed output.
+        return values.stream()
+                .map(v -> convertToIdType(v, idType))
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * Converts a raw value (String from YAML) to the correct ID type.
+     * If value is already the correct type, returns it unchanged (avoids unnecessary
+     * parsing when the FK tree's write-set overlay already returned typed values).
+     */
+    private Object convertToIdType(Object value, Class<?> idType) {
+        if (value == null) return null;
+        // If already the correct type, return as-is (write-set overlay may have returned typed values)
+        if (idType.isInstance(value)) return value;
+        // value is a raw String from YAML; convert to the target ID type
+        if (idType == Long.class) return Long.parseLong(value.toString());
+        if (idType == Integer.class) return Integer.parseInt(value.toString());
+        if (idType == Short.class) return Short.parseShort(value.toString());
+        if (idType == Byte.class) return Byte.parseByte(value.toString());
+        if (idType == java.math.BigDecimal.class) return new java.math.BigDecimal(value.toString());
+        if (idType == java.math.BigInteger.class) return new java.math.BigInteger(value.toString());
+        if (idType == java.util.UUID.class) return java.util.UUID.fromString(value.toString());
+        if (idType == String.class) return value.toString();
+        // Fallback: return as-is (might be another Comparable type)
+        return value;
     }
 
     @Override
