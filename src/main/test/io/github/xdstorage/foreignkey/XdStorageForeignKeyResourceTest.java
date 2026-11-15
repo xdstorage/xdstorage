@@ -42,6 +42,7 @@ public class XdStorageForeignKeyResourceTest {
     private XdStorageBTree mockChildParentTree;
 
     private XdStorageForeignKeyResource fkResource;
+    private XdStorageForeignKeyResourcesManager mockFkResourcesManager;
 
     // Мок-интерфейсы для симуляции отложенной генерации ID через обсерверы СУБД
     public interface MockObservableWrapper extends IXdStorageIdObservableWrapper {
@@ -57,6 +58,9 @@ public class XdStorageForeignKeyResourceTest {
         mockStorage = mock(IXdFileStorage.class);
         mockTx = mock(XdStorageTransaction.class);
         mockManager = mock(io.github.xdstorage.resource.XdStorageAbstractResourcesManager.class);
+        mockFkResourcesManager = mock(XdStorageForeignKeyResourcesManager.class);
+        when(mockFkResourcesManager.getForeignKeyRegistry()).thenReturn(new XdStorageForeignKeyRegistry());
+        when(mockFkResourcesManager.getForeignKeyCache()).thenReturn(new XdStorageForeignKeyCache());
 
         mockParentInfo = mock(XdStorageClassInfo.class);
         mockChildInfo = mock(XdStorageClassInfo.class);
@@ -92,7 +96,7 @@ public class XdStorageForeignKeyResourceTest {
                     }
                 });
 
-        fkResource = new XdStorageForeignKeyResource(mockServices, mockManager, "fk_resource_id_01", mockParentInfo, mockChildInfo, mockParentField);
+        fkResource = new XdStorageForeignKeyResource(mockServices, mockManager, mockFkResourcesManager, "fk_resource_id_01", mockParentInfo, mockChildInfo, mockParentField);
     }
 
     @Test

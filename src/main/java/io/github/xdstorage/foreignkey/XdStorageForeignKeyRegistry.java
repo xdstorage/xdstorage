@@ -4,9 +4,11 @@ import io.github.xdstorage.utils.XdStorageAutoSaveFieldInfo;
 import io.github.xdstorage.utils.XdStorageClassInfo;
 import io.github.xdstorage.utils.XdStorageObjectField;
 import io.github.xdstorage.utils.XdStorageObjectUtils;
+import io.github.xdstorage.transaction.XdStorageTransaction;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -21,6 +23,12 @@ public class XdStorageForeignKeyRegistry {
     /** FNKEY: classes whose OWN registration ran (an entry-map can exist without it —
      * the other side's isParent branch creates it via computeIfAbsent). */
     private final java.util.Set<Class<?>> registeredClasses = ConcurrentHashMap.newKeySet();
+
+    // FNKEY: Tracks parent IDs that have orphaned children (in FK tree but not in parent's
+    // collection) for commit-time validation. Key = transactionId, Value = set of parent IDs.
+    // This bridges the FK engine's update-diff (which detects orphaned children) with
+    // the FK resource's first-phase commit validation (which throws at commit time).
+    private final Map<String, Set<Comparable<?>>> orphanedChildrenByParent = new ConcurrentHashMap<>();
 
     public void registerRelations(XdStorageClassInfo classInfo) {
         if (!registeredClasses.add(classInfo.getClazz())) {
@@ -111,6 +119,22 @@ public class XdStorageForeignKeyRegistry {
                 // and the identity filter silently dropped canonical relations
                 .filter(relation -> relation.getClassTo().getClazz() == classInfo.getClazz())
                 .collect(Collectors.toList());
+    }
+
+    /** FNKEY: Registers orphaned children for commit-time validation. */
+    public void registerOrphanedChildren(XdStorageTransaction tx, Set<Comparable<?>> parentIds) {
+        orphanedChildrenByParent.computeIfAbsent(tx.getTransactionId(), k -> ConcurrentHashMap.newKeySet())
+                .addAll(parentIds);
+    }
+
+    /** FNKEY: Returns orphaned children for the given transaction. */
+    public Set<Comparable<?>> getOrphanedChildren(XdStorageTransaction tx) {
+        return orphanedChildrenByParent.get(tx.getTransactionId());
+    }
+
+    /** FNKEY: Clears orphaned children for the given transaction. */
+    public void clearOrphanedChildren(XdStorageTransaction tx) {
+        orphanedChildrenByParent.remove(tx.getTransactionId());
     }
 
 }

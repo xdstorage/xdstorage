@@ -10,6 +10,7 @@ import io.github.xdstorage.utils.XdStorageClassInfo;
 import io.github.xdstorage.utils.XdStorageObjectField;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class XdStorageForeignKeyResourcesManager {
@@ -18,6 +19,28 @@ public class XdStorageForeignKeyResourcesManager {
     private final XdStorageAbstractResourcesManager manager;
 
     private final XdStorageForeignKeyRegistry foreignKeyRegistry = new XdStorageForeignKeyRegistry();
+
+    /**
+     * FNKEY (docs/analysis/FOREIGN_KEY_REDESIGN.md): the storage-wide FK pair write-set.
+     * ONE instance shared by the engine (commitAllFxPairs) and every FK resource
+     * (cacheInsert/cacheDelete at registration/dissolution, the phase methods) — a second
+     * instance would split the write-set and silently lose pairs at commit.
+     */
+    private final XdStorageForeignKeyCache foreignKeyCache = new XdStorageForeignKeyCache();
+
+    public XdStorageForeignKeyRegistry getForeignKeyRegistry() {
+        return foreignKeyRegistry;
+    }
+
+    /** The shared FK pair write-set (one per storage). */
+    public XdStorageForeignKeyCache getForeignKeyCache() {
+        return foreignKeyCache;
+    }
+
+    /** The storage the FK pairs persist into (the commit-phase tree writes). */
+    public XdStorageServicesLocator getServices() {
+        return services;
+    }
 
     /** Open resources by resource id; entries live until storage shutdown. */
     private final Map<Object, IXdStorageForeignKeyResource> resources;
@@ -28,8 +51,28 @@ public class XdStorageForeignKeyResourcesManager {
         this.resources = new ConcurrentHashMap<>();
     }
 
-    public XdStorageServicesLocator getServices() {
-        return services;
+    /** Access to the core storage resources manager (needed by FK resource). */
+    public XdStorageAbstractResourcesManager getManager() {
+        return manager;
+    }
+
+    /**
+     * FNKEY: Notifies all FK resources of orphaned children for commit-time validation.
+     * Called by the FK engine at commit time (before first-phase commit of each FK resource).
+     */
+    public void notifyOrphanedChildren(XdStorageTransaction transaction, Set<Comparable<?>> orphanedParents) {
+        for (IXdStorageForeignKeyResource resource : resources.values()) {
+            if (resource instanceof XdStorageForeignKeyResource) {
+                ((XdStorageForeignKeyResource) resource).registerOrphanedChildren(transaction, orphanedParents);
+            }
+        }
+    }
+
+    /**
+     * FNKEY: Registers orphaned children via the FK registry (for FK resources to read at commit).
+     */
+    public void registerOrphanedChildren(XdStorageTransaction tx, Set<Comparable<?>> parentIds) {
+        foreignKeyRegistry.registerOrphanedChildren(tx, parentIds);
     }
 
     public IXdStorageForeignKeyResource lockForeignKeyResource(XdStorageClassInfo clParentInfo, XdStorageClassInfo clChildInfo,
@@ -54,7 +97,7 @@ public class XdStorageForeignKeyResourcesManager {
     }
 
     protected IXdStorageForeignKeyResource createFkResource(Object resourceId, XdStorageClassInfo clParentInfo, XdStorageClassInfo clChildInfo, XdStorageObjectField clParentField) {
-        return new XdStorageForeignKeyResource(services, manager, resourceId, clParentInfo, clChildInfo, clParentField);
+        return new XdStorageForeignKeyResource(services, manager, this, resourceId, clParentInfo, clChildInfo, clParentField);
     }
 
     /**

@@ -216,8 +216,8 @@ public class XdStorageMassFillAndCleanSecondStressTest {
                                 for (XdPlanetAutoSave planetRef : planets) {
                                     storage.delete(planetRef, cleanTx);
                                 }
-                                storage.delete(systemRef, cleanTx);
                             }
+                            storage.delete(systemRef, cleanTx);
                         }
                         storage.delete(galaxy, cleanTx);
                     } catch (Exception e) {

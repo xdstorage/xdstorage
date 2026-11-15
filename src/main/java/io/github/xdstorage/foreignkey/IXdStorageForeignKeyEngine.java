@@ -8,4 +8,10 @@ public interface IXdStorageForeignKeyEngine {
 
     void process(Object object, XdStorageForeignKeyObjectChangeType type, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
 
+    /** Commit all cached FK pairs to the B+tree. Called from the 2PC commit protocol. */
+    void commitAllFxPairs(XdStorageTransaction transaction) throws XdStorageException;
+
+    /** FNKEY POINT 7: discards the transaction's staged FK pair write-set (rollback/abort). */
+    void releaseFxPairs(XdStorageTransaction transaction);
+
 }

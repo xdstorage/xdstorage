@@ -36,7 +36,7 @@ import static io.github.xdstorage.resource.XdStorageObjectOperationType.*;
  * сторонних/моковых транзакций, у которых нет хронологии — в нем откат идет в порядке
  * итерации карты (см. {@link #rollback}).
  */
-public final class XdStorageCacheCommitProtocol {
+public class XdStorageCacheCommitProtocol {
 
     private static final Logger log = LoggerFactory.getLogger(XdStorageCacheCommitProtocol.class);
 
@@ -44,8 +44,10 @@ public final class XdStorageCacheCommitProtocol {
 
     private static final IXdStorageCacheInternalListener DO_NOTHING_LISTENER = (type, change, oldObject, newObject, transaction) -> {};
 
-
     private IXdStorageCacheInternalListener listener;
+
+    /** FNKEY POINT 6: the FK engine persisting the staged pair write-set at COMMIT (nullable — mock storages run FK-less). */
+    private volatile io.github.xdstorage.foreignkey.IXdStorageForeignKeyEngine foreignKeyEngine;
 
     /**
      * Binds the protocol to a cache context.
@@ -59,6 +61,11 @@ public final class XdStorageCacheCommitProtocol {
 
     public void setInternalListener(IXdStorageCacheInternalListener listener) {
         this.listener = listener != null ? listener : DO_NOTHING_LISTENER;
+    }
+
+    /** FNKEY POINT 6 wiring: the engine whose commitAllFxPairs runs at COMMIT. */
+    public void setForeignKeyEngine(final io.github.xdstorage.foreignkey.IXdStorageForeignKeyEngine foreignKeyEngine) {
+        this.foreignKeyEngine = foreignKeyEngine;
     }
 
     /**
@@ -227,9 +234,22 @@ public final class XdStorageCacheCommitProtocol {
         }
 
         cache.workspace().finishTransaction(transactionId);
+
+        // FNKEY POINT 6 (docs/analysis/FOREIGN_KEY_REDESIGN_INTEGRATION.md — THE KEY
+        // INTEGRATION): every entity record is permanent now — the staged FK pair
+        // write-set is promoted to PERFORM and persisted into the FK B+trees (order 7500:
+        // FK last, after everything the pairs point at). A failure here is LOUD: the
+        // commit fails after the data is permanent — the honest cost of placing the FK
+        // trees last (the same exposure the direct-write design had at registration).
+        if (foreignKeyEngine != null) {
+            foreignKeyEngine.commitAllFxPairs(transaction);
+        }
     }
 
     /**
+     * FNKEY POINT 7 wiring: a rolled-back transaction's staged FK pairs never reach the
+     * trees — the write-set discard (release) is the whole compensation.
+     *
      * Reverts every cached change of the transaction. The undo journal — populated at the
      * first mutation of each record — is replayed in reverse order, so rollback strictly
      * inverts the transaction's chronology with exactly one undo point per record: inserts
@@ -316,6 +336,13 @@ public final class XdStorageCacheCommitProtocol {
         }
 
         cache.workspace().finishTransaction(transactionId);
+
+        // FNKEY POINT 7: the staged FK pair write-set dies with the transaction — the
+        // pairs never reached the trees (they are written only at COMMIT), so discarding
+        // the write-set is the complete FK compensation for a rollback.
+        if (foreignKeyEngine != null) {
+            foreignKeyEngine.releaseFxPairs(transaction);
+        }
     }
 
     /**
