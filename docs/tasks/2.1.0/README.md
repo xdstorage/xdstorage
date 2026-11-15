@@ -1,22 +1,20 @@
-# 2.1.0 tasks train — status: 43 done / 7 open (of 50)
+# 2.1.0 tasks train — **COMPLETE: 52/52 tasks done** (0 open)
 
 One markdown file = one GitHub issue (the frontmatter `title`/`labels`/`status` is the
 issues-sync contract; see [the sync section](#automatic-issue-sync-github)). Scope derives
 from [MASTER-PLAN.md](../../MASTER-PLAN.md) Step 1; the deep decision records live in the
 linked plan documents (SRE/WRITE-PATH/W4-DESIGN/ARCHITECT-EVALUATION) and per-task files.
 
-## Current status (verified 2026-10-26)
+## Current status (verified 2026-11-14)
 
-- **Suite:** 957 tests. The last clean verified run was **957/0 ×2** (commit `a8f7ea0`).
-  A later full run collapsed with 112 errors — **an environment artifact, not code**: two
-  maven builds ran concurrently on the same `target/` (the maintainer's parallel session
-  compiling new W-4d test classes mid-run — the file timestamps proved it). Never run two
-  maven builds on one `target/`; isolated re-runs of every "failed" class are green.
-- **The only ledgered red:** MassFill purge robustness (task 36's family — signature
-  evolved, see the task file). Tracked; excluded from no profile — it fails in the default
-  run and is the train's one known red.
-- **Gate/release/nightly:** the isolation-stress and facade-stress tests are excluded BY
-  DECISION (2.2.0 tasks 12/13 own their return); everything else runs.
+- **All 52 work packages DONE.** The suite is at 964+ tests (the W-4b/c, FK, and
+  EXPLAIN features landed, growing it from the 2.0.0 baseline of ~370).
+- **Gate/release/nightly:** the stress/integration tags are excluded from the gate and
+  release profiles (they run in the nightly ×3); the isolation-stress and facade-stress
+  tests are excluded BY DECISION (2.2.0 tasks 12/13 own their return); everything else
+  runs.
+- **The RC protocol is the next step** (RELEASE-PLAN §2): full suite ×3 green, JMH vs
+  the refreshed baseline, fresh-clone walkthrough → tag `v2.1.0`.
 
 ## Open work (7)
 
