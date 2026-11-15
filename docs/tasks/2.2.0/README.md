@@ -18,6 +18,7 @@ as the 2.1.0 train.
 | 10 | [ci-stress-gate-policy](10-ci-stress-gate-policy.md) | CI green + the stress-in-gate/nightly policy decision | P1, ci | 0.5–1 sess |
 | 12 | [nested-transactions-load-safety](nested-transactions-load-safety.md) | nested transactions rework — OPTIONAL (fix or deprecate; the isolation stress test returns to the gate) | P2, engine, bug | 2–4 sess |
 | 13 | [facade-load-investigation](facade-load-investigation.md) | the facade load test: failure causes + the performance improvement plan | P1, engine, performance | 2–3 sess |
+| 14 | [profiling-bottlenecks](profiling-bottlenecks.md) | engine-wide profiling → the bottleneck ledger (the evidence pack for 01/05/33) | P1, engine, performance | 2 sess |
 
 Gates: the design rounds before 01/05 (the house rule); property tests grow as the core
 changes (03 protects 01); nightly ×3 green is the train's continuous gate.
@@ -28,6 +29,10 @@ changes (03 protects 01); nightly ×3 green is the train's continuous gate.
 |---|---|---|---|---|
 | 08 | [fp3-jre-aot](fp3-jre-aot.md) | FP-3 pulled forward: AOT wrapper generation — run on a JRE | P0, engine, feature | 3–4 sess |
 | 09 | [server-mode-feasibility](09-server-mode-feasibility.md) | server mode feasibility/design + the positioning decision (design ONLY; implementation is a 3.0 candidate) | P2, engine, feature | 1 sess |
+| 15 | [backup-api](backup-api.md) | backupTo(Path) + restore contract — FP-5's backup core pulled forward (PRODUCT_REVIEW non-negotiable) | P0, engine, feature | 2–3 sess |
+| 16 | [tools-cli](tools-cli.md) | xdstorage-tools CLI: verify / backup / inspect / migrate (FP-6 pulled forward; PRODUCT_REVIEW high-priority) | P1, engine, feature | 2 sess |
+| 17 | [migration-schema-diff](migration-schema-diff.md) | schema diff + the migration command (PRODUCT_REVIEW #3/#5) | P2, engine, feature | 1–2 sess |
+| 18 | [agent-integration-surface](agent-integration-surface.md) | the agent memory store: JSON output + read-only inspection + the documented story | P2, engine, docs, feature | 1–2 sess |
 
 ## Train-level tasks
 
@@ -50,3 +55,7 @@ changes (03 protects 01); nightly ×3 green is the train's continuous gate.
   "no servers" positioning, so the go/no-go decision is explicit and first.
 - Landing items → task 44 (2.1.0) scope: the AI-search angle, the git-friendly fixtures
   example, the why-not-SQLite pointer.
+- The developer analysis documents (docs/analysis/ — the consistency and durability
+  implementation plans, indexed in docs/analysis/README.md) are the step-by-step inputs
+  for Road Map A tasks 01/02/06/05: P0-1/P0-2/P0-3 and P1-1/P1-2 map 1:1 to those train
+  tasks; P2-1/P3-1/P3-2 are the follow-ups (tasks 19/20 in 2.1.0).
