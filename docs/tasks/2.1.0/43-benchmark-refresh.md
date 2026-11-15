@@ -52,9 +52,12 @@ baseline hides it; if the W-4a gains offset it, the baseline proves it. Either w
    - [README.md](../../README.md) honest-limitation block (write numbers);
    - [PERFORMANCE-RECOMMENDATIONS.md](../../PERFORMANCE-RECOMMENDATIONS.md) banner (only if
      the headline numbers moved materially).
-7. **The W-4b readiness note**: record whether the new baseline still supports the W-4b
-   (search-tree logical-op journal) priority — if the rename/update scenario moved a lot,
-   say so.
+7. **The delta-scope note (updated 2026-11-14)**: the 2026-10-24 baseline PREDATES the
+   W-4b search-key journal (64d33f5), the W-4c checkpoint-on-shutdown (06007c9) and the
+   foreign-key engine (a32b6a4 + fixes) — the refresh's delta covers all four: the W-4a
+   write gains confirmed, the W-4b search-write cost, the FK maintenance overhead on
+   related-class writes, and the checkpoint-on-shutdown effect on the restart shape. The
+   W-4b readiness question answers itself from this data.
 
 ## Out of scope
 

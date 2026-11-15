@@ -165,6 +165,14 @@ Planned scope; items land here as they merge:
   the same transaction as the objects, and **deleting a child that is still referenced by
   its parent is refused loudly**. Flag: `enableForeignKeys` (default ON).
 
+- **W-4b — search-key logical-op journal** ([49](docs/tasks/2.1.0/49-w4b-search-key-journal.md)):
+  search-index key-tree mutations append O(delta) redo per search tree instead of rewriting
+  the touched node files — the last O(N) wall in the indexed write path. Flag:
+  `searchIndexJournalWrites` (default ON after the soak).
+- **W-4c — checkpoint on clean shutdown** ([48](docs/tasks/2.1.0/48-checkpoint-on-shutdown.md)):
+  every commit journal is checkpointed at `shutdown()` — after a clean close, a power loss
+  loses nothing even with `durableWrites=false`.
+
 ### Fixed (planned)
 
 Still open from the defect train (**a defect discovered by a train's own work ships with the

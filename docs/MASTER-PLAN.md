@@ -13,6 +13,8 @@ explicitly to 2.2.0**. Detailed journals stay authoritative per scope:
 | [CODEGEN-OPTIMIZATION-PLAN.md](CODEGEN-OPTIMIZATION-PLAN.md) | Wrapper codegen | Items 1/2/5 applied; **items 3/4 superseded by FP-3 (AOT)** |
 | [PERFORMANCE-RECOMMENDATIONS.md](PERFORMANCE-RECOMMENDATIONS.md) | Config study (2nd ed, post-R-53) | Recommendations APPLIED (t=64, frag=128); §5.3 **CLOSED** (2.1.0 B2: verified 0.6–0.7 ms/op flat, BENCHMARKS addendum) |
 | [ARCHITECT-EVALUATION.md](ARCHITECT-EVALUATION.md) | Outside-architect review, competitive comparison, FP-0..FP-12 feature plan | Adopted; FP-0..FP-12 tracked here as Track F |
+| [ANALYSIS-ARCHITECTURE.md](ANALYSIS-ARCHITECTURE.md) | The full engine specification (architecture, modules, transaction model, indexes, serialization, FK, migration, codegen, cache) | Current; maintained alongside the code |
+| [PRODUCT_REVIEW.md](PRODUCT_REVIEW.md) | External product review (the evaluator's perspective: positives, gaps, the agent-integration direction, adoption criteria) | Adopted: tasks 15-18 compiled from its §4 asks |
 | [BENCHMARKS.md](BENCHMARKS.md) / [FLAKY.md](FLAKY.md) | Baselines / flake ledger | Current; **one open row** (BTreeStress contention → B3) |
 
 **Verified state (2026-10-21, post-release):** **2.0.0 is PUBLISHED on Maven Central**
@@ -240,6 +242,33 @@ grouping is tags, not layout.
     into this train as task 32 (P0) — W-4b follows W-4a's soak, W-4d stays decision-gated
     (2.2.0 if the RC timeline demands). The design-before-code rule is intact: task 32
     implements a finished design, not a sketch.
+14. **NESTED-TRANSACTIONS DECISION (2026-10-26, maintainer):** nested transactions
+    (`beginTransaction(parentTx, timeout)`) are **NOT RECOMMENDED for load-heavy use** —
+    the machinery is critical under load (the R-40/R-41 history + the stress evidence).
+    Documented in EMBEDDING/GUIDE/CHANGELOG; the isolation stress test is excluded from
+    the gate/release profiles AND the nightly build; the **optional** rework task is 2.2.0 #12
+    (fix or deprecate — decided inside that task).
+15. **FACADE LOAD TEST DECISION (2026-10-26, maintainer):** the facade load stress test is
+    excluded from the gate/release profiles AND the nightly build, and moves to 2.2.0 #13 —
+    the failure-cause investigation + the facade-flow performance improvement plan (the B3
+    striping and W-4b become inputs to that investigation).
+16. **THE 2.2.0 TRAIN IS COMPILED** (docs/tasks/2.2.0/, from the maintainer's discovery
+    document): two parallel road maps — A: Memory/Consistency/Durability (the consistency
+    core on standard primitives with the disabled B+Tree tests enabled, the loud-failures
+    inventory, property tests, W-4d memory, WAL hardening, the indexes/ layout, the CI
+    stress-gate policy), B: platform (FP-3 JRE/AOT pulled forward per the maintainer's
+    demand, server mode as a design-only go/no-go). Plus tasks 45/46 added to 2.1.0 (the
+    commit-refusal diagnosis and the wrapper-observer leak — both defect-class).
+17. **TASKS 47 + 38 + 07 LANDED** (parallel sessions, 2026-11): the record-identity core
+    fixed (47, envelope residuals ledgered), the index-resource contracts aligned (38),
+    the indexes/ subdirectory relocation shipped (07). W-4b (49) and W-4c (48) implemented
+    per their design sections (docs/tasks/2.1.0/48, 49).
+18. **PRODUCT_REVIEW PULL-FORWARD (2026-11-14, PRODUCT_REVIEW.md): the review's §4 asks
+    pull FP-5's backup API and FP-6's tools CLI from Step 3 into the 2.2.0 train** (tasks
+    15-18: backupTo API, the tools CLI, migration/schema-diff, the agent-integration
+    surface). The SQL layer stays out of scope (§5.2 of the review itself names it a
+    gap-and-decline); ANALYSIS-ARCHITECTURE.md (the full engine specification, 716 lines)
+    joins the documentation index.
 14. **NESTED-TRANSACTIONS DECISION (2026-10-26, maintainer):** nested transactions
     (`beginTransaction(parentTx, timeout)`) are **NOT RECOMMENDED for load-heavy use** —
     the machinery is critical under load (the R-40/R-41 history + the stress evidence).
