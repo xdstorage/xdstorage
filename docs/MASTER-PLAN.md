@@ -269,6 +269,14 @@ grouping is tags, not layout.
     surface). The SQL layer stays out of scope (§5.2 of the review itself names it a
     gap-and-decline); ANALYSIS-ARCHITECTURE.md (the full engine specification, 716 lines)
     joins the documentation index.
+
+19. **LAYOUT MIGRATION (task 51, P0 BLOCKER): the 2.0.0→2.1.0 on-disk layout migration —
+    the indexes/ subdirectory relocation, the journal re-location, the format marker
+    update, crash-tolerant, cross-OS (Windows path separators + mandatory locks,
+    macOS case sensitivity, the charset pinning), the upgrade walkthrough pinned by
+    tests. A 2.0.0 user who upgrades to 2.1.0 must have their storage opened, migrated,
+    and working. EMBEDDING § Upgrade from 2.0.0 documents the procedure. The 2.2.0
+    implementation plans (docs/analysis/) carry the step-by-step details.
 14. **NESTED-TRANSACTIONS DECISION (2026-10-26, maintainer):** nested transactions
     (`beginTransaction(parentTx, timeout)`) are **NOT RECOMMENDED for load-heavy use** —
     the machinery is critical under load (the R-40/R-41 history + the stress evidence).
