@@ -173,6 +173,16 @@ Planned scope; items land here as they merge:
   every commit journal is checkpointed at `shutdown()` — after a clean close, a power loss
   loses nothing even with `durableWrites=false`.
 
+### Breaking (planned)
+
+- **On-disk layout change** ([51](docs/tasks/2.1.0/51-layout-migration-upgrade.md)):
+  indexes and B+Tree files relocated to a dedicated `indexes/` subdirectory. The
+  migration runs automatically at open — a 2.0.0 folder is migrated in place (the old
+  layout is not preserved; the format marker prevents a 2.1.0 folder from being opened
+  by 2.0.0). The migration is crash-tolerant: a crash mid-migration is completed at
+  the next open. **A 2.0.0 user must back up their folder before upgrading** (the
+  standard `cp -r` while closed).
+
 ### Fixed (planned)
 
 Still open from the defect train (**a defect discovered by a train's own work ships with the

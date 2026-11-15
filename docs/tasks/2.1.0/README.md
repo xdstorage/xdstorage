@@ -27,11 +27,13 @@ linked plan documents (SRE/WRITE-PATH/W4-DESIGN/ARCHITECT-EVALUATION) and per-ta
 | 43 | [BENCHREFRESH](43-benchmark-refresh.md) | full canonical re-run post-FK (senior dev; pin `BENCH_JDK`) |
 | 44 | [DOCSWRITER](44-technical-writer-pass.md) | the one-story documentation pass (technical writer) |
 | 47 | [RECIDENT](47-record-identity-disarmed-phases.md) | the record-identity envelope residuals (status: open with the fixed core) |
+| 51 | [layout-migration-upgrade](51-layout-migration-upgrade.md) | **LAYOUTMIG — BLOCKING RELEASE**: the 2.0.0→2.1.0 layout migration (crash-tolerant, cross-OS, fully tested) |
 
-**Release-readiness note:** the 43 done tasks cover every blocker the triage named; the 6
-non-47 opens are additive features, CI additions and docs — the RC protocol (RELEASE-PLAN
-§2) can run when 43/44 land, with task 47's envelope residuals named in the release notes
-per the protocol.
+**Release-readiness note (updated 2026-11-14):** 47 done tasks cover the original triage;
+the remaining opens are: the layout migration (**51, P0 BLOCKER** — a 2.0.0 user must be
+able to upgrade), the FK benchmark (50), EXPLAIN (25), JDK21 (27), BINFEAS (33),
+IDXCONTRACT (38), DOCSWRITER (44). The RC protocol runs after these close. The MassFill
+purge red (task 36's family) is managed by W-4b/c.
 
 ## Index (all 50 work packages)
 
