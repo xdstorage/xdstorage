@@ -235,7 +235,7 @@ public class XdStorageCacheCommitProtocol {
 
         cache.workspace().finishTransaction(transactionId);
 
-        // FNKEY POINT 6 (docs/analysis/FOREIGN_KEY_REDESIGN_INTEGRATION.md — THE KEY
+        // FNKEY POINT 6 (docs/analysis/FOREIGN_KEYS.md §4 — THE KEY
         // INTEGRATION): every entity record is permanent now — the staged FK pair
         // write-set is promoted to PERFORM and persisted into the FK B+trees (order 7500:
         // FK last, after everything the pairs point at). A failure here is LOUD: the

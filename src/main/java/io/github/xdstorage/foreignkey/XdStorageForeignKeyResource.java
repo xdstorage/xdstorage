@@ -751,7 +751,7 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
     public void registerForeignKey(Comparable<?> parentId, Comparable<?> childId, IXdStorageTransaction transaction) throws XdStorageException {
         XdStorageTransaction tx = (XdStorageTransaction) transaction;
 
-        // FNKEY POINT 1 (docs/analysis/FOREIGN_KEY_REDESIGN.md), CONTOUR-CORRECT FORM:
+        // FNKEY POINT 1 (docs/analysis/FOREIGN_KEYS.md §4/§5), CONTOUR-CORRECT FORM:
         // the pair is staged into the FK write-set AND written into the B+trees at
         // registration. The trees are INFRASTRUCTURE CACHES with their own 2PC contour —
         // their records must be mutated while the transaction's phase window is open

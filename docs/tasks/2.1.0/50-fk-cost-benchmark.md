@@ -99,7 +99,6 @@ Estimate: ~2–3 dev-days (the benchmark class + the entities + the A/B runs + t
 ## References
 
 - Task 42 (the FK feature — the design, the veto semantics, the config flag)
-- docs/analysis/FOREIGN_KEY_TASKS.md — the FK task ledger (all ✅)
-- docs/analysis/FOREIGN_KEY_SITUATION_ANALYSIS.md — the subsystem analysis
+- docs/analysis/FOREIGN_KEYS.md — the consolidated FK subsystem document (the limitations ledger)
 - [W4-DESIGN.md](../../W4-DESIGN.md) § Bottleneck ledger (the format this extends)
 - Task 43 (the benchmark estate — the conditions protocol this uses)

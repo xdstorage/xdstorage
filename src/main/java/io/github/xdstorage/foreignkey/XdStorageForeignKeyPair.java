@@ -9,7 +9,7 @@ import io.github.xdstorage.utils.XdStorageObjectField;
  * A single FK pair staged in the transaction's FK write-set (the FK cache).
  *
  * <p>The ids are POSITIONAL, mirroring the engine's historical contract
- * (docs/analysis/FOREIGN_KEY_FIX_ANALYSIS.md A2.1/A2.2): {@code frontId} is the key
+ * (docs/analysis/FOREIGN_KEYS.md §7 A2.1/A2.2): {@code frontId} is the key
  * written into the front (parent→child) tree and {@code reverseId} the key written into
  * the reverse (child→parent) tree. For the income-relation path frontId=parentId and
  * reverseId=childId; for the outcome-relation path the engine passes them swapped

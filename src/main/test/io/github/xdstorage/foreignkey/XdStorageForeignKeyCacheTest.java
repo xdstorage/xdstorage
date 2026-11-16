@@ -20,7 +20,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * FNKEY (docs/analysis/FOREIGN_KEY_REDESIGN_INTEGRATION.md §12, FOREIGN_KEY_LISTENERS_WAITERS.md §7):
+ * FNKEY (docs/analysis/FOREIGN_KEYS.md §4/§6):
  * the pinned unit suite for the FK pair write-set. The lifecycle tests that need real
  * storage (insert-then-commit reaches the trees; rollback leaves them clean; the
  * deferred-ID waiter fires on id landing) live in the real-storage estate

@@ -1,6 +1,6 @@
 # Analysis documents — index and mapping to the trains
 
-Seven analysis/planning documents produced by the developer sessions (2026-11), covering
+Five analysis/planning documents produced by the developer sessions (2026-11), covering
 the two 2.2.0 road-map themes. **Every recommendation is mapped to a train task** — the
 tables below are the reconciliation. Status annotations inside each document are updated
 as items land.
@@ -13,9 +13,7 @@ as items land.
 | [CONSISTENCY_IMPLEMENTATION_PLAN.md](CONSISTENCY_IMPLEMENTATION_PLAN.md) | The step-by-step consistency plan (P0→P3, ~18–20 sessions total) | 2.2.0 tasks 01/02/06 (+ P2/P3 items below) | the execution order is the plan of record |
 | [DURABILITY_ANALYSIS.md](DURABILITY_ANALYSIS.md) | The durability analysis (journal, checkpoint, fsync, recovery across all main code) | 2.2.0 tasks 48/49/05 + 15 | the analysis baseline |
 | [DURABILITY_IMPLEMENTATION_PLAN.md](DURABILITY_IMPLEMENTATION_PLAN.md) | The step-by-step durability plan (P0→P3, ~13–14 dev-days) | 2.2.0 tasks 48/49 (done) + 05/15/16 | P0 shipped; P1–P3 open |
-| [FOREIGN_KEY_SITUATION_ANALYSIS.md](FOREIGN_KEY_SITUATION_ANALYSIS.md) | The FK subsystem situation (post-implementation) | reference | current |
-| [FOREIGN_KEY_FIX_ANALYSIS.md](FOREIGN_KEY_FIX_ANALYSIS.md) | The manual-id parent-registration bug: analysis & fix | reference | fixed |
-| [FOREIGN_KEY_TASKS.md](FOREIGN_KEY_TASKS.md) | The FK action plan (✅/❌ per task) | reference | all ✅ |
+| [FOREIGN_KEYS.md](FOREIGN_KEYS.md) | The FK subsystem — the consolidated subsystem document (architecture, the 2PC write-set + the 8 POINTS, waiters, the manual-ID mechanism, the honest limitations ledger; supersedes the six deleted FOREIGN_KEY_*.md docs) | 2.1.0 tasks 42/50, 2.2.0 tasks 01/02 | current (verified 2026-11-16) |
 
 ## The reconciliation (plan item → train task)
 
@@ -39,7 +37,8 @@ as items land.
 1. CONSISTENCY_ANALYSIS.md + DURABILITY_ANALYSIS.md — the state of the two subsystems.
 2. The two IMPLEMENTATION_PLANs — the step-by-step execution (the P0s are the train's
    opening items).
-3. The FK situation/fix/tasks trio — the FK-specific history (all ✅).
+3. FOREIGN_KEYS.md — the FK-specific record (the subsystem document, the limitations
+   ledger feeds the 2.2.0 consistency core).
 
 The plans' own execution notes are binding: no new dependencies, no format bumps for
 the WAL hardening, no default behavior changes, and **task 03's property tests are the
