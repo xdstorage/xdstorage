@@ -288,6 +288,17 @@ public final class XdStorageCacheMutator {
                 if (record.isUpdateChange() || record.isInsertChange()) {
                     record.setNewObject(cache.materializeForCache(newObject));
                     readObjects.put(objectId, new XdStorageCacheObjectChange(newObject, XdStorageCacheChange.update, change != null ? change.readTimestamp : transaction.getTimestart()));
+                } else if (cache.isInfrastructureCache()) {
+                    // MASSFILL (the purge family) / R-42: a STRUCTURE-owned record deleted by
+                    // THIS transaction (the mass-delete collapse consumed the node) and then
+                    // touched again by a stale structural descent. The structure is the truth
+                    // (R-42): the record update is meaningless — absorb silently instead of
+                    // failing the whole caller subtree (the purge's per-element recovery used
+                    // to skip live subtrees because of this throw).
+                    log.warn("UPDATE of infrastructure object {} id {} hit its own staged delete — absorbed (the structure moved on)",
+                            newObject.getClass().getSimpleName(), objectId);
+                    record.unlock(transaction);
+                    return;
                 } else {
                     record.unlock(transaction);
                     throw new XdStorageException("object of " + newObject.getClass() + " with id " + objectId + " was deleted this transaction");

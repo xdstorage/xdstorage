@@ -161,7 +161,7 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
     // БЮДЖЕТ ПОПЫТОК РЕБАЛАНСИРОВКИ: retry-циклы операций обязаны быть ограничены —
     // иначе устойчивая конкуренция за deep-локи превращает их в вечный livelock,
     // вешающий потоки (дефект зависания cleanShutdown в merge-стрессе).
-    private static final int REBALANCE_RETRY_BUDGET = 10;
+    private static final int REBALANCE_RETRY_BUDGET = 100;
 
     /**
      * Reports the calling thread's hold of the tree-level write lock.
