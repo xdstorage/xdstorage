@@ -690,9 +690,24 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
         restoreSearchKeyTypesIfNeeded(tree, storage, transaction);
 
         final XdStorageSearchIndexKey searchIndexKey = new XdStorageSearchIndexKey(oldHashIndexRecord.getValue(), oldHashIndexRecord.getObjectId(), XdStorageSearchIndexOperationType.Insert);
-        // R-57: компенсация при откате — search tree по составному ключу
+        // MASSFILL (the purge family): the search tree and the key tree can diverge under
+        // torn-fill rollbacks (the R-57 compensations are per-tree). The delete's GOAL is
+        // the composite key's absence — "does not exists" means the goal already holds.
+        // Absorb instead of failing the caller's per-element recovery (a skipped subtree
+        // used to leave live children under deleted parents — a guaranteed FK veto).
+        try {
+            tree.delete(searchIndexKey, storage, transaction);
+        } catch (final XdStorageException absent) {
+            if (absent.getMessage() == null || !absent.getMessage().contains("does not exists")) {
+                throw absent;
+            }
+            log.warn("search tree composite key already absent for {}#{} — absorbed (the goal state holds)",
+                    objectClInfo.getClazz().getSimpleName(), record.getId());
+            return;
+        }
+        // R-57: компенсация при откате — search tree по составному ключу (registered AFTER
+        // the successful delete: an absorbed delete has nothing to compensate)
         transaction.registerIndexKeyForRollback(tree, searchIndexKey);
-        tree.delete(searchIndexKey, storage, transaction);
         // W-4b: journal the DELKEY (search tree)
         appendSearchIndexJournal(XdStorageSearchIndexOperationType.Delete,
                 String.valueOf(oldHashIndexRecord.getValue()), String.valueOf(oldHashIndexRecord.getObjectId()));

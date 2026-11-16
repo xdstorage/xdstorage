@@ -402,6 +402,7 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
     public void release(final XdStorageTransaction transaction) {
         cache.clear(transaction);
         seenKeysByTransaction.remove(transaction.getTransactionId());
+        transactionDeletedIds.remove(transaction.getTransactionId());
         manager.releaseResource(this);
     }
 
@@ -649,6 +650,15 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
      */
     private final Map<String, Map<Object, Object>> seenKeysByTransaction = new ConcurrentHashMap<>();
 
+    /**
+     * MASSFILL: the object ids this transaction already deleted (per transaction id). A
+     * RE-DELETE of the same id within the same transaction is a no-op (the idempotent
+     * delete) — the purge iterates collections duplicated by the fill's chunk retries and
+     * a second delete must not fail the subtree with "does not exists". Cleared at
+     * {@link #release}; a rollback discards the contour with the transaction.
+     */
+    private final Map<String, Set<Object>> transactionDeletedIds = new ConcurrentHashMap<>();
+
     private void rememberSeenKey(final XdStorageTransaction transaction, final Object objectId, final Object resourceId) {
         seenKeysByTransaction.computeIfAbsent(transaction.getTransactionId(),
                 k -> new ConcurrentHashMap<>()).put(objectId, resourceId);
@@ -807,6 +817,20 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
             throw new XdStorageException("object of class " + object.getClass() + " with id " + objectId + " does not exists");
         }
 
+        // MASSFILL (the purge family): a RE-DELETE of an object this transaction already
+        // deleted is a no-op, not an error. The purge iterates collections duplicated by
+        // the fill's chunk retries; the second delete used to throw "does not exists"
+        // (the id-index key was consumed by the first delete) and the caller's per-element
+        // recovery skipped the whole subtree mid-way, leaving live children under deleted
+        // parents — a guaranteed FK veto at commit. Same-tx idempotency cannot hide
+        // cross-transaction races: an object deleted (or never persisted) by ANOTHER
+        // transaction still fails loud below.
+        final Set<Object> deletedByTx = transactionDeletedIds.computeIfAbsent(
+                transaction.getTransactionId(), tId -> ConcurrentHashMap.newKeySet());
+        if (deletedByTx.contains(objectId)) {
+            return;
+        }
+
         final List<Object> result = tree.find((Comparable) objectId, storage, transaction);
         final Object resourceId = result.isEmpty() ? null : result.get(0);
         if (resourceId == null) {
@@ -823,6 +847,7 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
         // чтении). Регистрируем пару для компенсирующей вставки при откате — дерево
         // обязано оставаться read-committed всегда.
         transaction.registerIndexKeyDeleteForRollback(tree, (Comparable) objectId, resourceId);
+        deletedByTx.add(objectId);
 
         listeners.computeIfAbsent(transaction.getTransactionId(), tId -> new ArrayList<>()).forEach(listener ->
                 listener.notify(XdStorageCacheCommitPhase.PREPARE_COMMIT, XdStorageObjectOperationType.Delete, object, null, transaction)
