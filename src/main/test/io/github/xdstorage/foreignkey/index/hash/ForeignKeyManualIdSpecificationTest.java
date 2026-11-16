@@ -69,8 +69,8 @@ public class ForeignKeyManualIdSpecificationTest extends AbstractForeignKeyBaseS
     // =========================================================================
 
     @Test
-    @DisplayName("Удаление ребенка из коллекции родителя и обновление только родителя -> Ошибка на commit")
-    void testUpdateOnlyParentAfterRemovingChildThrows() throws Exception {
+    @DisplayName("Удаление ребенка из коллекции родителя и обновление только родителя -> Успешный commit (Правило 4: удаление из коллекции ≠ удаление объекта)")
+    void testUpdateOnlyParentAfterRemovingChildSuccess() throws Exception {
         // Наполнение базовой валидной вселенной
         tx = storage.beginTransaction();
         HashIndexParentManualId parent = new HashIndexParentManualId(); parent.setId(5001L);
@@ -85,8 +85,8 @@ public class ForeignKeyManualIdSpecificationTest extends AbstractForeignKeyBaseS
         HashIndexChildManualId targetChild = loadedParent.getChildren().iterator().next();
         loadedParent.getChildren().remove(targetChild);
 
-        storage.update(loadedParent); // Нарушение: дочерняя запись осталась сиротой
-        assertThrows(XdStorageRuntimeException.class, () -> storage.commitTransaction(tx));
+        storage.update(loadedParent);
+        assertDoesNotThrow(() -> storage.commitTransaction(tx));
     }
 
     // =========================================================================

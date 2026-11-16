@@ -214,7 +214,7 @@
                     <excludes>
                         <exclude>**/XdStorageFacadeStressTest.java</exclude>
                         <exclude>**/XdStorageNestedTransactionIsolationStressTest.java</exclude>
-                        <exclude>**/XdStorageMassFillAndCleanFirstStressTest.java</exclude>
+                        <exclude>**/XdStorageMassFillAndCleanFirstStressTest</exclude>
                         <exclude>**/XdStorageMassFillAndCleanSecondStressTest.java</exclude>
                     </excludes>
                 </configuration>
@@ -339,7 +339,7 @@
                                      на исследование (docs/tasks/2.2.0/13). Остальные четыре — исторические
                                      семейства из docs/FLAKY.md. -->
                                 <exclude>**/XdStorageFacadeStressTest.java</exclude>
-                                <exclude>**/XdStorageMassFillAndCleanFirstStressTest.java</exclude>
+                                <exclude>**/XdStorageMassFillAndCleanFirstStressTest</exclude>
                                 <exclude>**/XdStorageMassFillAndCleanSecondStressTest.java</exclude>
                                 <exclude>**/XdStorageNestedTransactionIsolationStressTest.java</exclude>
                             </excludes>

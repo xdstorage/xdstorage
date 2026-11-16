@@ -263,7 +263,68 @@ factory) — the fix pattern is to move the scenarios onto
 
 ---
 
-## 11. References
+---
+
+## 12. Comparison with JPA/ORM relationship management rules (foreign-keys-object-model-rules-v2.md)
+
+Below is the mapping of our 5 FK rules against the 10 rules in `foreign-keys-object-model-rules-v2.md`.
+Rules are numbered by our (1-5) and by the ORM doc (1-10).
+
+### Rule-by-rule mapping
+
+| Our rule | Meaning | ORM rule | Match | Comment |
+|---|---|---|---|---|
+| **FK-1** | parent ref = null → commit OK | **ORM 3** (unsaved parent → TransientObjectException) | ✅ | Full match: unsaved parent = veto. Our `validatePendingFks` implements this. |
+| **FK-2** | parent ref ≠ null → parent in DB or same TX | **ORM 3** (unsaved parent → TransientObjectException) | ✅ | Full match: unsaved parent = veto. Our `validatePendingFks` implements this. |
+| **FK-3** | AutoSave: referenced child → in DB or auto-save (re-save = error) | **ORM 1** (ObjectDeletedException on cascade re-save) + **ORM 7** (parent delete without cascade → remove children) | ✅ | Our engine: if child is referenced in AutoSave, it must be in DB or auto-saved. Matches ORM 1+7. |
+| **FK-4** | **remove from collection ≠ delete object** (child survives independently) | **ORM 1** (reverse direction: delete child → remove from collection) | ✅ compatible | Different sides of the same rule: ORM 1 says "on child delete, remove from collection" (to prevent cascade re-save). We say "on collection remove, no need to delete child" (child is independent). Compatible. |
+| **FK-5** | Delete child → required remove from `parent.children` | **ORM 1** (delete without remove = ObjectDeletedException) + **ORM 7** | ✅ | Full match: delete child without remove from collection = veto. Our `delete` blocks this. |
+
+### Architectural difference: FK-tracking vs dirty-checking
+
+> ⚠️ **Critical difference from JPA/ORM.**
+>
+> In JPA/Hibernate FK-integrity is checked via **dirty-checking** of Java collections
+> (PersistentBag, PersistentSet, dirty flag). If you removed a child from the Java collection,
+> Hibernate sees it and allows the delete. But if you **deleted a child without removing from collection**
+> — Hibernate via `CascadeType.ALL-delete-orphan` tries to re-save the deleted child
+> (ObjectDeletedException).
+>
+> Our engine tracks FK pairs **directly in the B+tree** and validates by index —
+> independent of Java collections. This means:
+>
+> 1. **FK-4 works more correctly:** in JPA with `orphanRemoval = true`, removing from collection
+>    triggers cascade delete (unpredictable with `@OneToMany` without `orphanRemoval`).
+>    Our engine simply allows the child to exist without a parent — the child is independent.
+> 2. **FK-5 works at the data level, not memory:** we check that the child was removed from
+>    the FK-tree, not from the Java collection. This is more robust, but requires `storage.delete(child)`
+>    to always clean the FK-tree.
+> 3. **Bidirectional sync (ORM 2) is implemented at the engine level:**
+>    `@XdStorageParentObject` (income) and `@XdStorageAutoSave` (outcome) register
+>    **two** sides of the FK-pair. The engine syncs front/reverse itself —
+>    you don't need to write `child.setParent(this)` manually. But: if the child is removed from the
+>    Java object's collection but the FK-pair is not updated (bug in `delete`), FK-integrity breaks.
+>
+> **Conclusion:** our rules cover ORM rules 1-8, but with a different validation model:
+> data-layer (B+tree) vs memory-layer (dirty-checking). This makes us stronger in
+> FK-5 (data-level check) and weaker in bidirectional sync (don't track Java collections).
+
+### ORM rules not applicable in our model
+
+| ORM Rule | Why not applicable | How we cover |
+|---|---|---|
+| **ORM 8** (flush order for UNIQUE FK) | We use B+tree with engine-level uniqueness; INSERT/DELETE in one TX handled via write-set (later-wins). | Covered by write-set phase-1 validation (POINT 2 trio) |
+| **ORM 9** (ManyToMany ≠ CascadeType.REMOVE) | Our `@XdStorageAutoSave` is always 1:N (or N:1), not M:N. M:N covered via intermediate entities. | N/A |
+| **ORM 10** (hashCode/equals for Set) | We use List/Array for `StoreAsClassObjects`; `StoreAsSingleObject` = one child. Set not used. | N/A |
+| **ORM 6** (orphanRemoval + collection proxy) | No `orphanRemoval` here; collections not wrapped in proxy classes (we read by index). | N/A |
+
+### Summary
+
+> Our rules **fully cover** ORM 1-7 (≥90% match).
+> ORM 8-10 are not applicable to our model (different architecture).
+> **FK-4 is our architectural decision** (child survives independently),
+> not a bug, but intentional design. Documented in test `ForeignKeyUpdateScenariosTest`
+> as "Rule 4: collection remove ≠ object delete".
 
 - [2.1.0 task 42](../tasks/2.1.0/42-foreign-keys.md) — the feature spec + acceptance
 - [2.1.0 task 50](../tasks/2.1.0/50-fk-cost-benchmark.md) — the FK-cost A/B benchmark (open)

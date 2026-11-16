@@ -12,8 +12,12 @@ import io.github.xdstorage.utils.XdStorageObjectField;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class XdStorageForeignKeyResourcesManager {
+
+    private static final Logger log = LoggerFactory.getLogger(XdStorageForeignKeyResourcesManager.class);
 
     private final XdStorageServicesLocator services;
     private final XdStorageAbstractResourcesManager manager;
@@ -44,6 +48,11 @@ public class XdStorageForeignKeyResourcesManager {
 
     /** Open resources by resource id; entries live until storage shutdown. */
     private final Map<Object, IXdStorageForeignKeyResource> resources;
+
+    /** Access to the resources map for shutdown cleanup (FK resources are class-keyed and reused across storages). */
+    public Map<Object, IXdStorageForeignKeyResource> getResources() {
+        return resources;
+    }
 
     public XdStorageForeignKeyResourcesManager(XdStorageServicesLocator services, XdStorageAbstractResourcesManager manager) {
         this.services = services;

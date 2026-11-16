@@ -35,8 +35,8 @@ public class ForeignKeyUpdateScenariosTest extends AbstractForeignKeyBaseSpecifi
     }
 
     @Test
-    @DisplayName("1. Удаление ребенка из коллекции родителя и обновление только родителя -> Ошибка на commit")
-    void testUpdateOnlyParentAfterRemovingChildThrows() throws Exception {
+    @DisplayName("1. Удаление ребенка из коллекции родителя и обновление только родителя -> Успешный commit (Правило 4: удаление из коллекции ≠ удаление объекта)")
+    void testUpdateOnlyParentAfterRemovingChildSuccess() throws Exception {
         tx = storage.beginTransaction();
         BTreeIndexParentAutoId parent = storage.load(BTreeIndexParentAutoId.class, parentId);
 
@@ -44,9 +44,9 @@ public class ForeignKeyUpdateScenariosTest extends AbstractForeignKeyBaseSpecifi
         BTreeIndexChildAutoId targetChild = parent.getChildren().iterator().next();
         parent.getChildren().remove(targetChild);
 
-        storage.update(parent); // Дочерний узел не удален из СУБД
+        storage.update(parent);
 
-        assertThrows(XdStorageRuntimeException.class, () -> storage.commitTransaction(tx));
+        assertDoesNotThrow(() -> storage.commitTransaction(tx));
     }
 
     @Test
@@ -81,15 +81,15 @@ public class ForeignKeyUpdateScenariosTest extends AbstractForeignKeyBaseSpecifi
     }
 
     @Test
-    @DisplayName("4. Удаление всех детей из коллекции родителя и обновление только родителя -> Ошибка на commit")
-    void testUpdateOnlyParentAfterRemovingAllChildrenThrows() throws Exception {
+    @DisplayName("4. Удаление всех детей из коллекции родителя и обновление только родителя -> Успешный commit (Правило 4: удаление из коллекции ≠ удаление объекта)")
+    void testUpdateOnlyParentAfterRemovingAllChildrenSuccess() throws Exception {
         tx = storage.beginTransaction();
         BTreeIndexParentAutoId parent = storage.load(BTreeIndexParentAutoId.class, parentId);
 
         parent.getChildren().clear();
         storage.update(parent);
 
-        assertThrows(XdStorageRuntimeException.class, () -> storage.commitTransaction(tx));
+        assertDoesNotThrow(() -> storage.commitTransaction(tx));
     }
 
     @Test
@@ -110,7 +110,7 @@ public class ForeignKeyUpdateScenariosTest extends AbstractForeignKeyBaseSpecifi
     }
 
     @Test
-    @DisplayName("6. Удаление ребенка из коллекции родителя, обновление родителя и удаление другого ребенка -> Ошибка на commit")
+    @DisplayName("6. Удаление ребенка из коллекции родителя, обновление родителя и удаление другого ребенка -> Успешный commit (Правило 4: удаление из коллекции ≠ удаление объекта)")
     void testUpdateParentAndDeleteAnotherChildSuccess() throws Exception {
         tx = storage.beginTransaction();
         BTreeIndexParentAutoId parent = storage.load(BTreeIndexParentAutoId.class, parentId);
@@ -122,12 +122,11 @@ public class ForeignKeyUpdateScenariosTest extends AbstractForeignKeyBaseSpecifi
             else { deleteChild = c; }
         }
 
-
         parent.getChildren().remove(targetChild);
 
         storage.update(parent);
         storage.delete(deleteChild);
 
-        assertThrows(XdStorageRuntimeException.class, () -> storage.commitTransaction(tx));
+        assertDoesNotThrow(() -> storage.commitTransaction(tx));
     }
 }

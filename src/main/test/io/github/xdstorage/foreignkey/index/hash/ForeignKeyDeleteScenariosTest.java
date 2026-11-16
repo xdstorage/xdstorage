@@ -70,7 +70,7 @@ public class ForeignKeyDeleteScenariosTest extends AbstractForeignKeyBaseSpecifi
     }
 
     @Test
-    @DisplayName("4. Чтение родителя и всех детей с последующим их полным удалением в одной TX -> Успешный commit")
+    @DisplayName("4. Чтение родителя и всех детей с последующим их полным удалением (в т.ч. из parent.collection) -> Успешный commit")
     void testLoadAllAndPurgeAllSuccess() throws Exception {
         tx = storage.beginTransaction();
         HashIndexParentAutoId parent = storage.load(HashIndexParentAutoId.class, parentId);
@@ -79,9 +79,10 @@ public class ForeignKeyDeleteScenariosTest extends AbstractForeignKeyBaseSpecifi
             children.add(storage.load(HashIndexChildAutoId.class, cid));
         }
 
-        // Согласно правилу ТЗ: сначала вырезаются дети, затем родитель
+        // Правило 5: при удалении детей они должны быть убраны из parent.children
         for (HashIndexChildAutoId child : children) {
             storage.delete(child);
+            parent.getChildren().remove(child);
         }
         storage.delete(parent);
 

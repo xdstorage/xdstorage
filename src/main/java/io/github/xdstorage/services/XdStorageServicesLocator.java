@@ -284,11 +284,18 @@ public class XdStorageServicesLocator {
     }
 
     /**
-     * Shuts the worker thread pool down and clears the canonical B+tree instance
-     * registry. Called once when the storage closes.
+     * Shuts the worker thread pool down, clears the canonical B+tree instance
+     * registry and the FK-resource cache (cross-storage pollution prevention —
+     * FK resources are keyed by class name and reused across storages; their
+     * changeRegistry / FK-cache must be released before the old engine goes).
+     * Called once when the storage closes.
      */
     public void shutdown() {
         this.executor.shutdown();
         this.canonicalInstances.clear();
+        // FNKEY: release FK resources so their changeRegistry / cache does not
+        // pollute the next storage (the same resourceId = class-based key is reused).
+        getForeignKeyEngine().getForeignKeyResourcesManager().getResources().clear();
+        getForeignKeyEngine().getForeignKeyResourcesManager().getForeignKeyCache().releaseAll();
     }
 }
