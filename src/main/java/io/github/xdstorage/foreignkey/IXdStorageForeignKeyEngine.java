@@ -14,4 +14,6 @@ public interface IXdStorageForeignKeyEngine {
     /** FNKEY POINT 7: discards the transaction's staged FK pair write-set (rollback/abort). */
     void releaseFxPairs(XdStorageTransaction transaction);
 
+    /** Access to the engine's resources manager — needed by shutdown cleanup. */
+    XdStorageForeignKeyResourcesManager getForeignKeyResourcesManager();
 }

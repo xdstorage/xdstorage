@@ -175,8 +175,8 @@ public class PolicyParentClassChildClassHashTest extends AbstractForeignKeyBaseS
     }
 
     @Test
-    @DisplayName("4b. Обновление родителя: удалить child1, вставить child3 — Ошибка (без delete)")
-    void testUpdateParentRemoveOneInsertOneNoDeleteThrows() throws Exception {
+    @DisplayName("4b. Обновление родителя: удалить child1, вставить child3 — Успешно (Rule 4: удаление из коллекции ≠ delete, child survives independently)")
+    void testUpdateParentRemoveOneInsertOneNoDeleteSuccess() throws Exception {
         tx = storage.beginTransaction();
         HashPolicyParentClassChildClass parent = new HashPolicyParentClassChildClass();
         parent.setChildren(new HashSet<>());
@@ -192,7 +192,8 @@ public class PolicyParentClassChildClassHashTest extends AbstractForeignKeyBaseS
         HashPolicyChildClass child3 = new HashPolicyChildClass(); child3.setParent(loadedParent);
         loadedParent.addChild(child3);
         storage.update(loadedParent);
-        assertThrows(XdStorageRuntimeException.class, () -> storage.commitTransaction(tx));
+        // Rule 4: removal from collection ≠ object delete. child1 survives independently.
+        assertDoesNotThrow(() -> storage.commitTransaction(tx));
     }
 
     @Test

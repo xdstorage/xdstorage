@@ -16,6 +16,10 @@ public interface IXdStorageForeignKeyResource extends IXdStorageResourceObject {
 
     Collection<Object> readByParentObjectId(Comparable<?> objectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
 
+    /** Raw FK tree read WITHOUT overlay (MVCC snapshot only). Used for orphan detection
+     * to avoid false positives from children committed by other transactions. */
+    Collection<Object> readByParentObjectIdRaw(Comparable<?> objectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+
     Collection<Object> readByChildObjectId(Comparable<?> objectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
 
     void insert(Comparable<?> parentObjectId, Comparable<?> childObjectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
@@ -56,4 +60,13 @@ public interface IXdStorageForeignKeyResource extends IXdStorageResourceObject {
      * Called by the FK engine after update-diff detects orphaned children.
      */
     void registerOrphanedChildren(XdStorageTransaction transaction, Set<Comparable<?>> parentIds);
+
+    /**
+     * Checks whether a child FK entry still exists under the parent.
+     * Used by the FK engine's cascade-DELETE path to skip children that
+     * were already deleted (avoiding stale FK-tree entries from the
+     * seenKeys cache that would cause false waiter-arming).
+     */
+    boolean childExists(Comparable<?> parentObjectId, Comparable<?> childObjectId,
+                       XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
 }

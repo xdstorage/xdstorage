@@ -11,8 +11,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class XdStorageForeignKeyRegistry {
+
+    private static final Logger log = LoggerFactory.getLogger(XdStorageForeignKeyRegistry.class);
 
     public static final XdStorageObjectField REVERSE_RELATION_FIELD = new XdStorageObjectField(
             null, null, null, null
@@ -97,8 +101,7 @@ public class XdStorageForeignKeyRegistry {
 
     public Collection<XdStorageForeignKeyRelation> getOutcomeRelations(XdStorageClassInfo classInfo) {
         registerRelations(classInfo);
-
-        return relations.entrySet().stream()
+        final Collection<XdStorageForeignKeyRelation> result = relations.entrySet().stream()
                 .filter(entry -> entry.getKey().equals(classInfo.getClazz()))
                 .map(Map.Entry::getValue).map(Map::values)
                 .flatMap(Collection::stream)
@@ -107,18 +110,19 @@ public class XdStorageForeignKeyRegistry {
                 // and the identity filter silently dropped canonical relations
                 .filter(relation -> relation.getClassFrom().getClazz() == classInfo.getClazz())
                 .collect(Collectors.toList());
+        return result;
     }
 
     public Collection<XdStorageForeignKeyRelation> getIncomeRelations(XdStorageClassInfo classInfo) {
         registerRelations(classInfo);
-
-        return relations.values().stream().map(Map::values)
+        final Collection<XdStorageForeignKeyRelation> result = relations.values().stream().map(Map::values)
                 .flatMap(Collection::stream)
                 // FNKEY: compare by CLASS, not by ClassInfo identity — ClassInfo instances
                 // are built per lookup path (direct class vs wrapper-derived entity class),
                 // and the identity filter silently dropped canonical relations
                 .filter(relation -> relation.getClassTo().getClazz() == classInfo.getClazz())
                 .collect(Collectors.toList());
+        return result;
     }
 
     /** FNKEY: Registers orphaned children for commit-time validation. */

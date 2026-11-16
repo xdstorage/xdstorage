@@ -183,8 +183,8 @@ public class PolicyParentClassChildClassBTreeTest extends AbstractForeignKeyBase
     }
 
     @Test
-    @DisplayName("4b. Обновление родителя: удалить child1, вставить child3 — Ошибка (без delete)")
-    void testUpdateParentRemoveOneInsertOneNoDeleteThrows() throws Exception {
+    @DisplayName("4b. Обновление родителя: удалить child1, вставить child3 — Успешно (Rule 4: удаление из коллекции ≠ delete, child survives independently)")
+    void testUpdateParentRemoveOneInsertOneNoDeleteSuccess() throws Exception {
         tx = storage.beginTransaction();
         PolicyParentClassChildClass parent = new PolicyParentClassChildClass();
         parent.setChildren(new HashSet<>());
@@ -200,8 +200,8 @@ public class PolicyParentClassChildClassBTreeTest extends AbstractForeignKeyBase
         PolicyChildClass child3 = new PolicyChildClass(); child3.setParent(loadedParent);
         loadedParent.addChild(child3);
         storage.update(loadedParent);
-        // child3 is inserted but child1 is NOT deleted — veto because child1 is orphaned
-        assertThrows(XdStorageRuntimeException.class, () -> storage.commitTransaction(tx));
+        // Rule 4: removal from collection ≠ object delete. child1 survives independently.
+        assertDoesNotThrow(() -> storage.commitTransaction(tx));
     }
 
     // ==================== 5. Database generated identifiers ====================

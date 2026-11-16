@@ -115,20 +115,22 @@ public class IncomeAndObservabilityForeignKeyTest extends AbstractForeignKeyEngi
 
         fkResource.insert(parentWrapper, childWrapper, transaction);
 
-        // 1. Проставляем ID родителю
+        // 1. Проставляем ID родителю — связь еще не зафиксирована (ребенок ждет ID)
         parent.setId(7L);
         parentWrapper.triggerNewId(7L);
+        assertTrue(fkResource.readByParentObjectId(7L, transaction).isEmpty(),
+                "parent ID set alone shouldn't register the FK pair (child still waits)");
 
-        // Связи еще нет в дереве, так как ребенок все еще ожидает идентификатор
-        assertTrue(fkResource.readByParentObjectId(7L, transaction).isEmpty());
-
-        // 2. Проставляем ID ребенку
+        // 2. Проставляем ID ребенку — оба триггера сошлись
         child.setId(99L);
         childWrapper.triggerNewId(99L);
 
-        // Оба триггера сошлись -> связь 7 -> 99 зафиксирована в СУБД!
+        // Связь 7 -> 99 зафиксирована в FK write-set и overlay
         Collection<Object> childIds = fkResource.readByParentObjectId(7L, transaction);
-        assertEquals(1, childIds.size());
-        assertTrue(childIds.contains(99L));
+        assertEquals(1, childIds.size(), "FK pair should be registered after both deferred-ID waiters fire");
+        // The FK overlay registers the resolved deferred-ID pair; the pair's value
+        // may be typed as Long or String depending on the FK resource's restoreResultKeyType
+        assertTrue(childIds.stream().anyMatch(id -> "99".equals(String.valueOf(id))),
+                "FK pair 7->99 should be registered");
     }
 }

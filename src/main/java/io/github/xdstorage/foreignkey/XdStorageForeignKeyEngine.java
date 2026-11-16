@@ -12,12 +12,16 @@ import io.github.xdstorage.resource.XdStorageAbstractResourcesManager;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import io.github.xdstorage.transaction.XdStorageTransaction;
 import io.github.xdstorage.utils.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
 
 public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
+
+    private static final Logger log = LoggerFactory.getLogger(XdStorageForeignKeyEngine.class);
 
     private final boolean enabled;
     private final XdStorageForeignKeyResourcesManager foreignKeyResourcesManager;
@@ -28,6 +32,10 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
         this.enabled = enabled;
         this.foreignKeyResourcesManager = foreignKeyResourcesManager;
         this.foreignKeyRegistry = foreignKeyRegistry;
+    }
+
+    public XdStorageForeignKeyResourcesManager getForeignKeyResourcesManager() {
+        return foreignKeyResourcesManager;
     }
 
     /**
@@ -205,9 +213,18 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
                             relation.getClassFrom(), relation.getClassTo(), relation.getField(), transaction
                     );
 
-                    Collection<Object> childIds = resource.readByParentObjectId(parentObjectId, transaction);
+                    // FNKEY: snapshot child IDs BEFORE processing to avoid FK-tree-modification
+                    // during iteration (which triggers B+Tree lock contention / retry budget exhaustion).
+                    Collection<Object> childIds = new java.util.ArrayList<>(resource.readByParentObjectId(parentObjectId, transaction));
                     for (Object childObjectId : childIds) {
-                        resource.delete(object, parentObjectId, null, (Comparable<?>) childObjectId, transaction);
+                        // FNKEY: skip children already deleted in this transaction.
+                        // The FK-tree snapshot may include ids whose id-index entries were
+                        // removed by a prior delete in the same tx. The seenKeysByTransaction
+                        // cache is NEVER cleaned up on delete, so we check via the resource's
+                        // childExists method which verifies against the actual id-index tree.
+                        if (resource.childExists(parentObjectId, (Comparable<?>) childObjectId, transaction)) {
+                            resource.delete(object, parentObjectId, null, (Comparable<?>) childObjectId, transaction);
+                        }
                     }
                 }
             }
@@ -280,6 +297,18 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
         }
     }
 
+    /** Reads FK children from the parent's FK tree using the raw MVCC snapshot (no overlay).
+     * Used for orphan detection: the parent was loaded from the FK tree's snapshot,
+     * so comparing with the snapshot (not committed+overlay) avoids false positives
+     * from children committed by other transactions between this parent's load and the read.
+     * The difference between snapshot children and in-memory children = real orphans
+     * (children removed from the parent's collection). */
+    private Collection<?> readForeignKeyChildrenRaw(IXdStorageForeignKeyResource resource,
+                                                    Comparable<?> parentObjectId, XdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException {
+        return resource.readByParentObjectIdRaw(parentObjectId, transaction);
+    }
+
     private void processUpdateParentObjectWithChildren(XdStorageClassInfo clInfo, Object parentObject,
                                                        XdStorageClassInfo clInfoTo, XdStorageObjectField clField,
                                                        XdStorageTransaction transaction)
@@ -343,7 +372,17 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
         }
 
         for (Object childObjectId : childIds) {
-            resource.delete(parentObject, parentObjectId, null, (Comparable<?>) childObjectId, transaction);
+            // FNKEY: only process orphaned children that actually exist.
+            // The FK-tree snapshot may include ids whose id-index entries were
+            // removed by a prior delete in the same tx (seenKeys cache stale).
+            if (resource.childExists(parentObjectId, (Comparable<?>) childObjectId, transaction)) {
+                // FK-4: removal from collection ≠ object delete. Dissolve the FK pair
+                // (clean from B+tree) without arming a child-delete waiter. The child
+                // is now an independent object — its FK pair with this parent is gone.
+                // Idempotent: safe if the child is also deleted in this TX (the child
+                // DELETE path will dissolve the pair too; unregisterForeignKey absorbs it).
+                resource.unregisterForeignKey(parentObjectId, (Comparable<?>) childObjectId, transaction);
+            }
         }
     }
 

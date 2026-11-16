@@ -2,8 +2,12 @@ package io.github.xdstorage.foreignkey;
 
 import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
+import io.github.xdstorage.observing.IXdStorageIdObservableWrapper;
+import io.github.xdstorage.observing.XdStorageAbstractIdObserver;
 import io.github.xdstorage.resource.cache.XdStorageCacheCommitPhase;
 import io.github.xdstorage.transaction.XdStorageTransaction;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,6 +38,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p><b>Thread safety:</b> ConcurrentHashMap everywhere; no external synchronization.</p>
  */
 public final class XdStorageForeignKeyCache {
+
+    private static final Logger log = LoggerFactory.getLogger(XdStorageForeignKeyCache.class);
 
     private final Map<String, XdStorageForeignKeyCacheRecord> records = new ConcurrentHashMap<>();
     private final Map<String, Set<String>> transactionRecords = new ConcurrentHashMap<>();
@@ -114,7 +120,8 @@ public final class XdStorageForeignKeyCache {
      * counters) stays in the FK resource's phase-1, which owns those contracts.
      */
     public void validateAllForTransaction(final XdStorageTransaction tx) {
-        for (final XdStorageForeignKeyPair pair : pairsForTransaction(tx)) {
+        final List<XdStorageForeignKeyPair> pairs = pairsForTransaction(tx);
+        for (final XdStorageForeignKeyPair pair : pairs) {
             if (!pair.isResolved()) {
                 throw new XdStorageRuntimeException("Not all foreign keys are registered for relation "
                         + pair.parentClassInfo.getClazz() + "#" + pair.parentField.getName() + " -> "
@@ -126,7 +133,8 @@ public final class XdStorageForeignKeyCache {
 
     /** POINT 4 (phase 2): promote every staged pair to PERFORM_COMMIT. */
     public void promoteAllForTransaction(final XdStorageTransaction tx) {
-        for (final XdStorageForeignKeyCacheRecord record : recordsFor(tx)) {
+        final List<XdStorageForeignKeyCacheRecord> recs = recordsFor(tx);
+        for (final XdStorageForeignKeyCacheRecord record : recs) {
             record.performCommit(tx);
         }
     }
@@ -152,11 +160,24 @@ public final class XdStorageForeignKeyCache {
         return record != null ? record.phase() : null;
     }
 
+    /**
+     * FNKEY: removes a specific pair from the transaction's write-set (used by
+     * deferred-ID callbacks to replace an incomplete pair with a resolved one).
+     */
+    public void removePairForTransaction(final XdStorageTransaction tx, final XdStorageForeignKeyPair pair) {
+        final String fullKey = fullKey(tx, pair);
+        records.remove(fullKey);
+        final Set<String> keys = transactionRecords.get(tx.getTransactionId());
+        if (keys != null) {
+            keys.remove(fullKey);
+        }
+    }
+
     /** POINT 7/8 (rollback and release): discards the transaction's write-set. */
     public void release(final XdStorageTransaction tx) {
         final String txId = tx.getTransactionId();
         final Set<String> keys = transactionRecords.remove(txId);
-        if (keys != null) {
+        if (keys != null && !keys.isEmpty()) {
             for (final String key : keys) {
                 records.remove(key);
             }
@@ -176,5 +197,67 @@ public final class XdStorageForeignKeyCache {
             }
         }
         return result;
+    }
+
+    /**
+     * FNKEY (FOREIGN_KEY_LISTENERS_WAITERS.md §4): stages an INSERT intent with a
+     * deferred-ID observer AND a callback. When the deferred-ID fires, the callback
+     * is invoked so the FK resource can write the resolved pair to the B+tree.
+     * <p><b>resolvePosition:</b> which position to resolve — "front" for deferred-parent
+     * (the observed object is the parent) or "reverse" for deferred-child
+     * (the observed object is the child). When both IDs are null, this is REQUIRED.</p>
+     */
+    public void cacheInsertWithDeferredId(final XdStorageForeignKeyPair pair,
+                                          final IXdStorageIdObservableWrapper childObject,
+                                          final XdStorageTransaction tx,
+                                          final String resolvePosition,
+                                          final java.util.function.BiConsumer<Comparable<?>, XdStorageTransaction> onFiredCallback) {
+        cacheInsert(pair, tx);
+        final String position = resolvePosition; // "front" or "reverse"
+        childObject.addObserver(new XdStorageAbstractIdObserver() {
+            @Override
+            public void onNewIdIsSet(IXdStorageIdObservableWrapper wrapper, Object childId) {
+                final String base = String.valueOf(pair.frontId() == null ? "null" : pair.frontId())
+                        + "\u001F" + String.valueOf(pair.reverseId());
+                final String fullKey = fullKey(tx, pair);
+                final XdStorageForeignKeyCacheRecord record = records.get(fullKey);
+                if (record != null) {
+                    record.performCommit(tx);
+                    @SuppressWarnings("unchecked")
+                    final Comparable<?> resolvedId = (Comparable<?>) childId;
+                    XdStorageForeignKeyPair resolved;
+                    if ("front".equals(position)) {
+                        resolved = new XdStorageForeignKeyPair(resolvedId, pair.reverseId(),
+                                pair.parentClassInfo, pair.childClassInfo, pair.parentField,
+                                XdStorageForeignKeyObjectChangeType.INSERT);
+                    } else {
+                        resolved = new XdStorageForeignKeyPair(pair.frontId(), resolvedId,
+                                pair.parentClassInfo, pair.childClassInfo, pair.parentField,
+                                XdStorageForeignKeyObjectChangeType.INSERT);
+                    }
+                    cacheInsert(resolved, tx); // idempotent: same relation scope
+                    log.debug("Deferred-ID waiter fired: promoted pair {} to PERFORM, resolved with childId={}",
+                            record.pair(), childId);
+                    if (onFiredCallback != null) {
+                        onFiredCallback.accept(resolvedId, tx);
+                        log.debug("FK resource callback fired: registerForeignKey({}, {})",
+                                resolvedId, childId);
+                    }
+                }
+            }
+        });
+    }
+
+    /** Clears ALL staged pairs from the cache (used when a storage shuts down to prevent cross-storage pollution). */
+    public void releaseAll() {
+        transactionRecords.clear();
+        records.clear();
+    }
+
+    /** Convenience overload without callback (FK cache handles both positions). */
+    public void cacheInsertWithDeferredId(final XdStorageForeignKeyPair pair,
+                                          final IXdStorageIdObservableWrapper childObject,
+                                          final XdStorageTransaction tx) {
+        cacheInsertWithDeferredId(pair, childObject, tx, null, null);
     }
 }
