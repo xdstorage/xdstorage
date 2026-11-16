@@ -21,7 +21,7 @@ public class XdStorageForeignKeyResourcesManager {
     private final XdStorageForeignKeyRegistry foreignKeyRegistry = new XdStorageForeignKeyRegistry();
 
     /**
-     * FNKEY (docs/analysis/FOREIGN_KEY_REDESIGN.md): the storage-wide FK pair write-set.
+     * FNKEY (docs/analysis/FOREIGN_KEYS.md §4/§5): the storage-wide FK pair write-set.
      * ONE instance shared by the engine (commitAllFxPairs) and every FK resource
      * (cacheInsert/cacheDelete at registration/dissolution, the phase methods) — a second
      * instance would split the write-set and silently lose pairs at commit.

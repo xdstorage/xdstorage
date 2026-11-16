@@ -31,7 +31,7 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
     }
 
     /**
-     * FNKEY POINT 6 (docs/analysis/FOREIGN_KEY_REDESIGN_INTEGRATION.md): the 2PC commit
+     * FNKEY POINT 6 (docs/analysis/FOREIGN_KEYS.md §4): the 2PC commit
      * protocol calls this after every entity record is permanent — the staged pair
      * write-set is promoted to PERFORM and released (its tree effects were already
      * applied at operation time INSIDE the trees' own infrastructure 2PC contour, and are

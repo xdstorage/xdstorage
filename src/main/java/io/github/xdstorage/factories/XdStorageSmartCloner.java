@@ -188,7 +188,7 @@ public class XdStorageSmartCloner implements IXdStorageCloner {
             lockable.lock__();
             try {
                 fillAndWrapForOneLevel(reference, object, storage, transaction);
-                // RECIDENT (the ClearLink family, docs/analysis/FOREIGN_KEY_REDESIGN.md
+                // RECIDENT (the ClearLink family, docs/analysis/FOREIGN_KEYS.md §4/§5
                 // integration): a fully populated reference is NO LONGER a bare stub — the
                 // reference mark must flip here exactly like the infrastructure branch
                 // does. Left true, the memoized wrapper stays "unpacked" and ANY later

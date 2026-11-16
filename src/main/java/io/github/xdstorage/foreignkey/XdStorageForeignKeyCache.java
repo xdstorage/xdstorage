@@ -12,7 +12,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * The FK pair write-set (docs/analysis/FOREIGN_KEY_REDESIGN.md): every FK pair a
+ * The FK pair write-set (docs/analysis/FOREIGN_KEYS.md §4/§5): every FK pair a
  * transaction stages goes through THIS cache through the phase pipeline
  * PREPARE_COMMIT → PERFORM_COMMIT → COMMIT (or disappears on ROLLBACK) — the pairs are
  * NEVER written into the FK B+trees at registration time. The B+tree write happens ONLY
