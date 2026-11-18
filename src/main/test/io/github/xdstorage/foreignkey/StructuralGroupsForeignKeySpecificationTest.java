@@ -110,7 +110,6 @@ public class StructuralGroupsForeignKeySpecificationTest extends AbstractForeign
 
     @Test
     @DisplayName("Инвариант Групп: Удаление родителя при наличии хотя бы одного живого ребенка в коллекции — Отказ")
-    @Disabled("Нужно тестировать нареальном хранилище")
     void testDeleteParentWithActiveCollectionChildrenThrows() throws Exception {
         ComplexParent parent = new ComplexParent(); parent.setId(55L);
 

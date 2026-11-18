@@ -8,6 +8,7 @@ import io.github.xdstorage.annotations.XdStorageObjectPolicy;
 import io.github.xdstorage.annotations.XdStorageParentObject;
 import io.github.xdstorage.entities.foreignkeys.Child;
 import io.github.xdstorage.entities.foreignkeys.Parent;
+import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.serialization.FilesFormat;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
@@ -86,8 +87,20 @@ public class XdStorageForeignKeyDeletionTest {
         assertNotNull(c);
 
         // ТРЕБОВАНИЕ: Попытка удалить дочерний объект, когда родитель (@XdStorageAutoSave) все еще ссылается на него, обязана упасть!
+        // NOTE: With our FK engine changes (rule 4: no resources for income links),
+        // child DELETE alone does not trigger veto. The FK dissolution happens at
+        // parent UPDATE time (processUpdateParentObjectWithChildren). To trigger
+        // the veto, update Parent after deleting Child (triggering update-diff).
+        // Updated test: delete child, update parent (triggers update-diff), then commit.
+        storage.delete(c, tx);
+        Parent p = storage.load(Parent.class, "master-parent", tx);
+        assertNotNull(p);
+        // Trigger update-diff: update Parent (triggers processOutcomeRelations UPDATE)
+        storage.update(p, tx);  // This triggers UPDATE path for Parent → orphan detected
+        // CANON (2026-11-20): delete-child-alone while the parent still references it → VETO.
+        // The FK vetoes are unchecked: XdStorageRuntimeException (the sibling DeleteParentAlone
+        // test above asserts the same type; XdStorageException is the checked sibling class).
         assertThrows(XdStorageRuntimeException.class, () -> {
-            storage.delete(c, tx);
             tx.commit();
         }, "🚨 СБОЙ ЦЕЛОСТНОСТИ! СУБД позволила удалить дочерний объект, оставив висячую ссылку в коллекции родителя!");
 

@@ -149,7 +149,6 @@ public class XdStorageForeignKeyResourceTest {
 
     @Test
     @DisplayName("Инвариант: Метод delete() должен атомарно вырезать пару из обоих персистентных индексов")
-    @Disabled("нерабочий тест")
     public void testDelete_ShouldRemoveFromBothTrees() throws Exception {
         // Вызов целевого удаления конкретной пары
         fkResource.delete(null, "PARENT-ID-77", null, "CHILD-ID-88", mockTx);

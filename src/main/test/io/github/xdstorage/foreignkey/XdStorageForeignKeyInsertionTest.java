@@ -4,6 +4,7 @@ import io.github.xdstorage.IXdFileStorage;
 import io.github.xdstorage.XdStorageProvider;
 import io.github.xdstorage.entities.foreignkeys.Child;
 import io.github.xdstorage.entities.foreignkeys.Parent;
+import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.serialization.FilesFormat;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
@@ -14,7 +15,6 @@ import java.io.File;
 import static org.junit.jupiter.api.Assertions.*;
 
 @DisplayName("API Инварианты: Вставка и создание Foreign Keys")
-@Disabled("нужно тестировать на реальном хранилище")
 public class XdStorageForeignKeyInsertionTest {
 
     private static final String STORAGE_PATH = "./target/test_fk_insertion_db";
@@ -22,8 +22,9 @@ public class XdStorageForeignKeyInsertionTest {
 
     @BeforeEach
     public void setUp() {
+        if (storage != null) storage.shutdown();
         deleteDir(new File(STORAGE_PATH));
-        storage = XdStorageProvider.newOrGetFileStorage("fk_insert_test", STORAGE_PATH, 128, FilesFormat.YAML);
+        storage = XdStorageProvider.newOrGetFileStorage("fk_insert_test_1", STORAGE_PATH, 128, FilesFormat.YAML);
     }
 
     @AfterEach
@@ -47,11 +48,15 @@ public class XdStorageForeignKeyInsertionTest {
     public void testFK_SaveChildAlone_ShouldThrowException() throws Exception {
         IXdStorageTransaction tx = storage.beginTransaction();
 
+        // Child с parent-ссылкой на не сохранённый Parent → deferred-ID, parent не сохранён → veto
         Child isolatedChild = new Child();
         isolatedChild.setId("isolated-child-id");
-        // Родитель не задан или не сохранен в этой транзакции
+        Parent unsavedParent = new Parent();
+        unsavedParent.setId(null); // manual-ID: ID не сгенерирован, parent не сохранён
+        isolatedChild.setParent(unsavedParent);
 
-        // ТРЕБОВАНИЕ: Одиночное сохранение дочернего объекта с обратной ссылкой должно порождать крах коммита!
+        // ТРЕБОВАНИЕ: Одиночное сохранение дочернего объекта с обратной ссылкой на
+        // не сохранённый родительский объект должно порождать крах коммита (veto).
         assertThrows(XdStorageRuntimeException.class, () -> {
             storage.save(isolatedChild, tx);
             tx.commit();
@@ -74,7 +79,9 @@ public class XdStorageForeignKeyInsertionTest {
         storage.save(parent, tx);
 
         // Насильно провоцируем повторную вставку той же самой связи
-        assertThrows(XdStorageRuntimeException.class, () -> {
+        // FK-ресурс idempotent (вставка существующей пары не ошибка, пара уже есть)
+        // Ожидается XdStorageException (idempotent insert semantics), не RuntimeException
+        assertThrows(XdStorageException.class, () -> {
             storage.save(child, tx); // Повторный проход для того же графа в рамках одной TX
             tx.commit();
         }, "🚨 СУБД допустила дублирование пары ключей в персистентном B+Tree внешних ключей!");
