@@ -125,7 +125,6 @@ public class OutcomeRelationsForeignKeyTest extends AbstractForeignKeyEngineInte
 
     @Test
     @DisplayName("4) UPDATE родительского объекта (Смена состава детей)")
-    @Disabled("нерабочий тест")
     void testUpdateParentRelations() throws Exception {
         SampleChild oldChild = new SampleChild(); oldChild.setId(400L);
         SampleChild newChild = new SampleChild(); newChild.setId(500L);
@@ -150,7 +149,6 @@ public class OutcomeRelationsForeignKeyTest extends AbstractForeignKeyEngineInte
 
     @Test
     @DisplayName("5) DELETE родительского объекта (Каскадный пурдж исходящих ссылок)")
-    @Disabled("нерабочий тест")
     void testDeleteParentPurgesRelations() throws Exception {
         SampleChild child = new SampleChild();
         child.setId(700L);

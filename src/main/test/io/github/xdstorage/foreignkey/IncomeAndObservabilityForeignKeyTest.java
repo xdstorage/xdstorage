@@ -47,7 +47,6 @@ public class IncomeAndObservabilityForeignKeyTest extends AbstractForeignKeyEngi
 
     @Test
     @DisplayName("1) DELETE дочернего объекта (Разрыв связи со стороны входящей ссылки)")
-    @Disabled("нерабочий тест")
     void testDeleteChildClearsIncomeRelation() throws Exception {
         SampleParent parent = new SampleParent(); parent.setId(80L);
         SampleChild child = new SampleChild(); child.setId(900L);
@@ -68,7 +67,6 @@ public class IncomeAndObservabilityForeignKeyTest extends AbstractForeignKeyEngi
 
     @Test
     @DisplayName("2) Реактивный наблюдатель: Вставка ребенка без ID (Child Id Waiter)")
-    @Disabled("неправильный тест")
     void testReactiveChildIdWaiter() throws Exception {
         SampleParent parent = new SampleParent(); parent.setId(50L);
         SampleChild child = new SampleChild(); // id == null

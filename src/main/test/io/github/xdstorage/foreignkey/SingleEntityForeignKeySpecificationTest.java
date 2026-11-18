@@ -20,7 +20,6 @@ import java.util.Collection;
 import static org.junit.jupiter.api.Assertions.*;
 
 @DisplayName("Спецификация Foreign Key: Одиночные сущности и инварианты")
-@Disabled("нужно тестировать на реальном хранилище")
 public class SingleEntityForeignKeySpecificationTest extends AbstractForeignKeySpecificationTest {
 
     @XdStorageObjectPolicy(policy = XdStoragePolicy.StoreAsSingleObject)

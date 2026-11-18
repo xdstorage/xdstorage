@@ -109,8 +109,8 @@ public class ForeignKeyUpdateScenariosTest extends AbstractForeignKeyBaseSpecifi
     }
 
     @Test
-    @DisplayName("6. Удаление ребенка из коллекции родителя, обновление родителя и удаление другого ребенка -> Успешный commit (Правило 4: удаление из коллекции ≠ удаление объекта)")
-    void testUpdateParentAndDeleteAnotherChildSuccess() throws Exception {
+    @DisplayName("6. Удаление ребенка из коллекции родителя, обновление родителя и удаление другого ребенка (ссылка в родителе жива) -> ВЕТО: висячая ссылка")
+    void testUpdateParentAndDeleteAnotherChildWithLiveReferenceThrows() throws Exception {
         tx = storage.beginTransaction();
         HashIndexParentAutoId parent = storage.load(HashIndexParentAutoId.class, parentId);
 
@@ -126,6 +126,11 @@ public class ForeignKeyUpdateScenariosTest extends AbstractForeignKeyBaseSpecifi
         storage.update(parent);
         storage.delete(deleteChild);
 
-        assertDoesNotThrow(() -> storage.commitTransaction(tx));
+        // CANON (архитектор, 2026-11-20): на коммите сохранённая коллекция родителя всё ещё
+        // ссылается на удалённый deleteChild — висячая ссылка = вето. То же конечное состояние,
+        // что в DeleteScenarios.testDeleteOnlyOneChildThrows → тот же вердикт. Rule 4
+        // («удаление из коллекции ≠ удаление объекта») остаётся доказан тестом 4:
+        // targetChild удалён из коллекции, но НЕ удалён как объект — и вето здесь не о нём.
+        assertThrows(XdStorageRuntimeException.class, () -> storage.commitTransaction(tx));
     }
 }
