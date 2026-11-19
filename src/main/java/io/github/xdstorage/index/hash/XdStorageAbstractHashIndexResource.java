@@ -3,6 +3,7 @@ package io.github.xdstorage.index.hash;
 import io.github.xdstorage.resource.*;
 import io.github.xdstorage.resource.cache.IXdStorageCacheInternalListener;
 import io.github.xdstorage.resource.cache.XdStorageCacheCommitPhase;
+import io.github.xdstorage.resource.cache.XdStorageCacheRecord;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
@@ -492,6 +493,12 @@ public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIn
         resource.delete(object, transaction); // will be rolled back
 
         cache.delete(objectId, transaction);
+    }
+
+    @Override
+    public boolean isDeleted(Object objectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+        XdStorageCacheRecord record = cache.records().get(objectId);
+        return record != null && record.isDeleteChange() && record.isChangedByTransaction(transaction);
     }
 
     /** @return this resource itself — the hash id-index resource is its own DAO */

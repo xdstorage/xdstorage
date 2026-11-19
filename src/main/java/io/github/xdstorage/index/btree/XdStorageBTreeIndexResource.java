@@ -861,6 +861,16 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
         }
     }
 
+    @Override
+    public boolean isDeleted(Object id, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+        Object rid = seenKeysByTransaction.computeIfAbsent(transaction.getTransactionId(), k -> new ConcurrentHashMap<>()).get(id);
+        if (rid != null) {
+            final IXdStorageDaoResource resource = manager.lockResource(rid, objectClInfo, transaction);
+            return resource.isDeleted(id, transaction);
+        }
+        return false;
+    }
+
     /** @return this resource itself — the tree-object resource is its own id-index DAO */
     @Override
     public IXdStorageIndexDaoResource getDao() {

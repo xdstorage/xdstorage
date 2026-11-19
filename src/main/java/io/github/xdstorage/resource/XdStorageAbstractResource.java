@@ -8,6 +8,7 @@ import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.idgeneration.IXdStorageIdGenerator;
 import io.github.xdstorage.idgeneration.XdStorageIdGeneratorType;
 import io.github.xdstorage.object.XdStorageIdentifiableObject;
+import io.github.xdstorage.resource.cache.XdStorageCacheRecord;
 import io.github.xdstorage.services.XdStorageServicesLocator;
 import io.github.xdstorage.transaction.XdStorageTransaction;
 import io.github.xdstorage.utils.XdStorageClassInfo;
@@ -248,6 +249,12 @@ public abstract class XdStorageAbstractResource implements IXdStorageResourceObj
     public void delete(final Object object, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
         cache.delete(idField.get(object), transaction);
         manager.updateCounterByObjectRemoved(clInfo.getClazz(), this);
+    }
+
+    @Override
+    public boolean isDeleted(Object id, XdStorageTransaction transaction) {
+        XdStorageCacheRecord record = cache.records().get(id);
+        return record != null && record.isDeleteChange() && record.isChangedByTransaction(transaction);
     }
 
     @Override
