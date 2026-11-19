@@ -3,8 +3,10 @@ package io.github.xdstorage.utils;
 import io.github.xdstorage.IXdFileStorage;
 import io.github.xdstorage.XdStoragePolicy;
 import io.github.xdstorage.index.IXdStorageIndexDaoResource;
+import io.github.xdstorage.resource.IXdStorageDaoResource;
 import io.github.xdstorage.services.XdStorageServicesLocator;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
+import io.github.xdstorage.transaction.XdStorageTransaction;
 import io.github.xdstorage.utils.XdStorageAutoSaveFieldInfo.Shape;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -100,6 +102,24 @@ public final class XdStorageAutoSaveCascadeEngine {
         for (final XdStorageAutoSaveFieldInfo info : clInfo.getAutoSaveFields()) {
             for (final Object child : info.childrenOf(unwrapped)) {
                 final Object childUnwrapped = XdStorageObjectUtils.getWrappedObjectOrSameObject(child);
+                // MASSFILL FIX: a lazy reference child (a not-yet-loaded stub — a simple
+                // wrapper with reference__ set, or an R-53 parser stub marked
+                // IXdStorageReferenceMarked) must NEVER be cascade-upserted. Its own fields
+                // are not loaded (deeper AutoSave collections read null), and facade.update
+                // would overwrite the durable record with that partial state — wiping
+                // collections and orphaning the referenced records (the MassFill leak
+                // family: a worker's one-level universe update cascade-upserted the seed
+                // systems as planets=NULL stubs, wiping their durable planets collections;
+                // the purge then walked only reachable collections and never saw the
+                // orphaned planets). The parent's write owes a stub nothing but the linkage
+                // it already carries: the child's own durable state stays authoritative.
+                // Untouched stubs are the only thing skipped — accessing/mutating a stub
+                // materializes it (isReference flips false) and the cascade updates it
+                // again. Mark visited so reference cycles through stubs terminate quietly.
+                if (XdStorageObjectUtils.isReference(child)) {
+                    visited.add(childUnwrapped);
+                    continue;
+                }
                 // dedup + cycle guard: the mark happens here, and the recursive walk below
                 // is what opens the child's OWN fields — pre-marking before save would make
                 // the child's cascade walk early-return and break transitivity (observed)
@@ -150,17 +170,25 @@ public final class XdStorageAutoSaveCascadeEngine {
             return;
         }
         if (childInfo.getPolicy() == XdStoragePolicy.StoreAsSingleObject) {
-            // single-object children have no id-index: the update is authoritative for an
-            // app-assigned id (a first-time save of an id-set child is not the cascade's job)
-            facade.update(child, tx);
-            return;
-        }
-        final IXdStorageIndexDaoResource indexResource =
-                services.getResourcesManager().lockIndexResource(childInfo, (io.github.xdstorage.transaction.XdStorageTransaction) tx);
-        if (indexResource.has(id, (io.github.xdstorage.transaction.XdStorageTransaction) tx)) {
-            facade.update(child, tx);
+            IXdStorageDaoResource referencesResource =
+                    services.getResourcesManager().lockReferencesResource(childInfo, (XdStorageTransaction) tx);
+            if (!referencesResource.isDeleted(id, (XdStorageTransaction) tx)) {
+                if (referencesResource.hasObject(id, (XdStorageTransaction) tx)) {
+                    facade.update(child, tx);
+                } else {
+                    facade.save(child, tx);
+                }
+            }
         } else {
-            facade.save(child, tx);
+            final IXdStorageIndexDaoResource indexResource =
+                    services.getResourcesManager().lockIndexResource(childInfo, (XdStorageTransaction) tx);
+            if (!indexResource.isDeleted(id, (XdStorageTransaction) tx)) {
+                if (indexResource.has(id, (XdStorageTransaction) tx)) {
+                    facade.update(child, tx);
+                } else {
+                    facade.save(child, tx);
+                }
+            }
         }
     }
 }

@@ -348,7 +348,7 @@ public final class XdStorageObjectUtils {
             if (IXdStorageUnmodifiableWrapper.class.isAssignableFrom(cl)) return (T) getWrappedObjectOrSameObject(getUnmodifiableWrapperObjectField(cl).get(object));
             if (IXdStorageIdObservableWrapper.class.isAssignableFrom(cl)) return (T) getWrappedObjectOrSameObject(getObservableWrapperObjectField(cl).get(object));
         } catch (final Exception e) {
-            throw new RuntimeException(e);
+//            throw new RuntimeException(e);
         }
         return (T) object;
     }

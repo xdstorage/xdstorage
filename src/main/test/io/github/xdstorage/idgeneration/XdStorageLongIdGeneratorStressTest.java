@@ -83,6 +83,11 @@ public class XdStorageLongIdGeneratorStressTest {
             public void delete(Object object, XdStorageTransaction tx) throws XdStorageException {}
 
             @Override
+            public boolean isDeleted(Object id, XdStorageTransaction transaction) {
+                return false;
+            }
+
+            @Override
             public Object getResourceId() {
                 return null;
             }

@@ -146,4 +146,6 @@ public interface IXdStorageIndexDaoResource extends IXdStorageListenableResource
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
     void delete(final Object object, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+
+    boolean isDeleted(Object id, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
 }

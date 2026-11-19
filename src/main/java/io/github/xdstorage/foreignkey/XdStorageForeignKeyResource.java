@@ -19,6 +19,7 @@ import io.github.xdstorage.transaction.XdStorageTransactionResourceChanges;
 import io.github.xdstorage.utils.XdStorageClassInfo;
 import io.github.xdstorage.utils.XdStorageObjectField;
 import io.github.xdstorage.utils.XdStorageObjectIdField;
+import io.github.xdstorage.utils.XdStorageObjectUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -556,7 +557,7 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
     public void insert(Comparable<?> parentObjectId, IXdStorageIdObservableWrapper childObject, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
         XdStorageObjectIdField childIdField = clChildInfo.getIdField();
 
-        Comparable<?> childObjectId = childIdField.get(childObject);
+        Comparable<?> childObjectId = childIdField.get(XdStorageObjectUtils.getWrappedObjectOrSameObject(childObject));
         if (childObjectId != null) {
             registerForeignKey(parentObjectId, childObjectId, transaction);
         } else {
@@ -585,8 +586,8 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
         XdStorageObjectIdField parentIdField = clParentInfo.getIdField();
         XdStorageObjectIdField childIdField = clChildInfo.getIdField();
 
-        Comparable<?> parentObjectId = parentIdField.get(parentObject);
-        Comparable<?> childObjectId = childIdField.get(childObject);
+        Comparable<?> parentObjectId = parentIdField.get(XdStorageObjectUtils.getWrappedObjectOrSameObject(parentObject));
+        Comparable<?> childObjectId = childIdField.get(XdStorageObjectUtils.getWrappedObjectOrSameObject(childObject));
 
         if (parentObjectId != null) {
             if (childObjectId != null) {
