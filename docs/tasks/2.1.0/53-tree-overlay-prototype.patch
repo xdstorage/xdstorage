@@ -1,0 +1,336 @@
+diff --git a/src/main/java/io/github/xdstorage/btree/XdStorageBTree.java b/src/main/java/io/github/xdstorage/btree/XdStorageBTree.java
+index ddfbcdd..7a45bf2 100755
+--- a/src/main/java/io/github/xdstorage/btree/XdStorageBTree.java
++++ b/src/main/java/io/github/xdstorage/btree/XdStorageBTree.java
+@@ -158,6 +158,14 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
+     /** txId → storage, зафиксированный при стейджинге (apply на коммите идёт без параметра). */
+     private static final java.util.concurrent.ConcurrentMap<String, IXdStorage> TX_OVERLAY_STORAGE =
+             new java.util.concurrent.ConcurrentHashMap<>();
++    /**
++     * txId → undo-журнал ПРИМЕНЕННЫХ (на коммите) операций: {tree, "I"|"D", key, value}.
++     * Apply физически мутирует дерево ДО успешного завершения фаз — если TX после apply
++     * откатывается (sweeper, veto чужого ресурса), undo-replay возвращает деревья в
++     * до-примененное состояние. Коммит-успех → dropAppliedUndos.
++     */
++    private static final java.util.concurrent.ConcurrentMap<String, java.util.Deque<Object[]>> APPLIED_UNDOS =
++            new java.util.concurrent.ConcurrentHashMap<>();
+ 
+     /**
+      * Overlay-режим определяется РОЛЬЮ дерева по имени id: идексные деревья ("id_index")
+@@ -184,6 +192,7 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
+ 
+     private void stageInsert(final IXdStorageTransaction transaction, final Comparable key, final Object value, final IXdStorage storage) {
+         TX_OVERLAY_STORAGE.putIfAbsent(transaction.getTransactionId(), storage);
++        System.out.println("[DIAG] STAGE-I tree=" + (id != null ? id.getName() : "?") + " tx=" + transaction.getTransactionId().substring(0, 8) + " key=" + key);
+         final TreeOverlay overlay = overlays.computeIfAbsent(transaction.getTransactionId(), k -> newOverlay(transaction));
+         overlay.ops.add(new Object[]{"I", key, value});
+         // Later-wins: стейдженная вставка отменяет предыдущее стейдженное удаление
+@@ -198,6 +207,7 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
+ 
+     private void stageDelete(final IXdStorageTransaction transaction, final Comparable key, final Object value, final IXdStorage storage) {
+         TX_OVERLAY_STORAGE.putIfAbsent(transaction.getTransactionId(), storage);
++        System.out.println("[DIAG] STAGE-D tree=" + (id != null ? id.getName() : "?") + " tx=" + transaction.getTransactionId().substring(0, 8) + " key=" + key);
+         final TreeOverlay overlay = overlays.computeIfAbsent(transaction.getTransactionId(), k -> newOverlay(transaction));
+         overlay.ops.add(new Object[]{"D", key, value});
+         // Later-wins: стейдженное удаление отменяет предыдущую стейдженную вставку
+@@ -249,6 +259,13 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
+             return;
+         }
+         final TreeOverlay overlay = overlays.remove(transaction.getTransactionId());
++        if (overlay != null && !overlay.ops.isEmpty()) {
++            final StringBuilder ks = new StringBuilder();
++            for (final Object[] op : overlay.ops) {
++                ks.append(op[0]).append(':').append(op[1]).append(';');
++            }
++            System.out.println("[DIAG] APPLY tree=" + (id != null ? id.getName() : "?") + " tx=" + transaction.getTransactionId().substring(0, 8) + " ops=" + ks);
++        }
+         if (overlay == null || overlay.ops.isEmpty()) {
+             return;
+         }
+@@ -283,6 +300,15 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
+                     throw absorbable;
+                 }
+             }
++            // Батч применен полностью: undo-журнал переезжает в ожидание разрешения TX
++            // (коммит-успех → drop; rollback → undo-replay). До этого момента физические
++            // изменения дерева обратимы.
++            final java.util.Deque<Object[]> applied = APPLIED_UNDOS.computeIfAbsent(
++                    transaction.getTransactionId(), k -> new java.util.ArrayDeque<>());
++            for (int i = undo.size() - 1; i >= 0; i--) {
++                final Object[] u = undo.get(i);
++                applied.addFirst(new Object[]{this, u[0], u[1], u[2]});
++            }
+         } catch (final XdStorageConnectionException connectionFailure) {
+             try {
+                 undoBatch(undo, storage, transaction);
+@@ -353,6 +379,52 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
+         }
+     }
+ 
++    /**
++     * Откат TX после УСПЕШНОГО apply: undo-replay примененных операций в обратном
++     * порядке (возврат удаленных записей id-индексов/FK-деревьев, снятие вставленных).
++     * Идемпотентен по "is exists"/"does not exists"; закрывает дыру атомарности
++     * apply→rollback (sweeper-убийство TX после применения пакета).
++     */
++    public static void undoAllAppliedOverlays(final IXdStorageTransaction transaction) {
++        if (transaction == null) {
++            return;
++        }
++        final java.util.Deque<Object[]> applied = APPLIED_UNDOS.remove(transaction.getTransactionId());
++        System.out.println("[DIAG] UNDO tx=" + transaction.getTransactionId().substring(0, 8) + " entries=" + (applied == null ? -1 : applied.size()));
++        if (applied == null) {
++            return;
++        }
++        final IXdStorage storage = TX_OVERLAY_STORAGE.get(transaction.getTransactionId());
++        if (storage == null) {
++            System.out.println("[DIAG] UNDO storage-null — undo SKIPPED");
++            return;
++        }
++        final java.util.Iterator<Object[]> desc = applied.descendingIterator();
++        while (desc.hasNext()) {
++            final Object[] entry = desc.next();
++            final XdStorageBTree tree = (XdStorageBTree) entry[0];
++            final String type = (String) entry[1];
++            final Comparable key = (Comparable) entry[2];
++            final Comparable value = (Comparable) entry[3];
++            try {
++                if ("D".equals(type)) {
++                    tree.doInsert(key, value, storage, transaction);
++                } else {
++                    tree.doDeleteTyped(key, value, storage, transaction);
++                }
++            } catch (final Exception ignored) {
++                // undo идемпотентен: целевое состояние уже достигнуто
++            }
++        }
++    }
++
++    /** Коммит-успех: применённые изменения стали коммитом — undo-журнал снят. */
++    public static void dropAppliedUndos(final IXdStorageTransaction transaction) {
++        if (transaction != null) {
++            APPLIED_UNDOS.remove(transaction.getTransactionId());
++        }
++    }
++
+     /** Откат TX: overlay отбрасывается целиком (физическое дерево не мутировалось). */
+     public void discardOverlays(final IXdStorageTransaction transaction) {
+         if (transaction == null) {
+diff --git a/src/main/java/io/github/xdstorage/resource/cache/XdStorageCacheRecord.java b/src/main/java/io/github/xdstorage/resource/cache/XdStorageCacheRecord.java
+index 4c0afed..4a57fec 100644
+--- a/src/main/java/io/github/xdstorage/resource/cache/XdStorageCacheRecord.java
++++ b/src/main/java/io/github/xdstorage/resource/cache/XdStorageCacheRecord.java
+@@ -46,6 +46,17 @@ public class XdStorageCacheRecord {
+ 
+     private Object prevObject;
+ 
++    /**
++     * W4-DESIGN / task 40: ЧИСТЫЙ до-транзакционный снапшот, снятый в момент создания
++     * read-записи — ДО того, как вызывающий код получил инстанс и мутировал его
++     * in-place (u.addGalaxy(g), it.remove() через wrapper write-through). Откат
++     * восстанавливает ИМЕННО этот снапшот: stage-временной клон уже содержит
++     * мутации вызывающего ("prevObject aliasing" — задокументированный канал
++     * контаминации, выжившие сироты MassFillSecond). Инфраструктурные записи —
++     * pass-through по идентичности (их откат — fresh-parse).
++     */
++    private Object prevSnapshot;
++
+     private Object object;
+ 
+     private Object newObject;
+@@ -109,6 +120,19 @@ public class XdStorageCacheRecord {
+         final XdStorageCacheRecord record = new XdStorageCacheRecord(cache);
+         record.id = field.get(object);
+         record.object = object;
++        // W4-DESIGN / task 40: чистый до-транзакционный снапшот — СЕЙЧАС, до передачи
++        // инстанса вызывающему (его in-place мутации через wrapper write-through
++        // алиасятся с record.object). Для инфраструктуры materializeForCache проходит
++        // по идентичности — снапшот не клонирует дерево/узлы (их откат — fresh-parse).
++        // ПРОСТОЙ копировщик (не materializeForCache/unwrapAndClone): последний
++        // задействует reference-provider и падает "reference cannot be null" на
++        // null-id вложенных ссылках (deferred-ID поток: ребенок с несохраненным
++        // родителем). Plain-копия полей — достаточна для rollback-снапшота.
++        try {
++            record.prevSnapshot = io.github.xdstorage.utils.XdStorageObjectUtils.cloneObject(object);
++        } catch (final Exception snapshotFailure) {
++            record.prevSnapshot = object;
++        }
+         record.newObject = null;
+         record.transaction = null;
+         record.change = XdStorageCacheChange.read;
+@@ -458,7 +482,18 @@ public class XdStorageCacheRecord {
+      */
+     public void markUpdate(IXdStorageTransaction transaction) {
+         ++version;
+-        this.prevObject = this.object;
++        // W4-DESIGN / task 40: де-алиасинг prevObject. Раньше prevObject = сырая ссылка
++        // на канонический инстанс, который вызывающий уже мутировал in-place
++        // (u.addGalaxy(g) до update()) — rollback восстанавливал ТА ЖЕ мутированную
++        // коллекцию ("prevObject aliasing") и любой поздний коммитер записи делал
++        // сиротскую ссылку долговечной. Теперь prevObject — глубокий клон pre-stage
++        // состояния: rollback возвращает запись к ЧИСТОЙ до-транзакционной точке.
++        // Инфраструктурные объекты (B+tree) проходят по идентичности — их in-place
++        // семантики и fresh-parse rollback не меняются.
++        // W4-DESIGN / task 40: prevObject = ЧИСТЫЙ read-временной снапшот (до мутаций
++        // вызывающего), не stage-временное состояние (уже содержит мутации —
++        // it.remove()/addGalaxy() до update() — их rollback обязан отменить)
++        this.prevObject = this.prevSnapshot;
+         // LOSTUPD diagnostics: the accept path of every write — what version stamp the
+         // conflict checks will see for this record from now on.
+         if (io.github.xdstorage.utils.XdStorageDiag.ENABLED) {
+@@ -492,7 +527,12 @@ public class XdStorageCacheRecord {
+      */
+     public void markDelete(IXdStorageTransaction transaction) {
+         ++version;
+-        this.prevObject = this.object;
++        // W4-DESIGN / task 40: де-алиасинг (см. markUpdate) — rollback удаления
++        // восстанавливает ЧИСТЫЙ pre-stage объект, а не мутированный алиас
++        // W4-DESIGN / task 40: prevObject = ЧИСТЫЙ read-временной снапшот (до мутаций
++        // вызывающего), не stage-временное состояние (уже содержит мутации —
++        // it.remove()/addGalaxy() до update() — их rollback обязан отменить)
++        this.prevObject = this.prevSnapshot;
+ 
+         // Симметрично защищаем временную сетку для операций удаления
+         if (this.timestamp != Long.MIN_VALUE) {
+@@ -805,6 +845,7 @@ public class XdStorageCacheRecord {
+         }
+         this.object = this.prevObject;
+         this.prevObject = null;
++        this.prevSnapshot = null;
+         this.newObject = null;
+         this.state = this.previousState;
+         this.previousState = State.undefined;
+diff --git a/src/main/java/io/github/xdstorage/transaction/XdStorageTransaction.java b/src/main/java/io/github/xdstorage/transaction/XdStorageTransaction.java
+index ae41032..54b3138 100755
+--- a/src/main/java/io/github/xdstorage/transaction/XdStorageTransaction.java
++++ b/src/main/java/io/github/xdstorage/transaction/XdStorageTransaction.java
+@@ -664,8 +664,20 @@ public class XdStorageTransaction implements IXdStorageTransaction {
+             }
+         }
+ 
+-        if (exceptions[0] != null)
++
++        if (exceptions[0] != null) {
++            // TREEOVERLAY (task 53): отказ коммита ПОСЛЕ apply — undo применённых
++            // операций + discard. ВАЖНО ЗДЕСЬ: rollback-only TX (в veto-пути) делает
++            // rollback() через EARLY-RETURN менеджера — rollbackInternal НЕ вызывается,
++            // и без этого undo применённые удаления деревьев остаются навсегда.
++            try {
++                io.github.xdstorage.btree.XdStorageBTree.undoAllAppliedOverlays(this);
++            } catch (final Throwable undoFailure) {
++                log.error("TREEOVERLAY: undo of applied overlays failed during commit failure", undoFailure);
++            }
++            io.github.xdstorage.btree.XdStorageBTree.discardAllOverlays(this);
+             throw exceptions[0];
++        }
+ 
+         // RBCOMMIT (docs/tasks/2.1.0/45): a rollback-only mark that landed mid-commit (a
+         // timeout enforced at one of this transaction's own lock waits, a validation veto
+@@ -674,6 +686,10 @@ public class XdStorageTransaction implements IXdStorageTransaction {
+         // consistent phase-1 state instead of letting the phases finalize records a
+         // compensating rollback has already reverted.
+         if (rollbackOnly.get()) {
++            // TREEOVERLAY (task 53): rollback-only между фазами — undo применённых
++            // (компенсация ниже идет по firstPhaseCommittedResources, overlay-undo не входит)
++            io.github.xdstorage.btree.XdStorageBTree.undoAllAppliedOverlays(this);
++            io.github.xdstorage.btree.XdStorageBTree.discardAllOverlays(this);
+             throw buildRollbackOnlyFailure("commit aborted between phases: transaction " + transactionId
+                     + " was marked as rollback only while its commit was in flight");
+         }
+@@ -699,16 +715,32 @@ public class XdStorageTransaction implements IXdStorageTransaction {
+             }
+         });
+ 
+-        if (exceptions[0] != null)
++
++        if (exceptions[0] != null) {
++            // TREEOVERLAY (task 53): см. выше — undo применённых при отказе после phase-2
++            try {
++                io.github.xdstorage.btree.XdStorageBTree.undoAllAppliedOverlays(this);
++            } catch (final Throwable undoFailure) {
++                log.error("TREEOVERLAY: undo of applied overlays failed during commit failure (post-phase-2)", undoFailure);
++            }
++            io.github.xdstorage.btree.XdStorageBTree.discardAllOverlays(this);
+             throw exceptions[0];
++        }
+ 
+         // RBCOMMIT: the symmetric gate before the FINISHED verdict — a mark that landed
+         // during phase 2 aborts before the state is declared committed.
+         if (rollbackOnly.get()) {
++            io.github.xdstorage.btree.XdStorageBTree.undoAllAppliedOverlays(this);
++            io.github.xdstorage.btree.XdStorageBTree.discardAllOverlays(this);
+             throw buildRollbackOnlyFailure("commit aborted after phase 2: transaction " + transactionId
+                     + " was marked as rollback only while its commit was in flight");
+         }
+ 
++        // TREEOVERLAY: финальный гейт пройден — применённые overlay-операции стали
++        // коммитом; undo-журнал снят. Все пути отказа ДО этой точки (фазы, RBCOMMIT
++        // гейты) идут через rollbackFailedCommit → undo в rollbackFailedCommitInternal.
++        io.github.xdstorage.btree.XdStorageBTree.dropAppliedUndos(this);
++
+         state.setState(XdStorageCommitTransactionState.FINISHED);
+ 
+         lockedResources.stream().forEach(resource -> {
+@@ -964,6 +996,16 @@ public class XdStorageTransaction implements IXdStorageTransaction {
+         // к до-транзакционному состоянию, но тела инфраструктурных записей алиасированы
+         // живыми инстансами; перезагружаем деревья группы за группой (тихие окна).
+         recoverInfraFromCommittedFiles();
++        // TREEOVERLAY (task 53): undo ПРИМЕНЕННЫХ на коммите overlay-операций — ПОСЛЕ
++        // отката ресурсов (урок R-57: стейджи компенсаций после общего отката финальны;
++        // undo до него стирался откатом инфра-кэша). Возврат удалённых записей
++        // id-индексов/FK-деревьев закрывает apply→rollback дыру атомарности.
++        try {
++            io.github.xdstorage.btree.XdStorageBTree.undoAllAppliedOverlays(this);
++        } catch (final Throwable undoFailure) {
++            System.out.println("[DIAG] undoAllApplied failed:");
++            undoFailure.printStackTrace(System.out);
++        }
+ 
+         lockedResources.stream().forEach(resource -> {
+             resource.unlockAfterCommit(XdStorageTransaction.this);
+@@ -989,6 +1031,9 @@ public class XdStorageTransaction implements IXdStorageTransaction {
+         // TREEOVERLAY (task 53): rollback = discard overlay ВСЕХ тронутых деревьев
+         // (в т.ч. не зарегистрированных как ресурсы — при overlay-стейджинге дерево
+         // не пишет ничего физически до коммита). Физическое дерево не мутировалось.
++        // TREEOVERLAY: discard несмотреблённых overlay (применённые — undo'ятся ПОСЛЕ
++        // отката ресурсов: их стейджи в инфра-кэше должны пережить cache.rollback,
++        // урок R-57 — компенсации после общего отката финальны)
+         io.github.xdstorage.btree.XdStorageBTree.discardAllOverlays(this);
+         // R-57: компенсация ин-плейс индексных мутаций ДО отката record-состояний —
+         // компенсирующие delete сами регистрируют свои изменения в этой транзакции
+@@ -997,7 +1042,19 @@ public class XdStorageTransaction implements IXdStorageTransaction {
+         // R-57+TREEFILE: ПОРЯДОК КРИТИЧЕН — ресурсы первыми (их откат для инфраструктуры
+         // ПЕРЕЗАГРУЖАЕТ деревья с диска, см. XdStorageResource.rollback), ключи после —
+         // и только когда перезагрузка не состоялась.
+-        for (final IXdStorageResourceObject resource : resources.values()) {
++        // W4-DESIGN / task 53: откат ресурсов в ПОРЯДКЕ ИСПОЛНЕНИЯ (DATA → INDEX),
++        // а не в порядке HashMap: компенсации индексных ключей (rollbackIndexKey*)
++        // делают load-by-reference восстановленных записей — при INDEX-before-DATA
++        // компенсация падает "reference cannot be null" на ещё не восстановленной записи.
++        final java.util.List<IXdStorageResourceObject> rollbackOrder = new ArrayList<>(resources.values());
++        rollbackOrder.sort((a, b) -> {
++            final boolean aInfra = a instanceof io.github.xdstorage.resource.XdStorageResource
++                    && ((io.github.xdstorage.resource.XdStorageResource) a).isInfrastructureResource();
++            final boolean bInfra = b instanceof io.github.xdstorage.resource.XdStorageResource
++                    && ((io.github.xdstorage.resource.XdStorageResource) b).isInfrastructureResource();
++            return Boolean.compare(aInfra, bInfra); // DATA раньше, INFRA-деревья последними
++        });
++        for (final IXdStorageResourceObject resource : rollbackOrder) {
+             try {
+                 resource.rollback(this);
+             } catch (final XdStorageException e) {
+@@ -1012,6 +1069,14 @@ public class XdStorageTransaction implements IXdStorageTransaction {
+         recoverInfraFromCommittedFiles();
+         rollbackIndexKeyInserts();
+         rollbackIndexKeyDeletes();
++        // TREEOVERLAY (task 53): undo применённых overlay-операций — компенсации после
++        // общего отката финальны (урок R-57)
++        try {
++            io.github.xdstorage.btree.XdStorageBTree.undoAllAppliedOverlays(this);
++        } catch (final Throwable undoFailure) {
++            System.out.println("[DIAG] undoAllApplied failed:");
++            undoFailure.printStackTrace(System.out);
++        }
+ 
+         lockedResources.stream().forEach(resource -> {
+             resource.unlockAfterCommit(XdStorageTransaction.this);
