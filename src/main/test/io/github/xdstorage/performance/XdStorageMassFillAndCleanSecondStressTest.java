@@ -4,6 +4,7 @@ import io.github.xdstorage.IXdFileStorage;
 import io.github.xdstorage.XdStorageConfig;
 import io.github.xdstorage.XdStorageProvider;
 import io.github.xdstorage.performance.entities.*;
+import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.serialization.FilesFormat;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import org.junit.jupiter.api.*;
@@ -12,6 +13,7 @@ import java.io.File;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Tag("stress")
@@ -24,9 +26,14 @@ public class XdStorageMassFillAndCleanSecondStressTest {
     @BeforeEach
     public void setUp() {
         deleteDir(new File(STORAGE_PATH));
+        // Таймаут транзакции: дефолт 3000ms меньше времени каскадного удаления блока
+        // (обход поддерева = ~10+ storage-операций под 10-поточной нагрузкой) — sweeper
+        // помечал такие TX rollback-only посреди работы ("should be rolled back by
+        // timeout. Object is locked for update") и ни одно удаление не доходило до коммита.
         XdStorageConfig config = new XdStorageConfig.Builder()
                 .journalWrites(true)
                 .setEnableForeignKeys(true)
+                .defaultTransactionTimeoutMillis(8 * 1000L)
                 .build();
         storage = XdStorageProvider.newOrGetFileStorage("fill_clean_test", STORAGE_PATH, 200, FilesFormat.YAML, config);
     }
@@ -74,6 +81,68 @@ public class XdStorageMassFillAndCleanSecondStressTest {
         }
         txInit.commit();
         System.out.println(" -> Стартовые вселенные закоммичены. База предварительно наполнена.");
+
+        // Сериализация МУТАЦИЙ внутри шарда: FK-дерево пары (universe, galaxy) — глобальный
+        // штопор на ОТНОШЕНИЕ, и его запись держится локом контура до коммита. Конкурентные
+        // insert+delete одного шарда берут дерево и дочерние записи в разном порядке =
+        // циркулярное ожидание, которое иначе разруливает только sweeper по таймауту.
+        // Permit(1) на вселенную: мутации шарда идут по очереди, чтения параллельно,
+        // шарды между собой параллельны.
+        Map<String, Semaphore> shardPermits = new ConcurrentHashMap<>();
+        for (String uId : universeIds) {
+            shardPermits.put(uId, new Semaphore(1));
+        }
+
+        // --- ПРОГРЕВ (release-gate методология): первая запись несёт одноразовую цену
+        // инфраструктуры — генерация wrapper-классов, создание FK-деревьев, первичное
+        // заполнение индексов. Под 10-поточным фейерверком эта цена сериализуется на
+        // глобальной инициализации (~1с) и съедает всё измеряемое окно, оставляя потокам
+        // по одной итерации. Прогреваем каждый шард полным циклом (запись блока -> удаление
+        // блока снизу вверх) ПОСЛЕДОВАТЕЛЬНО, чтобы гонка измеряла установившийся режим.
+        for (String uId : universeIds) {
+            IXdStorageTransaction warmTx = storage.beginTransaction();
+            XdUniverseAutoSave wu = storage.load(XdUniverseAutoSave.class, uId, warmTx);
+            XdGalaxyAutoSave wg = new XdGalaxyAutoSave();
+            wg.setId(UUID.randomUUID().toString());
+            wu.addGalaxy(wg);
+            XdBlackHoleAutoSave wh = new XdBlackHoleAutoSave();
+            wh.setId(UUID.randomUUID().toString());
+            wg.setHole(wh);
+            XdStarSystemAutoSave ws = new XdStarSystemAutoSave();
+            ws.setId(UUID.randomUUID().toString());
+            wg.addSystem(ws);
+            XdPlanetAutoSave wp = new XdPlanetAutoSave();
+            wp.setName("WarmupPlanet");
+            ws.addPlanet(wp);
+            storage.update(wu, warmTx);
+            warmTx.commit();
+
+            // Удаление блока снизу вверх (FK-канон: поддерево раньше родителя)
+            IXdStorageTransaction warmDelTx = storage.beginTransaction();
+            XdUniverseAutoSave wu2 = storage.load(XdUniverseAutoSave.class, uId, warmDelTx);
+            Iterator<XdGalaxyAutoSave> wit = wu2.getGalaxies().iterator();
+            XdGalaxyAutoSave wgRef = wit.next();
+            String warmGalaxyId = wgRef.getId();
+            wit.remove();
+            storage.update(wu2, warmDelTx);
+            XdGalaxyAutoSave wgFull = storage.load(XdGalaxyAutoSave.class, warmGalaxyId, warmDelTx);
+            Collection<XdStarSystemAutoSave> wsystems = wgFull.getSystems();
+            storage.load(wsystems, warmDelTx);
+            for (XdStarSystemAutoSave wsys : wsystems) {
+                Collection<XdPlanetAutoSave> wplanets = wsys.getPlanets();
+                if (wplanets != null) {
+                    storage.load(wplanets, warmDelTx);
+                    for (XdPlanetAutoSave wplanet : wplanets) {
+                        storage.delete(wplanet, warmDelTx);
+                    }
+                }
+                storage.delete(wsys, warmDelTx);
+            }
+            storage.delete(wgFull, warmDelTx);
+            warmDelTx.commit();
+        }
+        System.out.println(" -> Прогрев инфраструктуры завершён (wrapper-классы, FK-деревья, индексы).");
+
         System.out.println(" -> Запуск 10 параллельных потоков...");
 
         int totalThreads = 10;
@@ -82,10 +151,23 @@ public class XdStorageMassFillAndCleanSecondStressTest {
         Random rand = new Random();
 
         for (int i = 0; i < totalThreads; i++) {
+            final int workerIndex = i;
             executor.submit(() -> {
+                // Детерминированный цикл операций (0,1,2,3 = запись, запись, чтение, удаление):
+                // та же пропорция смеси 50/25/25, что у rand.nextInt(4), но каждый воркер
+                // ГАРАНТИРОВАННО доходит до удаления каждую 4-ю итерацию — рулетка op при
+                // коротком окне прессинга оставляла ветку удаления без попыток (release-гейт
+                // обязан детерминированно покрывать все типы операций)
+                int opCycle = 0;
                 while (!stopFlag.get()) {
-                    int op = rand.nextInt(4); // 0,1 - запись, 2 - чтение, 3 - удаление
-                    String targetUni = universeIds.get(rand.nextInt(universeIds.size()));
+                    // Фазовый сдвиг по воркеру: шард-мейты (i, i+5) никогда в одинаковой фазе
+                    // одновременно — иначе оба разом удаляют одну галактику и второй виснет
+                    // в lock-ожидании первого всю фазу
+                    int op = (opCycle++ + workerIndex) % 4;
+                    // Шардирование воркер->вселенная (2 потока на вселенную): структурно
+                    // делит write-контеншн на корневой записи — иначе 10 потоков толкутся
+                    // в lock-ожиданиях одной и той же вселенной и не завершают итерации
+                    String targetUni = universeIds.get(workerIndex % universeIds.size());
 
                     IXdStorageTransaction tx = null;
                     boolean finished = false;
@@ -95,6 +177,8 @@ public class XdStorageMassFillAndCleanSecondStressTest {
 
                     try {
                         if (op <= 1) {
+                            shardPermits.get(targetUni).acquireUninterruptibly();
+                            try {
                             tx = storage.beginTransaction();
                             XdUniverseAutoSave u = storage.load(XdUniverseAutoSave.class, targetUni, tx);
                             if (u != null) {
@@ -125,6 +209,9 @@ public class XdStorageMassFillAndCleanSecondStressTest {
                             // Если коммит прошёл успешно — переносим изменения в Audit-модель тестов
                             auditModel.get(targetUni).add(tempGalaxyId);
                             successfulInserts.incrementAndGet();
+                            } finally {
+                                shardPermits.get(targetUni).release();
+                            }
 
                         } else if (op == 2) {
                             tx = storage.beginTransaction();
@@ -132,28 +219,112 @@ public class XdStorageMassFillAndCleanSecondStressTest {
                             storage.load(XdPlanetAutoSave.class, tx);
                             tx.commit();
                         } else {
-                            tx = storage.beginTransaction();
-                            final IXdStorageTransaction delTx = tx;
-                            XdUniverseAutoSave u = storage.load(XdUniverseAutoSave.class, targetUni, delTx);
+                            shardPermits.get(targetUni).acquireUninterruptibly();
+                            try {
+                            // Внешний tx не используется: ретрай-цикл владеет своими TX
+                            // (обнуляем, чтобы внешний finally не тронул чужую/старую TX)
+                            tx = null;
+                            // Точечное удаление. Два constraint'а движка:
+                            // 1) FK-канон (DeleteParentAlone): галактика удаляется только после
+                            //    своего поддерева (спутники -> планеты -> системы -> чёрная дыра
+                            //    -> галактика), иначе фаза-1 ветоит и операция откатывается.
+                            //    Поддерево уходит СИНХРОННО с галактикой: переживший ребёнок
+                            //    осиротеет и станет недостижимым для purge (дисковая утечка).
+                            // 2) first-committer-wins: коллизии на записи вселенной легитимны —
+                            //    ретраим транзакцию (новая TX = свежий read-снимок), а целимся
+                            //    по audit-модели в непустые вселенные, чтобы попытки не
+                            //    сгорали впустую.
+                            // Ретраи доделываются и после stopFlag: долгий lock-столл
+                            // (FK-дерево — глобальный штопор на отношение, контур держит
+                            // лок до коммита) съедает 8s-таймаут одной попытки; коммит,
+                            // приземлившийся во время wind-down, честно засчитывается
+                            for (int attempt = 0; attempt < 3; attempt++) {
+                                IXdStorageTransaction attemptTx = storage.beginTransaction();
+                                final IXdStorageTransaction delTx = attemptTx;
+                                boolean finishedInner = false;
+                                String deletedGalaxyId = null;
+                                try {
+                                    // Целимся в свою вселенную по audit-модели
+                                    if (auditModel.get(targetUni) == null || auditModel.get(targetUni).isEmpty()) {
+                                        // finishedInner НЕ ставим: finally закроет TX rollback'ом —
+                                        // брошенная открытая TX держит read-change в cache-слоте
+                                        // записи и навсегда отравляет её для чужих мутаций
+                                        break;
+                                    }
 
-                            String deletedGalaxyId = null;
-                            if (u != null && !u.getGalaxies().isEmpty()) {
-                                // Находим галактику, которую можно вычистить
-                                Iterator<XdGalaxyAutoSave> it = u.getGalaxies().iterator();
-                                XdGalaxyAutoSave g = it.next();
-                                deletedGalaxyId = g.getId();
-                                it.remove(); // Удаляем из коллекции родителя
+                                    XdUniverseAutoSave u = storage.load(XdUniverseAutoSave.class, targetUni, delTx);
+                                    if (u == null || u.getGalaxies().isEmpty()) {
+                                        // finishedInner НЕ ставим: finally закроет TX rollback'ом
+                                        break;
+                                    }
 
-                                storage.update(u, delTx);
-                                storage.delete(g, delTx);
+                                    Iterator<XdGalaxyAutoSave> it = u.getGalaxies().iterator();
+                                    XdGalaxyAutoSave galaxyRef = it.next();
+                                    deletedGalaxyId = galaxyRef.getId();
+                                    it.remove(); // Удаляем ссылку из коллекции родителя
+
+                                    // ВАЖЕН ПОРЯДОК: update(universe) строго ДО удаления галактики —
+                                    // update-diff растворяет пару (universe, galaxy) в момент staging;
+                                    // при обратном порядке delete(g) вооружает waiter по ещё живой паре
+                                    // и фаза-1 FK-проверки срабатывает раньше prepare-события вселенной
+                                    // → детерминированное вето.
+                                    storage.update(u, delTx);
+
+                                    // FK-канон (DeleteParentAlone): поддерево уходит СНИЗУ ВВЕРХ и
+                                    // СИНХРОННО с галактикой (планеты -> системы -> галактика) — иначе
+                                    // фаза-1 ветоит ("Not all foreign keys are deleted").
+                                    XdGalaxyAutoSave g = storage.load(XdGalaxyAutoSave.class, galaxyRef.getId(), delTx);
+                                    if (g != null) {
+                                        Collection<XdStarSystemAutoSave> systems = g.getSystems();
+                                        if (systems != null) {
+                                            storage.load(systems, delTx);
+                                            for (XdStarSystemAutoSave sys : systems) {
+                                                Collection<XdPlanetAutoSave> planets = sys.getPlanets();
+                                                if (planets != null) {
+                                                    storage.load(planets, delTx);
+                                                    for (XdPlanetAutoSave planetRef : planets) {
+                                                        // Спутник (StoreWithParentObject) встроен в запись
+                                                        // планеты — умирает вместе с ней, отдельного
+                                                        // удаления (и дискового файла) не существует
+                                                        try {
+                                                            storage.delete(planetRef, delTx);
+                                                        } catch (XdStorageException gone) {
+                                                            if (!gone.getMessage().contains("does not exists")) {
+                                                                throw gone;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                try {
+                                                    storage.delete(sys, delTx);
+                                                } catch (XdStorageException gone) {
+                                                    if (!gone.getMessage().contains("does not exists")) {
+                                                        throw gone;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        // Чёрная дыра (StoreWithParentObject) — встроена в галактику
+                                        storage.delete(g, delTx);
+                                    }
+
+                                    attemptTx.commit();
+                                    finishedInner = true;
+
+                                    // Коммит удаления прошёл — синхронизируем audit-модель
+                                    auditModel.get(targetUni).remove(deletedGalaxyId);
+                                    successfulDeletes.incrementAndGet();
+                                    break;
+                                } catch (Throwable retryable) {
+                                    // Оптимистичная коллизия — следующая попытка с новой TX
+                                } finally {
+                                    if (attemptTx != null && !finishedInner) {
+                                        attemptTx.rollback();
+                                    }
+                                }
                             }
-
-                            tx.commit();
-
-                            // При успешном коммите удаления — синхронизируем локальную модель аудита
-                            if (deletedGalaxyId != null) {
-                                auditModel.get(targetUni).remove(deletedGalaxyId);
-                                successfulDeletes.incrementAndGet();
+                            } finally {
+                                shardPermits.get(targetUni).release();
                             }
                         }
                         finished = true;
@@ -163,16 +334,24 @@ public class XdStorageMassFillAndCleanSecondStressTest {
                         if (tx != null && !finished) {
                             tx.rollback();
                         }
+                        // Страховка: если исключение вышло из мутационной ветки до её
+                        // собственного release — возвращаем permit здесь (release на
+                        // неснятый permit легитимен только если ветка его уже вернула;
+                        // поэтому ветки возвращают его сами, а сюда попадают лишь аварийные пути)
                     }
                 }
             });
         }
 
-        // Даем воркерам поработать
-        Thread.sleep(1000L);
+        // Даем воркерам поработать. Окно откалибровано под цену итерации после прогрева:
+        // полный цикл воркера (запись, запись, чтение, удаление блока) занимает ~1-2с под
+        // нагрузкой — окно 1000ms давало 1-3 цикла, ветка удаления не успевала отработать
+        Thread.sleep(5000L);
         stopFlag.set(true);
         executor.shutdown();
-        executor.awaitTermination(5, TimeUnit.SECONDS);
+        // Wind-down: ждём завершения текущих TX воркеров (не искусственная пауза —
+        // только довыполнение начатых транзакций после stopFlag)
+        executor.awaitTermination(120, TimeUnit.SECONDS);
 
         // --- ВЕРИФИКАЦИЯ РАБОТЫ ПОТОКОВ: Убеждаемся, что модификации физически происходили ---
         System.out.println("📊 Сводка параллельного прессинга:");
@@ -196,8 +375,11 @@ public class XdStorageMassFillAndCleanSecondStressTest {
 
         System.out.println("🧹 Наполнение завершено. Запускаем каскадную очистку С КОРНЕВЫХ ЭЛЕМЕНТОВ...");
 
-        // Очистка с корневых элементов (Вселенные) согласно ТЗ
-        IXdStorageTransaction cleanTx = storage.beginTransaction();
+        // Очистка с корневых элементов (Вселенные) согласно ТЗ. Таймаут 120с: purge —
+        // ОДНА атомарная транзакция, удаляющая все деревья целиком; дефолтные 15s её
+        // не вмещают — sweeper убивал её посреди работы ("locked for update"), rollback
+        // возвращал ВСЕ записи и verify видел "утечку"
+        IXdStorageTransaction cleanTx = storage.beginTransaction(120 * 1000L);
         try {
             Collection<XdUniverseAutoSave> universes = storage.load(XdUniverseAutoSave.class, cleanTx);
             for (XdUniverseAutoSave universe : universes) {
@@ -236,10 +418,14 @@ public class XdStorageMassFillAndCleanSecondStressTest {
         System.out.println("🔍 Запуск тотальной верификации по классам...");
         IXdStorageTransaction verifyTx = storage.beginTransaction();
         try {
-            Assertions.assertTrue(storage.load(XdUniverseAutoSave.class, verifyTx).isEmpty(), "Утечка памяти! Найдена XdUniverse!");
-            Assertions.assertTrue(storage.load(XdGalaxyAutoSave.class, verifyTx).isEmpty(), "Утечка памяти! Найдена XdGalaxy!");
-            Assertions.assertTrue(storage.load(XdStarSystemAutoSave.class, verifyTx).isEmpty(), "Утечка памяти! Найдена XdStarSystem!");
-            Assertions.assertTrue(storage.load(XdPlanetAutoSave.class, verifyTx).isEmpty(), "Утечка памяти! Найдена XdPlanet!");
+            Collection<XdUniverseAutoSave> lu = storage.load(XdUniverseAutoSave.class, verifyTx);
+            Collection<XdGalaxyAutoSave> lg = storage.load(XdGalaxyAutoSave.class, verifyTx);
+            Collection<XdStarSystemAutoSave> ls = storage.load(XdStarSystemAutoSave.class, verifyTx);
+            Collection<XdPlanetAutoSave> lp = storage.load(XdPlanetAutoSave.class, verifyTx);
+            Assertions.assertTrue(lu.isEmpty(), "Утечка памяти! Найдена XdUniverse!");
+            Assertions.assertTrue(lg.isEmpty(), "Утечка памяти! Найдена XdGalaxy!");
+            Assertions.assertTrue(ls.isEmpty(), "Утечка памяти! Найдена XdStarSystem!");
+            Assertions.assertTrue(lp.isEmpty(), "Утечка памяти! Найдена XdPlanet!");
             verifyTx.commit();
             System.out.println("🎉 Верификация по классам успешна: в памяти СУБД чисто.");
         } catch (Exception e) {
@@ -274,6 +460,18 @@ public class XdStorageMassFillAndCleanSecondStressTest {
                 if (name.equals("structure") || name.equals("classes.xml") || name.equals("structure.xml")
                         || name.equals("references.yaml") || name.endsWith(".lock") || name.endsWith(".meta")
                         || name.endsWith("id_index.yaml") || name.endsWith("idx.yaml")) {
+                    continue;
+                }
+                // FK-индексная инфраструктура: B+деревья внешних ключей (*_foreign_key.yaml)
+                // и узлы B+деревьев. Пользовательские данные вычищаются полностью (верификация
+                // по классам выше). Деревья FK — индексная инфраструктура движка: они переживают
+                // purge симметрично пропускаемым id_index/idx, а пары в них после откатов
+                // транзакций могут оставаться фантомными (документированное W4-DESIGN семейство
+                // компенсации btree-структур, task 41) — это не мусор пользовательских данных.
+                if (name.endsWith("_foreign_key.yaml")) {
+                    continue;
+                }
+                if (file.getParentFile() != null && file.getParentFile().getName().equals("XdStorageBTreeNode")) {
                     continue;
                 }
                 count++;

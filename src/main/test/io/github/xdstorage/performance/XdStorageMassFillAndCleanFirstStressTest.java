@@ -169,15 +169,15 @@ public class XdStorageMassFillAndCleanFirstStressTest {
                                             try {
                                                 storage.load(s, delTx);
 
-                                                Collection<XdPlanetAutoSave> planets = s.getPlanets();
-                                                if (planets != null && !planets.isEmpty()) {
-                                                    Iterator<XdPlanetAutoSave> it = planets.iterator();
-                                                    XdPlanetAutoSave p = it.next();
-                                                    it.remove();
+                                        Collection<XdPlanetAutoSave> planets = s.getPlanets();
+                                        if (planets != null && !planets.isEmpty()) {
+                                            Iterator<XdPlanetAutoSave> it = planets.iterator();
+                                            XdPlanetAutoSave p = it.next();
+                                            it.remove();
 
-                                                    storage.update(s, delTx);
-                                                    storage.delete(p, delTx);
-                                                }
+                                            storage.update(s, delTx);
+                                            storage.delete(p, delTx);
+                                        }
                                             } catch (XdStorageException | XdStorageConnectionException e) {
                                                 throw new RuntimeException(e);
                                             }
@@ -210,6 +210,7 @@ public class XdStorageMassFillAndCleanFirstStressTest {
         executor.awaitTermination(5, TimeUnit.SECONDS);
 
         System.out.println("🧹 Наполнение завершено. Запускаем каскадную очистку С КОРНЕВЫХ ЭЛЕМЕНТОВ...");
+
 
         // ТРЕБОВАНИЕ: Очистка должна производится с корневых элементов — то есть с вселенных
         IXdStorageTransaction cleanTx = storage.beginTransaction();
