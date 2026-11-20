@@ -166,7 +166,16 @@ public final class XdStorageBTreeInvariants {
         // ИНВАРИАНТ 1 + сбор множества листьев, достижимых из корня
         final Set<Object> leavesViaRoot = new HashSet<>();
         if (tree.getRoot() != null) {
-            descendCollectingLeaves(tree.getRoot(), storage, transaction, leavesViaRoot, context, new HashSet<>(),
+            // TREEOVERLAY (task 53, the reopen fix): the reopened tree's root = the
+            // REFERENCE stub (the fresh parse) — the stub's fields unset (the children
+            // empty!) → the descent treated the stub as a LEAF → the false divergence
+            // ({the root stub} via the root vs the real chain). The materialize FIRST
+            // (the R-53, the same as the chain walk's per-node materialize).
+            XdStorageBTreeNode rootForDescend = tree.getRoot();
+            if (XdStorageObjectUtils.isReference(rootForDescend)) {
+                rootForDescend = XdStorageBTreeNode.materialize(rootForDescend, storage, transaction, tree, null);
+            }
+            descendCollectingLeaves(rootForDescend, storage, transaction, leavesViaRoot, context, new HashSet<>(),
                     tree.isMultiple());
         }
 

@@ -153,6 +153,10 @@ public class XdStorageFkContentionBenchmark {
                             committed = true;
                         } catch (final Throwable t) {
                             failureKind = classify(t);
+                            if (otherFailures.get() < 3) {
+                                System.out.println("[DIAG-F] " + failureKind + ": ");
+                                t.printStackTrace(System.out);
+                            }
                         } finally {
                             if (tx != null && !committed) {
                                 try {

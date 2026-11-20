@@ -39,6 +39,8 @@ public class XdStorageW2ReopenBTreeTest {
     public void testBTreeIdIndexReadableAfterReopen() throws Exception {
         final File dir = new File("./target/w2_btree_read");
         final String name = "w2-btree-read";
+        // TEST-HYGIENE (task 53): the fresh-start cleanup — the JUnit order independence
+        deleteQuietly(dir);
         try {
             IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage(name, dir.toString(), 128);
             try {
@@ -70,7 +72,7 @@ public class XdStorageW2ReopenBTreeTest {
                 storage.shutdown();
             }
         } finally {
-            deleteQuietly(dir);
+            // FORENSICS: deleteQuietly(dir);
         }
     }
 
@@ -79,6 +81,10 @@ public class XdStorageW2ReopenBTreeTest {
     public void testBTreeWritesWorkAfterReopen() throws Exception {
         final File dir = new File("./target/w2_btree_write");
         final String name = "w2-btree-write";
+        // TEST-HYGIENE (task 53): the fresh-start cleanup BEFORE session 1 — the JUnit
+        // method order is unpredictable: when this test runs FIRST, the dir carries the
+        // previous RUN's committed records (r-0 exists → "concurrent modification").
+        deleteQuietly(dir);
         try {
             XdStorageConfig config = new XdStorageConfig.Builder().journalWrites(true).build();
             IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage(name, dir.toString(), 128, FilesFormat.YAML, config);

@@ -134,12 +134,15 @@ public class XdStorageCacheRecord {
         // канонического графа (их откат — fresh-parse). ДОМЕН: простой копировщик.
         if (object != null && object.getClass().getName().contains("io.github.xdstorage.btree")) {
             record.prevSnapshot = object;
-        } else {
+        } else if (object != null && canPlainClone(object.getClass())) {
             try {
-                record.prevSnapshot = io.github.xdstorage.utils.XdStorageObjectUtils.cloneObject(object);
+                final Object cloned = io.github.xdstorage.utils.XdStorageObjectUtils.cloneObject(object);
+                record.prevSnapshot = cloned != null ? cloned : object;
             } catch (final Exception snapshotFailure) {
                 record.prevSnapshot = object;
             }
+        } else if (object != null) {
+            record.prevSnapshot = object; // the non-clonable (the nested/ctor-less): the aliased fallback
         }
         record.newObject = null;
         record.transaction = null;
@@ -498,6 +501,25 @@ public class XdStorageCacheRecord {
      * before delete); for markUpdate on a committed record it carries the aliasing
      * residue (the task-40 open layer) — but never loses the record.
      */
+    /**
+     * The plain-clone availability pre-check (task 53): the PojoCloner instantiates via
+     * the PUBLIC no-arg constructor — the nested/inner/ctor-less classes fail with the
+     * InstantiationException and the ERROR "data-loss risk!" log per call. The pre-check
+     * avoids the noise: the non-clonable classes go straight to the aliased fallback
+     * (the HEAD behavior for them).
+     */
+    private static boolean canPlainClone(final Class<?> cl) {
+        if (cl.isMemberClass() && !java.lang.reflect.Modifier.isStatic(cl.getModifiers())) {
+            return false; // the non-static inner holds the outer reference
+        }
+        try {
+            cl.getConstructor();
+            return true;
+        } catch (final NoSuchMethodException noPublicNoArg) {
+            return false;
+        }
+    }
+
     private Object snapshotOrIdentity(final Object object) {
         if (object == null) {
             return null;
@@ -506,7 +528,10 @@ public class XdStorageCacheRecord {
             return object;
         }
         try {
-            return io.github.xdstorage.utils.XdStorageObjectUtils.cloneObject(object);
+            final Object cloned = io.github.xdstorage.utils.XdStorageObjectUtils.cloneObject(object);
+            // cloneObject returns NULL on the failure (the logged data-loss risk) — the
+            // null prevSnapshot would degrade the restore to the aliased reference
+            return cloned != null ? cloned : object;
         } catch (final Exception cloneFailure) {
             return object;
         }
