@@ -81,15 +81,26 @@ public class IncomeAndObservabilityForeignKeyTest extends AbstractForeignKeyEngi
         // Передаем обертку ожидания ID ребенка в ресурс внешнего ключа
         fkResource.insert(50L, childWrapper, transaction);
 
-        // Ресурс зафиксировал ожидающий идентификатор, prepare() падает
-        assertThrows(XdStorageRuntimeException.class, () -> fkResource.prepare(transaction));
+        // Текущий контракт: prepare() — no-op; вето отложенной пары живет на фазе 1
+        // (insertWaitingIdentifiers > 0 → "Not all foreign keys are registered").
+        assertThrows(XdStorageRuntimeException.class,
+                () -> fkResource.performFirstPhaseCommit(transaction, null),
+                "Фаза 1 обязана ветоировать неразрешенную отложенную пару");
 
         // Симулируем выделение ID базой данных и срабатывание реактивного триггера
         child.setId(888L);
         childWrapper.triggerNewId(888L);
 
-        // Ожидание снято, prepare() отрабатывает штатно
-        assertDoesNotThrow(() -> fkResource.prepare(transaction));
+        // Реактивная механика: триггер зарегистрировал пару (50 → 888) в FK-дереве
+        Collection<Object> resolvedIds = fkResource.readByParentObjectId(50L, transaction);
+        assertTrue(resolvedIds.contains(888L), "отложенный waiter обязан зарегистрировать пару при lands ID");
+
+        // Фаза 1 ветоирует: родитель 50 в этом harness никогда не persisted
+        // (storage.save здесь — no-op), а pending manual-ID parent остается неразрешенным —
+        // "parent must be persisted before the child" — каноничное поведение.
+        assertThrows(XdStorageRuntimeException.class,
+                () -> fkResource.performFirstPhaseCommit(transaction, null),
+                "Фаза 1 обязана ветоировать: parent не persisted, pending не разрешен");
 
         // Связь 50 -> 888 успешно прописана в B+ дерево
         Collection<Object> childIds = fkResource.readByParentObjectId(50L, transaction);

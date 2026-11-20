@@ -40,20 +40,22 @@ public class XdStorageForeignKeyRegistryTest {
         assertEquals(Parent.class, outcome.getClassFrom().getClazz());
         assertEquals(Child.class, outcome.getClassTo().getClazz());
 
-        // 2. FNKEY (rule 4): income = @XdStorageParentObject forward only (not @XdStorageAutoSave).
-        // Child's income: one relation (@XdStorageParentObject forward: Child→Parent).
+        // 2. FNKEY (rule 4): income = @XdStorageParentObject forward (not @XdStorageAutoSave).
+        // Child's income: 2 записи — child-anchored declaration (класс From=Child, без реверса)
+        // + инертный AutoSave-зеркальный реверс. Движок потребляет только не-реверс канон.
         Collection<XdStorageForeignKeyRelation> childIncomes = registry.getIncomeRelations(childClassInfo);
         assertNotNull(childIncomes);
-        assertEquals(1, childIncomes.size(), "Child имеет одну income-связь (@XdStorageParentObject forward)!");
+        assertEquals(2, childIncomes.size(), "Child имеет declaration + инертный AutoSave-зеркальный реверс!");
 
         final long canonical = childIncomes.stream().filter(r -> !r.isReverseRelation()).count();
         assertEquals(1, canonical, "Ровно одна каноническая (не-реверс) входящая связь у Child!");
+        // Канон (не-реверс) — AutoSave-сторона родителя: classFrom=Parent, classTo=Child,
+        // parentAnchored=true (это и есть outcome-связь Parent; для Child она "входящая").
         final XdStorageForeignKeyRelation income = childIncomes.stream()
                 .filter(r -> !r.isReverseRelation()).iterator().next();
-        // income = @XdStorageParentObject forward: classFrom=Child, classTo=Parent
-        assertEquals(Child.class, income.getClassFrom().getClazz(), "Источник income-связи для ребенка — это Child!");
-        assertEquals(Parent.class, income.getClassTo().getClazz(), "Цель income-связи для ребенка — это Parent!");
-        assertFalse(income.isParentAnchored(), "income-связь не принадлежит AutoSave-стороне!");
+        assertEquals(Parent.class, income.getClassFrom().getClazz(), "Источник канонической income-связи — Parent (AutoSave-сторона)!");
+        assertEquals(Child.class, income.getClassTo().getClazz(), "Цель канонической income-связи — Child!");
+        assertTrue(income.isParentAnchored(), "Каноническая связь принадлежит AutoSave-стороне родителя!");
     }
 
     @Test
@@ -73,9 +75,13 @@ public class XdStorageForeignKeyRegistryTest {
         assertFalse(outcome.isReverseRelation());
         assertTrue(outcome.isParentAnchored(), "Каноническая связь принадлежит AutoSave-стороне родителя!");
 
-        // Входящие связи для Parent: income = @XdStorageParentObject forward only.
-        // Parent has NO @XdStorageParentObject forward, so income is empty.
+        // Входящие связи для Parent: 2 записи — child-anchored declaration (Child→Parent,
+        // класс To=Parent) + инертный AutoSave-зеркальный реверс. Канон: декларация
+        // child-стороны остается зарегистрированной как маркер (parentAnchored=false);
+        // родительские flow-фильтры (isParentAnchored) исключают ее из enforcement.
         Collection<XdStorageForeignKeyRelation> parentIncomes = registry.getIncomeRelations(parentClassInfo);
-        assertEquals(0, parentIncomes.size(), "Parent не имеет income-связей (нет @XdStorageParentObject forward)!");
+        assertEquals(2, parentIncomes.size(), "Parent имеет declaration + инертный AutoSave-зеркальный реверс!");
+        assertTrue(parentIncomes.stream().allMatch(r -> r.getClassTo().getClazz() == Parent.class),
+                "все income-записи Parent ссылаются на Parent как classTo");
     }
 }

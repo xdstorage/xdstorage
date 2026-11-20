@@ -223,7 +223,11 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
                         // cache is NEVER cleaned up on delete, so we check via the resource's
                         // childExists method which verifies against the actual id-index tree.
                         if (resource.childExists(parentObjectId, (Comparable<?>) childObjectId, transaction)) {
-                            resource.delete(object, parentObjectId, null, (Comparable<?>) childObjectId, transaction);
+                            // MASSFILL: the parent-REMOVAL flow arms via the dedicated entry
+                            // (DeleteParentAlone for a live referenced child; the purge's gone
+                            // children dissolve) — the UPDATE-diff provenance pre-checks of
+                            // delete() do not apply here.
+                            resource.armChildDeleteWaiterForParentRemoval(object, parentObjectId, (Comparable<?>) childObjectId, transaction);
                         }
                     }
                 }
@@ -283,8 +287,17 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
             if (parentObjectId != null) {
                 resource.insert(childObjectId, parentObjectId, transaction);
             } else {
-                IXdStorageIdObservableWrapper observableChildObject = XdStorageObserverService.getObservableWrapper(parentObject);
-                resource.insert(childObjectId, observableChildObject, transaction);
+                // FNKEY deferred-parent (the outcome/declaration path): the parent is unsaved —
+                // arm the pending-by-object mechanism DIRECTLY with the parent's OWN class info
+                // (clInfoTo), NOT this resource's front class (clInfo = the child side): the
+                // phase-1 state resolver reads the id with parentClassInfo's getter applied to
+                // the held POJO — a cross-class getter throws IllegalArgumentException and the
+                // pending never resolves. For a null-id parent the insert() overload's
+                // isParentPersistedByObject discriminator is a no-op (null id → false), so the
+                // direct registration is semantically identical. A never-saved parent still
+                // honestly vetoes: the pending's id stays null → validatePendingFksViaCache.
+                IXdStorageIdObservableWrapper observableParentObject = XdStorageObserverService.getObservableWrapper(parentObject);
+                resource.registerPendingFkByObjectToCache((XdStorageTransaction) transaction, clInfoTo, observableParentObject, childObjectId);
             }
         } else {
             IXdStorageIdObservableWrapper observableParentObject = XdStorageObserverService.getObservableWrapper(childObject);

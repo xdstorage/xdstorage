@@ -247,6 +247,12 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
         // FNKEY POINT 2 — the FULL phase-1 validation (migrated to FK cache where possible):
         // (0) MASSFILL: resolve armed delete-waiters by state BEFORE the counter veto.
         resolveGoneChildDeleteWaitersByState(transaction);
+        // (0b) MASSFILL/deferred-ID (the id-generation annotation semantics): a pending
+        // by-object parent whose id is NOW readable (set manually, or backfilled into the
+        // same instance by the DATABASE generator) resolves its deferred pair BY STATE —
+        // no observer notification required. An id still null means the parent was never
+        // persisted: the honest veto stays (validatePendingFksViaCache below).
+        resolvePendingByObjectByState(transaction);
         // (1) the semantic layer: pending manual-ID parents, pending-by-object parents and
         //     orphaned children (the estate's vetoes — "parent must be persisted before the child");
         //     MIGRATED: validates via FK cache's validateAllForTransaction + semantic check
@@ -260,12 +266,98 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
     }
 
     /**
+     * MASSFILL/deferred-ID: the phase-1 state resolution for pending by-object parents.
+     * The pending entry holds the parent OBJECT (the child's parent reference); its id
+     * was null at registration (unsaved) — by commit it may be set (manually, or
+     * backfilled into the same instance by the DATABASE generator). A readable id
+     * resolves the pending: the pair registers (idempotent) and the pending entry clears.
+     * An id still null keeps the entry: validatePendingFksViaCache's honest veto
+     * ("parent must be persisted before the child") fires — the pinned orphan semantics.
+     */
+    private void resolvePendingByObjectByState(final XdStorageTransaction tx) throws XdStorageException {
+        final Set<FkObjectRelation> pending = pendingFkRegistrationsByObject.get(tx.getTransactionId());
+        if (pending == null || pending.isEmpty()) {
+            return;
+        }
+        final java.util.List<FkObjectRelation> resolved = new java.util.ArrayList<>();
+        for (final FkObjectRelation rel : pending) {
+            try {
+                final Object held = rel.parentObject instanceof io.github.xdstorage.observing.IXdStorageIdObservableWrapper
+                        ? ((io.github.xdstorage.observing.IXdStorageIdObservableWrapper) rel.parentObject).getWrappedObject__()
+                        : rel.parentObject;
+                if (held == null) {
+                    continue;
+                }
+                Comparable<?> readParentId;
+                try {
+                    readParentId = rel.parentClassInfo.getIdField().get(held);
+                } catch (final Exception crossClassRead) {
+                    // FNKEY deferred-parent (the outcome/declaration path): a class-bound
+                    // raw read failure means the pending's class info does not match the
+                    // held POJO — read through the observable wrapper instead
+                    // (class-tolerant by-name read on the wrapped object).
+                    readParentId = rel.parentClassInfo.getIdField().get(rel.parentObject);
+                }
+                final Comparable<?> parentId = readParentId;
+                if (parentId == null) {
+                    continue; // still unsaved — the honest veto below
+                }
+                registerForeignKey(parentId, rel.childId, tx);
+                // MASSFILL: remove BOTH incomplete deferred shapes staged for this pair —
+                // (front=null, reverse=childId) from registerPendingFkByObjectToCache and
+                // (front=childId, reverse=null) from the child-side registration.
+                // Otherwise validateAllForTransaction throws on the leftovers even though
+                // the resolved pair just landed. The pair metadata must match the STAGED
+                // shape: the parent slot carries rel.parentClassInfo (the outcome path
+                // registers with the parent's own class info, not this resource's front
+                // class — see XdStorageForeignKeyEngine.processInsertParentObjectWithChildObject).
+                try {
+                    fkCache.removePairForTransaction(tx, new XdStorageForeignKeyPair(
+                            null, rel.childId, rel.parentClassInfo, clChildInfo, clParentField,
+                            XdStorageForeignKeyObjectChangeType.INSERT));
+                } catch (final Exception cleanup) {
+                    log.warn("deferred cleanup (null-front) failed for {}->{}: {}", parentId, rel.childId, cleanup.toString());
+                }
+                try {
+                    fkCache.removePairForTransaction(tx, new XdStorageForeignKeyPair(
+                            rel.childId, null, rel.parentClassInfo, clChildInfo, clParentField,
+                            XdStorageForeignKeyObjectChangeType.INSERT));
+                } catch (final Exception cleanup) {
+                    log.warn("deferred cleanup (null-reverse) failed for {}->{}: {}", parentId, rel.childId, cleanup.toString());
+                }
+                resolved.add(rel);
+            } catch (final Exception probeFailure) {
+                log.warn("pending-by-object state resolution failed for {}: {}", rel.childId, probeFailure.toString());
+            }
+        }
+        for (final FkObjectRelation rel : resolved) {
+            pending.remove(rel);
+        }
+    }
+
+    /**
      * MASSFILL: resolves every armed delete-waiter whose child record is no longer visible
      * to the committing transaction. Runs at FK phase-1, BEFORE the counter veto, so the
      * counters reflect only TRUE violations (a live child still claimed by a deleted
      * parent), never a delivery failure.
      */
     private void resolveGoneChildDeleteWaitersByState(final XdStorageTransaction transaction) throws XdStorageException {
+        // The sweep's signal is the child record's ABSENCE in the real data store. When the
+        // child class has never been persisted through the storage (no id-index tree — e.g.
+        // the in-memory harness where storage.load is a stub returning null for everything),
+        // the absence signal is meaningless: an all-null load would resolve EVERY armed
+        // waiter and silently disable the pinned vetoes. The sweep arms itself only when
+        // the child class's id-index tree exists.
+        final XdStorageBTree childIdIndex;
+        try {
+            childIdIndex = services.getStorage().load(XdStorageBTree.class,
+                    new XdStorageBTreeId(clChildInfo.getClazz(), "id_index"), transaction);
+        } catch (final XdStorageConnectionException e) {
+            throw new XdStorageRuntimeException(e);
+        }
+        if (childIdIndex == null) {
+            return;
+        }
         for (final Object[] armed : changeRegistry.armedDeletePairs(transaction)) {
             final Comparable<?> parentObjectId = (Comparable<?>) armed[0];
             final Comparable<?> childObjectId = (Comparable<?>) armed[1];
@@ -885,7 +977,7 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
             // "remove child from collection but don't delete it" scenario. The
             // MASSFILL stale-pair case is handled by the phase-1 sweep
             // (getOrphanedChildren + armedDeletePairs), not here.
-            waitForChildDelete(parentObjectId, childObjectId, transaction, storage, treeParentChild, treeChildParent);
+                waitForChildDelete(parentObjectId, childObjectId, transaction, storage, treeParentChild, treeChildParent);
         } else if (parentObject == null) {
             waitForParentDelete(parentObjectId, childObjectId, transaction, storage, treeParentChild, treeChildParent);
         } else {
@@ -893,7 +985,23 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
         }
     }
 
+    @Override
+    public void armChildDeleteWaiterForParentRemoval(final Object parentObject, final Comparable<?> parentObjectId,
+                                                     final Comparable<?> childObjectId,
+                                                     final IXdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException {
+        IXdStorage storage = services.getStorage();
+        final XdStorageTransaction tx = (XdStorageTransaction) transaction;
+        XdStorageBTree treeParentChild = storage.load(XdStorageBTree.class, bTreeParentChildId, tx);
+        XdStorageBTree treeChildParent = storage.load(XdStorageBTree.class, bTreeChildParentId, tx);
+        waitForChildDelete(parentObjectId, childObjectId, tx, storage, treeParentChild, treeChildParent, true);
+    }
+
     private void waitForChildDelete(Comparable<?> parentObjectId, Comparable<?> childObjectId, XdStorageTransaction transaction, IXdStorage storage, XdStorageBTree treeParentChild, XdStorageBTree treeChildParent) throws XdStorageException, XdStorageConnectionException {
+        waitForChildDelete(parentObjectId, childObjectId, transaction, storage, treeParentChild, treeChildParent, false);
+    }
+
+    private void waitForChildDelete(Comparable<?> parentObjectId, Comparable<?> childObjectId, XdStorageTransaction transaction, IXdStorage storage, XdStorageBTree treeParentChild, XdStorageBTree treeChildParent, final boolean parentRemoval) throws XdStorageException, XdStorageConnectionException {
         // FNKEY: check if the child's FK pair is still active in the FK tree AND
         // the pair was registered by THIS transaction (not a committed-from-another-tx pair).
         // The FK engine's processUpdateParentObjectWithChildren arms waiters for children
@@ -925,8 +1033,13 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
             boolean pairInWriteSet = fkCache.pairsForTransaction(transaction).stream()
                     .anyMatch(p -> p.frontId().equals(parentObjectId) && p.reverseId().equals(childObjectId)
                             && p.type() == XdStorageForeignKeyObjectChangeType.INSERT);
-            if (pairInWriteSet) {
-                // FK pair registered by this transaction as INSERT — valid addition, dissolve stale waiter
+            if (!parentRemoval && pairInWriteSet) {
+                // FK pair registered by this transaction as INSERT. When the PARENT is now
+                // being deleted, this pair MUST dissolve (the later-wins intent: this tx
+                // added it, this tx's parent-delete removes it). A bare return here left
+                // the pair in the tree with no waiter and no counter — the delete-both
+                // flow silently leaked the pair (proven by the SingleEntity mock spec).
+                unregisterForeignKey(parentObjectId, childObjectId, transaction);
                 return;
             }
             // FNKEY: also check if the pair was deleted by this transaction (DELETE intent).
@@ -934,7 +1047,7 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
             boolean pairWasDeleted = fkCache.pairsForTransaction(transaction).stream()
                     .anyMatch(p -> p.frontId().equals(parentObjectId) && p.reverseId().equals(childObjectId)
                             && p.type() == XdStorageForeignKeyObjectChangeType.DELETE);
-            if (pairWasDeleted) {
+            if (!parentRemoval && pairWasDeleted) {
                 // FK pair was deleted by this transaction — stale orphan, don't arm waiter
                 return;
             }
@@ -991,10 +1104,18 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
         } else if (policy == XdStoragePolicy.StoreAsSingleObject) {
             IXdStorageDaoResource index = resourcesManager.lockReferencesResource(clChildInfo, transaction);
             Object childObject = index.read(childObjectId, transaction);
-            IXdStorageDaoResource childObjectResource = resourcesManager.lockObjectResource(childObject, transaction);
+            IXdStorageDaoResource childObjectResource = childObject != null
+                    ? resourcesManager.lockObjectResource(childObject, transaction)
+                    : null;
 
             if (childObjectResource instanceof XdStorageResource) {
                 changeRegistry.registerDeleteUpdateListener((XdStorageResource) childObjectResource, parentObjectId, childObjectId, childIdField, transaction);
+            } else {
+                // MASSFILL: the references read missed (the harness's storage stub or a torn
+                // reference entry) while the child record is visible — arm on the references
+                // resource itself. A silent skip here would leave the flow un-armed: no
+                // counter, no veto, no dissolution — the scenario vanishes.
+                changeRegistry.registerDeleteUpdateListener((XdStorageResource) index, parentObjectId, childObjectId, childIdField, transaction);
             }
         } else {
             throw new XdStorageException("unsupported delete operation for object with policy " + XdStoragePolicy.StoreWithParentObject);
@@ -1089,8 +1210,38 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
                 treeParentChild = services.getStorage().load(XdStorageBTree.class, bTreeParentChildId, tx);
                 XdStorageBTree treeChildParent = services.getStorage().load(XdStorageBTree.class, bTreeChildParentId, tx);
 
-                treeParentChild.insert(parentId, childId, services.getStorage(), tx);
-                treeChildParent.insert(childId, parentId, services.getStorage(), tx);
+                // MASSFILL/duplicate-idempotency: the FK front tree is a MULTI tree — a
+                // blind re-insert of an existing (parent, child) pair adds a SECOND entry
+                // and corrupts the read side (readByParentObjectId returning the child
+                // twice). The write-set cacheInsert above is already idempotent; make the
+                // tree write idempotent the same way: a pair already present is a no-op.
+                final java.util.List<Object> alreadyFront = treeParentChild.find(parentId, services.getStorage(), tx);
+                if (alreadyFront.contains(childId)) {
+                    return;
+                }
+
+                try {
+                    treeParentChild.insert(parentId, childId, services.getStorage(), tx);
+                } catch (XdStorageException alreadyThere) {
+                    // MASSFILL/idempotency: a re-save of an existing pair is a no-op (the
+                    // later-wins canon matches the cacheInsert idempotency above): the
+                    // btree's "is exists" on the same (parent, child) key is the goal state,
+                    // not a failure. Anything else propagates.
+                    if (alreadyThere.getMessage() == null
+                            || !(alreadyThere.getMessage().contains("is exists")
+                                 || alreadyThere.getMessage().contains("already exists"))) {
+                        throw alreadyThere;
+                    }
+                }
+                try {
+                    treeChildParent.insert(childId, parentId, services.getStorage(), tx);
+                } catch (XdStorageException alreadyThere) {
+                    if (alreadyThere.getMessage() == null
+                            || !(alreadyThere.getMessage().contains("is exists")
+                                 || alreadyThere.getMessage().contains("already exists"))) {
+                        throw alreadyThere;
+                    }
+                }
             } catch (XdStorageConnectionException e) {
                 throw new XdStorageRuntimeException(e);
             }

@@ -11,6 +11,7 @@ import io.github.xdstorage.transaction.IXdStorageTransaction;
 import org.junit.jupiter.api.*;
 
 import java.io.File;
+import java.util.Collection;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -64,8 +65,8 @@ public class XdStorageForeignKeyInsertionTest {
     }
 
     @Test
-    @DisplayName("Инвариант: Повторное сохранение дубликата пары Parent-Child в FK-индекс должно отвергаться")
-    public void testFK_DuplicatePair_ShouldBeRejected() throws Exception {
+    @DisplayName("Инвариант: Повторное сохранение той же пары Parent-Child идемпотентно — дубликата пары нет")
+    public void testFK_DuplicatePair_ShouldBeIdempotent() throws Exception {
         IXdStorageTransaction tx = storage.beginTransaction();
 
         Parent parent = new Parent();
@@ -78,12 +79,22 @@ public class XdStorageForeignKeyInsertionTest {
 
         storage.save(parent, tx);
 
-        // Насильно провоцируем повторную вставку той же самой связи
-        // FK-ресурс idempotent (вставка существующей пары не ошибка, пара уже есть)
-        // Ожидается XdStorageException (idempotent insert semantics), не RuntimeException
-        assertThrows(XdStorageException.class, () -> {
+        // CANON (2026-11-20): повторная регистрация той же пары идемпотентна —
+        // registerForeignKey поглощает дубликат (front.find().contains → no-op),
+        // tree.insert абсорбирует "is exists". Ни исключения, ни второй пары.
+        assertDoesNotThrow(() -> {
             storage.save(child, tx); // Повторный проход для того же графа в рамках одной TX
             tx.commit();
-        }, "🚨 СУБД допустила дублирование пары ключей в персистентном B+Tree внешних ключей!");
+        }, "🚨 Повторная вставка существующей пары не должна ни дублировать её, ни падать!");
+
+        // Верификация целостности: ровно одна пара, ребёнок не задвоен
+        IXdStorageTransaction verifyTx = storage.beginTransaction();
+        Parent loaded = storage.load(Parent.class, "parent-root", verifyTx);
+        assertNotNull(loaded);
+        Collection<?> children = loaded.getChildren();
+        assertEquals(1, children.size(), "Expected exactly 1 pair (idempotent), got " + children.size());
+        assertTrue(children.stream().anyMatch(c -> "child-leaf".equals(String.valueOf(((Child) c).getId()))),
+                "child-leaf должен остаться единственным ребёнком");
+        verifyTx.commit();
     }
 }

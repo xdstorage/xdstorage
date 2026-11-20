@@ -37,18 +37,14 @@ public class XdStorageForeignKeyChangeRegistry {
     // purge's mixed-chunk deletes + torn-fill churn leave armed waiters whose child
     // records are already gone and whose events never dispatch), so the FK resource's
     // phase-1 sweeps them BY STATE before the counter veto: a waiter whose child record
-    // is gone resolves by state (see XdStorageForeignKeyResource). Tracked at arming,
-    // untracked at resolution/decrement; the whole contour dies with release(tx).
+    // is gone resolves by state (see XdStorageForeignKeyResource). Value = {parentId,
+    // childId, sweepable}: sweepable=true for the parent-deletion/update families
+    // (waitForChildDelete — the pair dissolves when the child turns out gone);
+    // sweepable=false for the CHILD-deletion family (waitForParentDelete — the child is
+    // deleted BY DESIGN and the pinned DeleteChildAlone veto rides the counter).
     private final Map<String, Map<String, Object[]>> armedDeletePairs = new ConcurrentHashMap<>();
 
-    /**
-     * Tracks an armed delete-waiter pair for the phase-1 state sweep. The family flag
-     * decides sweepability: {@code sweepable=true} for the PARENT-deletion/update flows
-     * (waitForChildDelete — the pair dissolves when the child turns out to be gone);
-     * {@code sweepable=false} for the CHILD-deletion flow (waitForParentDelete — the
-     * child is deleted BY DESIGN and the pinned DeleteChildAlone veto must ride the
-     * counter, never this sweep).
-     */
+    /** Tracks an armed delete-waiter pair for the phase-1 state sweep. */
     public void trackArmedDeletePair(final IXdStorageTransaction transaction,
                                      final Comparable<?> parentObjectId, final Comparable<?> childObjectId,
                                      final boolean sweepable) {
@@ -201,14 +197,24 @@ public class XdStorageForeignKeyChangeRegistry {
             Object[] arrObjects = (Object[]) fieldObject;
             if (arrObjects == null) return true;
             for (Object childObject : arrObjects) {
-                if (childObjectId.equals(clChildIdField.get(childObject))) return false;
+                if (childObject == null) continue;
+                final Object memberId = clChildIdField.get(childObject);
+                if (childObjectId.equals(memberId)) return false;
+                // MASSFILL: a member whose id reads null (a deleted child's wrapper can
+                // lose its readable id after its record is staged-deleted) is conservatively
+                // treated as STILL REFERENCING — resolving the waiter here would kill the
+                // DeleteChildAlone veto.
+                if (memberId == null) return false;
             }
             return true;
         } else if (clParentFieldInfo.isCollection()) {
             Collection<?> collectionObjects = (Collection<?>) fieldObject;
             if (collectionObjects == null) return true;
             for (Object childObject : collectionObjects) {
-                if (childObjectId.equals(clChildIdField.get(childObject))) return false;
+                if (childObject == null) continue;
+                final Object memberId = clChildIdField.get(childObject);
+                if (childObjectId.equals(memberId)) return false;
+                if (memberId == null) return false;
             }
             return true;
         } else if (clParentFieldInfo.isMap()) {
@@ -303,13 +309,27 @@ public class XdStorageForeignKeyChangeRegistry {
                 if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT
                         && (change == XdStorageObjectOperationType.Delete || change == XdStorageObjectOperationType.Update)) {
                     Object pId = oldObject == null ? parentObjectId : parentIdField.get(oldObject);
-                    if (pId.equals(parentObjectId)) {
-                        try {
-                            registry.unregisterForeignKey(parentObjectId, childObjectId, transaction);
-                            resolveArmedDeletePair(transaction, parentObjectId, childObjectId);
-                        } catch (XdStorageException e) {
-                            throw new RuntimeException(e);
-                        }
+                    if (!pId.equals(parentObjectId)) {
+                        return;
+                    }
+                    // CANON (the architect's arbitration 2026-11-20, DeleteScenarios.testDeleteOnlyOneChildThrows):
+                    // delete-child-alone while the parent still references it → VETO. The UPDATE branch
+                    // dissolves ONLY when the parent's new state actually dropped the child — the same
+                    // guard the sibling registerUpdateListener family applies. A parent updated while its
+                    // collection STILL references the just-deleted child keeps the armed waiter: the
+                    // counter survives to phase-1 and the DeleteChildAlone veto fires. (A member whose id
+                    // reads null is conservatively treated as still referencing — see
+                    // isReferenceToChildObjectDeleted.) The DELETE branch stays unconditional: a deleted
+                    // parent can never hold a dangling reference to the child.
+                    if (change == XdStorageObjectOperationType.Update
+                            && !isReferenceToChildObjectDeleted(newObject, registry.getParentField(), registry.getChildClassInfo(), childObjectId)) {
+                        return;
+                    }
+                    try {
+                        registry.unregisterForeignKey(parentObjectId, childObjectId, transaction);
+                        resolveArmedDeletePair(transaction, parentObjectId, childObjectId);
+                    } catch (XdStorageException e) {
+                        throw new RuntimeException(e);
                     }
                 }
             }

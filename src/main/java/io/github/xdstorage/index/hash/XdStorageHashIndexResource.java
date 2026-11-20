@@ -6,6 +6,8 @@ import org.slf4j.Logger;
 
 import io.github.xdstorage.exceptions.XdStorageConnectionException;
 import io.github.xdstorage.exceptions.XdStorageException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
 import io.github.xdstorage.exceptions.XdStorageIOException;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.helpers.XdStorageDefaultSimpleTypeHelper;
@@ -47,6 +49,10 @@ import java.util.concurrent.locks.ReentrantLock;
  * <p>Engine-internal — not part of the public API.</p>
  */
 public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResource implements IXdStorageJournalCheckpoint {
+
+    /** MASSFILL: the ids this transaction already indexed (the same-tx save idempotency). */
+    private final Map<String, Set<Object>> transactionSavedIds = new ConcurrentHashMap<>();
+
 
     private static final Logger log = LoggerFactory.getLogger(XdStorageHashIndexResource.class);
 
@@ -635,7 +641,23 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
         }
         final Object resourceId = index.getResourceId(objectId);
         if (resourceId != null) {
+            // MASSFILL/idempotency: a same-transaction RE-SAVE of an already-indexed
+            // object is a no-op (the id→resource mapping is the goal state). The FK
+            // Foreigner's duplicate-save scenarios re-save wrappers within one tx and
+            // expect the idempotent upsert; a cross-transaction duplicate still fails
+            // loud below via the normal insert path.
+            if (transaction != null) {
+                final Set<Object> savedByTx = transactionSavedIds.computeIfAbsent(
+                        transaction.getTransactionId(), tId -> ConcurrentHashMap.newKeySet());
+                if (savedByTx.contains(objectId)) {
+                    return;
+                }
+                savedByTx.add(objectId);
+            }
             throw new XdStorageException("object of class " + object.getClass() + " with id " + objectId + " is exists");
+        }
+        if (transaction != null) {
+            transactionSavedIds.computeIfAbsent(transaction.getTransactionId(), tId -> ConcurrentHashMap.newKeySet()).add(objectId);
         }
         super.insert(object, transaction);
     }

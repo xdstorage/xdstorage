@@ -148,12 +148,17 @@ public class XdStorageForeignKeyResourceTest {
     }
 
     @Test
-    @DisplayName("Инвариант: Метод delete() должен атомарно вырезать пару из обоих персистентных индексов")
-    public void testDelete_ShouldRemoveFromBothTrees() throws Exception {
-        // Вызов целевого удаления конкретной пары
-        fkResource.delete(null, "PARENT-ID-77", null, "CHILD-ID-88", mockTx);
+    @DisplayName("Инвариант: unregisterForeignKey() должен атомарно вырезать пару из обоих персистентных индексов")
+    public void testUnregisterForeignKey_ShouldRemoveFromBothTrees() throws Exception {
+        // CANON (2026-11-20): атомный вырез пары из обоих деревьев — это растворение
+        // (unregisterForeignKey): стейджинг DELETE-intent в write-set + точечные
+        // delete(key, value) обоих деревьев в момент операции (contour rule).
+        // resource.delete() — это ДРУГОЙ контракт: он вооружает waiter'ы семейств
+        // удаления (childObject==null → waitForChildDelete; parentObject==null →
+        // waitForParentDelete) и без живой пары — молчаливый no-op.
+        fkResource.unregisterForeignKey("PARENT-ID-77", "CHILD-ID-88", mockTx);
 
-        // Проверяем, что ресурс вызвал разработанные нами точечные методы delete(key, value) для обоих деревьев!
+        // Проверяем, что ресурс вызвал точечные методы delete(key, value) для обоих деревьев!
         verify(mockParentChildTree, times(1)).delete(eq("PARENT-ID-77"), eq("CHILD-ID-88"), eq(mockStorage), eq(mockTx));
         verify(mockChildParentTree, times(1)).delete(eq("CHILD-ID-88"), eq("PARENT-ID-77"), eq(mockStorage), eq(mockTx));
     }

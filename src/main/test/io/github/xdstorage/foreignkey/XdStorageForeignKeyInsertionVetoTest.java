@@ -144,9 +144,9 @@ public class XdStorageForeignKeyInsertionVetoTest {
         tx2.rollback();
     }
 
-    /** Delete child with parent reference → no veto (FK pair dissolved). */
+    /** Delete child with parent reference → VETO (the parent's persisted collection still references the child). */
     @Test
-    @DisplayName("testDeleteChildWithLiveParentReference_VetoOnCommit: delete child w/ parent ref → OK")
+    @DisplayName("testDeleteChildWithLiveParentReference_VetoOnCommit: delete child w/ parent ref → VETO (dangling reference)")
     public void testDeleteChildWithLiveParentReference_VetoOnCommit() throws Exception {
         IXdStorageTransaction tx = storage.beginTransaction();
 
@@ -165,8 +165,12 @@ public class XdStorageForeignKeyInsertionVetoTest {
         Child childDel = storage.load(Child.class, "child-del-1", tx2);
         storage.delete(childDel, tx2);
 
-        assertDoesNotThrow(() -> tx2.commit(),
+        // CANON (2026-11-20, DeleteScenarios.testDeleteOnlyOneChildThrows): delete-child-alone
+        // while the parent's persisted collection still references the child → VETO at commit
+        // (the same dangling-reference end-state → the same verdict).
+        assertThrows(XdStorageRuntimeException.class, () -> tx2.commit(),
                 "FK-veto failed: delete child w/ parent ref should be rejected!");
+        tx2.rollback();
 
         // Parent should still exist
         IXdStorageTransaction verifyTx = storage.beginTransaction();
