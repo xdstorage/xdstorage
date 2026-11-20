@@ -161,3 +161,19 @@ isolation estate).
   the investigation
 - `resource/cache/XdStorageCacheRecord.java` (`canBeChangedByTransaction`, `markUpdate`,
   `commit()`), `resource/cache/XdStorageCacheMutator.java` (the update/delete conflict gates)
+
+---
+
+## UPDATE 2026-11-20: the prevObject-aliasing half — the read-snapshot prototype (verified, preserved in task 53)
+
+The second half of this task (the in-place collection mutation surviving the
+rollback via prevObject aliasing — "the rolled-back tx's list mutation
+survives its own rollback and any later committer makes the orphan reference
+durable") got a VERIFIED prototype fix: `XdStorageCacheRecord.prevSnapshot` —
+a clean pre-tx clone captured at newReadRecord (BEFORE handing the instance to
+the caller); markUpdate/markDelete restore from it. MassFillSecond: 0
+contamination survivors ×5 runs. REVERTED with the tree-overlay prototype
+(task 53) — the state was mixed (the deferred-id resolver regression) and the
+W-4 program needs the layers sequenced. The full design + the limitations
+(the null-id nested-reference clone; the read-clone cost): task 53 +
+[BTREE_MUTATION_OVERLAY.md](../../analysis/BTREE_MUTATION_OVERLAY.md).

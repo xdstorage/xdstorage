@@ -216,3 +216,17 @@ Estimate: 2–3 d.
 - [40-lost-update-first-committer-wins](40-lost-update-first-committer-wins.md) — the purge
   aborts that leak whole subtrees
 - 7ed2fa2 — the id-index delete compensation this task generalizes
+
+---
+
+## UPDATE 2026-11-20: the tree-overlay prototype (task 53) solves the SOUNDNESS half
+
+The overlay engine (per-tx staged tree ops, applied at commit, rollback =
+discard) eliminates the in-place tree mutation this task documents: the
+prototype passed 365/372 tests including the collapse-rollback scenario this
+task's repro pins (the full design + the session log:
+[53-tree-overlay.md](53-tree-overlay.md), the prototype:
+[53-tree-overlay-prototype.patch](53-tree-overlay-prototype.patch)). NOT
+merged: three integration layers remain (the internal-TX id bridging, the
+rollback-compensation ordering, the veto-path undo) — the continuation plan:
+[53-tree-overlay.md §«Оставшиеся слои»](53-tree-overlay.md).
