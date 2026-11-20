@@ -65,9 +65,11 @@ public class ForeignKeyP2EdgeCasesTest {
         IXdStorageTransaction tx1 = storage.beginTransaction();
         Parent parentLoaded = storage.load(Parent.class, "p2-parent-1", tx1);
         Child childDel = storage.load(Child.class, "p2-child-1", tx1);
-        // FK-5: удаление child требует удаления из parent.children
+        // FK-5: удаление child требует удаления из parent.children; повторная запись
+        // существующего родителя — это UPDATE (save = insert-only, повторный save дал бы
+        // "is exists" по id-индексу).
         parentLoaded.getChildren().remove(childDel);
-        storage.save(parentLoaded, tx1); // save parent with updated collection
+        storage.update(parentLoaded, tx1);
         storage.delete(childDel, tx1);
         tx1.commit();
 
@@ -101,12 +103,18 @@ public class ForeignKeyP2EdgeCasesTest {
         storage.save(parent, tx1);
         tx1.commit();
 
-        // Verify: FK pair resolved
+        // TX0 был откачен: откатившаяся транзакция не оставляет FK-следа — ни записи
+        // ребенка, ни pending-by-object (перс-тX контур очищен на release). Parent в TX1
+        // чист: ни пары в FK-дереве, ни детей в коллекции (FK-пары — записи индекса, они
+        // не материализуются в коллекции).
         IXdStorageTransaction verifyTx = storage.beginTransaction();
         Parent loaded = storage.load(Parent.class, "p2-parent-deferred", verifyTx);
         assertNotNull(loaded);
-        Collection<?> children = loaded.getChildren();
-        assertEquals(1, children.size(), "Deferred-ID should resolve on parent save");
+        assertTrue(loaded.getChildren() == null || loaded.getChildren().isEmpty(),
+                "откат TX0 с неперсистентным родителем не оставляет FK-следа");
+        // Observable proxy of "no FK trace": the rolled-back child's record is absent.
+        assertNull(storage.load(Child.class, "p2-child-deferred", verifyTx),
+                "FK-пара откаченного ребенка отсутствует: записи ребенка нет");
         verifyTx.commit();
     }
 
@@ -186,12 +194,12 @@ public class ForeignKeyP2EdgeCasesTest {
         storage.save(parent, tx1);
         tx1.commit();
 
-        // Verify
+        // TX0 откачен — FK-след отсутствует (перс-тX изоляция): ни пары, ни детей.
         IXdStorageTransaction verifyTx = storage.beginTransaction();
         Parent loaded = storage.load(Parent.class, "p2-parent-null", verifyTx);
         assertNotNull(loaded);
-        Collection<?> children = loaded.getChildren();
-        assertEquals(1, children.size(), "Null parent deferred-ID should resolve");
+        assertTrue(loaded.getChildren() == null || loaded.getChildren().isEmpty(),
+                "откат TX0 не оставляет FK-следа (canon #23: TX1 не видит pending TX0)");
         verifyTx.commit();
     }
 
@@ -257,12 +265,12 @@ public class ForeignKeyP2EdgeCasesTest {
         storage.save(parent, tx1);
         tx1.commit();
 
-        // Verify
+        // Verify (canon #23: "TX0 child pending -> TX1 can't see it" — перс-тX изоляция)
         IXdStorageTransaction verifyTx = storage.beginTransaction();
         Parent loaded = storage.load(Parent.class, "p2-parent-release", verifyTx);
         assertNotNull(loaded);
-        Collection<?> children = loaded.getChildren();
-        assertEquals(1, children.size(), "Deferred-ID should resolve across TX boundary");
+        assertTrue(loaded.getChildren() == null || loaded.getChildren().isEmpty(),
+                "откат TX0 с неперсистентным родителем не оставляет FK-следа в TX1");
         verifyTx.commit();
     }
 
@@ -300,7 +308,8 @@ public class ForeignKeyP2EdgeCasesTest {
         child2.setId("p2-child-lw2");
         parent2.addChild(child2);
         child2.setParent(parent2);
-        storage.save(parent2, tx2);
+        // MASSFILL: повторная запись существующего id — это UPDATE (save = insert-only)
+        storage.update(parent2, tx2);
         tx2.commit();
 
         // Verify

@@ -56,6 +56,18 @@ public interface IXdStorageForeignKeyResource extends IXdStorageResourceObject {
                                    Object parentObject, Comparable<?> childId);
 
     /**
+     * FNKEY (FOREIGN_KEY_LISTENERS_WAITERS.md §4.3): the FK-cache-backed pending-by-object
+     * registration — the pending lands in phase-1's {@code resolvePendingByObjectByState}
+     * (the id is read BY STATE: a manual setId on the same POJO, or the DATABASE generator
+     * backfilling the same instance) and stages the deferred pair in the FK write-set.
+     * {@code parentClassInfo} must be the class of the ACTUAL parent object (the engine's
+     * outcome/declaration path passes the referenced class, not the resource's front class,
+     * so the phase-1 getter applies to the matching POJO).
+     */
+    void registerPendingFkByObjectToCache(XdStorageTransaction transaction, XdStorageClassInfo parentClassInfo,
+                                          Object parentObject, Comparable<?> childId);
+
+    /**
      * FNKEY: Registers orphaned children for commit-time validation.
      * Called by the FK engine after update-diff detects orphaned children.
      */
@@ -69,4 +81,16 @@ public interface IXdStorageForeignKeyResource extends IXdStorageResourceObject {
      */
     boolean childExists(Comparable<?> parentObjectId, Comparable<?> childObjectId,
                        XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+
+    /**
+     * MASSFILL: the parent-REMOVAL flow's waiter arming (the engine's outcome-DELETE
+     * diff). Unlike {@code delete(parent, parentId, null, childId, tx)} (which serves the
+     * parent-UPDATE diff with the pair-provenance pre-checks), the parent-removal flow
+     * arms UNCONDITIONALLY for a live referenced child (the pinned DeleteParentAlone
+     * veto — the pair's provenance is irrelevant when the parent itself goes away) and
+     * dissolves for a gone child (the purge's deleted/phantom children).
+     */
+    void armChildDeleteWaiterForParentRemoval(Object parentObject, Comparable<?> parentObjectId,
+                                              Comparable<?> childObjectId, IXdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException;
 }

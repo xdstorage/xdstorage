@@ -1,14 +1,19 @@
 package io.github.xdstorage.foreignkey;
 
+import io.github.xdstorage.IXdFileStorage;
 import io.github.xdstorage.XdStoragePolicy;
+import io.github.xdstorage.XdStorageProvider;
 import io.github.xdstorage.annotations.XdStorageAutoSave;
 import io.github.xdstorage.annotations.XdStorageObjectId;
 import io.github.xdstorage.annotations.XdStorageObjectPolicy;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
+import io.github.xdstorage.serialization.FilesFormat;
+import io.github.xdstorage.transaction.IXdStorageTransaction;
 import io.github.xdstorage.utils.XdStorageClassInfo;
 import io.github.xdstorage.utils.XdStorageClassMetadataRegistry;
 import org.junit.jupiter.api.*;
 
+import java.io.File;
 import java.util.Collection;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -73,43 +78,58 @@ public class ForeignKeyCrossTxVisibilityTest extends AbstractForeignKeyEngineInt
         assertTrue(children.stream().anyMatch(c -> "child-cross-vis-1".equals(String.valueOf(c))));
     }
 
-    /** #13 variant: Tx0 saves child w/ null parent -> deferred-ID.
-     * Tx1 saves parent -> deferred-ID resolves.
-     * Tx2 deletes parent -> should veto (live child still references it). */
+    /** #13 variant — GROUP B REAL-STORAGE MIGRATION (2026-11-20): the old body asserted a
+     * cross-tx DEFERRED-ID resolution on the mock harness, but its premise was unwireable:
+     * the entities were never wired together (CrossChild has no parent field at all) and a
+     * tx-scoped pending leaves no trace across txs (TX isolation canon — the deferred-ID
+     * resolution shapes are pinned on real storage by FxForeignKeyDeferredIdResolverTest).
+     * The name's intent is pinned here instead: TX0 commits a wired parent+child pair,
+     * TX1 sees it, TX2 deletes the parent alone → VETO (the committed child still
+     * references it — the DeleteParentAlone canon). */
     @Test
-    @DisplayName("testTx0SavesChild_Tx2DeletesParent_Vetoed: child deferred -> parent saved -> parent deleted -> veto")
+    @DisplayName("testTx0CommitsPair_Tx2DeletesParent_Vetoed: TX0 commit -> TX1 sees -> TX2 parent delete -> veto")
     public void testTx0SavesChild_Tx2DeletesParent_Vetoed() throws Exception {
-        // TX0: save child with null parent (deferred-ID)
-        CrossParent unsavedParent = new CrossParent();
-        unsavedParent.setId(null);
-        CrossChild child = new CrossChild();
-        child.setId("cross-child-deferred");
-        // Deferred-ID: child has unsaved parent reference
+        final String unique = String.valueOf(System.nanoTime());
+        final String path = "./target/fk_cross_tx_vis_" + unique;
+        IXdFileStorage realStorage = XdStorageProvider.newOrGetFileStorage("fk_cross_vis_" + unique, path, 128, FilesFormat.YAML);
+        try {
+            // TX0: save parent + child (wired via @XdStorageAutoSave childRef) -> commit
+            IXdStorageTransaction tx0 = realStorage.beginTransaction();
+            CrossParent parent = new CrossParent();
+            parent.setId("cross-parent-deferred");
+            CrossChild child = new CrossChild();
+            child.setId("cross-child-deferred");
+            parent.setChildRef(child);
+            realStorage.save(parent, tx0);
+            tx0.commit();
 
-        registry.getOutcomeRelations(parentMeta);
-        registry.getIncomeRelations(childMeta);
+            // TX1: the committed pair is visible (the child loads through the parent)
+            IXdStorageTransaction tx1 = realStorage.beginTransaction();
+            CrossParent loaded = realStorage.load(CrossParent.class, "cross-parent-deferred", tx1);
+            assertNotNull(loaded, "parent persisted in TX0");
+            assertNotNull(loaded.getChildRef(), "the committed parent still references the child");
+            assertEquals("cross-child-deferred", loaded.getChildRef().getId(), "the pair survived the commit");
+            tx1.commit();
 
-        engine.process(child, XdStorageForeignKeyObjectChangeType.INSERT, transaction);
+            // TX2: delete the parent alone -> VETO (the live child still references it)
+            IXdStorageTransaction tx2 = realStorage.beginTransaction();
+            CrossParent toDelete = realStorage.load(CrossParent.class, "cross-parent-deferred", tx2);
+            assertNotNull(toDelete);
+            realStorage.delete(toDelete, tx2);
+            assertThrows(XdStorageRuntimeException.class, () -> tx2.commit(),
+                    "СУБД позволила удалить родителя, на которого ещё ссылается живой ребёнок!");
+            tx2.rollback();
+        } finally {
+            realStorage.shutdown();
+            deleteDir(new File(path));
+        }
+    }
 
-        // TX1: save parent (resolves deferred-ID)
-        CrossParent parent = new CrossParent();
-        parent.setId("cross-parent-deferred");
-
-        registry.getOutcomeRelations(parentMeta);
-        registry.getIncomeRelations(childMeta);
-
-        engine.process(parent, XdStorageForeignKeyObjectChangeType.INSERT, transaction);
-
-        // Verify FK pair resolved: the pair registered via the CHILD-side resource
-        // (Child#parentBackRef → Parent, the income path's resource) — read its reverse tree.
-        // MASSFILL: the relation is the PARENT's AutoSave side (childRef → CrossChild);
-        // the pair registered through the outcome-INSERT lives in the resource keyed by
-        // (parentMeta, childMeta, "childRef"). Read the reverse tree by the child's id.
-        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(
-                parentMeta, childMeta, parentMeta.getFields().get("childRef"), transaction);
-        Collection<Object> parents = fkResource.readByChildObjectId("cross-child-deferred", transaction);
-        assertEquals(1, parents.size(), "Deferred-ID should resolve on parent save");
-        assertEquals("cross-parent-deferred", String.valueOf(parents.iterator().next()),
-                "пара указывает на сохраненного родителя");
+    private static void deleteDir(File file) {
+        File[] contents = file.listFiles();
+        if (contents != null) {
+            for (File f : contents) deleteDir(f);
+        }
+        file.delete();
     }
 }

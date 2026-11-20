@@ -4,6 +4,7 @@ import io.github.xdstorage.IXdStorage;
 import io.github.xdstorage.XdStorageConfig;
 import io.github.xdstorage.btree.XdStorageBTree;
 import io.github.xdstorage.btree.XdStorageBTreeId;
+import io.github.xdstorage.resource.XdStorageAbstractResourcesManager;
 import io.github.xdstorage.resource.XdStorageCanonicalInstanceRegistry;
 import io.github.xdstorage.resource.XdStorageResourceNamingService;
 import io.github.xdstorage.services.XdStorageServicesLocator;
@@ -28,6 +29,19 @@ public abstract class AbstractForeignKeySpecificationTest {
     protected XdStorageResourceNamingService namingService;
     protected XdStorageConfig config;
 
+    /**
+     * MASSFILL: seeds an entity into the in-memory storage so the harness's
+     * {@code load(Class, id, tx)} (a plain map lookup) resolves it. The map's declared
+     * key type is the tree id, but the load path looks entities up by their raw ids —
+     * this helper encapsulates the unchecked cross-type put for the tests that need
+     * their entities visible to the engine (e.g. the delete-veto scenarios).
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    protected void seedEntity(final Object id, final Object entity) {
+        ((Map) databaseStorage).put(id, entity);
+    }
+
+
     @BeforeEach
     void setUp() throws Exception {
         databaseStorage = new ConcurrentHashMap<>();
@@ -45,12 +59,8 @@ public abstract class AbstractForeignKeySpecificationTest {
 
         final io.github.xdstorage.serialization.IXdStorageObjectsReader mockReader = org.mockito.Mockito.mock(io.github.xdstorage.serialization.IXdStorageObjectsReader.class);
         final io.github.xdstorage.serialization.IXdStorageObjectsWriter mockWriter = org.mockito.Mockito.mock(io.github.xdstorage.serialization.IXdStorageObjectsWriter.class);
-        final io.github.xdstorage.resource.XdStorageAbstractResourcesManager mockResourcesManager = org.mockito.Mockito.mock(io.github.xdstorage.resource.XdStorageAbstractResourcesManager.class);
-        // stub lockReferencesResource → mock dao that returns non-null from read()
-        final io.github.xdstorage.resource.IXdStorageDaoResource mockDao = org.mockito.Mockito.mock(io.github.xdstorage.resource.IXdStorageDaoResource.class);
-        org.mockito.Mockito.when(mockDao.read(org.mockito.ArgumentMatchers.any(Object.class), org.mockito.ArgumentMatchers.any(io.github.xdstorage.transaction.XdStorageTransaction.class))).thenReturn(mockDao);
-
         // Сборка локатора сервисов на реальных in-memory структурах
+        final XdStorageAbstractResourcesManager[] managerHolder = new XdStorageAbstractResourcesManager[1];
         XdStorageServicesLocator services = new XdStorageServicesLocator() {
             @Override
             public IXdStorage getStorage() {
@@ -102,23 +112,36 @@ public abstract class AbstractForeignKeySpecificationTest {
             @Override public io.github.xdstorage.resource.IXdStorageResourceNamingService getNamingService() { return namingService; }
             @Override public XdStorageCanonicalInstanceRegistry getCanonicalInstances() { return canonicalRegistry; }
             @Override public io.github.xdstorage.serialization.IXdStorageIOFactory getIoFactory() {
-                // Mock factory — FK engine tests never serialize; provide a no-op reader/writer
-                return new io.github.xdstorage.serialization.IXdStorageIOFactory() {
-                    @Override public io.github.xdstorage.serialization.IXdStorageObjectsReader newInstanceReader() { return mockReader; }
-                    @Override public io.github.xdstorage.serialization.IXdStorageObjectsWriter newInstanceWriter() { return mockWriter; }
-                };
+                // A REAL YamlIOFactory (not a bare mock): the references resource's commit
+                // journal replay calls XdStorageYamlIOFactory.simpleTypeHelper() — a bare
+                // mock made that NPE ("commit journal cannot be replayed").
+                return new io.github.xdstorage.serialization.yaml.XdStorageYamlIOFactory(
+                        new io.github.xdstorage.services.XdStorageServicesLocator() {
+                            @Override public io.github.xdstorage.resource.IXdStorageResourceNamingService getNamingService() { return namingService; }
+                        }, null);
             }
             @Override public io.github.xdstorage.idgeneration.IXdStorageIdGenerator getIdGenerator() { return null; }
-            @Override public io.github.xdstorage.resource.XdStorageAbstractResourcesManager getResourcesManager() { return mockResourcesManager; }
+            @Override public io.github.xdstorage.resource.XdStorageAbstractResourcesManager getResourcesManager() { return managerHolder[0]; }
         };
 
-        org.mockito.Mockito.when(mockResourcesManager.lockReferencesResource(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(mockDao);
+        // MASSFILL: a REAL resources manager (was: mockResourcesManager + a mockDao whose
+        // read() returned non-null ALWAYS — that stub blinded every references-based FK
+        // check in the harness: isParentPersistedInIndex/isChildInParentIndex saw every id
+        // as "persisted", so the pending manual-ID registration and the orphan/delete
+        // vetoes could never fire). The real manager creates real on-demand resources over
+        // the in-memory storage above; unsaved ids honestly read as absent.
+        final io.github.xdstorage.resource.XdStorageAbstractResourcesManager realResourcesManager =
+                new io.github.xdstorage.resource.XdStorageResourcesManager(services, 64);
+        managerHolder[0] = realResourcesManager;
 
-        resourcesManager = new XdStorageForeignKeyResourcesManager(services, mockResourcesManager);
+        resourcesManager = new XdStorageForeignKeyResourcesManager(services, realResourcesManager);
         engine = new XdStorageForeignKeyEngine(resourcesManager, registry, true);
 
         // Инициализируем транзакцию с отслеживанием rollback-only статуса
-        transaction = new XdStorageTransaction(null, "THREAD_1", null, 100L, "TX_1") {
+        // MASSFILL/timeout-sweeper: a short timeout lets the real background sweeper mark
+        // the harness transaction rollback-only mid-test — see the mirror fix in
+        // AbstractForeignKeyEngineIntegrationTest.
+        transaction = new XdStorageTransaction(null, "THREAD_1", null, 600000L, "TX_1") {
             private final Set<Object> registeredResources = new HashSet<>();
             @Override public void startCriticalSection(boolean r) {}
             @Override public void finishCriticalSection() {}

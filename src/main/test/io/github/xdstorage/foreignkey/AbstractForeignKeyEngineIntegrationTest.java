@@ -28,6 +28,19 @@ public abstract class AbstractForeignKeyEngineIntegrationTest {
     protected XdStorageTransaction transaction;
 
     protected Map<XdStorageBTreeId, XdStorageBTree> databaseStorage;
+
+    /**
+     * MASSFILL: the in-memory ENTITY storage (per class+id). Was: save() dropped
+     * non-btree objects and load() always returned null — every test flow that
+     * round-tripped an entity got "object cannot be null" from the next update/delete.
+     * The FK engine's flows (deferred-ID waiters, veto scenarios) need the entities
+     * visible across process()/storage calls within a test.
+     */
+    protected final Map<String, Object> entityStorage = new ConcurrentHashMap<>();
+
+    private String entityKey(final Class<?> cl, final Object id) {
+        return cl.getName() + "\u001F" + id;
+    }
     protected XdStorageCanonicalInstanceRegistry canonicalRegistry;
     protected XdStorageResourceNamingService namingService;
     protected io.github.xdstorage.serialization.IXdStorageObjectsReader mockReader;
@@ -74,6 +87,16 @@ public abstract class AbstractForeignKeyEngineIntegrationTest {
                     @Override public void save(Object obj, IXdStorageTransaction tx) {
                         if (obj instanceof XdStorageBTree) {
                             databaseStorage.put(((XdStorageBTree) obj).getId(), (XdStorageBTree) obj);
+                        } else {
+                            try {
+                                final Class<?> entityClass = io.github.xdstorage.utils.XdStorageObjectUtils.getEntityClass(obj.getClass());
+                                final Object objId = io.github.xdstorage.utils.XdStorageObjectUtils.getClassInfo(entityClass).getIdField().get(obj);
+                                if (objId != null) {
+                                    entityStorage.put(entityKey(entityClass, objId), obj);
+                                }
+                            } catch (final Exception noId) {
+                                // not an id-bearing entity — nothing to store
+                            }
                         }
                     }
                     @Override public void save(Collection<?> o) {}
@@ -85,7 +108,10 @@ public abstract class AbstractForeignKeyEngineIntegrationTest {
                     @Override public <T> T load(Class<T> c, Object id) { return null; }
                     @SuppressWarnings("unchecked")
                     @Override public <T> T load(Class<T> cl, Object id, IXdStorageTransaction transaction) {
-                        return (T) databaseStorage.get(id);
+                        if (cl == XdStorageBTree.class || cl == io.github.xdstorage.btree.XdStorageBTreeNode.class) {
+                            return (T) databaseStorage.get(id);
+                        }
+                        return (T) entityStorage.get(entityKey(cl, id));
                     }
                     @Override public void load(Collection<?> r) {}
                     @Override public void load(Collection<?> r, IXdStorageTransaction tx) {}
@@ -125,7 +151,12 @@ public abstract class AbstractForeignKeyEngineIntegrationTest {
         resourcesManager = new XdStorageForeignKeyResourcesManager(services, abstractResourcesManager);
         engine = new XdStorageForeignKeyEngine(resourcesManager, registry, true);
 
-        transaction = new XdStorageTransaction(null, "THREAD_1", null, 100L, "TX_1") {
+        // MASSFILL/timeout-sweeper: a short timeout here lets the real background sweeper mark
+        // the harness transaction rollback-only (and roll its staged pairs back) MID-TEST —
+        // the mock spec tests then see "nothing was thrown" / isRollbackOnly=true at random.
+        // The harness transaction lives for the whole test method: give it a test-scale
+        // timeout (10 minutes), matching the real-storage suites' transaction budgets.
+        transaction = new XdStorageTransaction(null, "THREAD_1", null, 600000L, "TX_1") {
             private final Set<Object> registeredResources = new HashSet<>();
             @Override public void startCriticalSection(boolean r) {}
             @Override public void finishCriticalSection() {}
@@ -136,6 +167,18 @@ public abstract class AbstractForeignKeyEngineIntegrationTest {
                 registeredResources.add(res.getResourceId());
             }
         };
+    }
+
+    /**
+     * MASSFILL: seeds an entity into the in-memory storage so the harness's
+     * {@code load(Class, id, tx)} (a plain map lookup) resolves it. The map's declared
+     * key type is the tree id, but the load path looks entities up by their raw ids —
+     * this helper encapsulates the unchecked cross-type put for the tests that need
+     * their entities visible to the engine (e.g. the delete-veto scenarios).
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    protected void seedEntity(final Object id, final Object entity) {
+        ((Map) databaseStorage).put(id, entity);
     }
 
     protected static class TestObservableWrapper implements IXdStorageIdObservableWrapper {

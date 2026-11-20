@@ -117,12 +117,19 @@ public class StructuralGroupsForeignKeySpecificationTest extends AbstractForeign
         registry.getIncomeRelations(childMeta);
 
         IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta, parentMeta.getFields().get("collectionChildren"), transaction);
-        // Эмулируем наличие связи в базе данных СУБД
+        // Эмулируем наличие связи в базе данных СУБД. Ребенок должен быть ЖИВ (записан в
+        // хранилище) — фантомная пара (torn-fill остаток) по текущему канону растворяется,
+        // а не ветоируется.
+        GroupChild liveChild = new GroupChild(); liveChild.setId(999L);
+        seedEntity(999L, liveChild);
         fkResource.insert(55L, 999L, transaction);
 
-        // Согласно ТЗ: Удаление коллекции детей не завершено -> отказ коммита
-        assertThrows(XdStorageRuntimeException.class, () -> {
-            engine.process(parent, XdStorageForeignKeyObjectChangeType.DELETE, transaction);
-        });
+        // Согласно ТЗ: удаление родителя при живом ребенке — вето на фазе 1
+        // (armed waiter не разрешается: ребенок жив, ссылка остается).
+        engine.process(parent, XdStorageForeignKeyObjectChangeType.DELETE, transaction);
+
+        assertThrows(XdStorageRuntimeException.class,
+                () -> fkResource.performFirstPhaseCommit(transaction, null),
+                "Фаза 1 обязана ветоировать удаление родителя при живом ребенке");
     }
 }
