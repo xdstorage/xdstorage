@@ -8,6 +8,41 @@ with traces. The completion plan is below; the full history lives in
 
 ---
 
+## 0. The program state (2026-11-21): **THE WRITE-PATH COLLAPSE DESTROYED — THE TARGET MET**
+
+**The overlay is IN THE TREE and green** (the FK estate 372/0/0 ×3, the
+collapse-rollback test GREEN — was DISABLED-RED at HEAD, the invariant suites
+39/0/0). **The concurrent-write collapse is DESTROYED**: the root was an
+ACQUISITION DEADLOCK (the intra-band tie order of the commit-order values was
+arbitrary per transaction → the opposing holds on the shared nodes → the
+deadlock broken only by the lock-timeout cycles). **The fix = the TOTAL
+acquisition order** (the tie-break by the resource id). The FKBENCH:
+
+```
+              HEAD (Step 0)            NOW (overlay + total order)
+fk=OFF t=10:    1.2 tx/s p50=12s   →  158.4 tx/s p50=63ms   (132×)
+fk=ON  t=10:    0.8 tx/s p50=18s   →  121.2 tx/s p50=82ms   (151×)
+p99:           12–21s              →  84–113ms
+```
+
+**The ≥100 tx/s target: MET. Zero failures in the benchmark.** MassFillSecond
+WITHOUT the serialization semaphore ×3: PASS, the task-40 survivors = 0, the
+throughput 40× (392–423 inserts vs 7–10). The key insight chain: the task-40
+anti-aliasing resolved via the ROLE SPLIT (`prevObject` = the canonical
+reference for the identity/serving contracts; `prevSnapshot` = the clean clone
+for the rollback's in-place content restore via `fillObject`); the systemic
+prevSnapshot lifecycle bug (the record destroyed by a null restore) fixed; the
+convoy = the deadlock, not the lock duration. The full detail: task 53 +
+[TX_COMMIT_ROLLBACK_MODEL.md](TX_COMMIT_ROLLBACK_MODEL.md) +
+[BTREE_MUTATION_OVERLAY.md](BTREE_MUTATION_OVERLAY.md).
+
+**Remaining (the honest ledger):** the BTreeStress phantom family —
+PRE-EXISTING at HEAD (the stash-verified 24810 phantoms; the R-56/multi-scan
+race — the hand-over-hand chain walk vs the prewarm-window splits; the
+latch-held-walk experiment failed and was reverted) — the dedicated work item;
+the lost-update window (the layer 2); the read-snapshot cost (~2× the load —
+the lazy snapshot design). The plan — §3 (the steps 5–8).
+
 ## 1. The measured state (FKBENCH Step 0, task 50)
 
 The concurrent block-write (the MassFill profile), each worker owns a universe

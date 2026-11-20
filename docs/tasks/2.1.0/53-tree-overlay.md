@@ -184,3 +184,122 @@ confirmed by a HEAD run: the same 2 survivors).
 internalTransactions); (2) the rollback compensations under the overlay (the
 R-57 key compensations vs the overlay discard); (3) the veto-path apply→undo;
 (4) the FKBENCH (the target: t=10 ≥ 100 tx/s); (5) the Semaphore removal.
+
+
+## SESSION 2026-11-21: THE OVERLAY IS GREEN — the FK estate 372/0/0, the collapse-rollback GREEN
+
+**The re-apply + two fixes closed everything:**
+
+1. **The systemic prevSnapshot lifecycle bug (the resolver/reopen cluster):**
+   the snapshot was captured only at newReadRecord, but a record's lifecycle
+   continues: insert (newInsertRecord — prevSnapshot null) → the commit
+   publish → a foreign markDelete → rollback: `object = prevObject = NULL` →
+   THE RECORD DESTROYED (the deferred-id child load → null at TX4).
+   **The fix — the role split:** `prevObject` keeps the HEAD semantics (the
+   canonical aliased reference — the identity/serving contracts intact: the
+   invariant tests pin assertSame, the MVCC serving hands it to the readers);
+   `prevSnapshot` = the clean clone (captured at newReadRecord, or lazily at
+   markUpdate/markDelete when absent — never null for a live object) used ONLY
+   by the rollback's content restore: `fillObject(prevSnapshot, object)` — the
+   IN-PLACE field-wise copy into the canonical instance (the identity
+   preserved, the mutations reverted). The publish and the rollback clear
+   prevSnapshot (the staleness). fillObject already existed
+   (XdStorageObjectUtils — the same-type graph fill).
+2. **The probe length-safety:** `getTransactionId().substring(0, 8)` threw on
+   the mock txs' short ids (4 chars) → 43 phantom errors in the mock-harness
+   classes. All the probes go through shortTx() (length/null-safe).
+
+**Verified (2026-11-21):** the resolver 5/5; the reopen trio 3/3;
+`XdStorageTreeStructureRollbackTest` 2/2 GREEN (the collapse-rollback —
+DISABLED-RED at HEAD — green naturally on the overlay: the soundness claim
+proven); the cache/protocol/MVCC invariant suites 37/0/0; **the FK estate
+372/0/0**. The full quick-gate: running at the update time.
+
+**Still open (honest):** the commit-lock convoy (the MassFillSecond Semaphore
+stays — its removal waits for the convoy work); the lost-update window
+stage→commit; the read-snapshot cost (~2× the load); the aliasing residue for
+markUpdate on a committed record whose read registered no snapshot (the lazy
+capture at the mark takes the already-mutated state — the full fix = the
+per-tx read-time capture in the cache read path; the MassFill survivors are
+covered by the read-registration capture — verify on the next MassFill run).
+
+
+## VICTORY 2026-11-21 (продолжение сессии): конвой уничтожен — цель достигнута
+
+**THE CONVOY DESTROYED — the root was an ACQUISITION DEADLOCK, not the lock hold time:**
+the commit-order values tie across the whole INDEX band (all the tree/node resources
+share one order); `Collections.reverseOrder()` left the tie order ARBITRARY per
+transaction → A held node-3 waiting node-12 while B held node-12 waiting node-3 —
+a deadlock broken only by the lock-timeout cycles (the 12s waits = 4 × 3s; the
+sweeper cascades). **The fix: the TOTAL acquisition order** — the tie-break by the
+resource id (globally unique) makes the order identical in every transaction: the
+convoy became a queue, never a cycle.
+
+**The FKBENCH result (the same conditions as the Step-0 collapse measurement):**
+
+```
+              HEAD (Step 0)            NOW (overlay + total order)
+fk=OFF t=1:   167.4 tx/s p50=5ms   →  170.2 tx/s p50=5ms    (no regression)
+fk=OFF t=5:     2.2 tx/s p95=12s   →  160.2 tx/s p95=38ms   (73×)
+fk=OFF t=10:    1.2 tx/s p50=12s   →  158.4 tx/s p50=63ms   (132×)
+fk=ON  t=1:   138.8 tx/s p50=7ms   →  141.4 tx/s p50=7ms    (no regression)
+fk=ON  t=5:     2.2 tx/s p95=15s   →  115.6 tx/s p95=60ms   (53×)
+fk=ON  t=10:    0.8 tx/s p50=18s   →  121.2 tx/s p50=82ms   (151×)
+```
+
+**The ≥100 tx/s target: MET (121–158 tx/s at t=10). p99: 12–21s → 84–113ms.
+Zero failures (no sweeper kills, no lock timeouts).**
+
+**MassFillSecond WITHOUT the semaphore ×3: PASS — inserts 392–423 (was 7–10, 40×),
+deletes 144–416, the task-40 survivors = 0.** The semaphore permits 1 → 64 (10
+threads physically cannot exhaust — the serialization constraint removed).
+
+**Also landed this session:** the read-only-resource commit filter (the reads skip
+the commit locks/phases; the FK resource always stays for the veto validations);
+the live-canonical-instance serving in the infra invisibility check
+(`record.getObject() != null` → serve immediately — the tree-level
+READ-UNCOMMITTED, the pre-existing in-place semantics; the 3001ms phase-1
+visibility wait eliminated); the infra identity pass-through in newReadRecord
+(the node clones on the materializations = the CPU explosion).
+
+**The BTreeStress phantom family — PRE-EXISTING, NOT an overlay regression:**
+the HEAD baseline measured by the stash experiment: **24810 phantoms** (the
+overlay: 27.7k — the same race's variance; the 334 in the early run was the
+lucky draw). The family = the R-56/multi-scan race: the hand-over-hand chain
+walk releases the tree read latch at the first leaf; a split in the
+prewarm window (the firstLeaf capture → the prewarm → the walk) moves the keys
+to the new leaves while the walk traverses the STALE chain → the intermittent
+0-results. The latch-held-walk experiment FAILED (27k phantoms — the RW-latch
+writer starvation + the node latch semantics) and was REVERTED. The proper fix =
+the version-validated retry with the resettable viewer or the snapshot-leaf
+chain — THE NEXT SESSION's dedicated work item (the test now fails loudly at
+its assertion instead of hanging: the bounded future.get() landed).
+
+
+## FINAL GATE 2026-11-21 (night): 1319/1f/1e — the overlay CLEARED 2 pre-existing failures, zero regressions
+
+**MassFillSecond ✓ CLEARED** (was red — the survivors/audit), **Multithreads ✓
+CLEARED** (was ERROR — the lazy-load) — the convoy destruction + the role-split
+fixed them. **Remaining (the pre-existing families, the next sessions):**
+- the BTreeStress phantoms (the R-56/multi-scan race — the stash-verified HEAD
+  baseline 24810 phantoms; the latch-held experiment failed and reverted; the
+  proper fix = the version-validated retry with the resettable viewer);
+- the W2Reopen reopen-desync (the task-41 family at HEAD — the structure
+  validator "листьев только из корня/из цепочки"; investigate why HEAD has it
+  red now).
+
+**The new test coverage:** `XdStorageBTreeOverlayTest`
+(`io.github.xdstorage.overlay` — THE PACKAGE MATTERS: the entities in the
+`btree` package are treated as INFRA by the package check!) + the TOP-LEVEL
+entities `OvParent`/`OvChild` (the nested can't be runtime-compiled — the
+house rule re-confirmed): the deadlock pin ACTIVE GREEN (the disjoint parent
+records + the shared trees) + 2 honest @Disabled pins (the visibility contract
++ the rollback restore — the WRAPPER WRITE-THROUGH ALIASING channel, the next
+W-4 layer: the SmartCloner/reference-provider de-aliasing).
+
+**Also landed:** the read-time snapshot capture (`captureSnapshotIfNeeded` at
+the cache read registration — the rollback half of the task-40 channel closed);
+the live-canonical serving (the 3001ms visibility-wait eliminated); the
+read-only-resource commit filter; the infra identity in newReadRecord (the
+node clones on the materializations = the CPU explosion); the bounded
+future.get (the test hygiene — the maintainer's timeout directive).

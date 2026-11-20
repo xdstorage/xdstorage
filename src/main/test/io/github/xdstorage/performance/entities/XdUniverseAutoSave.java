@@ -3,7 +3,9 @@ package io.github.xdstorage.performance.entities;
 import io.github.xdstorage.XdStoragePolicy;
 import io.github.xdstorage.annotations.XdStorageAutoSave;
 import io.github.xdstorage.annotations.XdStorageObjectId;
+import io.github.xdstorage.annotations.XdStorageObjectIdIndexType;
 import io.github.xdstorage.annotations.XdStorageObjectPolicy;
+import io.github.xdstorage.index.XdStorageIndexType;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -11,6 +13,7 @@ import java.util.Collections;
 import java.util.Iterator;
 
 @XdStorageObjectPolicy(policy = XdStoragePolicy.StoreAsClassObjects)
+@XdStorageObjectIdIndexType(indexType = XdStorageIndexType.BTree, t = 10)
 public class XdUniverseAutoSave {
 
     @XdStorageObjectId
