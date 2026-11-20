@@ -575,6 +575,17 @@ public class XdStorageTransaction implements IXdStorageTransaction {
         final XdStorageRuntimeException[] exceptions = new XdStorageRuntimeException[]{null};
         final AtomicBoolean hasError = new AtomicBoolean();
 
+        // TREEOVERLAY (task 53): применяем стейдженные операции деревьев ДО drain'а очереди
+        // ресурсов — применение регистрирует infra-ресурсы деревьев в TX через мутатор, и
+        // только так они попадают в acquisition/фазы (записи файлов — их собственные phase-1)
+        try {
+            io.github.xdstorage.btree.XdStorageBTree.applyAllOverlays(this);
+        } catch (final XdStorageException e) {
+            throw e;
+        } catch (final io.github.xdstorage.exceptions.XdStorageConnectionException e) {
+            throw new XdStorageRuntimeException(e);
+        }
+
         // Переводим транзакцию в состояние подготовки коммита (Phase 1 Commit)
         state.setState(XdStorageCommitTransactionState.PREPARING);
 
@@ -975,6 +986,10 @@ public class XdStorageTransaction implements IXdStorageTransaction {
      * {@code XdStorageRuntimeException}.
      */
     public void rollbackInternal() {
+        // TREEOVERLAY (task 53): rollback = discard overlay ВСЕХ тронутых деревьев
+        // (в т.ч. не зарегистрированных как ресурсы — при overlay-стейджинге дерево
+        // не пишет ничего физически до коммита). Физическое дерево не мутировалось.
+        io.github.xdstorage.btree.XdStorageBTree.discardAllOverlays(this);
         // R-57: компенсация ин-плейс индексных мутаций ДО отката record-состояний —
         // компенсирующие delete сами регистрируют свои изменения в этой транзакции
         // и убираются общим откатом ниже. Зеркало для УДАЛЕННЫХ ключей: возврат ключа

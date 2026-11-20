@@ -102,3 +102,27 @@ Estimate: ~2–3 dev-days (the benchmark class + the entities + the A/B runs + t
 - docs/analysis/FOREIGN_KEYS.md — the consolidated FK subsystem document (the limitations ledger)
 - [W4-DESIGN.md](../../W4-DESIGN.md) § Bottleneck ledger (the format this extends)
 - Task 43 (the benchmark estate — the conditions protocol this uses)
+
+---
+
+## UPDATE 2026-11-20 — Шаг 0: ось КОНТЕНШНА (FK on/off × 1/5/10 потоков), канон-профиль MassFill
+
+Класс `XdStorageFkContentionBenchmark` (surefire-invisible; запуск: `mvn test -Dtest=XdStorageFkContentionBenchmark -Dfkbench=true`).
+Каждому воркеру своя вселенная (нулевая конкуренция на корневой записи) → единственный общий штопор — B+tree-ресурсы.
+Сериальный прогрев; окно 5s; дефолтный tx-таймаут 3s; только коммиты внутри окна в throughput.
+
+```
+config          | tx/s    | p50     | p95     | p99     | max      | stalls>1s | sweeper | gate | other
+fk=OFF t=1      |   167.4 |     5ms |     7ms |     9ms |    223ms |         0 |       0 |    0 |     0
+fk=OFF t=5      |     2.2 |    24ms |    12s2 |    12s2 |     12s2 |         5 |       0 |    0 |     4
+fk=OFF t=10     |     1.2 |    12s1 |    12s2 |    12s2 |     12s2 |        10 |       0 |    0 |     6
+fk=ON  t=1      |   138.8 |     7ms |     9ms |    12ms |     15ms |         0 |       0 |    0 |     0
+fk=ON  t=5      |     2.2 |    49ms |    15s2 |    15s2 |     15s2 |         6 |       0 |    0 |     4
+fk=ON  t=10     |     0.8 |    18s1 |    21s2 |    21s2 |     21s2 |        10 |       0 |    0 |     5
+```
+
+**Выводы (атрибуция):**
+1. **Однопоточная запись ЗДОРОВА**: 167 tx/s (FK-off) / 139 tx/s (FK-on), p50 5-7ms. Оверхед FK ≈ **17%** — в пределах W-4a-бэнда (≤2×). Сам FK-движок НЕ является проблемой записи.
+2. **Конкурентная запись схлопывается на ~140× и это НЕ FK**: t=1→t=10: 167→1.2 tx/s, p50 5ms→12s — В FK-off плече. Отказы называют файлы классовых B+tree-ресурсов **id-индексов** (`XdStorageBTree-XdP...` без FK). Штопор = change-слот классового id-index btree, держимый контуром до коммита: все писатели класса сериализуются на длительности TX.
+3. **FK-деревья — второй слой того же штопора** (+50% ко времени столла: 12s→15-21s; tx/s 2.2→0.8-2.2). Фикс FK-деревьев без фикса id-индексов проблему конкурентной записи не закрывает.
+4. **Починка = task 41 (W-4-DESIGN: звуковой per-op undo btree-структур → release change-слота per-op)** — с квантифицированным эффектом: конкурентная запись 1.2 → потенциально 100+ tx/s, p99 12-21s → ms. WRTPATH (task 31) — второй рычаг (абсолютная цена операции: 5-7ms против ~μs у RocksDB).

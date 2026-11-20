@@ -400,6 +400,19 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
      * @throws XdStorageException on a storage-level failure
      */
     public void performFirstPhaseCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges record) throws XdStorageException {
+        // TREEOVERLAY (task 53): применяем стейдженные операции деревьев ПЕРВЫМ делом
+        // фазы-1 ЭТОГО ресурса: node/tree изменения попадают в ЭТОТ же changeset и
+        // публикуются его же фазой-2 (применение после фаз infra-ресурса = осиротение
+        // записей, proven 2026-11-20: "Illegal state of record to commit").
+        if (isInfrastructureResource()) {
+            try {
+                io.github.xdstorage.btree.XdStorageBTree.applyAllOverlays(transaction, services.getStorage());
+            } catch (final XdStorageException e) {
+                throw e;
+            } catch (final io.github.xdstorage.exceptions.XdStorageConnectionException e) {
+                throw new XdStorageException(e);
+            }
+        }
         if (cache.hasChanges(transaction)) {
             if (journalWrites) {
                 // W-1: журнал — точка записи фазы 1: O(delta) аппенд вместо полной перезаписи файла.
@@ -564,6 +577,11 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
         // Гарантируем fail-safe отпуск ReentrantLock замка при откате изменений страницы
         if (((ReentrantLock) lock).isHeldByCurrentThread()) {
             lock.unlock();
+        }
+        // TREEOVERLAY (task 53): rollback = discard overlay (стейдженные операции дерева
+        // никогда физически не применялись — файл и есть pre-tx правда, fresh parse звучен)
+        if (isInfrastructureResource()) {
+            io.github.xdstorage.btree.XdStorageBTree.discardAllOverlays(transaction);
         }
         cache.rollback(transaction);
         postRollback(transaction);
