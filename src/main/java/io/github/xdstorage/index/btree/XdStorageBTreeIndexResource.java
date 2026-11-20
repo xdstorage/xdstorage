@@ -388,6 +388,8 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
      * @throws XdStorageException on a storage-level failure
      */
     public void rollback(final XdStorageTransaction transaction) throws XdStorageException {
+        // TREEOVERLAY: rollback = discard overlay (физическое дерево не мутировалось)
+        XdStorageBTree.discardAllOverlays(transaction);
         cache.rollback(transaction);
         seenKeysByTransaction.remove(transaction.getTransactionId());
     }
@@ -400,6 +402,8 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
      */
     @Override
     public void release(final XdStorageTransaction transaction) {
+        // TREEOVERLAY: release — страховочный discard (после apply overlay уже снят)
+        XdStorageBTree.discardAllOverlays(transaction);
         cache.clear(transaction);
         seenKeysByTransaction.remove(transaction.getTransactionId());
         transactionDeletedIds.remove(transaction.getTransactionId());

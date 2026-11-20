@@ -421,6 +421,8 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
      */
     @Override
     public void rollback(final XdStorageTransaction transaction) throws XdStorageException {
+        // TREEOVERLAY: rollback = discard overlay (физическое дерево не мутировалось)
+        XdStorageBTree.discardAllOverlays(transaction);
         // FNKEY POINT 7: a rolled-back transaction's staged pairs NEVER reach the trees —
         // the write-set discard is the whole compensation (rollback-safe by construction).
         fkCache.release(transaction);

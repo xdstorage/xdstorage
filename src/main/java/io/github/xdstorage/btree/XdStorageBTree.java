@@ -15,7 +15,11 @@ import io.github.xdstorage.utils.XdStorageObjectUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -128,6 +132,234 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
     /** R-56 диагностика: кто именно внутри мутационной секции (поток → описание операции). */
     private final java.util.concurrent.ConcurrentHashMap<Thread, String> activeMutatorThreads =
             new java.util.concurrent.ConcurrentHashMap<>();
+
+    // =========================================================================
+    // TREEOVERLAY (docs/tasks/2.1.0/53-tree-overlay.md, W4-DESIGN task 41):
+    // мутации overlay-деревьев (id_index / *_foreign_key) стейджатся в per-tx overlay
+    // и применяются пакетом в phase-1 ресурса-владельца. Физическое дерево НЕ мутируется
+    // до применения: rollback = discard overlay (звук по построению), change-слот записи
+    // дерева свободен на всё время TX (штопор конкурентной записи исчезает).
+    // =========================================================================
+    private static final class TreeOverlay {
+        /** Упорядоченный журнал операций: {"I"|"D", key, value} — порядок применения. */
+        final List<Object[]> ops = new ArrayList<>();
+        /** key → стейдженные значения (для merge в find). */
+        final Map<Comparable, List<Object>> stagedInserts = new HashMap<>();
+        /** key → стейдженные к удалению значения (для merge в find). */
+        final Map<Comparable, Set<Object>> stagedDeletes = new HashMap<>();
+    }
+
+    /** txId → overlay (txId — глобально-уникальный UUID, пересечений между сторами нет). */
+    private final Map<String, TreeOverlay> overlays = new ConcurrentHashMap<>();
+
+    /** Глобальный реестр «какие деревья трогала TX» — для apply/discard из ресурсов-владельцев. */
+    private static final java.util.concurrent.ConcurrentMap<String, Set<XdStorageBTree>> TX_OVERLAY_TREES =
+            new java.util.concurrent.ConcurrentHashMap<>();
+    /** txId → storage, зафиксированный при стейджинге (apply на коммите идёт без параметра). */
+    private static final java.util.concurrent.ConcurrentMap<String, IXdStorage> TX_OVERLAY_STORAGE =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Overlay-режим определяется РОЛЬЮ дерева по имени id: идексные деревья ("id_index")
+     * и FK-деревья ("*_foreign_key") стейджат; прочие (поисковые и т.п.) живут по-старому.
+     * Производится от имени, а не хранится флагом: инстанс дерева пересоздаётся при
+     * реопене из файла, и флаг пережил бы reload только в имени.
+     */
+    private boolean isOverlayMode() {
+        final XdStorageBTreeId treeId = this.id;
+        if (treeId == null || treeId.getName() == null) {
+            return false;
+        }
+        final String name = treeId.getName();
+        return "id_index".equals(name) || name.endsWith("_foreign_key");
+    }
+
+    private TreeOverlay newOverlay(final IXdStorageTransaction transaction) {
+        // ВАЖНО: НЕ делать overlays.put здесь — метод вызывается ИЗ
+        // overlays.computeIfAbsent: рекурсивная модификация той же CHM = "Recursive update"
+        final TreeOverlay overlay = new TreeOverlay();
+        TX_OVERLAY_TREES.computeIfAbsent(transaction.getTransactionId(), k -> ConcurrentHashMap.newKeySet()).add(this);
+        return overlay;
+    }
+
+    private void stageInsert(final IXdStorageTransaction transaction, final Comparable key, final Object value, final IXdStorage storage) {
+        TX_OVERLAY_STORAGE.putIfAbsent(transaction.getTransactionId(), storage);
+        final TreeOverlay overlay = overlays.computeIfAbsent(transaction.getTransactionId(), k -> newOverlay(transaction));
+        overlay.ops.add(new Object[]{"I", key, value});
+        // Later-wins: стейдженная вставка отменяет предыдущее стейдженное удаление
+        // того же (key, value) — иначе merged-чтение показывает пару, которую apply
+        // (реплей в порядке ops) корректно удаляет
+        final Set<Object> pendingDeletes = overlay.stagedDeletes.get(key);
+        if (pendingDeletes != null) {
+            pendingDeletes.remove(value);
+        }
+        overlay.stagedInserts.computeIfAbsent(key, k -> new ArrayList<>()).add(value);
+    }
+
+    private void stageDelete(final IXdStorageTransaction transaction, final Comparable key, final Object value, final IXdStorage storage) {
+        TX_OVERLAY_STORAGE.putIfAbsent(transaction.getTransactionId(), storage);
+        final TreeOverlay overlay = overlays.computeIfAbsent(transaction.getTransactionId(), k -> newOverlay(transaction));
+        overlay.ops.add(new Object[]{"D", key, value});
+        // Later-wins: стейдженное удаление отменяет предыдущую стейдженную вставку
+        final List<Object> pendingInserts = overlay.stagedInserts.get(key);
+        if (pendingInserts != null) {
+            pendingInserts.remove(value);
+        }
+        overlay.stagedDeletes.computeIfAbsent(key, k -> ConcurrentHashMap.newKeySet()).add(value);
+    }
+
+    /**
+     * Merge стейджа TX в физический результат find: стейдженные вставки добавляются,
+     * стейдженные удаления исключаются. Чужие overlay невидимы (READ-COMMITTED).
+     */
+    private List<Object> mergeOverlay(final List<Object> physical, final Comparable key, final IXdStorageTransaction transaction) {
+        if (transaction == null || !isOverlayMode()) {
+            return physical;
+        }
+        final TreeOverlay overlay = overlays.get(transaction.getTransactionId());
+        if (overlay == null) {
+            return physical;
+        }
+        final List<Object> merged = new ArrayList<>(physical);
+        final Set<Object> deleted = overlay.stagedDeletes.get(key);
+        if (deleted != null && !deleted.isEmpty()) {
+            merged.removeIf(value -> deleted.contains(value));
+        }
+        final List<Object> inserted = overlay.stagedInserts.get(key);
+        if (inserted != null) {
+            for (final Object value : inserted) {
+                if (!merged.contains(value)) {
+                    merged.add(value);
+                }
+            }
+        }
+        return merged;
+    }
+
+    /**
+     * Применяет стейдженные операции TX к физическому дереву (вызывается из phase-1
+     * ресурса-владельца, ВНУТРИ INDEX_RESOURCE_ORDER-окна). Пакет берет tree write-latch
+     * целиком (конкурентные применения сериализуются); каждая операция идет через
+     * физический путь, undo-log однооперационный: undo(insert)=delete, undo(delete)=insert.
+     * Отказ середины пакета: undo в обратном порядке + rethrow (TX откатывается целиком).
+     * "is exists"/"does not exists" поглощаются идемпотентно.
+     */
+    public void applyOverlays(final IXdStorageTransaction transaction, final IXdStorage storage) throws XdStorageException, XdStorageConnectionException {
+        if (transaction == null) {
+            return;
+        }
+        final TreeOverlay overlay = overlays.remove(transaction.getTransactionId());
+        if (overlay == null || overlay.ops.isEmpty()) {
+            return;
+        }
+        final List<Object[]> undo = new ArrayList<>();
+        // ВАЖНО: БЕЗ внешнего tree write-latch — каждая физическая операция внутри
+        // берет latch сама (latch НЕ реентерантен: внешний захват = самодедлок phase-1,
+        // sweeper убивал TX создателя, записи деревьев оставались invisible-forever).
+        // Пакетная атомарность обеспечивается undo-логом, а не latch'ем.
+        try {
+            for (final Object[] op : overlay.ops) {
+                final String type = (String) op[0];
+                final Comparable key = (Comparable) op[1];
+                final Comparable value = (Comparable) op[2];
+                try {
+                    if ("I".equals(type)) {
+                        doInsert(key, value, storage, transaction);
+                        undo.add(new Object[]{"D", key, value});
+                    } else {
+                        doDeleteTyped(key, value, storage, transaction);
+                        undo.add(new Object[]{"I", key, value});
+                    }
+                } catch (final XdStorageException absorbable) {
+                    final String m = String.valueOf(absorbable.getMessage());
+                    if (m.contains("is exists") || m.contains("already exists") || m.contains("does not exists")) {
+                        continue;
+                    }
+                    try {
+                        undoBatch(undo, storage, transaction);
+                    } catch (final Exception suppressed) {
+                        absorbable.addSuppressed(suppressed);
+                    }
+                    throw absorbable;
+                }
+            }
+        } catch (final XdStorageConnectionException connectionFailure) {
+            try {
+                undoBatch(undo, storage, transaction);
+            } catch (final Exception suppressed) {
+                connectionFailure.addSuppressed(suppressed);
+            }
+            throw connectionFailure;
+        }
+    }
+
+    private void undoBatch(final List<Object[]> undo, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+        for (int i = undo.size() - 1; i >= 0; i--) {
+            final Object[] u = undo.get(i);
+            try {
+                if ("D".equals(u[0])) {
+                    doDeleteTyped((Comparable) u[1], (Comparable) u[2], storage, transaction);
+                } else {
+                    doInsert((Comparable) u[1], u[2], storage, transaction);
+                }
+            } catch (final XdStorageException ignored) {
+                // undo идемпотентен: "is exists"/"does not exists" — целевое состояние уже достигнуто
+            }
+        }
+    }
+
+    /**
+     * Применяет overlay ВСЕХ деревьев, тронутых TX (вызов из phase-1 владельца).
+     * Работает по реестру инстансов — БЕЗ storage.load: инфра-кэш READ COMMITTED,
+     * и load записи дерева в фазе-1 ждёт видимости собственного применения (3s-столлы).
+     */
+    public static void applyAllOverlays(final IXdStorageTransaction transaction, final IXdStorage storage) throws XdStorageException, XdStorageConnectionException {
+        TX_OVERLAY_STORAGE.putIfAbsent(transaction.getTransactionId(), storage);
+        applyAllOverlays(transaction);
+    }
+
+    /**
+     * Применение на коммите (вызов из XdStorageTransaction.commitInternal ДО drain'а
+     * очереди ресурсов): применение регистрирует infra-ресурсы в TX через мутатор,
+     * поэтому обязано случиться ДО acquisition-цикла — иначе зарегистрированные
+     * посреди коммита ресурсы не войдут в фазы и их файлы не запишутся.
+     */
+    public static void applyAllOverlays(final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+        if (transaction == null) {
+            return;
+        }
+        final Set<XdStorageBTree> trees = TX_OVERLAY_TREES.remove(transaction.getTransactionId());
+        final IXdStorage storage = TX_OVERLAY_STORAGE.remove(transaction.getTransactionId());
+        if (trees == null || storage == null) {
+            return;
+        }
+        for (final XdStorageBTree tree : trees) {
+            tree.applyOverlays(transaction, storage);
+        }
+    }
+
+    /** Откат TX: overlay всех тронутых деревьев отбрасывается (без storage.load). */
+    public static void discardAllOverlays(final IXdStorageTransaction transaction) {
+        if (transaction == null) {
+            return;
+        }
+        final Set<XdStorageBTree> trees = TX_OVERLAY_TREES.remove(transaction.getTransactionId());
+        TX_OVERLAY_STORAGE.remove(transaction.getTransactionId());
+        if (trees == null) {
+            return;
+        }
+        for (final XdStorageBTree tree : trees) {
+            tree.discardOverlays(transaction);
+        }
+    }
+
+    /** Откат TX: overlay отбрасывается целиком (физическое дерево не мутировалось). */
+    public void discardOverlays(final IXdStorageTransaction transaction) {
+        if (transaction == null) {
+            return;
+        }
+        overlays.remove(transaction.getTransactionId());
+    }
 
     /**
      * R-56 support for the invariant validator: the structure-mutation version grows on
@@ -449,6 +681,21 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
         if (Thread.currentThread().isInterrupted()) {
             throw new XdStorageException("interrupted", new InterruptedException("Поток прерван перед вставкой в B+ Дерево"));
         }
+        // TREEOVERLAY: overlay-деревья стейджат операцию (физическое дерево не мутируется
+        // до applyOverlays в phase-1 владельца); ноль лока и ноль change-слотов на op-time.
+        if (isOverlayMode() && transaction != null) {
+            stageInsert(transaction, key, object, storage);
+            return;
+        }
+        doInsert(key, object, storage, transaction);
+    }
+
+    private void doInsert(final Comparable key, final Object object,
+                          final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+        // ИСПРАВЛЕНИЕ: Fail-fast проверка прерывания потока на входе в СУБД
+        if (Thread.currentThread().isInterrupted()) {
+            throw new XdStorageException("interrupted", new InterruptedException("Поток прерван перед вставкой в B+ Дерево"));
+        }
 
         // RECIDENT/R-36 (docs/tasks/2.1.0/47): the tree-level ENTRY lock is the only clean
         // retry boundary — before it no in-place mutation exists, so a lock-timeout burst
@@ -544,6 +791,30 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      * @throws XdStorageConnectionException when persisting a node or the tree fails
      */
     public void delete(final Comparable key, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new XdStorageException("interrupted", new InterruptedException("Поток прерван перед удалением из B+ Дерева"));
+        }
+        // TREEOVERLAY: стейджим удаление; значение фиксируем на этапе стейджа — оно нужно
+        // для undo(delete) при откате применения пакета. Чужие overlay при чтении невидимы.
+        if (isOverlayMode() && transaction != null) {
+            final List<Object> current = findPhysical(key, storage, transaction);
+            final Object knownValue = current.isEmpty() ? null : current.get(0);
+            stageDelete(transaction, key, knownValue, storage);
+            return;
+        }
+        doDelete3(key, storage, transaction);
+    }
+
+    /** TREEOVERLAY: физический путь применения/undo — маршрутизация по типу дерева. */
+    private void doDeleteTyped(final Comparable key, final Comparable value, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+        if (this.multiple) {
+            doDeleteMulti(key, value, storage, transaction);
+        } else {
+            doDelete3(key, storage, transaction);
+        }
+    }
+
+    private void doDelete3(final Comparable key, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
         if (Thread.currentThread().isInterrupted()) {
             throw new XdStorageException("interrupted", new InterruptedException("Поток прерван перед удалением из B+ Дерева"));
         }
@@ -656,6 +927,20 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      * @throws XdStorageConnectionException при ошибках ввода-вывода
      */
     public void delete(final Comparable key, final Comparable value, final IXdStorage storage, final IXdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new XdStorageException("interrupted", new InterruptedException("Поток прерван перед удалением пары из B+ Дерева"));
+        }
+
+        // TREEOVERLAY: стейджим удаление пары (значение известно из вызова)
+        if (isOverlayMode() && transaction != null) {
+            stageDelete(transaction, key, value, storage);
+            return;
+        }
+        doDeleteMulti(key, value, storage, transaction);
+    }
+
+    private void doDeleteMulti(final Comparable key, final Comparable value, final IXdStorage storage, final IXdStorageTransaction transaction)
             throws XdStorageException, XdStorageConnectionException {
         if (Thread.currentThread().isInterrupted()) {
             throw new XdStorageException("interrupted", new InterruptedException("Поток прерван перед удалением пары из B+ Дерева"));
@@ -950,6 +1235,12 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      * @throws XdStorageConnectionException when lazily loading a node fails
      */
     public List<Object> find(final Comparable key, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+        // TREEOVERLAY: физический результат сливается со стейджем TX (свои вставки видимы,
+        // свои удаления исключены; чужие overlay невидимы — READ-COMMITTED)
+        return mergeOverlay(findPhysical(key, storage, transaction), key, transaction);
+    }
+
+    private List<Object> findPhysical(final Comparable key, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
         if (root == null && wasInitialized) {
             lockWrite(transaction);
             try {

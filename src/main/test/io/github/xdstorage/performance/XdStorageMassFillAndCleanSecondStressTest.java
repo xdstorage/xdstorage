@@ -276,8 +276,11 @@ public class XdStorageMassFillAndCleanSecondStressTest {
                                     XdGalaxyAutoSave g = storage.load(XdGalaxyAutoSave.class, galaxyRef.getId(), delTx);
                                     if (g != null) {
                                         Collection<XdStarSystemAutoSave> systems = g.getSystems();
+                                        System.out.println("[DIAG] DEL-walk galaxy=" + galaxyRef.getId().substring(0, 8)
+                                                + " systems=" + (systems == null ? "NULL" : systems.size()));
                                         if (systems != null) {
                                             storage.load(systems, delTx);
+                                            System.out.println("[DIAG] DEL-walk hydrated systems=" + systems.size());
                                             for (XdStarSystemAutoSave sys : systems) {
                                                 Collection<XdPlanetAutoSave> planets = sys.getPlanets();
                                                 if (planets != null) {
@@ -422,6 +425,12 @@ public class XdStorageMassFillAndCleanSecondStressTest {
             Collection<XdGalaxyAutoSave> lg = storage.load(XdGalaxyAutoSave.class, verifyTx);
             Collection<XdStarSystemAutoSave> ls = storage.load(XdStarSystemAutoSave.class, verifyTx);
             Collection<XdPlanetAutoSave> lp = storage.load(XdPlanetAutoSave.class, verifyTx);
+            for (final XdGalaxyAutoSave xg : lg) {
+                System.out.println("[DIAG] SURVIVING galaxy id=" + xg.getId());
+            }
+            for (final XdStarSystemAutoSave xs : ls) {
+                System.out.println("[DIAG] SURVIVING system id=" + xs.getId() + " name=" + xs.getNewName());
+            }
             Assertions.assertTrue(lu.isEmpty(), "Утечка памяти! Найдена XdUniverse!");
             Assertions.assertTrue(lg.isEmpty(), "Утечка памяти! Найдена XdGalaxy!");
             Assertions.assertTrue(ls.isEmpty(), "Утечка памяти! Найдена XdStarSystem!");
