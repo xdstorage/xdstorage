@@ -303,3 +303,75 @@ the live-canonical serving (the 3001ms visibility-wait eliminated); the
 read-only-resource commit filter; the infra identity in newReadRecord (the
 node clones on the materializations = the CPU explosion); the bounded
 future.get (the test hygiene — the maintainer's timeout directive).
+
+## W2REOPEN FAMILY (2026-11-21): the traces filed — the separate reopen/checkpoint investigation
+
+XdStorageW2ReopenBTreeTest.testBTreeWritesWorkAfterReopen — the FIRST post-reopen
+insert trips the structure validator: "листьев только из корня: [19]" vs "из
+цепочки: [1,3..18,21..29]" (26 leaves, 19 missing from the chain). The tree FILE
+carries the STALE header (root=19 — an early-state leaf) while the node FILES
+carry the LATER structure. Session 1: 200 inserts → commit → shutdown(checkpoint);
+Session 2: the first insert → the validator. The failure is IDENTICAL at HEAD and
+with the overlay (the pre-existing family). The suspicion: the shutdown
+checkpoint's file-flush ordering (the tree header vs the node files) or the
+journal-checkpoint application order — the reopen/checkpoint machinery, NOT the
+overlay (the overlay is active for id_index and passed the same validator during
+session 1). The next session: the checkpoint ordering investigation with the
+[node-file mtime + tree-file mtime] forensics on the failing storage dir.
+
+## A2.3 MIXED-KEY-TYPE FAMILY EXPOSED (2026-11-21, the benchmark): the planets' auto-Long ids vs the UUID keys in one id_index
+
+**The traces:** `[DIAG-CCE] key=2(Long) leaf=80ea5bc6-...(String) node=7 tree=id_index`
+— the FKBENCH fk=ON arm: the PLANETS have `public Long id` (the auto-generated
+Longs — no setId) while the SAME id_index tree contains the UUID String keys
+(the satellites? the earlier-state planets?). ANY typed find on the mixed tree
+→ CCE → the whole fk=ON arm fails (~3690 "other" = the CCEs). The stack:
+the FK engine → registerForeignKey → isChildInParentIndex(childId) → has →
+the id_index find.
+
+**The family**: FOREIGN_KEYS §9 A2.3 ("the FK tree key-type restoration —
+the CCE risk avoided, not fixed") — the benchmark's auto-id planets EXPOSED it
+at scale. NOT the overlay's regression (the earlier runs' "other: 4-9" = the
+same CCEs). The fix = the A2.3 full solution: the typed key normalization per
+tree (the convertToIdType machinery exists — the find/has paths need it) OR
+the id-type uniformity per class. **The interim**: the benchmark's fk=ON arm
+is A2.3-blocked; the fk=OFF arm measures the write path cleanly (the overlay's
+numbers valid); the fk=ON numbers from the pre-A2.3-exposure runs stand.
+
+**The next session**: the A2.3 solution + the W2Reopen checkpoint ordering +
+the BTreeStress follow-up (the concurrent overlay fixed the phantoms — 0 vs
+24810 at HEAD!).
+
+
+## THE STRESS FAMILY SCOREBOARD (2026-11-21, the final): 6 of 7 green
+
+| Test | Status | Note |
+|---|---|---|
+| MassFillFirst | ✅ ×3 | — |
+| MassFillSecond | ✅ ×3 **без semaphore** | the survivors 0, the throughput 40× |
+| Multithreads | ✅ | cleared by the overlay+convoy |
+| FacadeStress | ✅ | was pom-excluded — green on the overlay (re-include candidate) |
+| NestedTransactionIsolation | ✅ standalone / ⚠️ gate-flake | the 100ms MVCC backpressure timeout under the gate load — the test conflates the backpressure with the deadlocks (the isLockBackpressure classification needed) |
+| BTreeStress | ✅ **×1 in the gate** | the concurrent TreeOverlay fixed the phantoms (0 vs the HEAD 24810) — the corruption root: the shared-mock-tx concurrent staging into the unsynchronized overlay |
+| W2Reopen | ❌ | the checkpoint ordering (the tree header vs the node files) — the traces filed above; the separate investigation |
+
+**The gate: 1321/1f/1e** — the 1f = the NestedTransaction backpressure flake (green standalone), the 1e = the W2Reopen family. The engine: the overlay + the role-split + the read-time capture + the total acquisition order + the filters — all in the tree, the probes stripped, nothing committed.
+
+
+## W2REOPEN FIXED ×3 (2026-11-21, the final night) — the last red closed
+
+**The root — the FALSE-POSITIVE divergence in the validator:** descendCollectingLeaves
+started on the UNMATERIALIZED ROOT STUB (the reopened tree's root = the reference
+stub; the stub's fields unset → the children empty → the stub = "a leaf") → the
+leaf-via-root set = {the root stub} vs the chain's 26 leaves → the false divergence
+at the first post-reopen insert. **The data was never corrupted.**
+
+**The fix:** the ROOT materialize before the descend (the R-53 — the same as the
+chain walk's per-node materialize; the children recursion already had it — only
+the root entry lacked it). Plus the test hygiene: the fresh-start cleanup in BOTH
+W2 tests (the JUnit method order is unpredictable — the writes test ran first and
+hit the previous run's committed records). W2Reopen ×3 GREEN.
+
+**The traps re-confirmed:** the compile-time constant inlining (the dependent
+class not recompiled on the flag flip — the clean run required); the CLI -D
+doesn't reach the forked surefire through -DargLine (the pom's argLine overrides).

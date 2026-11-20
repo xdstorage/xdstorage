@@ -140,13 +140,32 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
     // до применения: rollback = discard overlay (звук по построению), change-слот записи
     // дерева свободен на всё время TX (штопор конкурентной записи исчезает).
     // =========================================================================
+    /** CHM null-key sentinel: the deferred pairs stage with the null front/reverse. */
+    private static final Comparable NULL_KEY = new Comparable<Comparable>() {
+        @Override
+        public int compareTo(final Comparable o) {
+            return o == NULL_KEY ? 0 : -1;
+        }
+        @Override
+        public String toString() {
+            return "null";
+        }
+    };
+
+    private static Comparable nkey(final Comparable key) {
+        return key == null ? NULL_KEY : key;
+    }
+
     private static final class TreeOverlay {
-        /** Упорядоченный журнал операций: {"I"|"D", key, value} — порядок применения. */
-        final List<Object[]> ops = new ArrayList<>();
-        /** key → стейдженные значения (для merge в find). */
-        final Map<Comparable, List<Object>> stagedInserts = new HashMap<>();
-        /** key → стейдженные к удалению значения (для merge в find). */
-        final Map<Comparable, Set<Object>> stagedDeletes = new HashMap<>();
+        /**
+         * TREEOVERLAY (task 53): КОНКУРЕНТНЫЕ структуры. Один tx может обслуживать
+         * несколько потоков (моки стресс-тестов; R-41 internal-tx) — стейджинг
+         * конкурентен: ops — FIFO-очередь (порядок реплея), maps — CHM, значения —
+         * CopyOnWriteArrayList (мало записей, много чтений merge'ем).
+         */
+        final java.util.Queue<Object[]> ops = new java.util.concurrent.ConcurrentLinkedQueue<>();
+        final Map<Comparable, List<Object>> stagedInserts = new ConcurrentHashMap<>();
+        final Map<Comparable, Set<Object>> stagedDeletes = new ConcurrentHashMap<>();
     }
 
     /** txId → overlay (txId — глобально-уникальный UUID, пересечений между сторами нет). */
@@ -197,11 +216,11 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
         // Later-wins: стейдженная вставка отменяет предыдущее стейдженное удаление
         // того же (key, value) — иначе merged-чтение показывает пару, которую apply
         // (реплей в порядке ops) корректно удаляет
-        final Set<Object> pendingDeletes = overlay.stagedDeletes.get(key);
+        final Set<Object> pendingDeletes = overlay.stagedDeletes.get(nkey(key));
         if (pendingDeletes != null) {
             pendingDeletes.remove(value);
         }
-        overlay.stagedInserts.computeIfAbsent(key, k -> new ArrayList<>()).add(value);
+        overlay.stagedInserts.computeIfAbsent(nkey(key), k -> new java.util.concurrent.CopyOnWriteArrayList<>()).add(value);
     }
 
     private void stageDelete(final IXdStorageTransaction transaction, final Comparable key, final Object value, final IXdStorage storage) {
@@ -209,11 +228,11 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
         final TreeOverlay overlay = overlays.computeIfAbsent(transaction.getTransactionId(), k -> newOverlay(transaction));
         overlay.ops.add(new Object[]{"D", key, value});
         // Later-wins: стейдженное удаление отменяет предыдущую стейдженную вставку
-        final List<Object> pendingInserts = overlay.stagedInserts.get(key);
+        final List<Object> pendingInserts = overlay.stagedInserts.get(nkey(key));
         if (pendingInserts != null) {
             pendingInserts.remove(value);
         }
-        overlay.stagedDeletes.computeIfAbsent(key, k -> ConcurrentHashMap.newKeySet()).add(value);
+        overlay.stagedDeletes.computeIfAbsent(nkey(key), k -> ConcurrentHashMap.newKeySet()).add(value);
     }
 
     /**
@@ -229,11 +248,11 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
             return physical;
         }
         final List<Object> merged = new ArrayList<>(physical);
-        final Set<Object> deleted = overlay.stagedDeletes.get(key);
+        final Set<Object> deleted = overlay.stagedDeletes.get(nkey(key));
         if (deleted != null && !deleted.isEmpty()) {
             merged.removeIf(value -> deleted.contains(value));
         }
-        final List<Object> inserted = overlay.stagedInserts.get(key);
+        final List<Object> inserted = overlay.stagedInserts.get(nkey(key));
         if (inserted != null) {
             for (final Object value : inserted) {
                 if (!merged.contains(value)) {
@@ -305,6 +324,21 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
             for (int i = undo.size() - 1; i >= 0; i--) {
                 final Object[] u = undo.get(i);
                 applied.addFirst(new Object[]{this, u[0], u[1], u[2]});
+            }
+
+            // W2REOPEN FIX (task 53): стейджим ЗАГОЛОВОК дерева (root/firstLeaf) — apply
+            // мутировал структуру (сплиты), но tree-запись стейджилась ТОЛЬКО при создании
+            // (storage.save(tree) — единственный сайт!) → tree-файл = STALE-заголовок,
+            // node-файлы = новая структура → рассинхрон на reopen (root=19 vs 26-листовая
+            // цепь). update (не save — запись уже существует, save-as-upsert trap). Откат
+            // транзакции откатывает и этот стейдж через общий cache.rollback ✓.
+            try {
+                storage.update(this, transaction);
+            } catch (final Exception headerStageFailure) {
+                final String hm = String.valueOf(headerStageFailure.getMessage());
+                if (!hm.contains("does not exists") && !hm.contains("is exists")) {
+                    throw headerStageFailure;
+                }
             }
         } catch (final XdStorageConnectionException connectionFailure) {
             try {
