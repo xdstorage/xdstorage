@@ -46,6 +46,17 @@ public class XdStorageCacheRecord {
 
     private Object prevObject;
 
+    /**
+     * W4-DESIGN / task 40: ЧИСТЫЙ до-транзакционный снапшот, снятый в момент создания
+     * read-записи — ДО того, как вызывающий код получил инстанс и мутировал его
+     * in-place (u.addGalaxy(g), it.remove() через wrapper write-through). Откат
+     * восстанавливает ИМЕННО этот снапшот: stage-временной клон уже содержит
+     * мутации вызывающего ("prevObject aliasing" — задокументированный канал
+     * контаминации, выжившие сироты MassFillSecond). Инфраструктурные записи —
+     * pass-through по идентичности (их откат — fresh-parse).
+     */
+    private Object prevSnapshot;
+
     private Object object;
 
     private Object newObject;
@@ -109,6 +120,27 @@ public class XdStorageCacheRecord {
         final XdStorageCacheRecord record = new XdStorageCacheRecord(cache);
         record.id = field.get(object);
         record.object = object;
+        // W4-DESIGN / task 40: чистый до-транзакционный снапшот — СЕЙЧАС, до передачи
+        // инстанса вызывающему (его in-place мутации через wrapper write-through
+        // алиасятся с record.object). Для инфраструктуры materializeForCache проходит
+        // по идентичности — снапшот не клонирует дерево/узлы (их откат — fresh-parse).
+        // ПРОСТОЙ копировщик (не materializeForCache/unwrapAndClone): последний
+        // задействует reference-provider и падает "reference cannot be null" на
+        // null-id вложенных ссылках (deferred-ID поток: ребенок с несохраненным
+        // родителем). Plain-копия полей — достаточна для rollback-снапшота.
+        // ИНФРАСТРУКТУРА (btree-деревья/узлы): pass-through по идентичности — клон ноды
+        // на каждый read-record создавал CPU-взрыв на материализациях (BTreeStress:
+        // фантомы 334 → 27705 через расширение race-окна) и ломал алиасинг живого
+        // канонического графа (их откат — fresh-parse). ДОМЕН: простой копировщик.
+        if (object != null && object.getClass().getName().contains("io.github.xdstorage.btree")) {
+            record.prevSnapshot = object;
+        } else {
+            try {
+                record.prevSnapshot = io.github.xdstorage.utils.XdStorageObjectUtils.cloneObject(object);
+            } catch (final Exception snapshotFailure) {
+                record.prevSnapshot = object;
+            }
+        }
         record.newObject = null;
         record.transaction = null;
         record.change = XdStorageCacheChange.read;
@@ -456,8 +488,65 @@ public class XdStorageCacheRecord {
      *
      * @param transaction the transaction making the update
      */
+    /**
+     * W4-DESIGN / task 40: the mark-time snapshot fallback — infra objects pass by
+     * identity (their rollback is the fresh-parse), domain objects get a plain field
+     * copy. NEVER null: a null prevObject on rollback destroys the record (the
+     * deferred-id resolver: a committed record deleted by a vetoed tx — the record
+     * never went through newReadRecord, prevSnapshot == null → the restore nulled it).
+     * For markDelete the mark-time copy is always correct (the caller does not mutate
+     * before delete); for markUpdate on a committed record it carries the aliasing
+     * residue (the task-40 open layer) — but never loses the record.
+     */
+    private Object snapshotOrIdentity(final Object object) {
+        if (object == null) {
+            return null;
+        }
+        if (object.getClass().getName().contains("io.github.xdstorage.btree")) {
+            return object;
+        }
+        try {
+            return io.github.xdstorage.utils.XdStorageObjectUtils.cloneObject(object);
+        } catch (final Exception cloneFailure) {
+            return object;
+        }
+    }
+
+    /**
+     * W4-DESIGN / task 40: captures the pre-tx snapshot at the READ registration of an
+     * EXISTING record (the cache read flow, BEFORE handing the instance to the caller
+     * — the caller's in-place mutations through the wrapper write-through alias with
+     * the canonical). Idempotent (the first capture wins — never overwrite a fresher
+     * read). The infra records pass by identity. The markUpdate/markDelete fallback
+     * then finds THIS snapshot (the pre-mutation state) instead of the mark-time
+     * already-mutated state — the rollback restores the true pre-tx content.
+     */
+    public void captureSnapshotIfNeeded() {
+        if (this.prevSnapshot == null && this.object != null
+                && !this.object.getClass().getName().contains("io.github.xdstorage.btree")) {
+            this.prevSnapshot = snapshotOrIdentity(this.object);
+        }
+    }
+
     public void markUpdate(IXdStorageTransaction transaction) {
         ++version;
+        // W4-DESIGN / task 40: де-алиасинг prevObject. Раньше prevObject = сырая ссылка
+        // на канонический инстанс, который вызывающий уже мутировал in-place
+        // (u.addGalaxy(g) до update()) — rollback восстанавливал ТА ЖЕ мутированную
+        // коллекцию ("prevObject aliasing") и любой поздний коммитер записи делал
+        // сиротскую ссылку долговечной. Теперь prevObject — глубокий клон pre-stage
+        // состояния: rollback возвращает запись к ЧИСТОЙ до-транзакционной точке.
+        // Инфраструктурные объекты (B+tree) проходят по идентичности — их in-place
+        // семантики и fresh-parse rollback не меняются.
+        // W4-DESIGN / task 40: prevObject stays the CANONICAL reference (the HEAD
+        // semantics — the identity/serving contracts: the invariant tests pin assertSame,
+        // the MVCC serving hands it to the readers). The anti-aliasing lives in
+        // prevSnapshot: the clean clone captured at the read (newReadRecord) or lazily
+        // here (never null when the object exists) — the rollback restores the CONTENT
+        // from it in place (fillObject), leaving the identity intact.
+        if (this.prevSnapshot == null) {
+            this.prevSnapshot = snapshotOrIdentity(this.object);
+        }
         this.prevObject = this.object;
         // LOSTUPD diagnostics: the accept path of every write — what version stamp the
         // conflict checks will see for this record from now on.
@@ -492,6 +581,17 @@ public class XdStorageCacheRecord {
      */
     public void markDelete(IXdStorageTransaction transaction) {
         ++version;
+        // W4-DESIGN / task 40: де-алиасинг (см. markUpdate) — rollback удаления
+        // восстанавливает ЧИСТЫЙ pre-stage объект, а не мутированный алиас
+        // W4-DESIGN / task 40: prevObject stays the CANONICAL reference (the HEAD
+        // semantics — the identity/serving contracts: the invariant tests pin assertSame,
+        // the MVCC serving hands it to the readers). The anti-aliasing lives in
+        // prevSnapshot: the clean clone captured at the read (newReadRecord) or lazily
+        // here (never null when the object exists) — the rollback restores the CONTENT
+        // from it in place (fillObject), leaving the identity intact.
+        if (this.prevSnapshot == null) {
+            this.prevSnapshot = snapshotOrIdentity(this.object);
+        }
         this.prevObject = this.object;
 
         // Симметрично защищаем временную сетку для операций удаления
@@ -723,6 +823,9 @@ public class XdStorageCacheRecord {
         this.prevObject = this.object;
         this.object = this.newObject;
         this.newObject = null;
+        // W4-DESIGN / task 40: the pre-update snapshot belonged to the committing tx —
+        // stale for the next one; clear it (the next mark uses the mark-time fallback)
+        this.prevSnapshot = null;
         this.state = State.committed;
         this.previousState = State.undefined;
 
@@ -803,8 +906,26 @@ public class XdStorageCacheRecord {
                     id, tx != null ? tx.getTransactionId() : null);
             return;
         }
-        this.object = this.prevObject;
+        // W4-DESIGN / task 40: the CONTENT restore from the clean pre-tx snapshot
+        // (prevSnapshot — captured at the read/first mark, never aliased with the
+        // caller's in-place mutations) copied IN PLACE into the canonical instance:
+        // the identity is preserved (the invariant tests pin assertSame; the shared
+        // holders keep their references valid) and the mutations are reverted (the
+        // prevObject-aliasing channel closed). No snapshot (the inserts/the infra) →
+        // the legacy prevObject restore.
+        if (this.prevSnapshot != null && this.object != null && this.prevSnapshot != this.object) {
+            try {
+                io.github.xdstorage.utils.XdStorageObjectUtils.fillObject(this.prevSnapshot, this.object);
+            } catch (final Exception restoreFailure) {
+                log.warn("in-place rollback restore failed for record {} — falling back to the instance swap: {}",
+                        id, restoreFailure.toString());
+                this.object = this.prevObject;
+            }
+        } else {
+            this.object = this.prevObject;
+        }
         this.prevObject = null;
+        this.prevSnapshot = null;
         this.newObject = null;
         this.state = this.previousState;
         this.previousState = State.undefined;

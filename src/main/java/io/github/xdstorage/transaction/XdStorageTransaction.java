@@ -610,9 +610,52 @@ public class XdStorageTransaction implements IXdStorageTransaction {
         while ((checkObject = forCommit.poll()) != null) {
             acquisitionOrder.add(checkObject);
         }
-        acquisitionOrder.sort(Collections.reverseOrder());
-
+        // TREEOVERLAY / the convoy fix (task 53, layer 3): the READ-ONLY resources skip
+        // the commit locks and the phases. A resource enters forCommit at EVERY lock
+        // (registerResource at lockResource/lockIndexResource) — including the pure reads
+        // (the node materializations on the find paths, the data-read cache warming).
+        // Locking them serializes UNRELATED writers on the shared node/tree resources
+        // (the FKBENCH t=10 convoy: the node-3.yaml commit-lock timeouts). A read-only
+        // resource has nothing to write (phase-1) and nothing to publish (phase-2); its
+        // read-created cache records are cleaned by the tx release/rollback through the
+        // resources map, which is unaffected by this filter. The FK resource ALWAYS stays:
+        // its phase-1 runs the integrity validations (the vetoes) even without write
+        // changes.
+        final List<ComparableResourceObject> filteredAcquisition = new ArrayList<>(acquisitionOrder.size());
         for (final ComparableResourceObject entry : acquisitionOrder) {
+            final IXdStorageResourceObject candidate = entry.resource;
+            final boolean fkValidationResource = candidate instanceof io.github.xdstorage.foreignkey.IXdStorageForeignKeyResource;
+            boolean hasWrites;
+            try {
+                hasWrites = candidate.hasChanges(this);
+            } catch (final XdStorageException hasChangesFailure) {
+                hasWrites = true; // the conservative default: lock and phase it
+            }
+            if (hasWrites || fkValidationResource) {
+                filteredAcquisition.add(entry);
+            } else {
+                log.debug("commit of tx {}: read-only resource {} skipped (no write changes)",
+                        transactionId, candidate.getResourceId());
+            }
+        }
+        // TREEOVERLAY (task 53, the convoy fix): the acquisition order must be a TOTAL
+        // order — the commit-order values tie across the whole INDEX band (all the
+        // tree/node resources share one order), and the tie's arbitrary order differed
+        // between the transactions: A held node-3 waiting node-12 while B held node-12
+        // waiting node-3 — a deadlock broken only by the lock timeouts (the FKBENCH
+        // 12s waits = 4 × the 3s lock timeout cycles). The tie-break by the resource id
+        // (globally unique) makes the acquisition order identical in every transaction:
+        // the convoy becomes a queue, never a cycle.
+        filteredAcquisition.sort((a, b) -> {
+            final int byPriority = -a.compareTo(b); // the reverse of the natural (execution) order
+            if (byPriority != 0) {
+                return byPriority;
+            }
+            return String.valueOf(a.resource.getResourceId())
+                    .compareTo(String.valueOf(b.resource.getResourceId()));
+        });
+
+        for (final ComparableResourceObject entry : filteredAcquisition) {
             final IXdStorageResourceObject res = entry.resource;
             // RECIDENT (docs/tasks/2.1.0/47): a commit-lock timeout here is PRE-PHASE — no
             // mutation exists yet, the retry is clean. The drain-level bounded retry rides
@@ -664,8 +707,19 @@ public class XdStorageTransaction implements IXdStorageTransaction {
             }
         }
 
-        if (exceptions[0] != null)
+        if (exceptions[0] != null) {
+            // TREEOVERLAY (task 53): отказ коммита ПОСЛЕ apply — undo применённых
+            // операций + discard. ВАЖНО ЗДЕСЬ: rollback-only TX (в veto-пути) делает
+            // rollback() через EARLY-RETURN менеджера — rollbackInternal НЕ вызывается,
+            // и без этого undo применённые удаления деревьев остаются навсегда.
+            try {
+                io.github.xdstorage.btree.XdStorageBTree.undoAllAppliedOverlays(this);
+            } catch (final Throwable undoFailure) {
+                log.error("TREEOVERLAY: undo of applied overlays failed during commit failure", undoFailure);
+            }
+            io.github.xdstorage.btree.XdStorageBTree.discardAllOverlays(this);
             throw exceptions[0];
+        }
 
         // RBCOMMIT (docs/tasks/2.1.0/45): a rollback-only mark that landed mid-commit (a
         // timeout enforced at one of this transaction's own lock waits, a validation veto
@@ -674,6 +728,10 @@ public class XdStorageTransaction implements IXdStorageTransaction {
         // consistent phase-1 state instead of letting the phases finalize records a
         // compensating rollback has already reverted.
         if (rollbackOnly.get()) {
+            // TREEOVERLAY (task 53): rollback-only между фазами — undo применённых
+            // (компенсация ниже идет по firstPhaseCommittedResources, overlay-undo не входит)
+            io.github.xdstorage.btree.XdStorageBTree.undoAllAppliedOverlays(this);
+            io.github.xdstorage.btree.XdStorageBTree.discardAllOverlays(this);
             throw buildRollbackOnlyFailure("commit aborted between phases: transaction " + transactionId
                     + " was marked as rollback only while its commit was in flight");
         }
@@ -699,15 +757,31 @@ public class XdStorageTransaction implements IXdStorageTransaction {
             }
         });
 
-        if (exceptions[0] != null)
+
+        if (exceptions[0] != null) {
+            // TREEOVERLAY (task 53): см. выше — undo применённых при отказе после phase-2
+            try {
+                io.github.xdstorage.btree.XdStorageBTree.undoAllAppliedOverlays(this);
+            } catch (final Throwable undoFailure) {
+                log.error("TREEOVERLAY: undo of applied overlays failed during commit failure (post-phase-2)", undoFailure);
+            }
+            io.github.xdstorage.btree.XdStorageBTree.discardAllOverlays(this);
             throw exceptions[0];
+        }
 
         // RBCOMMIT: the symmetric gate before the FINISHED verdict — a mark that landed
         // during phase 2 aborts before the state is declared committed.
         if (rollbackOnly.get()) {
+            io.github.xdstorage.btree.XdStorageBTree.undoAllAppliedOverlays(this);
+            io.github.xdstorage.btree.XdStorageBTree.discardAllOverlays(this);
             throw buildRollbackOnlyFailure("commit aborted after phase 2: transaction " + transactionId
                     + " was marked as rollback only while its commit was in flight");
         }
+
+        // TREEOVERLAY: финальный гейт пройден — применённые overlay-операции стали
+        // коммитом; undo-журнал снят. Все пути отказа ДО этой точки (фазы, RBCOMMIT
+        // гейты) идут через rollbackFailedCommit → undo в rollbackFailedCommitInternal.
+        io.github.xdstorage.btree.XdStorageBTree.dropAppliedUndos(this);
 
         state.setState(XdStorageCommitTransactionState.FINISHED);
 
@@ -964,6 +1038,15 @@ public class XdStorageTransaction implements IXdStorageTransaction {
         // к до-транзакционному состоянию, но тела инфраструктурных записей алиасированы
         // живыми инстансами; перезагружаем деревья группы за группой (тихие окна).
         recoverInfraFromCommittedFiles();
+        // TREEOVERLAY (task 53): undo ПРИМЕНЕННЫХ на коммите overlay-операций — ПОСЛЕ
+        // отката ресурсов (урок R-57: стейджи компенсаций после общего отката финальны;
+        // undo до него стирался откатом инфра-кэша). Возврат удалённых записей
+        // id-индексов/FK-деревьев закрывает apply→rollback дыру атомарности.
+        try {
+            io.github.xdstorage.btree.XdStorageBTree.undoAllAppliedOverlays(this);
+        } catch (final Throwable undoFailure) {
+            log.error("TREEOVERLAY: undo of applied overlays failed during rollback", undoFailure);
+        }
 
         lockedResources.stream().forEach(resource -> {
             resource.unlockAfterCommit(XdStorageTransaction.this);
@@ -989,6 +1072,9 @@ public class XdStorageTransaction implements IXdStorageTransaction {
         // TREEOVERLAY (task 53): rollback = discard overlay ВСЕХ тронутых деревьев
         // (в т.ч. не зарегистрированных как ресурсы — при overlay-стейджинге дерево
         // не пишет ничего физически до коммита). Физическое дерево не мутировалось.
+        // TREEOVERLAY: discard несмотреблённых overlay (применённые — undo'ятся ПОСЛЕ
+        // отката ресурсов: их стейджи в инфра-кэше должны пережить cache.rollback,
+        // урок R-57 — компенсации после общего отката финальны)
         io.github.xdstorage.btree.XdStorageBTree.discardAllOverlays(this);
         // R-57: компенсация ин-плейс индексных мутаций ДО отката record-состояний —
         // компенсирующие delete сами регистрируют свои изменения в этой транзакции
@@ -997,7 +1083,19 @@ public class XdStorageTransaction implements IXdStorageTransaction {
         // R-57+TREEFILE: ПОРЯДОК КРИТИЧЕН — ресурсы первыми (их откат для инфраструктуры
         // ПЕРЕЗАГРУЖАЕТ деревья с диска, см. XdStorageResource.rollback), ключи после —
         // и только когда перезагрузка не состоялась.
-        for (final IXdStorageResourceObject resource : resources.values()) {
+        // W4-DESIGN / task 53: откат ресурсов в ПОРЯДКЕ ИСПОЛНЕНИЯ (DATA → INDEX),
+        // а не в порядке HashMap: компенсации индексных ключей (rollbackIndexKey*)
+        // делают load-by-reference восстановленных записей — при INDEX-before-DATA
+        // компенсация падает "reference cannot be null" на ещё не восстановленной записи.
+        final java.util.List<IXdStorageResourceObject> rollbackOrder = new ArrayList<>(resources.values());
+        rollbackOrder.sort((a, b) -> {
+            final boolean aInfra = a instanceof io.github.xdstorage.resource.XdStorageResource
+                    && ((io.github.xdstorage.resource.XdStorageResource) a).isInfrastructureResource();
+            final boolean bInfra = b instanceof io.github.xdstorage.resource.XdStorageResource
+                    && ((io.github.xdstorage.resource.XdStorageResource) b).isInfrastructureResource();
+            return Boolean.compare(aInfra, bInfra); // DATA раньше, INFRA-деревья последними
+        });
+        for (final IXdStorageResourceObject resource : rollbackOrder) {
             try {
                 resource.rollback(this);
             } catch (final XdStorageException e) {
@@ -1012,6 +1110,13 @@ public class XdStorageTransaction implements IXdStorageTransaction {
         recoverInfraFromCommittedFiles();
         rollbackIndexKeyInserts();
         rollbackIndexKeyDeletes();
+        // TREEOVERLAY (task 53): undo применённых overlay-операций — компенсации после
+        // общего отката финальны (урок R-57)
+        try {
+            io.github.xdstorage.btree.XdStorageBTree.undoAllAppliedOverlays(this);
+        } catch (final Throwable undoFailure) {
+            log.error("TREEOVERLAY: undo of applied overlays failed during rollback", undoFailure);
+        }
 
         lockedResources.stream().forEach(resource -> {
             resource.unlockAfterCommit(XdStorageTransaction.this);
