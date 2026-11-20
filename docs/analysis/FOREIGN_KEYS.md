@@ -216,16 +216,34 @@ duplicate relations); transaction-scoped everything; proxy unwrapping at engine 
 
 ---
 
+### 8.1 The 2026-11-20 session canons (verified, pinned)
+
+- **delete-child-alone → VETO** (C1) and the **dangling-ref end-state → VETO**
+  (C2: the end-state arbitration — the operation order is irrelevant) — the
+  full canon table and the pinning tests:
+  [FK_INTEGRITY_MODEL.md](FK_INTEGRITY_MODEL.md).
+- **MassFillSecond redesign**: subtree-first delete (update(universe) BEFORE
+  delete(galaxy) — the reverse order = the deterministic veto), the warmup
+  phase, per-shard mutation semaphore, the FK-era disk filter
+  (*_foreign_key.yaml + XdStorageBTreeNode/ excluded).
+- **The overlay engine (task 53)**: the prototype 365/372 — the design and
+  the remaining layers: [BTREE_MUTATION_OVERLAY.md](BTREE_MUTATION_OVERLAY.md).
+- **The owner-id keying lesson**: the btree ops stage under the INTERNAL tx id
+  (R-41); the resolution must key by
+  getGlobalTransactionId() ?? getTransactionId() — the raw stage id loses the
+  whole stage (the deferred-id child vanishing, diagnosed 2026-11-20).
+
 ## 9. Known limitations and open work (honest ledger)
 
 | Item | Priority | Where it's tracked |
 |---|---|---|
 | FK tree key-type restoration (A2.3) — `readByParentObjectId`/`readByChildObjectId` still `find()` raw keys; CCE risk for numeric ids is avoided, not fixed | P1 | this ledger + 2.2.0 consistency core (task 01) |
-| FK-cost A/B benchmark — the degradation has never been measured canonically | P1 | [task 50 FKBENCH](../tasks/2.1.0/50-fk-cost-benchmark.md) |
+| FK-cost A/B — **Step 0 MEASURED 2026-11-20** (task 50): concurrent writes collapse 167→1.2 tx/s (~140×, FK-independent — the id-index change-slot choke); FK overhead single-thread ≈17% (within W-4a band). The write-path fix = the tree-overlay program ([task 53](../tasks/2.1.0/53-tree-overlay.md), prototype preserved) | P0 | task 50 + [BTREE_MUTATION_OVERLAY.md](BTREE_MUTATION_OVERLAY.md) |
 | Rename `isChildInParentIndex` → `isChildIdInParentIndex` (naming clarity) | P2 | this ledger |
 | `validatePendingFks` lives in the resource — arguably belongs in the engine (single source of truth) | P2 | this ledger |
 | `canRegisterForeignKey(parent, child, tx)` pre-check API — registration is reactive only | P2 | this ledger |
-| **8 disabled tests** (below) | P2 | this ledger |
+| **Concurrent-write collapse ~140×** — the id-index/FK-tree change-slot held per-tx until commit; the overlay program (task 53) prototype built (365/372), three integration layers remain | P0 | task 53 + [BTREE_MUTATION_OVERLAY.md](BTREE_MUTATION_OVERLAY.md) |
+| The 8 disabled tests — **re-enabled/migrated 2026-11-20**: the estate is 372 tests, 56 classes, 372/0f/0e (the disabled list below is historical) | — | resolved |
 | FK + AutoSave cycle safety (A→B→A) — no explicit test (AutoSave's visited-set prevents recursion, unpinned for FK) | P2 | this ledger |
 | `validatePendingFks` batching — O(pending) individual index lookups per commit | P3 | this ledger |
 | Concurrent FK-registration stress test | P3 | this ledger |

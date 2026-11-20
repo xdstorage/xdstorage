@@ -12,6 +12,11 @@ Supersedes the W-4 sections of [WRITE-PATH-DESIGN.md](WRITE-PATH-DESIGN.md) (W-1
 accurate there and are reused, not redesigned). Rules honored: design round before code,
 kill-9 recovery tests, honest benchmark verdicts.
 
+**2026-11-20 update**: the concurrent-write layer (B6-B8) mapped and measured
+(see the ledger below + [analysis/W4_WRITE_PATH_STATUS.md](analysis/W4_WRITE_PATH_STATUS.md)
+— the program status, the overlay prototype (task 53), the continuation plan,
+and the pinning-test list).
+
 ---
 
 ## 1. Analysis — where a commit actually goes
@@ -67,6 +72,9 @@ commit ≈ C_fixed + Σ journal appends (small) + O(N_ids)·k_hash + O(depth·fi
 | B3 | Phase-1 serialization across resources is serial (per-resource lock order) | WRITE-PATH-DESIGN §1 | accepted for now; re-evaluate after W-4a/b measurements |
 | B4 | Heap ≈ DB: no eviction; open parses everything; scans need the cache | SRE plan §2.3; F-3 | **W-4d: disk-anchored scans** (separate section, highest risk) |
 | B5 | `durableWrites=false` — the durability knob | task 23 decision (kept off with data) | not a perf bug; documented |
+| B6 | **Concurrent-write collapse ~140×** (measured 2026-11-20, FKBENCH Step 0): the class-btree change-slot held per-tx until commit — id-indexes, FK-independent | [task 50 Step 0](tasks/2.1.0/50-fk-cost-benchmark.md) + [task 53 overlay prototype](tasks/2.1.0/53-tree-overlay.md) | **the tree-overlay program** — the prototype 365/372, three integration layers remain (see [BTREE_MUTATION_OVERLAY.md](analysis/BTREE_MUTATION_OVERLAY.md), [W4_WRITE_PATH_STATUS.md](analysis/W4_WRITE_PATH_STATUS.md)) |
+| B7 | **The commit-lock convoy** — each commit holds shared trees through both phases → queues to 8-20s timeouts under ≥5 concurrent commits | MassFillSecond diagnostics 2026-11-20 | the commit-lock granularity design (post-overlay) |
+| B8 | **The lost-update window stage→commit** — no commit-time version revalidation | MassFillSecond "Рассинхрон 1 vs 0" 2026-11-20 | the commit-time conflict revalidation (phase-1) |
 
 ---
 
