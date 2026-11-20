@@ -930,6 +930,12 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
 
                 if (object != null) {
                     if (!readObjects.containsKey(id) || record.isChangedByTransaction(transaction)) {
+                        // W4-DESIGN / task 40: the pre-tx snapshot captured at the READ
+                        // registration — BEFORE the instance reaches the caller (whose
+                        // in-place mutations alias with the canonical). The mark-time
+                        // fallback then restores the TRUE pre-tx content, not the
+                        // already-mutated state (the task-40 channel closed at the read).
+                        record.captureSnapshotIfNeeded();
                         Object cloned = cloner.cloneAndWrap(object, services.getStorage(), transaction);
                         final XdStorageCacheObjectChange oc = new XdStorageCacheObjectChange(cloned, XdStorageCacheChange.read, System.nanoTime());
                         oc.recordVersion = record.getVersion();
@@ -1104,6 +1110,17 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
 
     private boolean isInvisibleUncommittedMutation(final XdStorageCacheRecord record, final XdStorageTransaction transaction) {
         if (record == null || record.isCommittedState()) {
+            return false;
+        }
+        // TREEOVERLAY (task 53, the convoy fix): a record whose LIVE CANONICAL INSTANCE is
+        // present is served IMMEDIATELY — the infra records alias the live graph, whose
+        // in-place mutations (the overlay apply's included) are the tree-level
+        // READ-UNCOMMITTED semantics the in-place trees always had; waiting the 3s budget
+        // here blinded every concurrent reader WHILE it held the commit locks = the
+        // 12s convoy (the FKBENCH: a single FK-tree phase-1 stuck 3001 ms inside the
+        // visibility wait). The structural safety is owned by the tree latch + the
+        // canonical graph (R-42/R-53), not by the record grid.
+        if (record.getObject() != null) {
             return false;
         }
         if (record.isChangedByTransaction(transaction)) {

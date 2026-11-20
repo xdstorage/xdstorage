@@ -158,6 +158,14 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
     /** txId → storage, зафиксированный при стейджинге (apply на коммите идёт без параметра). */
     private static final java.util.concurrent.ConcurrentMap<String, IXdStorage> TX_OVERLAY_STORAGE =
             new java.util.concurrent.ConcurrentHashMap<>();
+    /**
+     * txId → undo-журнал ПРИМЕНЕННЫХ (на коммите) операций: {tree, "I"|"D", key, value}.
+     * Apply физически мутирует дерево ДО успешного завершения фаз — если TX после apply
+     * откатывается (sweeper, veto чужого ресурса), undo-replay возвращает деревья в
+     * до-примененное состояние. Коммит-успех → dropAppliedUndos.
+     */
+    private static final java.util.concurrent.ConcurrentMap<String, java.util.Deque<Object[]>> APPLIED_UNDOS =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
      * Overlay-режим определяется РОЛЬЮ дерева по имени id: идексные деревья ("id_index")
@@ -249,6 +257,12 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
             return;
         }
         final TreeOverlay overlay = overlays.remove(transaction.getTransactionId());
+        if (overlay != null && !overlay.ops.isEmpty()) {
+            final StringBuilder ks = new StringBuilder();
+            for (final Object[] op : overlay.ops) {
+                ks.append(op[0]).append(':').append(op[1]).append(';');
+            }
+        }
         if (overlay == null || overlay.ops.isEmpty()) {
             return;
         }
@@ -282,6 +296,15 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
                     }
                     throw absorbable;
                 }
+            }
+            // Батч применен полностью: undo-журнал переезжает в ожидание разрешения TX
+            // (коммит-успех → drop; rollback → undo-replay). До этого момента физические
+            // изменения дерева обратимы.
+            final java.util.Deque<Object[]> applied = APPLIED_UNDOS.computeIfAbsent(
+                    transaction.getTransactionId(), k -> new java.util.ArrayDeque<>());
+            for (int i = undo.size() - 1; i >= 0; i--) {
+                final Object[] u = undo.get(i);
+                applied.addFirst(new Object[]{this, u[0], u[1], u[2]});
             }
         } catch (final XdStorageConnectionException connectionFailure) {
             try {
@@ -350,6 +373,50 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
         }
         for (final XdStorageBTree tree : trees) {
             tree.discardOverlays(transaction);
+        }
+    }
+
+    /**
+     * Откат TX после УСПЕШНОГО apply: undo-replay примененных операций в обратном
+     * порядке (возврат удаленных записей id-индексов/FK-деревьев, снятие вставленных).
+     * Идемпотентен по "is exists"/"does not exists"; закрывает дыру атомарности
+     * apply→rollback (sweeper-убийство TX после применения пакета).
+     */
+    public static void undoAllAppliedOverlays(final IXdStorageTransaction transaction) {
+        if (transaction == null) {
+            return;
+        }
+        final java.util.Deque<Object[]> applied = APPLIED_UNDOS.remove(transaction.getTransactionId());
+        if (applied == null) {
+            return;
+        }
+        final IXdStorage storage = TX_OVERLAY_STORAGE.get(transaction.getTransactionId());
+        if (storage == null) {
+            return;
+        }
+        final java.util.Iterator<Object[]> desc = applied.descendingIterator();
+        while (desc.hasNext()) {
+            final Object[] entry = desc.next();
+            final XdStorageBTree tree = (XdStorageBTree) entry[0];
+            final String type = (String) entry[1];
+            final Comparable key = (Comparable) entry[2];
+            final Comparable value = (Comparable) entry[3];
+            try {
+                if ("D".equals(type)) {
+                    tree.doInsert(key, value, storage, transaction);
+                } else {
+                    tree.doDeleteTyped(key, value, storage, transaction);
+                }
+            } catch (final Exception ignored) {
+                // undo идемпотентен: целевое состояние уже достигнуто
+            }
+        }
+    }
+
+    /** Коммит-успех: применённые изменения стали коммитом — undo-журнал снят. */
+    public static void dropAppliedUndos(final IXdStorageTransaction transaction) {
+        if (transaction != null) {
+            APPLIED_UNDOS.remove(transaction.getTransactionId());
         }
     }
 
