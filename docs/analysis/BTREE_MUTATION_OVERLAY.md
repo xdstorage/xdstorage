@@ -1,9 +1,10 @@
 # B+tree Mutation Overlay — design, prototype, remaining layers (task 53)
 
-**Status:** the prototype built and debugged to **365/372** estate tests;
-reverted to HEAD (the night of 2026-11-20) — three remaining integration
-layers need a dedicated session. The full prototype:
-[53-tree-overlay-prototype.patch](../tasks/2.1.0/53-tree-overlay-prototype.patch).
+**Status:** **LANDED IN THE TREE (2026-11-21)** — the FK estate 372/0/0 ×3,
+the collapse-rollback test GREEN (was DISABLED-RED at HEAD), the
+cache/protocol/MVCC invariant suites 39/0/0, the full gate identical to HEAD
+(zero regressions; the 4 pre-existing failures = the separate families).
+The historical prototype: [53-tree-overlay-prototype.patch](../tasks/2.1.0/53-tree-overlay-prototype.patch).
 The working journal and all the traces:
 [53-tree-overlay.md](../tasks/2.1.0/53-tree-overlay.md).
 
@@ -124,18 +125,42 @@ is the in-memory discard+applied-undo, concurrency-safe.
 
 ## 8. The remaining layers (with traces — everything in task 53)
 
-1. **The internal-TX bridge in the veto path**: the stage delete-flow keys
-   under the internal id (the btree view), the resolution under the outer.
-   The owner-id keying is implemented, but the resolver test stayed red —
-   the interaction with the rollback compensations
-   (rollbackFailedCommitInternal / rollbackIndexKey*) needs the full trace
-   (the probes: STAGE-D / APPLY / UNDO-OP — in the code, removable).
+1. ~~The internal-TX bridge in the veto path~~ — **RESOLVED 2026-11-21**: the
+   "internal-TX split" was a misdiagnosis; the real blocker was the systemic
+   prevSnapshot lifecycle bug (the record destroyed by a null restore) — see
+   §8.1. The per-tx-id keying works (the engine creates no internal txs on
+   these flows).
 2. **The lost-update window** stage→commit: no commit-time version
    revalidation (a separate write-path core layer; see
    TX_COMMIT_ROLLBACK_MODEL.md §3).
-3. **The commit-lock convoy**: each commit holds the shared trees through both
-   phases → the queues to the timeouts. The fix = the granularity (holding
-   only during own apply).
+3. **The commit-lock convoy** — **THE REMAINING WRITE-PATH BLOCKER (measured
+   2026-11-21)**: the overlay moved the tree cost to the commit-time apply;
+   the apply's physical node writes stage write-changes on the node records →
+   the commit locks serialize the concurrent commits on the shared nodes
+   (the FKBENCH: t=10 unchanged at ~1.4-6.8 tx/s; the target ≥100 NOT met).
+   The read-only-resource filter landed (the reads skip the commit locks) —
+   the estate/invariants green — but the write-side convoy needs the
+   COMMIT-LOCK GRANULARITY redesign (holding the node locks only during the
+   phase-1 write, not the whole commit). Deferred per the plan (§3 of
+   W4_WRITE_PATH_STATUS.md).
+4. **The task-40 survivors** (the MassFillSecond intermittent orphans): the
+   lazy mark-time snapshot covers the delete flows; the update-on-committed-
+   record flows need the per-tx read-time capture in the cache read path
+   (the wrapper/clone interplay — the next session's design work).
+
+### 8.1 The systemic prevSnapshot lifecycle bug (fixed 2026-11-21)
+
+The snapshot was captured only at newReadRecord; a record's lifecycle
+continues: insert (newInsertRecord — prevSnapshot null) → the commit publish →
+a foreign markDelete → rollback: `object = prevObject = NULL` → THE RECORD
+DESTROYED (the deferred-id child load → null after a vetoed rollback).
+**The fix — the role split**: `prevObject` keeps the HEAD semantics (the
+canonical aliased reference — the identity/serving contracts intact);
+`prevSnapshot` = the clean clone (newReadRecord, or lazily at the mark — never
+null for a live object) used ONLY by the rollback's content restore:
+`fillObject(prevSnapshot, object)` — the IN-PLACE field-wise copy into the
+canonical instance (the identity preserved, the mutations reverted). The
+publish/rollback clear prevSnapshot (the staleness).
 
 ## 9. The tests pinning the behavior after the completion
 

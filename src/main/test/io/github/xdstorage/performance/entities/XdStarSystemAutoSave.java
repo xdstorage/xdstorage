@@ -2,11 +2,13 @@ package io.github.xdstorage.performance.entities;
 
 import io.github.xdstorage.XdStoragePolicy;
 import io.github.xdstorage.annotations.*;
+import io.github.xdstorage.index.XdStorageIndexType;
 
 import java.util.ArrayList;
 import java.util.Collection;
 
 @XdStorageObjectPolicy(policy = XdStoragePolicy.StoreAsClassObjects)
+@XdStorageObjectIdIndexType(indexType = XdStorageIndexType.BTree, t = 10)
 @XdStorageObjectSearchIndex(indexName = "star_system_idx", indexFieldNames = {"newName"}, t = 50,
         childrenIndexes = {
                 @XdStorageObjectChildSearchIndex(childFieldName = "stars", childClassIndexName = "test_star_index"),

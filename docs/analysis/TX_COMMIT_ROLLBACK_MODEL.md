@@ -132,7 +132,7 @@ BTREE_MUTATION_OVERLAY.md §6).
 | **Task-41 structural** | "B+Tree node N is referenced but missing", collapse-rollback | the in-place tree mutation + the unsound compensation | task 41 open; the overlay prototype solves it (rollback=discard) |
 | **Infra visibility** | "stayed invisible past the wait budget (3000 ms) — serving absent" | infra READ COMMITTED: own uncommitted writes invisible for 3s | by design; never wait inside the phases |
 | **Rollback-only early-return** | the applied-undo never runs | the manager: isRollbackOnly → return before rollbackInternal | closed in the overlay prototype (the undo in commitInternal's error paths) |
-| **Commit-lock convoy** | lockForCommit "Timeout Ns expired" on the shared trees | each commit holds the shared trees through both phases | open; the fix = the commit-lock granularity |
+| **Commit-lock convoy** | lockForCommit "Timeout Ns expired" on the shared trees | **RESOLVED 2026-11-21**: the root was an ACQUISITION DEADLOCK — the intra-band tie order of the commit-order values was arbitrary per transaction (the opposing holds on the shared nodes); the fix = the TOTAL acquisition order (the tie-break by the resource id) | **fixed** — the FKBENCH 121–158 tx/s at t=10 (was 0.8–1.2), the ≥100 target met |
 
 ## 6. Interconnections with the other subsystems
 
@@ -146,5 +146,8 @@ BTREE_MUTATION_OVERLAY.md §6).
 - **The sweeper**: the incremental rollback-only marker; "a late/racing
   rollback inverted a committed insert" (R-58: the rollback of a COMMITTED
   record is ignored).
-- **TREEOVERLAY** (task 53): see BTREE_MUTATION_OVERLAY.md — the full overlay
-  engine design and the remaining integration layers.
+- **TREEOVERLAY** (task 53): see BTREE_MUTATION_OVERLAY.md — the overlay engine
+  LANDED (the FK estate 372/0/0 ×3, the collapse-rollback GREEN). The convoy:
+  RESOLVED by the total acquisition order. The remaining: the lost-update
+  window (§3), the read-snapshot cost, the BTreeStress phantom family
+  (pre-existing at HEAD — the R-56/multi-scan race).

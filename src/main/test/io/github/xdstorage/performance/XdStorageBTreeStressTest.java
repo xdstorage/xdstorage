@@ -166,7 +166,10 @@ public class XdStorageBTreeStressTest {
 
         // Проверяем, что ни один поток не завершился по неконтролируемому эксепшену
         for (Future<?> future : futures) {
-            assertDoesNotThrow(() -> future.get(), "Стресс-поток Б+ Дерева аварийно рухнул!");
+            // TEST-HYGIENE (task 53): the bounded get — a worker stuck in a latch wait
+            // must fail LOUDLY at the timeout, not hang the whole gate forever
+            assertDoesNotThrow(() -> future.get(60, TimeUnit.SECONDS),
+                    "Стресс-поток Б+ Дерева аварийно рухнул или завис (timeout 60s)!");
         }
 
         System.out.println("=========================================================================");
