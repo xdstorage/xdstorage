@@ -78,6 +78,11 @@ duplicates.
 - A failed `gh` fetch aborts the run loudly — an empty list must never fall through to
   mass-creation.
 - `--dry-run` plans every action without touching GitHub.
+- **Robustness (hardened 2026-11-21):** every label any task file uses is auto-ensured
+  before the run (a new label in a frontmatter can no longer abort the run), and each
+  file syncs in isolation — a `gh` failure on one file warns, counts as the
+  `sync actions failed` row, and retries on the next push. Only the issue-list fetch
+  aborts loudly (a partial list would mass-create duplicates).
 
 ## Multi-train rules
 

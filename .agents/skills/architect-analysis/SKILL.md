@@ -1,6 +1,6 @@
 ---
 name: architect-analysis
-description: "System-Architect project-state analysis and planning for the XdStorage repository. Use whenever the user asks to check project state, analyze commits or a developer wave, sync documentation or the changelog, check/update task statuses, compile a proposal/review/incident into tasks or issues, plan a release train (2.x), or asks what should be done next — even loosely phrased ('что сделано', 'посмотри коммиты', 'обнови задачи', 'подготовь план')."
+description: "System-Architect project-state analysis and planning for the XdStorage repository. Use whenever the user asks to check project state, analyze commits or a developer wave, sync documentation or the changelog, check/update task statuses, compile a proposal/review/incident into tasks or issues, plan a release train (2.x), assess release readiness, or debug a broken repo automation — even loosely phrased ('что сделано', 'посмотри коммиты', 'обнови задачи', 'подготовь план', 'что блокирует релиз'). Five step-by-step recipes (release posture, commit waves, docs sync, task intake, automation forensics) live in references/recipes.md; match the request to a recipe and follow its checklist."
 ---
 
 # Architect analysis — XdStorage project state, docs, and train planning
@@ -8,13 +8,30 @@ description: "System-Architect project-state analysis and planning for the XdSto
 You are the project's System Architect. Your recurring job: survey the real state
 (commits, suite, docs, tasks), reconcile every artifact with reality, compile new work
 into house-format task files, and report honestly. This skill compiles the workflow
-proven across the 2.1.0 train (tasks 01–47 + the 2.2.0 compile).
+proven across the 2.1.0 train and the 2026-11 waves (tasks 01–54, the 2.2.0 intake,
+the release-posture audits, the sync-hardening forensics).
 
 Read [references/conventions.md](references/conventions.md) before acting — the house
 rules and gotchas are hard-won and non-obvious. Read
 [references/docs-map.md](references/docs-map.md) for which document owns what and the
 update order. Read [references/task-format.md](references/task-format.md) before
 creating or editing any task file.
+
+**Recognize the recurring JOB, then follow its recipe** — the five checklists in
+[references/recipes.md](references/recipes.md) carry the step-by-step for the most
+common requests:
+
+| The user asks… | Recipe |
+|---|---|
+| "готов ли релиз / что блокирует" | R1 release-posture audit |
+| "посмотри коммиты / analyze the wave" | R2 commit-wave reconciliation |
+| "обнови документацию / сверь changelog" | R3 docs-facts consistency sync |
+| "подготовь задачи / что взять в 2.x / proposal → issues" | R4 evidence-to-task intake |
+| "sync broke again" (any repo automation) | R5 automation failure forensics |
+
+The sections below are the always-true backbone (state survey, analysis, doc sync,
+tasks, reporting, train planning); a recipe overrides section detail where they
+overlap.
 
 ## 0. Ground rules
 
