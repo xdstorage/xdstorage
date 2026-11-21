@@ -1,6 +1,6 @@
 # Embedding XdStorage — the contract
 
-Operational contract for applications embedding XdStorage 2.0. Everything here is behavior of the
+Operational contract for applications embedding XdStorage 2.1. Everything here is behavior of the
 current code, stated so embedding surprises are design-time, not production-time.
 
 ## Lifecycle
@@ -43,7 +43,7 @@ current code, stated so embedding surprises are design-time, not production-time
 - **Concurrent writers are safe on the shared index trees (2.1.0):** B+tree key mutations
   stage into the writing transaction's overlay and apply at its commit, and the commit
   acquisition order is total — concurrent transactions queue instead of deadlocking on the
-  class-level trees (10 concurrent writers measured 121–158 tx/s with p99 under 120 ms;
+  class-level trees (10 concurrent writers measured 121–158 tx/s with p99 84–113 ms;
   the 2.0.0-era behavior collapsed the same load through lock-timeout cycles).
 - **Conflicts are re-validated at commit time (2.1.0):** first-committer-wins covers the
   whole stage→commit window — if a foreign transaction committed a change to a record this
@@ -101,9 +101,10 @@ current code, stated so embedding surprises are design-time, not production-time
 ## Files and durability
 
 - The storage folder is engine-owned: `structure/*.yaml`, `data/<Class>/*.yaml` (YAML default),
-  `indexes/<Class>/<Class>.yaml` (id-index / B+Tree heads and nodes — see [IDXLAYOUT](../tasks/2.2.0/07-indexes-subdirectory.md));
+  `indexes/<Class>/<Class>.yaml` (id-index / B+Tree heads and nodes — see the layout migration,
+  docs/tasks/2.1.0/51, EMBEDDING § Upgrade from 2.0.0 below);
   **all commit journals live under `data/<Class>/journal/`** — including the id-index and
-  search-index journals (task 54 JRNLDATA: the index journals are DATA CARRIERS — the sole
+  search-key journals (task 54 JRNLDATA: the index journals are DATA CARRIERS — the sole
   durable location of the un-checkpointed id→fragment addressability between checkpoints —
   and live with the data they protect, not inside the derived-index directory)
   plus `.xdstorage.lock` and the format marker `.xdstorage.meta`. Do not edit files while the storage is
@@ -117,14 +118,40 @@ current code, stated so embedding surprises are design-time, not production-time
   storages: open once with `acceptMissingEofSentinel(true)` and let the first commit rewrite the files.
 - Stale `*.tmp` files from a previous crash are swept at open.
 
-### Cascade save and transactions
+### Cascade save, foreign keys, and transactions
 
 `@XdStorageAutoSave` on a parent's child field cascades an upsert of the annotated children
 (collections, single references, arrays, and MAP values that carry an id-field) inside the
 parent's save/update call — same transaction, same 2PC atomicity, child triggers and
 observers fire as for explicit saves, and a failed cascade aborts the save. Removed children
 are NOT deleted; re-save re-upserts every annotated child. Full contract:
-The guide (docs/GUIDE.md) § Cascade save; executable proof: `XdStorageAutoSaveCascadeTest`.
+GUIDE (docs/GUIDE.md) § Cascade save; executable proof: `XdStorageAutoSaveCascadeTest`.
+
+**The foreign-key operational contract** (the pair `@XdStorageAutoSave` + `@XdStorageParentObject`):
+
+- Each relation is TWO persistent B+trees — the **front** tree (parent id → child ids) and the
+  **reverse** tree (child id → parent id) — created at first save and maintained automatically
+  in the SAME transaction as the data write; the application never touches them. They double
+  as the navigation index: "load the children of P" / "load the parent of C" answer from the
+  trees without a data scan (measured free, ~1.0× — BENCHMARKS § FK A/B).
+- A child participates in the relation only when its back-reference carries
+  `@XdStorageParentObject`; without the marker the relation does not exist for the FK engine.
+- Deletion ordering: children first, the parent after — a secondary-key entry is removed with
+  the child's deletion, in the same transaction.
+- **The three vetoes are commit-time hard failures** (the commit rolls back, no partial state):
+  a duplicate (parent, child) pair; deleting a child whose parent still references it;
+  deleting a parent that still has live children. Design your delete cycle accordingly:
+  remove the child from the parent's collection, update the parent, then delete the child.
+- Id timing is engine-handled: auto-generated (deferred) child ids wait via the deferred-id
+  waiters; manual-id parents are validated at commit.
+- `enableForeignKeys=false` skips the trees and the vetoes (the cascade still runs). Embedded
+  children (`StoreWithParentObject`) bypass FK validation by design. In-transaction reads see
+  the transaction's own secondary-key changes before commit (read-your-own-read; the trees are
+  per-transaction staged).
+- **The cost is real and measured**: cascade-save 23–160×, child delete 12–73×, parent update
+  1.4–12.5× vs FK-off, scaling linearly with the FK-tree size; FK reads are free. Enable FK
+  for integrity-critical graphs, not hot write loops (BENCHMARKS § FK A/B; GUIDE § Foreign
+  keys for the full rules).
 
 ### After a power loss
 
@@ -142,8 +169,8 @@ back with its tail missing. The verified behavior matrix
 
 **What is lost:** everything since the last durable point — with `durableWrites=false`
 (the default) that is unbounded (the OS page cache is lost with the power); with
-`durableWrites=true` (fsync per commit, measured ~8× write cost — BENCHMARKS § Canonical)
-the loss shrinks to nothing.
+`durableWrites=true` (fsync per commit, measured ~95× write cost on the canonical shape —
+BENCHMARKS § Canonical) the loss shrinks to nothing.
 
 **Cleanup after a crash (the recovery-purge recipe).** A torn multi-file commit can leave
 residue: a persisted collection referencing a record whose insert never became durable,
@@ -189,10 +216,13 @@ verify critical objects); (3) if the lost tail is unacceptable, restore from bac
 (§ Backup and restore) instead of accepting the truncation.
 
 **The `durableWrites` default is OFF by explicit decision** (2.1.0 re-decision, docs/tasks/
-2.1.0/23): the ~8× write cost would falsify the published throughput envelope, and the
-matrix shows the default path never opens silently-partial. Flip
-`XdStorageConfig.builder().durableWrites(true)` when power-loss durability matters more than
+2.1.0/23): the fsync write cost (~8× at the 2.0-era decision point, measured ~95× on the
+canonical 2026-11-21 baseline — the non-fsync path got 24× faster since) would falsify the
+published throughput envelope, and the matrix shows the default path never opens silently-partial.
+Flip `XdStorageConfig.builder().durableWrites(true)` when power-loss durability matters more than
 write throughput — that is exactly the incident class the flag exists for.
+
+### Backup and restore
 
 The tested operability contract: **close the storage (`shutdown()`), copy the folder with
 plain file operations, open the copy** under a new storage name. Every read answers from the
@@ -298,7 +328,7 @@ generation is stamped in `.xdstorage.meta` (`formatVersion=3`).
    payload — moving them would orphan every record; the fragments do not move, so the
    payload keeps resolving). The stacked 2.0.0 journals stay in place too — each resource's
    first `prepare` replays and settles them into `journal/` automatically (task 24). All
-   commit journals — including the id-index and search-index ones — live under
+   commit journals — including the id-index and search-key ones — live under
    `data/<Class>/journal/` (task 54): a 2.1.0-dev folder whose index journals sit under
    `indexes/` settles them into `data/<Class>/journal/` lazily at the first prepare; a
    2.0.0 folder has no index journals at all (W-4a/W-4b are 2.1.0 features).

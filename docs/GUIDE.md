@@ -1,10 +1,30 @@
 # XdStorage — the full guide
 
 The reference manual. [README.md](../README.md) is the landing page — what XdStorage is,
-when to take it, a twenty-line example and the honest limits; this page carries the deep
+when to take it, a worked example and the honest limits; this page carries the deep
 contract, section for section: the data model, the storage lifecycle, transactions, CRUD,
 the search engine, triggers, id generation, streaming reads, formats, structure updates,
 the concurrency internals, and the measured performance model with its tuning advice.
+
+## Terminology
+
+One name per concept, used across README, GUIDE, DECISION-GUIDE, EMBEDDING and CHANGELOG:
+
+| Term | Meaning |
+|---|---|
+| **storage** | one open database = one folder (files + exclusive lock + in-memory caches), addressed by a logical name through `XdStorageProvider`. |
+| **storage policy** | the per-class placement choice, `@XdStorageObjectPolicy`: embedded in the parent's file / one file per object / shared fragmented class file. (Not "placement policy".) |
+| **fragment** | one `data/<Class>/<Class>-<n>.yaml` file holding up to `fragmentSize` objects of a `StoreAsClassObjects` class. |
+| **id index** | the per-class primary key index (Hash by default, or B+tree via `@XdStorageObjectIdIndexType`); maps id → fragment record. |
+| **search index** | a named secondary index declared by `@XdStorageObjectSearchIndex`; its *primary index value* is the first `indexFieldNames` entry. |
+| **child index** | a search index attached to child objects via `childrenIndexes`. |
+| **commit journal** | the per-resource append-only journal family that replaces whole-file rewrites: the **data journal** (`journalWrites`, W-3), the **id-index journal** (`indexJournalWrites`, W-4a) and the **search-key journal** (`searchIndexJournalWrites`, W-4b). |
+| **checkpoint** | folding a journal back into its base file — at the 16 MB size threshold and at every clean `shutdown()` (W-4c). |
+| **EOF sentinel** | the end-of-file marker that makes truncated files fail loudly at open instead of silently serving partial data. |
+| **overlay staging** | the 2.1.0 write path: B+tree key mutations stage into the writing transaction's overlay and apply as a batch at its commit (the concurrency unlock). |
+| **deferred id** | an engine-generated id assigned during the commit; observers are notified, and FK relations wait for it via the deferred-id waiters. |
+| **secondary keys / FK relation** | the two persistent B+trees (front + reverse) the engine maintains per `@XdStorageAutoSave` + `@XdStorageParentObject` relation; see [Foreign keys](#foreign-keys-and-the-secondary-keys). |
+| **veto** | a referential-integrity refusal at commit: deleting a still-referenced child, deleting a parent with live children, or duplicating a (parent, child) pair — the commit rolls back. |
 
 ## Features at a glance
 
@@ -26,6 +46,12 @@ the concurrency internals, and the measured performance model with its tuning ad
   criteria; indexed lookups cost about the same as an id load.
 - **Result shaping** — `ORDER BY` on the primary index value, `LIMIT`/`OFFSET` pagination, and
   `count()` without materializing the result.
+- **Query plans** — `explain(Class, indexName, query)` shows the path the engine would take
+  (`INDEX_SEEK` / `INDEX_RANGE_WALK` / `SCAN`, the bound shape, the degradation reason) before
+  running the query, without executing it.
+- **Concurrent writers** — index mutations stage per-transaction (the overlay) and apply at
+  commit under a total acquisition order: 10 concurrent writers measure 121–158 tx/s
+  (p99 84–113 ms) on the heavy indexed shape where 2.0.x collapsed to ~1 tx/s.
 - **Triggers** — `Insert` / `Update` / `Delete` callbacks executed within the committing transaction.
 - **Identifier generation** — persistent per-class counters for `Long`/`Integer`, UUID for `String`,
   fully pluggable custom generators; deferred-id observers get notified when an id is assigned.
@@ -33,9 +59,13 @@ the concurrency internals, and the measured performance model with its tuning ad
   saved or updated, in the same transaction.
 - **Referential integrity (foreign keys)** — relations between a parent and its
   independent-policy children (`@XdStorageAutoSave` + `@XdStorageParentObject`) are backed by
-  persistent front/reverse B+tree indexes: a child that is still referenced by its parent
-  cannot be deleted, and FK entries are maintained in the same transaction as the objects
-  (`enableForeignKeys`, on by default).
+  persistent front/reverse B+tree indexes: cascade save, persistent parent↔child navigation
+  without a data scan, and delete vetoes — all maintained automatically in the same transaction
+  (`enableForeignKeys`, on by default; see [Foreign keys](#foreign-keys-and-the-secondary-keys)).
+- **Operability** — `verify(folder)` (a read-only integrity walk over a folder: sentinel state,
+  journal tails, data-vs-index counts, litter — `OK` / `WARNINGS` / `CORRUPT`), `cp -r`
+  backup while closed, `getMetrics()` counters, and an exclusive folder lock that fails a
+  second opener loudly instead of corrupting data.
 - **Pluggable serialization** — YAML (default), XML; the reader/writer pair is an SPI
   (`IXdStorageIOFactory`) so you can implement your own format. (The 1.x `FilesFormat.JSON`
   constant was removed in 2.0.0 — it wrote XML content; see [EMBEDDING.md](EMBEDDING.md) § Compatibility.)
@@ -43,7 +73,8 @@ the concurrency internals, and the measured performance model with its tuning ad
   a predicate (`load(Class, IXdStoragePredicate)`).
 - **Structure updates** — registered updaters migrate persisted structures (e.g. rebuild a search index after
   its annotation changed) via `executeStructureUpdate`.
-- **Pure Java** — bytecode stays Java 8 compatible; the development/test runtime is JDK 17; logging via
+- **Pure Java** — bytecode stays Java 8 compatible; the tested runtimes are JDK 17 (the
+  full-suite gate) and JDK 21 (the CI leg and the canonical-baseline runtime); logging via
   SLF4J — the API jar is the only logging artifact (no backend, no configuration ships in the library).
 
 ## Defining the data model
@@ -63,7 +94,6 @@ runtime wrapper classes per entity (see [Concurrency model](#concurrency-model-a
 - The id type must implement `equals()`/`hashCode()`. For custom id classes it must also provide a
   constructor accepting a single `java.lang.String`. Built-in generators support `Long`, `Integer` and
   `String` ids (see [Identifier generation](#identifier-generation-and-observers)).
-- Every persisted field needs a getter and a setter.
 - Child objects referenced by fields follow their **own** class policy.
 
 ### Storage policies — `@XdStorageObjectPolicy`
@@ -112,7 +142,7 @@ class).
 @XdStorageObjectSearchIndex(
         indexName = "ship_idx",
         indexFieldNames = {"name", "tonnage"},          // "name" is the primary index value
-        t = 8,
+        t = 64,
         childrenIndexes = {
                 @XdStorageObjectChildSearchIndex(childFieldName = "captain", childClassIndexName = "crew_idx"),
                 @XdStorageObjectChildSearchIndex(childFieldName = "crew",    childClassIndexName = "crew_idx")
@@ -138,7 +168,7 @@ public class Ship {
 }
 
 @XdStorageObjectPolicy(policy = XdStoragePolicy.StoreWithParentObject)
-@XdStorageObjectSearchIndex(indexName = "crew_idx", indexFieldNames = {"rank"}, t = 8)
+@XdStorageObjectSearchIndex(indexName = "crew_idx", indexFieldNames = {"rank"}, t = 64)
 public class CrewMember {
 
     @XdStorageObjectId
@@ -220,6 +250,64 @@ Contract (pinned by `XdStorageAutoSaveCascadeTest`):
   values are WARN-skipped). A child with a parent back-reference should use the standard
   embedded shape (§ Parent references and lazy children) — the cascade is for independent
   children.
+
+### Foreign keys and the secondary keys
+
+The cascade pair buys more than save-time convenience. Annotating the two sides of a relation
+(`@XdStorageAutoSave` on the **parent's** child field, `@XdStorageParentObject` on the
+**child's** back-reference) tells the engine to maintain it as a first-class structure:
+the cascade upsert, a persistent bidirectional parent↔child navigation, and
+referential-integrity vetoes. What each side does:
+
+- `@XdStorageAutoSave` (parent's field) — the cascade upsert contract (§ [Cascade save](#cascade-save--xdstorageautosave)).
+- `@XdStorageParentObject` (child's field) — populated when the child is loaded, and the
+  marker that makes the child participate in the FK relation. **Without it the relation does
+  not exist for the FK engine** — even with `@XdStorageAutoSave` on the parent's field.
+
+**What the engine maintains per relation — the secondary keys.** Each relation is TWO
+persistent B+trees: the **front** tree (parent id → child ids) and the **reverse** tree
+(child id → parent id). They are created at the first save and maintained automatically
+in the SAME transaction as the data write — never by the application. The trees ARE the
+navigation index: "load all children of P" and "load the parent of C" answer from the trees
+without scanning the data (measured free: ~1.0× vs FK-off — [BENCHMARKS.md](BENCHMARKS.md)
+§ FK A/B, `fkLookup`). Identity: the relation is canonical per **(parent class, child class,
+parent field name)** — that triplet derives the resource id, and duplicate declarations of
+the same triplet are rejected.
+
+**The maintenance rules** (each automatic, in the caller's transaction):
+
+- `save(parent)` with N children → 2×N secondary-key entries; `save(child)` → 2;
+- an update that diffs the parent's collection → deletions + insertions per changed pair;
+- **deletion ordering**: children are deleted first, the parent after; a secondary-key
+  entry is removed with the child's deletion, in the same transaction;
+- **the three vetoes** — hard failures at commit (the commit rolls back, no partial state):
+  a duplicate (parent, child) pair; deleting a child whose parent still references it;
+  deleting a parent that still has live children. The legal "remove a child" cycle is:
+  remove it from the parent's collection, update the parent, then delete the child;
+- id timing is engine-handled: auto-generated (deferred) child ids wait via the
+  deferred-id waiters; manual-id parents are validated at commit (a parent saved in the
+  same transaction clears the pending check).
+
+**Boundaries and configuration:**
+
+- `enableForeignKeys` (default ON) — setting it `false` skips the secondary-key trees and
+  the vetoes; the cascade itself still runs.
+- Embedded children (`StoreWithParentObject`) bypass FK validation by design — they live
+  and die with the parent's file.
+- In-transaction reads see the transaction's own secondary-key changes before commit
+  (read-your-own-read): the trees are per-transaction staged like every B+tree mutation
+  (the overlay, § [Concurrency model](#concurrency-model-and-internals)).
+
+**The cost, honestly.** FK maintenance is proportional to the RELATION count per mutation,
+not to the dataset, and the FK **read** path is free — but the FK **write** shapes measure
+outside the engine's ≤2× constant-factor band at every size: cascade-save **23–160×**,
+child delete **12–73×**, parent update **1.4–12.5×** vs the same graph with FK off,
+scaling LINEARLY with the FK-tree size ([BENCHMARKS.md](BENCHMARKS.md) § FK A/B). Enable
+foreign keys for integrity-critical graphs; do not enable them on hot write loops that
+don't need the integrity. The O(relations) scan behind the linear scaling is the filed
+2.2.0 fix. The deep subsystem record for maintainers:
+[docs/analysis/FOREIGN_KEYS.md](analysis/FOREIGN_KEYS.md) — the user-facing text above
+stands alone without it.
 
 ### Parent references and lazy children
 
@@ -310,6 +398,11 @@ Semantics:
 - `beginTransaction(IXdStorageTransaction parent)` derives a transaction from a parent one — this is the
   correct way for **triggers** to run their own storage work while remaining inside the committing
   transaction.
+- **Conflicts are re-validated at commit time:** first-committer-wins covers the whole
+  stage→commit window — if a foreign transaction committed a change to a record this transaction
+  read, the loser's commit fails **loudly** (the conflict names the record and the foreign commit)
+  with the stored data intact; the retry pattern is a fresh read in a new transaction.
+  Staged-but-aborted foreign work causes no false conflicts (the semantics are content-based).
 - `storage.getTransactionManager()` exposes the underlying
   `IXdStorageTransactionManager` (`getCurrentTransaction()`, `getTransaction(id)`, `isTransactionAlive(tx)`,
   ...).
@@ -406,7 +499,11 @@ query.or(primaryCriterion2, criterion2);   // additional OR branches
   - **Nulls never satisfy a range operator** (`IS_NULL` / `IS_NOT_NULL` remain the null tests).
   - Comparisons are per field type: numbers numerically, strings lexicographically, `Comparable`
     contract otherwise. A comparable-type mismatch (e.g. a `String` bound on a numeric field) and a
-    `null` bound fail **loudly** with `XdStorageRuntimeException` — never silently-empty.
+    `null` bound fail **loudly** with `XdStorageRuntimeException` — never silently-empty. Keys of
+    DIFFERENT types stored in one index tree (e.g. an FK relation between a UUID-id parent and an
+    auto-`Long`-id child) compare tolerantly — numeric coercion both sides, string fallback; the
+    accidental `ClassCastException` of earlier versions is gone (the designed loudness stays on
+    the query-construction checks above).
 - **Plan / fallback matrix** — the operator is API-wide; the available index decides the plan:
 
   | Primary criterion | Plan |
@@ -443,6 +540,15 @@ query.or(primaryCriterion2, criterion2);   // additional OR branches
     walk too (the documented live-index exposure, identical to the range operators' result sets).
 - **Custom predicates** — `XdStorageComplexCriterion` (`and(...)` / `or(...)`) and `XdStorageCriterionNot`
   let you compose arbitrary AND/OR/NOT filters over a record.
+- **Query plans — `explain()`** — `storage.explain(Cl, indexName, query)` returns the plan the
+  engine WOULD take, without executing anything: the path (`INDEX_SEEK` for an `EQUALS` primary on
+  the search tree; `INDEX_RANGE_WALK` for a range primary on a B+tree-indexed class, with the bound
+  shape reported; `SCAN` otherwise — including the fallbacks: no criteria, `NOT_EQUALS`/non-seekable
+  criteria, an index tree not built yet, or a range on a class whose **id index is Hash**), the
+  secondary criteria that ride as post-filters, the degradation reason, and the active
+  `ORDER BY`/`LIMIT`/`OFFSET` shaping. The plan is built from the same routing classification the
+  execution lives by — it cannot disagree with it — and it is read-only: no records are
+  materialized and no transaction is required.
 
 Examples:
 
@@ -547,7 +653,7 @@ assigns identifiers:
 |---|---|
 | `DATABASE_GENERATOR` (default) | On insert, if the id is `null`, the storage generates it and sets it back on the object: `Long`/`Integer` — persistent per-class counters (they survive restarts); `String` — random UUID. |
 | `CUSTOM_GENERATOR` | Storage calls your generator: set `idGeneratorClass = MyGenerator.class` where `MyGenerator implements IXdStorageIdGenerator` (a constructor taking `XdStorageServicesLocator` is supported for DI). |
-| `UUID_GENERATOR` | The client assigns the id (e.g. `UUID.randomUUID()`) before `save`; the storage does not touch it. |
+| `UUID_GENERATOR` | For a `String` id: the engine generates a UUID when the id is `null` at save time; an app-assigned id is kept untouched. A numeric id with `UUID_GENERATOR` fails loudly at validation (a numeric field cannot carry a UUID). |
 
 ```java
 public class MonthPrefixGenerator implements IXdStorageIdGenerator {
@@ -610,6 +716,50 @@ format, implement the factory/writer/reader triple and wire it into `XdStorageSe
 The physical naming of resource files is handled by `IXdStorageResourceNamingService` (default:
 `XdStorageResourceNamingService`, which derives file names from the storage folder, format and resource ids).
 
+### The readable-on-disk story: fixtures, review, and machine-readable storage
+
+A storage folder is plain YAML — the same file a transaction writes is the file you can
+`cat`, `grep`, diff in a code review, commit as a test fixture, or point an LLM agent (or any
+script) at **without any transformation layer**: the human-readable format is machine-readable
+by construction. A real fragment of the `Ship` class (one file holds up to `fragmentSize`
+objects; the `# xdstorage-eof` sentinel is what makes truncation loud):
+
+```yaml
+objects:
+    - object:
+        class: 'fixturegen.Ship'
+        fields:
+            - field:
+                name: 'name'
+                type: 'java.lang.String'
+                value: 'Alpha'
+            - field:
+                name: 'tonnage'
+                type: 'int'
+                value: '120'
+            - field:
+                name: 'id'
+                type: 'java.lang.Long'
+                value: '1'
+
+# xdstorage-eof
+```
+
+Because fixtures are files, they live in git next to the code that asserts them: a retuned
+fixture is a reviewable diff, not a database migration script —
+
+```diff
+            - field:
+                name: 'tonnage'
+                type: 'int'
+-               value: '120'
++               value: '180'
+```
+
+(Do not edit the files while the storage is open — the engine owns the folder; author
+fixtures by running code, or by editing a closed folder's copy. The full layout:
+[EMBEDDING.md](EMBEDDING.md) § Files and durability.)
+
 ## Structure updates (schema migration)
 
 When the declared structure of a class changes (for example a search index got new fields), persisted
@@ -628,11 +778,37 @@ List<IXdStorageStructureUpdater> executed = storage.executeStructureUpdate(MyEnt
   structure manager detects that the persisted index no longer matches the class annotations; it is
   registered automatically during the structure check.
 
+## Operability: verify, backups, and after a power loss
+
+- **`XdStorageProvider.verify(folder)`** — a read-only integrity walk over a storage folder,
+  no lock taken (a live storage reports IN USE, "results unreliable", never refused):
+  per-file EOF-sentinel state (`TRUNCATED` names the file), journal state and torn tails,
+  data objects vs id-index entries per class, the format marker, orphaned journals, stale
+  `.tmp` litter. Verdicts: `OK` — nothing to act on; `WARNINGS` — damage the engine
+  tolerates by design; `CORRUPT` — a v2 file without its sentinel, an unparseable file, a
+  count mismatch. Never repairs, never opens a storage; the folder is byte-identical after.
+- **Backup = `shutdown()`, `cp -r`, open the copy** under a new storage name — the tested
+  contract ([EMBEDDING.md](EMBEDDING.md) § Backup and restore); no export/import step, no
+  format conversion. A `.xdstorage.lock` file copied along is harmless.
+- **After a power loss** — the verified damage matrix and the recovery recipe (verify first,
+  then the accept-truncation / restore-from-backup decision, then the per-subtree purge with
+  FK indexes dropped): [EMBEDDING.md](EMBEDDING.md) § After a power loss.
+- **Metrics** — `storage.getMetrics()` (per-storage transaction/write-out counters) and
+  `XdStorageMetrics.engineEvents()` (JVM-wide anomaly counters): [EMBEDDING.md](EMBEDDING.md)
+  § Observability.
+
 ## Concurrency model and internals
 
 - **Everything is transactional and multi-versioned.** Writers stage changes in a per-transaction workspace
   and install them during the two-phase commit; readers see a consistent snapshot (`SNAPSHOT`) or the latest
   committed state (`READ_COMMITTED`), never a half-committed one.
+- **Concurrent writers stage, then apply (2.1.0).** B+tree key mutations — id indexes, search keys,
+  FK trees — stage into the writing transaction's overlay, invisible to others until the commit, and
+  apply as a batch at its commit; the commit acquisition order across the resource bands is **total**
+  (the tie-break by the resource id). This removed the acquisition-deadlock family: 10 concurrent
+  writers measure **121–158 tx/s (p99 84–113 ms)** on the heavy indexed shape, where 2.0.x decayed
+  to ~1 tx/s through lock-timeout cycles. First-committer-wins is re-validated at commit time
+  (§ [Transactions](#transactions)) — the convoy fix did not reopen the lost-update window.
 - **Runtime code generation.** For each entity class the storage generates wrapper classes at first use:
   an *observable* wrapper (write-through + deferred-id observation) and an *unmodifiable* wrapper (the
   snapshot view handed to readers). This is why entities must be top-level classes with full getters/setters.
@@ -657,24 +833,35 @@ Two measurement sources back this section: JMH facade benchmarks
 structural knobs — B+tree fill factor `t`, fragment size, id-index type, search-index `t` — through the
 full data lifecycle (bulk insert → warm reads → update → cold restart → delete).
 
-Measured cost model (JMH, JDK 17, reference box; full numbers and methodology in
-[BENCHMARKS.md](BENCHMARKS.md)):
+Measured cost model (the canonical baseline — [BENCHMARKS.md](BENCHMARKS.md) § Canonical tables,
+JDK 21.0.7, quiet machine, 2026-11-21; full numbers and methodology there):
 
-- Indexed search through the facade costs ≈ a plain id load (~470 vs ~480 ops/s at 4 reader threads) —
+- Indexed search through the facade costs ≈ a plain id load (~225k vs ~217k ops/s, cache-resident) —
   the B+tree lookup + record read adds almost nothing; secondary-field and child criteria are evaluated
   on the already-fetched record and add ~0%.
-- `OR` of two primaries is near-linear in the number of branches (~460 ops/s).
-- Scan paths (`NOT_EQUALS` / no primary criterion) are ~3.5–4× slower (~120–130 ops/s) — O(dataset),
-  and the gap grows linearly with the data.
+- `OR` of two primaries is near-linear in the number of branches (~187k ops/s).
+- Scan paths (`NOT_EQUALS` / no primary criterion) visit every record: ~1.5k ops/s — ~150× below
+  the point path (O(dataset), and the gap grows linearly with the data).
 - Range primaries walk the ordered index with early termination: a selective upper-bounded range
-  (tight `BETWEEN`, `IN`) runs ~15× the scan it replaces; lower-bound-only (`GT`/`GTE`) and wide
-  ranges degrade toward scan cost by design.
-- Writes are commit-bound: the canonical shapes measure rename ~2.0k ops/s, save+delete ~752 ops/s
-  (flat at small N), data-heavy writes ~3.1k–9k tx/s since W-4a index journaling — the
+  (tight `BETWEEN` ~24k ops/s, `IN` ~23k) runs ~16× the scan it replaces; a lower-bound-only
+  `GT` (~15k — no early termination, the whole key range is walked, only matches are fetched)
+  and a wide range (~12k) close in on the data-covered window's cost.
+- Writes are commit-bound: the canonical shapes measure rename ~1.7k ops/s, save+delete ~600 ops/s
+  (the one attributed regression, -24% code-level vs 2026-10-24 — the correctness wave's price),
+  data-heavy writes ~3.1k–8k tx/s with the journals (2.6× journal-on ratio) — the
   75/39/127 figures of the TRACE era are historical (BENCHMARKS § history).
-- A read-only transaction (begin → load → commit) costs <1 ms/op, flat in dataset size
-  (0.63–0.74 ms/op from N=5000 to N=40000, zero file write-outs) — high-rate per-op read
-  transactions are safe.
+- Concurrent writes: index mutations stage per-transaction and apply at commit under a total
+  acquisition order — 10 concurrent writers measure **121–158 tx/s (p99 84–113 ms)** on the heavy
+  indexed shape, where 2.0.x collapsed to ~1 tx/s on lock-timeout cycles.
+- Foreign keys tax writes, not reads: cascade-save **23–160×**, child delete **12–73×**, parent
+  update **1.4–12.5×** vs FK off (linear in the FK-tree size; reads ~1.0×) — enable FK for
+  integrity-critical graphs, not hot write loops ([BENCHMARKS.md](BENCHMARKS.md) § FK A/B).
+- The read snapshot is captured eagerly: ~10–33% of load cost by graph size, measured and accepted
+  as the alias-safety net in 2.1.0; the lazy capture is a 2.2.0 candidate.
+- A read-only transaction (begin → load → commit) is cheap at any residency: ~71k ops/s
+  (~14 µs/op) cache-resident on the canonical baseline, and the config-sweep harness measures
+  0.63–0.74 ms/op **flat from N=5000 to N=40000** with zero file write-outs — high-rate per-op
+  read transactions are safe as the dataset grows.
 
 ### Tuning recommendations
 
@@ -709,12 +896,16 @@ defaults**:
   is reasonable for batch-oriented services.
 - **Durability:** commits are always process-crash-safe (atomic rename, journaled appends); enable
   `durableWrites(true)` when the machine can lose power — it adds one fsync per written file per
-  commit, modest at the recommended fragment sizes.
-- **Journaling is the default write path** (`journalWrites` on by default): data-class commits append
-  O(delta) journal records instead of rewriting whole files, so its wins are on data-file-heavy write
-  patterns. Id-index/search-index/B+tree infrastructure still rewrites its files per commit by design
-  scope — the remaining write-latency wall for index-heavy workloads
-  ([WRITE-PATH-DESIGN.md](WRITE-PATH-DESIGN.md)).
+  commit, measured **~95×** on the canonical shape (an NVMe-ext4 fsync bound; an HDD shifts it).
+- **Journaling is the default write path** — all three journals are ON by default:
+  `journalWrites` (data-class commits, W-3), `indexJournalWrites` (id-index commits, W-4a)
+  and `searchIndexJournalWrites` (search-key mutations, W-4b) append O(delta) records
+  instead of rewriting files, and a clean `shutdown()` checkpoints every journal (W-4c) —
+  after a clean close, a power loss loses nothing even with `durableWrites=false`. The
+  remaining write-latency wall is the **relation-write path**: FK maintenance scales linearly
+  with the FK-tree size ([BENCHMARKS.md](BENCHMARKS.md) § FK A/B; the 2.2.0 fix is filed),
+  plus sustained multi-10³ writes/s under concurrency. Design record:
+  [WRITE-PATH-DESIGN.md](WRITE-PATH-DESIGN.md), [W4-DESIGN.md](W4-DESIGN.md).
 - **Entity layout:** `StoreAsClassObjects` (fragmented) for "many small objects of one class" domains;
   `StoreAsSingleObject` only for genuinely large top-level graphs — one file per object is what makes
   infrastructure file counts explode at small object sizes.
@@ -724,14 +915,15 @@ defaults**:
   `lockAcquisitionTimeouts` / `lockWaitsOver1s` / `findRetryBudgetExhaustions` ⇒ sustained write
   contention. Healthy-range thresholds per counter: the study's § 10.
 
-Run the benchmarks yourself:
+Run the benchmarks yourself — `scripts/run-benchmarks.sh` is the one entry point (it owns the
+conditions protocol: quiet-machine gate, WARN-console logging, YAML format, JSON results +
+run manifest):
 
 ```bash
-mvn test-compile
-CP="target/test-classes:target/classes:$(mvn -q dependency:build-classpath -Dmdep.outputFile=/dev/stdout -Dmdep.includeScope=test)"
-java -cp "$CP" io.github.xdstorage.performance.XdStorageSearchEngineBenchmark
-java -cp "$CP" io.github.xdstorage.performance.XdStorageResourceCacheBenchmark
-java -cp "$CP" io.github.xdstorage.performance.XdStoragePerformanceBenchmark
+bash scripts/run-benchmarks.sh quick   # the smoke (~minutes)
+bash scripts/run-benchmarks.sh full    # the canonical baseline
+bash scripts/run-benchmarks.sh sweep   # the plain-Java config sweep (PERFORMANCE-RECOMMENDATIONS.md)
+bash scripts/run-benchmarks.sh n50k    # the design-point boundary probe
 ```
 
 ## Project layout

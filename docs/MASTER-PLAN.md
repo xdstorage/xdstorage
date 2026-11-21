@@ -2,8 +2,9 @@
 
 Compiled 2026-10-19; updated 2026-10-20 (architect's evaluation integrated); updated
 2026-10-21 post-release (Track T/L added; W-4/B3 moved explicitly to 2.2.0); **updated
-2026-11-22: the 2.1.0 train is COMPLETE except 33 BINFEAS + 44 DOCSWRITER (the
-TREEOVERLAY/convoy wave, LOSTUPD-2, MIXEDKEY, WRAPLAYER, LAYOUTMIG, JRNLDATA, FKBENCH,
+2026-11-22: the 2.1.0 train is COMPLETE — all 54 work packages closed (33 BINFEAS: the
+FP-9 gate GO + the realized experiment; 44 DOCSWRITER: the five-surface one-story pass;
+the TREEOVERLAY/convoy wave, LOSTUPD-2, MIXEDKEY, WRAPLAYER, LAYOUTMIG, JRNLDATA, FKBENCH,
 JDK21, BENCHREFRESH all landed — item 20); the 2.2.0 intake amended — tasks 21/22 pulled
 in (the FK O(relations) write path, the lazy read-snapshot), B3 RESOLVED by the total
 acquisition order**. Detailed journals stay authoritative per scope:
@@ -302,18 +303,19 @@ grouping is tags, not layout.
     the **R-56 multi-scan walk race** (latent — 0 phantoms on the overlay vs 24810 at
     HEAD) folds into task 01's consistency core / task 03's property tests as a pinning
     target; the **B-link tree upgrade** stays evidence-gated (a Step-2/05 design-round
-    input, build on a nightly-logs signal). **33 BINFEAS stays in 2.1.0** (measurement-
-    only; it gates FP-9's Step-4 demand signal); 44 DOCSWRITER is 2.1.0's last substantive
-    task. The 2.2.0 announcement notes are drafted at
+    input, build on a nightly-logs signal). **33 BINFEAS closed 2026-11-22** (the FP-9
+    gate GO + the real-codec experiment — docs/perf/binfeas-2026-11-22/RESULTS.md);
+    **44 DOCSWRITER closed 2026-11-22** (the five-surface one-story pass). The 2.2.0
+    announcement notes are drafted at
     docs/announcements/2.2.0-ANNOUNCEMENT-NOTES.md (the writer's input for task 11).
 
-**2.1.0 exit (2026-11-22 status): everything landed except 44 (33 BINFEAS closed
-2026-11-22: the FP-9 gate RESOLVED — GO for the design round, see
-docs/perf/binfeas-2026-11-22/RESULTS.md).** The stress family is 7/7, the gate ×3 is
-green through the whole wave (1344/0f/0e at the FKBENCH landing); the RC protocol runs
-after 44 (the writer pass) closes: full suite ×3, kill-9/torn-journal recovery, JMH vs
-the refreshed 2026-11-21 baseline, fresh-clone + 2.0.0-upgrade walkthroughs → tag
-`v2.1.0`.
+**2.1.0 exit (2026-11-22 status): everything landed, all 54 work packages closed
+(44 DOCSWRITER landed 2026-11-22: the glossary, the FK story, the canonical numbers on
+all surfaces, DOCSLINT extended with anchor resolution; suite 1345/0f/0e ×2, the
+fresh-eyes round, the quickstart compile-proof).** The stress family is 7/7, the gate
+is green through the whole wave; **the RC protocol runs next**: full suite ×3, kill-9/
+torn-journal recovery, JMH vs the refreshed 2026-11-21 baseline, fresh-clone +
+2.0.0-upgrade walkthroughs → tag `v2.1.0`.
 
 ### Step 2 — The engine's 2.x maturity (3–5 sessions, design round first)
 
@@ -373,7 +375,7 @@ an embedder) — the frozen-items inventory exists precisely to prevent speculat
 | Order | Work | Effort | Unlocks | Release |
 |---|---|---|---|---|
 | 0 | Step 0: A2 + E-1..E-6 + D-3 → **2.0.0** — **DONE: shipped 2026-10-21** | 1–2 sess | Everything public | **2.0.0** |
-| 1 | **2.1.0 train:** Track L + T + BENCH + B2 + FP-1 + BUG-A..E + PWRLOSS/JRNLNAME/BACKUP/N50K/DOCSLINT + AUTOSAVE + pulls (25/26/27) + FK + W-4a/b/c + TREEOVERLAY/LOSTUPD-2/MIXEDKEY + LAYOUTMIG/JRNLDATA + FKBENCH/BENCHREFRESH — **COMPLETE except 33 BINFEAS + 44 DOCSWRITER** | ~20 sess actual | Quiet library default; grouped estate; queries + plans; **FK integrity; concurrent writes unlocked; the lost-update window closed; the layout migration; honest costs published** | **2.1.0** |
+| 1 | **2.1.0 train:** Track L + T + BENCH + B2 + FP-1 + BUG-A..E + PWRLOSS/JRNLNAME/BACKUP/N50K/DOCSLINT + AUTOSAVE + pulls (25/26/27) + FK + W-4a/b/c + TREEOVERLAY/LOSTUPD-2/MIXEDKEY + LAYOUTMIG/JRNLDATA + FKBENCH/BENCHREFRESH + DOCSWRITER — **COMPLETE: 54/54 closed 2026-11-22** | ~20 sess actual | Quiet library default; grouped estate; queries + plans; **FK integrity; concurrent writes unlocked; the lost-update window closed; the layout migration; honest costs published** | **2.1.0** |
 | 2 | **2.2.0 = the compiled train** (docs/tasks/2.2.0/): consistency core (01) + loud failures (02) + property tests (03) + W-4d memory (05) + WAL txid (06) + **FKWRITE (21) + READSNAP (22)**; platform: AOT/JRE (08), backup (15), CLI (16), schema-diff (17), agent surface (18), recovery automation (19); decisions: server mode (09, design-only), Windows (04), CI policy (10), nested tx (12, optional), facade (13), profiling (14) | per-task | Operability; JRE deployments; the FK band; the memory profile; the consistency estate | **2.2.0** |
 | 3 | FP-3 AOT + FP-5/FP-6 ops tooling | 2–3 sess | JRE/native-image deployments; operability | 2.3.0 |
 | 4 | FP-2/7/8/9/10/12/13 ecosystem train | 1–2 sess each | Mainstream adoption surface | 2.x→3.0 |

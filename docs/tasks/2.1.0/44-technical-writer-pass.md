@@ -1,7 +1,7 @@
 ---
 title: "[2.1.0][DOCSWRITER] Technical-writer pass: landing page, guide, and feature docs as one coherent story"
 labels: [2.1.0-train, P1, docs]
-status: open
+status: done (2026-11-22 — the pass landed; the five surfaces + BENCHMARKS re-grounded to the 2026-11-21 canonical baseline; DOCSLINT extended to GUIDE/EMBEDDING/CHANGELOG + anchors; suite 1345/0f/0e; the closing STATUS block below)
 ---
 
 ## Summary
@@ -188,15 +188,74 @@ carry-over block, and the mechanics). Do not merge its content into 2.1.0 docume
 
 ## Acceptance criteria
 
-- [ ] The five surfaces read as one story: glossary-conformant terminology, no
+- [x] The five surfaces read as one story: glossary-conformant terminology, no
       contradicted numbers, no dead links (DOCSLINT extended to GUIDE + EMBEDDING).
-- [ ] Every 2.1.0 feature is present in GUIDE § Features and cross-referenced from the
+- [x] Every 2.1.0 feature is present in GUIDE § Features and cross-referenced from the
       landing page.
-- [ ] The landing page still meets the task-29 bar (first screens answer the three
+- [x] The landing page still meets the task-29 bar (first screens answer the three
       questions; fresh-eyes reviewer named in the PR).
-- [ ] No code changes; full suite green (BUILD SUCCESS verdict); DOCSLINT green.
+- [x] No code changes; full suite green (BUILD SUCCESS verdict); DOCSLINT green.
 
 Estimate: ~1–2 dev-days. Runs AFTER task 43 (the numbers it must agree with land there).
+
+## STATUS (2026-11-22): DONE
+
+Landed on main (one commit — DOCSWRITER 44). The pass covered the five surfaces (README,
+GUIDE, DECISION-GUIDE, EMBEDDING, CHANGELOG) plus docs/BENCHMARKS.md (the numbers source
+three of them cite).
+
+**What landed:**
+
+- **Terminology** — GUIDE § Terminology (the 13-term glossary) added; every surface
+  conformed: "storage policy" (never "placement policy"), the journal family
+  (data / id-index / search-key under "commit journal"), "secondary keys / FK relation",
+  "veto".
+- **The feature story is complete** — GUIDE gained § Foreign keys and the secondary keys
+  (the ONE user-facing FK story: the annotation pair, the front/reverse trees, the triplet
+  identity, the maintenance rules and the three vetoes, `enableForeignKeys`, the embedded
+  bypass, read-your-own-read, the honest cost), § explain() (query plans), § Operability
+  (verify/backups/recovery), the concurrency-overlay story (10 writers 121–158 tx/s, total
+  acquisition order) and the commit-time revalidation contract; the README gained
+  § What's new in 2.1.0, the AI-angle positioning line and the fixtures bullet.
+- **Numbers agree everywhere** — README/DECISION-GUIDE/EMBEDDING/GUIDE re-grounded to the
+  2026-11-21 canonical baseline (reads ~217k/~225k, ranges ~24k/~15k, scan ~1.5k, paged
+  ~15.9k, readOnlyTx ~71k, rename ~1.7k, save+delete ~600 with the −24% attribution,
+  writes ~8.1k/~3.1k with the 2.6× journal ratio, fsync ~95×, p99 84–113 ms exact);
+  BENCHMARKS's intro re-anchored to 2026-11-21; the § In context / § Design point /
+  § Field-frame sources sections RESTORED (lost in the task-13 rework while
+  DECISION-GUIDE still cited them — recovered from git, honestly re-dated: the design
+  point's write rows labeled pre-W-4a with the 0.13 ms/tx update).
+- **CHANGELOG restructured** — the duplicate "Changed (planned)" sections merged,
+  "(planned)" dropped (the train is complete), the duplicate entries deleted
+  (verify/AutoSave/W-4a-c/javadoc each listed twice); BUG-A/C/D/E and EXPLAIN moved from
+  [2.0.0] to Unreleased (git-verified: all fix commits + 49aa582 are descendants of
+  v2.0.0 = 6224066 — the released section held post-release fixes); BUG-B → a new
+  "### Known issues (carried)"; the section order normalized to
+  Breaking → Added → Changed → Fixed in both releases; ~10 root-relative dead links
+  fixed.
+- **DOCSLINT extended** (the test delta, this task's own scope item 5): the link sweep
+  now covers GUIDE + EMBEDDING + CHANGELOG, and a new `anchorsResolve` test checks every
+  `file.md#anchor` target (GitHub slug rules) and same-document anchors.
+- **The landing bar holds** — first screens answer what/when/when-not; the honest
+  FK cost (1.4–160×, the three-shape split), the −24% regression and fsync ~95× are on
+  the landing BEFORE the adoption decision; the quickstart example compiles as written.
+
+**The fresh-eyes reviewer:** a general-purpose review subagent (in-session, read-only;
+17 findings, 7 P1). Every claim was verified against the sources before fixing; the
+notable verified-and-fixed: the README's one-arg `XdStorageSearchQuery` call did not
+compile (only `()` and `(primary, criterion)` exist) and its import block was wrong and
+incomplete — proven red-before/green-after by the compile-proof; the GUIDE
+`UUID_GENERATOR` row contradicted the BUG-D matrix; the fsync figure said "modest"
+against the published ~95×; CHANGELOG carried dead `[W4-DESIGN.md](W4-DESIGN.md)` links.
+
+**Gate:** full suite **1345/0f/0e, BUILD SUCCESS** (twice — once with the extended
+DOCSLINT in-run), DOCSLINT green standalone, README quickstart compile-proof OK
+(fence extraction + entity stubs → javac). "No code changes" held for production code —
+the only code delta is the DOCSLINT test extension this task itself mandates.
+
+**Out of scope, held:** no new tutorials, no translation, no benchmark-number edits
+(facts from task 43; the restored § In context / § Design point sections carry their
+own dated sources).
 
 ## References
 

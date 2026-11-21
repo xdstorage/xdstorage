@@ -3,7 +3,7 @@
 For the architect or tech lead evaluating embedded persistence for a JVM application.
 Compiled from the outside-architect evaluation ([ARCHITECT-EVALUATION.md](ARCHITECT-EVALUATION.md)
 §3–§4) and re-grounded in the canonical benchmark baseline
-([BENCHMARKS.md](BENCHMARKS.md), 2026-10-22) — every number below cites a section there.
+([BENCHMARKS.md](BENCHMARKS.md), 2026-11-21) — every number below cites a section there.
 
 ## The one-paragraph positioning
 
@@ -11,7 +11,8 @@ Compiled from the outside-architect evaluation ([ARCHITECT-EVALUATION.md](ARCHIT
 > graphs, not rows or bytes — with ACID transactions, declarative indexes and triggers,
 > in a human-readable folder, with zero native dependencies and zero servers.** The
 > design point is **10⁴–10⁵ objects per class** with **thousands of journaled
-> write-transactions per second** (batched commits; unbatched per-object writes at 10⁵ scale measure ~10¹–10² tx/s —
+> write-transactions per second** (the small-write cost is flat 0.13–0.27 ms/tx from 10³ to
+> 5·10⁴ objects — the pre-2.1.0 wall that decayed to tens of tx/s at 10⁵ is gone;
 > [measured](BENCHMARKS.md#design-point--the-n50k-boundary-measurement-n50k-docstasks21020))
 > with indexed reads from thousands to hundreds of thousands of ops/s depending on
 > cache residency; beyond that, choose RocksDB/MapDB and build the object layer yourself.
@@ -24,7 +25,7 @@ quiet machine, generated tables). The point is the *gaps*, not the digits.
 
 | Product | Model | Transactions / MVCC | Query capability | What you build yourself | XdStorage's edge / gap |
 |---|---|---|---|---|---|
-| **XdStorage 2.1** | Annotated POJO graphs; 3 placement policies | ACID 2PC; MVCC snapshot/RC reads; triggers in-commit | Criteria engine, secondary+child indexes, range ops, `ORDER BY`/`LIMIT`/`count` | nothing — the annotated class *is* the schema | — |
+| **XdStorage 2.1** | Annotated POJO graphs; 3 storage policies | ACID 2PC; MVCC snapshot/RC reads; triggers in-commit; FK delete-vetoes; concurrent-writer staging | Criteria engine, secondary+child indexes, range ops, `ORDER BY`/`LIMIT`/`count`, `explain()` plans | nothing — the annotated class *is* the schema | — |
 | **MapDB 3** | `Map`/`Set` over pluggable store | Optional ACID; MVCC store | none (DIY secondary maps) | serialization, indexing, query layer, domain model | XdStorage gives the model + queries; MapDB wins raw simple-op throughput |
 | **JetBrains Xodus** | KV snapshots + entity store | ACID, MVCC | scans; rich queries only via DNQ layer | object-graph policies, typed queries | production-proven (YouTrack); no object model |
 | **RocksDB** | LSM key-value, `byte[]` | atomic WriteBatch only | none | the entire object/serialization/query layer + JNI dep | 10⁵–10⁶+ writes/s vs XdStorage's ~10³ journaled write-tx/s — choose it when raw write throughput dominates |
@@ -54,20 +55,21 @@ quiet machine, generated tables). The point is the *gaps*, not the digits.
 
 1. **Write throughput vs KV stores: one to two orders of magnitude.** Writes are
    commit-bound, but the O(N) index rewrite is gone since W-4a (the hash id-index commit
-   journal): the canonical write shapes now measure **~3,100 tx/s (journal off) and ~9,000
+   journal): the canonical write shapes now measure **~3,100 tx/s (journal off) and ~8,100
    tx/s (journal on)** on the data-heavy shape, and the small-write cost is FLAT across the
    design point (0.13–0.27 ms/tx from 10³ to 5·10⁴ objects — BENCHMARKS § Canonical +
-   docs/perf/w4a-write-scaling.md). The remaining frontier: search key-tree rewrites
-   (W-4b pending) and sustained multi-10³ writes/s; fsync-grade durability costs ~107× on
-   the canonical shape (`writeDurable`).
+   docs/perf/w4a-write-scaling.md). The remaining frontier: the relation-write path (FK
+   maintenance scales linearly with the FK-tree size — see the FK row below) and sustained
+   multi-10³ writes/s; fsync-grade durability costs ~95× on the canonical shape
+   (`writeDurable`, 2026-11-21 baseline).
 2. **Power loss loses recent commits by default.** Default writes are crash-safe, not
-   power-loss-safe; flip `durableWrites(true)` (~107× write cost on the canonical shape)
+   power-loss-safe; flip `durableWrites(true)` (~95× write cost on the canonical shape)
    when fsync-grade durability matters. The verified recovery matrix and the after-a-power-loss recipe:
    [EMBEDDING.md § After a power loss](EMBEDDING.md#after-a-power-loss).
 3. **Heap ≈ working set.** The record cache holds the working set; there is no eviction
    until disk-anchored scans ship (W-4). Measured: **~1.4–2.0 KB heap per object** at
    N=5k–50k ([design-point probe](BENCHMARKS.md#design-point--the-n50k-boundary-measurement-n50k-docstasks21020))
-   — fine at 10⁴–10⁵ objects/class (≈70–200 MB per 10⁵ objects for typical entities);
+   — fine at 10⁴–10⁵ objects/class (≈140–200 MB per 10⁵ objects for typical entities);
    disqualifying beyond that — for now.
 4. **Single process per folder.** The storage folder is exclusively locked
    (EMBEDDING.md § Lifecycle). Read-only tooling operates on a copy/backup, not live —
@@ -77,8 +79,8 @@ quiet machine, generated tables). The point is the *gaps*, not the digits.
 5. **Runtime wrapper codegen** needs a JDK (not JRE) and a writable `./gencode`
    (EMBEDDING.md § Codegen requirements). The AOT build-time-generation fix (FP-3) is on the
    roadmap; until then, containers must ship a JDK.
-5. **Adoption maturity**: single-maintainer project, first public release 2026-10. Judge the
-   docs and the test estate (770+ tests, flake ledger, kill-9 recovery suites) on their merits.
+6. **Adoption maturity**: single-maintainer project, first public release 2026-10. Judge the
+   docs and the test estate (1,300+ tests, flake ledger, kill-9 recovery suites) on their merits.
 
 ## Choose XdStorage when most of these hold
 
@@ -86,7 +88,8 @@ quiet machine, generated tables). The point is the *gaps*, not the digits.
   configs, sessions, work queues, domain events) and a mapping layer is exactly the overhead
   you are trying to delete.
 - Scale is **10⁴–10⁵ objects per class**, a few GB of folder at most.
-- Write rate **≤ ~10³ tx/s** (measured ~3k–9k tx/s on the canonical write shapes post-W-4a), reads point-lookup-heavy (indexed reads: 10³–10⁵ ops/s
+- Write rate **≤ ~10³ tx/s sustained** (measured ~3.1k–8.1k tx/s on the canonical write shapes
+  on the 2026-11-21 baseline), reads point-lookup-heavy (indexed reads: 10³–10⁵ ops/s
   depending on residency — BENCHMARKS § Canonical, `loadById_indexBaseline`,
   `searchByPrimaryEquals`).
 - **Operability matters**: files you can inspect, a folder you can back up with `cp -r`
@@ -116,23 +119,24 @@ embedded configuration/feature-flag stores with queries and triggers.
 
 | What | Measured | Scenario in BENCHMARKS.md |
 |---|---|---|
-| Point read by id (cache-resident) | ~231k ops/s | `loadById_indexBaseline` |
-| Indexed EQUALS search | ~227k ops/s (≈ a plain id load) | `searchByPrimaryEquals` |
-| Selective range (`BETWEEN`, `GT`) | ~24k / ~14k ops/s (vs ~1.6k for a scan) | `searchByPrimaryBetweenSelective`, `searchByPrimaryGT` |
-| Paged range (`ORDER BY` + `LIMIT 50`) | ~17.8k ops/s | `searchByPrimaryBetweenPagedLimit50` |
-| Scan path (no selective primary) | ~1.6k ops/s — O(dataset), keep primaries `EQUALS`/selective | `searchByScanNotEqualsPrimary` |
+| Point read by id (cache-resident) | ~217k ops/s | `loadById_indexBaseline` |
+| Indexed EQUALS search | ~225k ops/s (≈ a plain id load) | `searchByPrimaryEquals` |
+| Selective range (`BETWEEN`, `GT`) | ~24k / ~15k ops/s (vs ~1.5k for a scan) | `searchByPrimaryBetweenSelective`, `searchByPrimaryGT` |
+| Paged range (`ORDER BY` + `LIMIT 50`) | ~15.9k ops/s | `searchByPrimaryBetweenPagedLimit50` |
+| Scan path (no selective primary) | ~1.5k ops/s — O(dataset), keep primaries `EQUALS`/selective | `searchByScanNotEqualsPrimary` |
 | Read-only transaction (begin→load→commit) | ~71k ops/s | `readOnlyTx` |
 | Indexed save+delete (entity with children) | ~600 ops/s on the 2026-11-21 set (-24% code-level vs 2026-10-24 — the correctness wave's price on the indexed-write path, tracked in the W-4 ledger; see BENCHMARKS.md § the honest delta) | `saveAndDeleteIndexedShipWithCrew` |
-| Indexed rename/update | ~2.0k ops/s (W-4b pending on the key-tree path) | `updateShipRenameSearchKey` |
-| Data-heavy write (journal on/off) | **~9,000 / ~3,100 tx/s** — the O(N) index rewrite removed by W-4a | `writeDataHeavy` |
-| `durableWrites=true` | ~82 ops/s — **fsync costs ~107×** on this shape; off by default | `writeDurable` |
-| Batch commit | ~1,400 tx/s @ 10 obj → ~14 tx/s @ 1000 obj; objects/s **flat ~14k–16k** at every batch size (the archived 2026-10-24 set showed ~24k–31k; the same-rev re-run showed the archived batch numbers were machine-state-flattered — the same-code delta is -5%, BENCHMARKS.md § the honest delta) | `commitBatch` |
+| Indexed rename/update | ~1.7k ops/s (the W-4b key-tree journal is in; the -8% code-level residual is attributed to the same correctness wave) | `updateShipRenameSearchKey` |
+| Data-heavy write (journal on/off) | **~8,100 / ~3,100 tx/s** — the O(N) index rewrite removed by W-4a (2.6× journal ratio) | `writeDataHeavy` |
+| `durableWrites=true` | ~82 ops/s — **fsync costs ~95×** on this shape; off by default | `writeDurable` |
+| Batch commit | ~1,400 tx/s @ 10 obj → ~14 tx/s @ 1000 obj; objects/s **flat ~14k–15k** at every batch size (the archived 2026-10-24 set showed ~24k–31k; the same-rev re-run showed the archived batch numbers were machine-state-flattered — the same-code delta is -5%, BENCHMARKS.md § the honest delta) | `commitBatch` |
 | Small write at N=50k | **0.13 ms/tx** (flat from 10³ to 5·10⁴ — was 64.9 ms/tx pre-W-4a) | docs/perf/w4a-write-scaling.md |
-| FK-related write (cascade of N children) | **12–160× slower than the same graph with FK off**, and the delta grows LINEARLY with the FK-tree size (the W-4c follow-up's finding — FK reads are free: ~1.0×) | `XdStorageForeignKeyBenchmark` (the FK A/B subsection) |
+| Concurrent writers (10 tx, heavy indexed shape) | **121–158 tx/s aggregate, p99 84–113 ms** — the 2.0.x lock-timeout convoy (~1 tx/s) is fixed | the TREEOVERLAY stress record (task 53, FKBENCH conditions; the attribution note in BENCHMARKS § the honest delta) |
+| FK-related writes (the honest split) | cascade-save **23–160×**, child delete **12–73×**, parent update **1.4–12.5×** slower than the same graph with FK off — outside the ≤2× band at every size, scaling LINEARLY with the FK-tree size; **FK reads are free (~1.0×)** | `XdStorageForeignKeyBenchmark` (the FK A/B subsection) |
 
 Conditions: 2026-11-21 (BENCHREFRESH — the full 2.1.0 feature set: W-4b/W-4c, the TREEOVERLAY write path, the commit-time revalidation; the FK engine idles on these entities), JDK 21.0.7, quiet Linux box —
 **AMD Ryzen 9 5900X (12 cores / 24 threads), 64 GB RAM, NVMe SSD (970 EVO Plus), ext4** —
-WARN-console logging, YAML format. The storage pair matters: the durability cost (~107×
+WARN-console logging, YAML format. The storage pair matters: the durability cost (~95×
 with `durableWrites`) is an NVMe-ext4 fsync cost — an HDD shifts it materially. Full
 manifest + the attribution notes in `docs/perf/canonical-baseline-2026-11-21/` (the
 predecessors: `docs/perf/canonical-baseline-2026-10-24/` and `-2026-10-22/`; the honest
@@ -156,7 +160,8 @@ with it, and it never executes anything.
 
 ## Where to go next
 
-- [README.md](../README.md) — the full guide (data model, transactions, search engine).
+- [GUIDE.md](GUIDE.md) — the full guide (data model, transactions, search engine, foreign keys).
+- [README.md](../README.md) — the landing page and the quick start.
 - [examples/quickstart](../examples/quickstart/README.md) — a runnable end-to-end sample:
   open → tx → save → indexed query → range query → commit → reopen → shutdown.
 - [EMBEDDING.md](EMBEDDING.md) — the operational contract (lifecycle, threads, codegen,

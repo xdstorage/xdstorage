@@ -1,11 +1,16 @@
-# 2.1.0 tasks train — **53 work packages filed; 47 done, 6 open** (RC-ready once they close)
+# 2.1.0 tasks train — **54 work packages filed; 54 done, 0 open** (2026-11-22 — the RC protocol is the next step)
 
 One markdown file = one GitHub issue (the frontmatter `title`/`labels`/`status` is the
 issues-sync contract; see [the sync section](#automatic-issue-sync-github)). Scope derives
 from [MASTER-PLAN.md](../../MASTER-PLAN.md) Step 1; the deep decision records live in the
 linked plan documents (SRE/WRITE-PATH/W4-DESIGN/ARCHITECT-EVALUATION) and per-task files.
 
-## Current status (verified 2026-11-21)
+## Current status (verified 2026-11-22 — all work packages closed)
+
+- **The train is closed:** the last six packages landed (51 LAYOUTMIG, 50 FKBENCH,
+  43 BENCHREFRESH, 27 JDK21, 33 BINFEAS, 44 DOCSWRITER — the five-surface writer pass
+  with the glossary, the FK story, the canonical numbers and DOCSLINT anchor resolution;
+  suite **1345/0f/0e, BUILD SUCCESS**).
 
 - **The engine cleared the release bar it set for itself:** the TREEOVERLAY program
   (task 53) landed — the B+tree per-tx overlay, the prevSnapshot role split, and the
@@ -28,26 +33,24 @@ linked plan documents (SRE/WRITE-PATH/W4-DESIGN/ARCHITECT-EVALUATION) and per-ta
   the refreshed baseline (task 43), fresh-clone walkthrough → tag `v2.1.0`. Task 51
   (the layout migration) gates the release itself.
 
-## Open work (6)
+## Open work (0)
 
-| # | Task | What remains |
-|---|---|---|
-| 27 | [JDK21 CI matrix](27-jdk21-ci-matrix.md) | prove the suite on 21 (the baseline is 21 numbers) |
-| 33 | [BINFEAS](33-binary-format-feasibility.md) | measure the serialization share on cold paths — FP-9's go/no-go |
-| 43 | [BENCHREFRESH](43-benchmark-refresh.md) | full canonical re-run post-FK + post-overlay (senior dev; pin `BENCH_JDK`) |
-| 44 | [DOCSWRITER](44-technical-writer-pass.md) | the one-story documentation pass (technical writer; now includes the AutoSave/ParentObject + secondary-keys block, 2026-11-21) |
-| 50 | [FKBENCH](50-fk-cost-benchmark.md) | the FK-cost A/B table (Step 0 done: the concurrency axis measured; the fk=ON arm waits on A2.3) |
-| 51 | [layout-migration-upgrade](51-layout-migration-upgrade.md) | **LAYOUTMIG — BLOCKING RELEASE**: the 2.0.0→2.1.0 layout migration (crash-tolerant, cross-OS, fully tested) |
+All work packages are closed (2026-11-22). The last six closes: **51 LAYOUTMIG** (the
+crash-tolerant layout migration, formatVersion=3, the golden 2.0.0 fixture), **50 FKBENCH**
+(the FK-cost A/B: cascade-save 23–160×, child delete 12–73×, parent update 1.4–12.5×, linear
+in the FK-tree size; reads free), **43 BENCHREFRESH** (the 2026-11-21 canonical baseline +
+the honest delta attribution), **27 JDK21** (the Temurin 21 CI leg), **33 BINFEAS** (the FP-9
+gate GO + the real-codec experiment confirming the ceiling), **44 DOCSWRITER** (the
+five-surface one-story pass — the glossary, the FK story, the canonical numbers, DOCSLINT
+anchors; suite 1345/0f/0e, the fresh-eyes round, the quickstart compile-proof).
 
-**Release-readiness note (updated 2026-11-21):** every defect-class task of the train
-is closed with pinned tests (BUG-A..E, 34–47, 53 — the last reds W2Reopen/BTreeStress
-either fixed or stash-proven pre-existing). The remaining six opens are: the layout
-migration (**51, P0 — a 2.0.0 user must be able to upgrade**), the benchmark refresh
-(43) and the FK A/B (50) that make the docs' numbers true, DOCSWRITER (44) that makes
-the docs one story, JDK21 (27) and BINFEAS (33). The RC protocol runs after these
-close. The historical MassFill/convoy reds are GONE (7/7 stress families green).
+**Release-readiness note (updated 2026-11-22):** every task of the train is closed with
+its acceptance record (the defect ledger BUG-A..E, 34–47, 53 included). The RC protocol
+(RELEASE-PLAN §2) is the next step: full suite ×3 green, kill-9/torn-journal recovery,
+JMH vs the refreshed 2026-11-21 baseline, the fresh-clone + the 2.0.0-upgrade walkthroughs
+→ tag `v2.1.0`. The historical MassFill/convoy reds are GONE (7/7 stress families green).
 
-## Index (all 53 work packages)
+## Index (all 54 work packages)
 
 | # | File | Track | Status | Est. |
 |---|---|---|---|---|
@@ -77,13 +80,13 @@ close. The historical MassFill/convoy reds are GONE (7/7 stress families green).
 | 24 | [24-journal-file-naming](24-journal-file-naming.md) | JRNLNAME | done | 0 |
 | 25 | [25-explain-query-plan](25-explain-query-plan.md) | EXPLAIN | done | 1–2 dev-days (the  |
 | 26 | [26-verify-integrity-walk](26-verify-integrity-walk.md) | VERIFY | done | 1–2 dev-days (the  |
-| 27 | [27-jdk21-ci-matrix](27-jdk21-ci-matrix.md) | JDK21 | open | 0 |
+| 27 | [27-jdk21-ci-matrix](27-jdk21-ci-matrix.md) | JDK21 | done (the Temurin 21 CI leg — variant b: quick-gate on push/PR + the full suite nightly; verified 1344/0f/0e on 21.0.7) | 0 |
 | 28 | [28-javadoc-coverage](28-javadoc-coverage.md) | JAVADOC | done | 3–5 dev-days (para |
 | 29 | [29-readme-landing-restructure](29-readme-landing-restructure.md) | LANDING | done | 1 dev-day (restruc |
 | 30 | [30-benchmarks-context](30-benchmarks-context.md) | BMCONTEXT | done | 0 |
 | 31 | [31-write-path-analysis-design](31-write-path-analysis-design.md) | WRTPATH | done | 2–3 sessions (prof |
 | 32 | [32-w4-write-path-implementation](32-w4-write-path-implementation.md) | W4 | done | W-4a ~2–3 sessions |
-| 33 | [33-binary-format-feasibility](33-binary-format-feasibility.md) | BINFEAS | open | 0 |
+| 33 | [33-binary-format-feasibility](33-binary-format-feasibility.md) | BINFEAS | done (2026-11-22: the FP-9 gate RESOLVED — GO; serialization = 84–86% of the cold paths; the real codec realized 4.5–5.3× of the 4.2–7.4× ceiling; docs/perf/binfeas-2026-11-22/) | 0 |
 | 34 | [34-cache-commit-protocol-audit](34-cache-commit-protocol-audit.md) | CACHE2PC | done | 0 |
 | 34 | [34-rollback-only-cause](34-rollback-only-cause.md) | RBCAUSE | done | 1–2 dev-days (the  |
 | 35 | [35-crash-residue-purge](35-crash-residue-purge.md) | CRASHPURGE | done | 1–2 dev-days |
@@ -96,15 +99,16 @@ close. The historical MassFill/convoy reds are GONE (7/7 stress families green).
 | 40 | [40-lost-update-first-committer-wins](40-lost-update-first-committer-wins.md) | LOSTUPD | done | 2-3 d (the semanti |
 | 41 | [41-tree-node-file-leak-rollback](41-tree-node-file-leak-rollback.md) | TREEFILE | done | 2–3 d |
 | 42 | [42-foreign-keys](42-foreign-keys.md) | ? | done | ? |
-| 43 | [43-benchmark-refresh](43-benchmark-refresh.md) | BENCHREFRESH | open | 0 |
-| 44 | [44-technical-writer-pass](44-technical-writer-pass.md) | DOCSWRITER | open | 1–2 dev-days |
+| 43 | [43-benchmark-refresh](43-benchmark-refresh.md) | BENCHREFRESH | done (the 2026-11-21 canonical baseline; the old-rev-today attribution: commitBatch drift vs the one real −24% code regression) | 0 |
+| 44 | [44-technical-writer-pass](44-technical-writer-pass.md) | DOCSWRITER | done (2026-11-22: the five surfaces + BENCHMARKS as one story; the glossary, the FK story, the canonical numbers; DOCSLINT anchors; suite 1345/0f/0e + the fresh-eyes round) | 1–2 dev-days |
 | 45 | [45-illegal-state-commit-diagnosis](45-illegal-state-commit-diagnosis.md) | RBCOMMIT | done | 1–2 dev-days (the  |
 | 46 | [46-wrapper-observer-leak](46-wrapper-observer-leak.md) | WRAPLEAK | done | 1–2 dev-days (the  |
 | 47 | [47-record-identity-disarmed-phases](47-record-identity-disarmed-phases.md) | RECIDENT | done (core fixed; the envelope residuals → FLAKY R-STORM-ENVELOPE + 2.2.0 task 10) | 2–4 dev-days + the |
 | 48 | [48-checkpoint-on-shutdown](48-checkpoint-on-shutdown.md) | W-4c | done | 0 (06007c9) |
 | 49 | [49-w4b-search-key-journal](49-w4b-search-key-journal.md) | W-4b | done | 1–2 d (64d33f5) |
-| 50 | [50-fk-cost-benchmark](50-fk-cost-benchmark.md) | FKBENCH | open (Step 0 done: the concurrency axis measured) | 2–3 dev-days |
-| 51 | [51-layout-migration-upgrade](51-layout-migration-upgrade.md) | LAYOUTMIG | **open — P0 BLOCKER** | 2–3 dev-days |
+| 50 | [50-fk-cost-benchmark](50-fk-cost-benchmark.md) | FKBENCH | done (the A/B table in BENCHMARKS § FK A/B: cascade 23–160×, delete 12–73×, update 1.4–12.5×, linear in the tree size; reads ~1.0×) | 2–3 dev-days |
+| 51 | [51-layout-migration-upgrade](51-layout-migration-upgrade.md) | LAYOUTMIG | done (the migration at open, the formatVersion=3 stamp, the golden 2.0.0 fixture, the crash-matrix tests; EMBEDDING § Upgrade from 2.0.0) | 2–3 dev-days |
+| 54 | [54-index-journals-to-data](54-index-journals-to-data.md) | JRNLDATA | done (the id-index and search-key journals relocated into `data/<Class>/journal/` — data carriers live with the data; the older spellings settle at the first prepare) | 1–2 dev-days |
 | 53 | [53-tree-overlay](53-tree-overlay.md) | TREEOVERLAY | done (2026-11-21: the overlay + the convoy fix; the stress family 7/7, the gate ×3 1321/0f/0e) | 3–4 sessions |
 
 ## Provenance (compact history)

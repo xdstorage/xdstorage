@@ -3,7 +3,7 @@
 All notable changes to XdStorage are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows
 [SemVer](https://semver.org/). The release procedure itself lives in
-[RELEASE-PLAN.md](RELEASE-PLAN.md).
+[RELEASE-PLAN.md](docs/RELEASE-PLAN.md).
 
 **On-disk format generations** (recorded per storage folder in `.xdstorage.meta`,
 see `XdStorageFormatMeta`):
@@ -14,9 +14,34 @@ see `XdStorageFormatMeta`):
 
 ## [Unreleased] — the 2.1.0 train (MASTER-PLAN Step 1)
 
-Planned scope; items land here as they merge:
+The train's user-facing changes; everything below has landed on the train and ships with
+the 2.1.0 release.
 
-### Added (planned)
+### Breaking
+
+- **On-disk layout change** ([51](docs/tasks/2.1.0/51-layout-migration-upgrade.md)):
+  indexes and B+Tree files relocated to a dedicated `indexes/` subdirectory. The
+  migration runs automatically at open — a 2.0.0 folder is migrated in place (the old
+  layout is not preserved; the data fragments stay in `data/`, the stacked journals are
+  settled lazily by the journal-naming chain). The layout generation is stamped:
+  after the migration the folder marker reads `formatVersion=3` — **a 2.1.0 folder
+  cannot be opened by 2.0.0** (the newer-format gate refuses loudly; before this stamp
+  both generations wrote `formatVersion=2` and the refusal claim was aspirational).
+  The migration is crash-tolerant: a crash mid-migration is completed at the next open;
+  an unmovable file (a Windows lock) refuses the open loudly instead of continuing with
+  a silently empty index. **A 2.0.0 user must back up their folder before upgrading**
+  (the standard `cp -r` while closed). See EMBEDDING "Upgrade from 2.0.0".
+- **Index journals relocated into `data/<Class>/journal/`**
+  ([54](docs/tasks/2.1.0/54-index-journals-to-data.md)): the id-index and search-key
+  commit journals are DATA CARRIERS (the sole durable location of the un-checkpointed
+  id→fragment addressability between checkpoints) and now live with the class's data
+  instead of inside the derived-index `indexes/` directory. All of a class's commit
+  journals — the fragments, the id-index, the search-key — sit in one place
+  (`data/<Class>/journal/`); the journals found at the older spellings (the 2.1.0-dev
+  `indexes/<Class>/journal/` or the siblings) settle into the data location automatically
+  at the resource's first prepare.
+
+### Added
 
 - **`verify(folder)`** ([26](docs/tasks/2.1.0/26-verify-integrity-walk.md)) — a read-only
   integrity walk over a storage folder (the after-a-power-loss recipe, mechanized): per-file
@@ -28,14 +53,14 @@ Planned scope; items land here as they merge:
   detected on copies in the test suite — the folder is byte-identical after a verify.
 - **B2** — read-only transaction commit path, verified and pinned by tests: no-change
   transactions commit through a cheap release path (no 2PC record iteration, zero file
-  write-outs); measured 0.6–0.7 ms/op per read transaction at N=5000–40000 on the Hash path
+  write-outs); measured 0.63–0.74 ms/op per read transaction at N=5000–40000 on the Hash path
   (the PERF study §5.3 ~25 ms figure no longer reproduces — BENCHMARKS.md addendum).
   Contract coverage: committed-count metrics, snapshot isolation under a concurrent writer,
   rollback-only still throws, a parent still waits for an open nested read-only transaction.
 - **FP-1 phase 1** — query power pack, range primaries: `GT`/`GTE`/`LT`/`LTE`/`BETWEEN`/`IN`
   on the primary criterion, evaluated as an ordered bounded walk of the index B+tree with early
   termination (selective ranges run ~15× the scan they replace; lower-bound-only and wide ranges
-  cost like a scan — README § Search engine has the operator table and plan/fallback matrix).
+  cost like a scan — GUIDE § Search engine has the operator table and plan/fallback matrix).
   Contract: `BETWEEN` bounds are inclusive (`XdStorageRange`); nulls never satisfy a range
   operator; mixed-type bounds fail loudly.
 - **FP-1 phase 2 (FP-1b)** — result shaping: `ORDER BY` on the primary index value (native key
@@ -49,6 +74,13 @@ Planned scope; items land here as they merge:
   without building the result collection (ignores the shaping, SQL `COUNT` semantics; `count(q)`
   is exactly `load(q).size()` on the same snapshot). Keyset/cursor pagination is the filed
   follow-up for the `OFFSET` re-walk cost.
+- **EXPLAIN** ([25](docs/tasks/2.1.0/25-explain-query-plan.md)): `storage.explain(Class,
+  indexName, query)` — the read-only query plan (`XdStorageQueryPlan`): INDEX_SEEK /
+  INDEX_RANGE_WALK / SCAN, the id-index type, the range bound shape, the post-filter
+  criteria, the degradation reason (including the FP-1a "range on a Hash id index → scan"
+  fallback) and the `ORDER BY`/`LIMIT`/`OFFSET` shaping summary. Extracted from the routing
+  classification the execution lives by — the plan cannot disagree with it — and it never
+  executes anything. GUIDE § Query plans; DECISION-GUIDE § the runtime face of the cost model.
 - **FP-11** — decision-guide page (comparison vs MapDB/Xodus/RocksDB/Chronicle/EclipseStore)
   + runnable example app.
 - **AUTOSAVE** ([22](docs/tasks/2.1.0/22-autosave-cascade-children.md)) — the
@@ -57,7 +89,17 @@ Planned scope; items land here as they merge:
   rollback identical to explicit saves; cycles terminate, duplicates dedup, removed children
   stay persisted (loudly documented — cascade-delete is out of scope). Shapes: collections,
   single references, arrays, and MAP values with an id-field (keys are never candidates).
-  README § Cascade save + EMBEDDING carry the contract; `XdStorageAutoSaveCascadeTest` pins it.
+  GUIDE § Cascade save and § Foreign keys + EMBEDDING carry the contract;
+  `XdStorageAutoSaveCascadeTest` pins it.
+- **Referential integrity — foreign keys** ([42](docs/tasks/2.1.0/42-foreign-keys.md)) —
+  relations between a parent and its independent-policy children (annotated with
+  `@XdStorageAutoSave` on the parent's field and `@XdStorageParentObject` on the child's
+  back-reference) are backed by persistent front/reverse B+tree indexes: the entries are
+  created and cleaned in the same transaction as the objects, the trees double as the
+  parent↔child navigation index, and **deleting a child that is still referenced by
+  its parent (or a parent that still has live children) is refused loudly at commit**.
+  Flag: `enableForeignKeys` (default ON). GUIDE § Foreign keys carries the full rules and
+  the measured cost; BENCHMARKS § FK A/B the canonical numbers.
 - **BENCH** — the benchmark estate unified: `scripts/run-benchmarks.sh [quick|full|sweep]`
   is the one entry point under a documented conditions protocol (quiet-load gate, WARN-console
   benchmark logging config, YAML format, JSON results + run manifests); the CORE scenarios
@@ -79,17 +121,12 @@ Planned scope; items land here as they merge:
   the way (structure-resource journal replay NPE after reopen, id-addressability after a
   structure update, auto-generated ids unreachable by id after reopen, and the
   `UUID_GENERATOR` field property never auto-generating) — each documented with an
-  acceptance-grade disabled test in docs/tasks/2.1.0/06; the facade happy/failure-path audit
-  (T-3b) remains open.
+  acceptance-grade disabled test in docs/tasks/2.1.0/06; the facade happy/failure-path
+  audit (T-3b) landed as `XdStorageFacadeMethodAuditTest` (11 gap-fill tests; its finding —
+  `load(Class,id)` returns null on a missing id while load-by-reference throws — is the
+  documented contract).
 
-- **@XdStorageAutoSave** (planned, [22](docs/tasks/2.1.0/22-autosave-cascade-children.md)) —
-  cascade-save for independent children: a field-level annotation on the parent; on parent
-  `save`/`update` the annotated children (`StoreAsClassObjects` / `StoreAsSingleObject`) are
-  cascade-upserted in the same transaction (generated ids backfill the same instances;
-  transitive through child annotations, cycle-safe). Removed children are NOT deleted;
-  cascade-delete is a deliberately deferred feature.
-
-### Changed (planned)
+### Changed
 
 - **Documented API surface** ([28](docs/tasks/2.1.0/28-javadoc-coverage.md)) — every public
   method of the main tree carries javadoc (full contract prose on the published API tier —
@@ -115,30 +152,18 @@ Planned scope; items land here as they merge:
 
 - **Index journaling (W-4a/c)** — the hash id-index commits are journaled
   ([32](docs/tasks/2.1.0/32-w4-write-path-implementation.md), design in
-  [W4-DESIGN.md](W4-DESIGN.md)): the O(N)-per-commit full-file index rewrite becomes an
+  [W4-DESIGN.md](docs/W4-DESIGN.md)): the O(N)-per-commit full-file index rewrite becomes an
   O(delta) append; measured small-write cost at 50 000 objects: **64.9 → 0.13 ms/tx** (the
   write-scaling wall across the design point is gone). A clean shutdown now checkpoints
   every journal — after a clean close, a power loss loses nothing even with
   `durableWrites=false`. Flag: `indexJournalWrites` (default ON after a green full-suite
   soak; `false` restores the legacy full-file rewrite).
-- **`explain()`** (planned, [25](docs/tasks/2.1.0/25-explain-query-plan.md)) — query-plan
-  visibility: the plan the engine would take (index used, seek vs ordered range walk vs
-  scan, bound shape, post-filter criteria, fallback reason) without executing the query.
-- **`verify(folder)`** (planned, [26](docs/tasks/2.1.0/26-verify-integrity-walk.md)) — a
-  read-only integrity walk over a closed storage folder: sentinel validity, journal state,
-  object counts, index-vs-data consistency — the after-a-power-loss recipe as one call.
-
-- **Javadoc coverage** (planned, [28](docs/tasks/2.1.0/28-javadoc-coverage.md)) — every
-  public method of the main tree documented (contract prose on the published API tier,
-  one-liners on the machinery tier) and the release profile's javadoc doclint enforced —
-  the published javadoc jar becomes the API reference and can no longer regress silently.
-
 - **The README is a landing page** (landed,
   [29](docs/tasks/2.1.0/29-readme-landing-restructure.md)) — the first screen answers
-  what-it-is / when-to-take-it / when-not, carries a ~twenty-line example (entity sketch + save +
+  what-it-is / when-to-take-it / when-not, carries a worked example (entity sketch + save +
   query + reopen) copied line-for-line from the green quickstart test, the comparison mini-table
   vs the close relatives, and the honest write-throughput limitation **with the fix plan**
-  ([docs/WRITE-PATH-DESIGN.md](docs/WRITE-PATH-DESIGN.md)). The deep reference moved
+  ([docs/W4-DESIGN.md](docs/W4-DESIGN.md)). The deep reference moved
   section-for-section to [docs/GUIDE.md](docs/GUIDE.md) (the README halved); the quickstart
   example's stale known-defect note (BUG-E, fixed in this train) was corrected.
 - **Benchmarks in context** (landed,
@@ -147,23 +172,9 @@ Planned scope; items land here as they merge:
   canonical baseline against the field with sourced, dated public figures (RocksDB, Chronicle Map,
   LMDB, MapDB — marketing claims labeled); every canonical scenario family gained an "in real
   terms" reading; the write numbers carry the same limitation + fix-plan link as the README.
-  Still planned: [31](docs/tasks/2.1.0/31-write-path-analysis-design.md) — the write-path
-  analysis and the W-4 design round both pages link (implementation in 2.2.0).
-
-- **Index journaling (W-4a/c)** (planned, [32](docs/tasks/2.1.0/32-w4-write-path-implementation.md),
-  design in [W4-DESIGN.md](W4-DESIGN.md)) — the hash id-index (the default) joins the commit
-  journal: O(N)-per-commit full-file rewrite becomes O(delta), removing the write scaling
-  wall across the 10⁴–10⁵ design point; checkpoint on clean shutdown bounds every journal.
-  Flag-gated (`indexJournalWrites`), soaked, then defaulted. Search-tree logical-op journal
-  (W-4b) and disk-anchored scans (W-4d) follow their gates.
-
-- **Referential integrity — foreign keys** ([42](docs/tasks/2.1.0/42-foreign-keys.md)) —
-  relations between a parent and its independent-policy children (annotated with
-  `@XdStorageAutoSave` on the parent's field and `@XdStorageParentObject` on the child's
-  back-reference) are backed by persistent front/reverse B+tree indexes
-  (`<Parent>_to_<field>` / `<Parent>_from_<field>`): the entries are created and cleaned in
-  the same transaction as the objects, and **deleting a child that is still referenced by
-  its parent is refused loudly**. Flag: `enableForeignKeys` (default ON).
+  The write-path analysis and the W-4 design round landed on the same train
+  ([31](docs/tasks/2.1.0/31-write-path-analysis-design.md),
+  [32](docs/tasks/2.1.0/32-w4-write-path-implementation.md) — [W4-DESIGN.md](docs/W4-DESIGN.md)).
 
 - **W-4b — search-key logical-op journal** ([49](docs/tasks/2.1.0/49-w4b-search-key-journal.md)):
   search-index key-tree mutations append O(delta) redo per search tree instead of rewriting
@@ -172,32 +183,48 @@ Planned scope; items land here as they merge:
 - **W-4c — checkpoint on clean shutdown** ([48](docs/tasks/2.1.0/48-checkpoint-on-shutdown.md)):
   every commit journal is checkpointed at `shutdown()` — after a clean close, a power loss
   loses nothing even with `durableWrites=false`.
+- **Track L (MASTER-PLAN) — logging through the SLF4J API; log4j2 test-only.** The library
+  now logs via `slf4j-api` — the only logging artifact in its dependency tree (65 KB, no
+  dependencies of its own; previously `log4j-core` 2.23.1 (~1.8 MB + CVE surface) arrived
+  transitively with a bundled config that logged the engine's per-operation INFO to the
+  consumer's stdout). **`log4j-core` is no longer provided** — the backend is the
+  application's choice: logback, log4j2 via `log4j-slf4j2-impl`, `slf4j-jdk14`, or none.
+  Example consumer configurations (log4j2 + logback, quiet and diagnostic-verbose) ship in
+  `docs/examples/`; see EMBEDDING.md § Observability. **Migration:** code that relied on
+  log4j2 arriving transitively declares a backend explicitly; an application without any
+  backend sees at most SLF4J's single documented "no provider" notice.
+- **Quiet-by-default level discipline** (Track L-2). The engine's per-operation INFO lines
+  (save/delete/commit/rollback/prepare traces) are demoted to DEBUG; INFO remains for rare
+  lifecycle events (storage open/close, journal checkpoint). This addresses the log spam
+  observed around the 2.0.0 release: a consumer with a backend now sees lifecycle events
+  only, and a consumer without one sees nothing.
+- **Nested transactions are NOT RECOMMENDED for load-heavy use** (decision 2026-10-26):
+  the nested commit/rollback machinery is a known critical-under-load path; flat
+  transactions with explicit compensating code are the recommended pattern. The rework is
+  scheduled for 2.2.0 (optional task). The isolation stress test is excluded from the
+  gate/release profiles (it stays in the nightly and the RC protocol).
+- **The facade load stress test moves to 2.2.0 for investigation**: the failure-cause
+  analysis and the write-performance improvement paths for the facade flow are planned
+  (docs/tasks/2.2.0/13); the test is excluded from the gate/release profiles.
+- **The canonical baseline refreshed for the 2.1.0 feature set** ([43](docs/tasks/2.1.0/43-benchmark-refresh.md)):
+  the 2026-11-21 run (23 trials, machine profile pinned, `enableForeignKeys` disclosed) is the
+  new reference in BENCHMARKS.md. The honest delta vs 2026-10-24 separates machine drift from
+  code (the old revision re-run today): the reads are flat; **the one real code regression is
+  `saveAndDeleteIndexedShipWithCrew` at −24%** — the price of the correctness wave (the
+  overlay staging + the search-key journal), tracked in the W-4 ledger with the rest of the
+  post-release performance backlog.
+- **The foreign-key cost is measured canonically** ([50](docs/tasks/2.1.0/50-fk-cost-benchmark.md)):
+  the JMH A/B (`enableForeignKeys` on/off + an un-annotated control) is published in
+  BENCHMARKS.md § FK A/B and DECISION-GUIDE — the honest verdict is that the FK **write**
+  shapes run outside the engine's ≤2× constant-factor band (cascade-save 23–160×, child delete
+  12–73×, parent update 1.4–12.5×, scaling linearly with the FK-tree size), while the **read**
+  path is free (~1.0×). Enable foreign keys for integrity-critical graphs, not for hot write
+  loops; the O(relations) scan behind the linear scaling is the first W-4c post-release item.
+- **JDK 21 joins the CI matrix** ([27](docs/tasks/2.1.0/27-jdk21-ci-matrix.md)): the suite is
+  verified on Temurin 17 (the gate) and 21 (a parallel CI leg: quick-gate on push/PR, the full
+  suite nightly); the shipped bytecode stays Java 8 (`release=8`). See EMBEDDING § JDK matrix.
 
-### Breaking (planned)
-
-- **On-disk layout change** ([51](docs/tasks/2.1.0/51-layout-migration-upgrade.md)):
-  indexes and B+Tree files relocated to a dedicated `indexes/` subdirectory. The
-  migration runs automatically at open — a 2.0.0 folder is migrated in place (the old
-  layout is not preserved; the data fragments stay in `data/`, the stacked journals are
-  settled lazily by the journal-naming chain). The layout generation is stamped:
-  after the migration the folder marker reads `formatVersion=3` — **a 2.1.0 folder
-  cannot be opened by 2.0.0** (the newer-format gate refuses loudly; before this stamp
-  both generations wrote `formatVersion=2` and the refusal claim was aspirational).
-  The migration is crash-tolerant: a crash mid-migration is completed at the next open;
-  an unmovable file (a Windows lock) refuses the open loudly instead of continuing with
-  a silently empty index. **A 2.0.0 user must back up their folder before upgrading**
-  (the standard `cp -r` while closed). See EMBEDDING "Upgrade from 2.0.0".
-- **Index journals relocated into `data/<Class>/journal/`**
-  ([54](docs/tasks/2.1.0/54-index-journals-to-data.md)): the id-index and search-index
-  commit journals are DATA CARRIERS (the sole durable location of the un-checkpointed
-  id→fragment addressability between checkpoints) and now live with the class's data
-  instead of inside the derived-index `indexes/` directory. All of a class's commit
-  journals — the fragments, the id-index, the search — sit in one place
-  (`data/<Class>/journal/`); the journals found at the older spellings (the 2.1.0-dev
-  `indexes/<Class>/journal/` or the siblings) settle into the data location automatically
-  at the resource's first prepare.
-
-### Fixed (planned)
+### Fixed
 
 - **Concurrent writers no longer collapse on the shared index trees** (the TREEOVERLAY
   program, [53](docs/tasks/2.1.0/53-tree-overlay.md)): B+tree key mutations (id-indexes,
@@ -226,9 +253,26 @@ Planned scope; items land here as they merge:
   worse), and `IN` stays equals-membership. Pinned by `XdStorageMixedKeyFindTest`.
 
 
-Still open from the defect train (**a defect discovered by a train's own work ships with the
-train that discovered it**; BUG-A/C/D are fixed — see [Fixed](#fixed) below):
+A defect discovered by a train's own work ships with the train that discovered it — the
+reopen/defect family below was found and fixed on this train (BUG-B is the one carried
+limitation; see Known issues at the end of this section):
 
+- **BUG-A** ([15](docs/tasks/2.1.0/15-commit-journal-replay-npe.md)) — a structure update can
+  no longer strand the folder: journal/data records embed `java.lang.Class` values that raw
+  `Class.forName` could not resolve for application-loaded entity generations → null identity
+  → a replay NPE that made the folder unopenable. Class resolution now goes through the
+  metadata registry (any classloader), unresolvable journal upserts are skipped loudly
+  (documented recovery), and the codegen shared loader bridges application code sources.
+- **BUG-C** ([17](docs/tasks/2.1.0/17-auto-generated-id-reopen-addressability.md)) — numeric
+  ids are addressable by id after a reopen: the hash id-index resource's `clInfo` describes
+  the RECORD class (`XdStorageHashIndexRecord.objectId`, declared `Object`), so record keys
+  loaded from YAML stayed raw strings and every numeric-id lookup missed after reopen
+  (String ids masked it for years). Keys are now typed on cache fill; no migration needed
+  (on-disk index records were always correct).
+- **BUG-D** ([14](docs/tasks/2.1.0/14-uuid-generator-field-property.md)) — `UUID_GENERATOR`
+  now generates: the property never activated auto-generation (all three gates covered: both
+  id-index resources at save time + the writer's four write-out sites, unified into one
+  helper); the mux validates `UUID_GENERATOR` to String ids loudly.
 - **DUPKEYS** — MULTI B+trees (duplicate keys AND duplicate (key, record) pairs, the FK
   index trees) are correct: the targeted `delete(key, value)` no longer misses pairs lying
   left of an equal separator (the descent went right on equality; separators are
@@ -249,14 +293,12 @@ train that discovered it**; BUG-A/C/D are fixed — see [Fixed](#fixed) below):
   class × truncation point × config ends in a clean open with a WARN or a loud sentinel
   refusal — **never a silently-partial open** (`XdStoragePowerLossRecoveryMatrixTest`); the
   after-a-power-loss recovery recipe lives in EMBEDDING.md. **The `durableWrites` default was
-  re-decided and KEPT OFF**: the ~8× write cost would falsify the published throughput
-  envelope; the recovery recipe + the one-line `durableWrites(true)` escalation cover the
-  durability-sensitive embedder (EMBEDDING § After a power loss). Checkpoint-on-clean-shutdown
-  is deferred to W-4's train with a size note.
-- **BUG-B** ([16](docs/tasks/2.1.0/16-id-addressability-after-structure-update.md)) — refined:
-  the codegen wrapper identity is NAME-based, so two live generations of one entity FQCN
-  collide on one wrapper class; generation-aware wrapper identity is the design decision
-  to make.
+  re-decided and KEPT OFF**: the fsync write cost (measured ~8× at decision time; the
+  canonical 2026-11-21 baseline measures ~95× — the non-fsync path got 24× faster since)
+  would falsify the published throughput envelope; the recovery recipe + the one-line
+  `durableWrites(true)` escalation cover the durability-sensitive embedder (EMBEDDING §
+  After a power loss). Checkpoint-on-clean-shutdown shipped on this train as W-4c (Changed
+  above).
 - **BUG-E** ([18](docs/tasks/2.1.0/18-bug-search-index-key-types-after-reopen.md)) — FIXED:
   search-index key types are restored at reopen. After a close/open cycle, range, `EQUALS` and
   `count` on a **numeric** search index crashed (`Long` bound vs raw-`String` persisted keys and
@@ -269,58 +311,21 @@ train that discovered it**; BUG-A/C/D are fixed — see [Fixed](#fixed) below):
   regression missed it. Discovered by the FP-11 example app; its quickstart asserts range + count
   after the reopen again.
 
-### Changed (planned)
+### Known issues (carried)
 
-- **Track L (MASTER-PLAN) — logging through the SLF4J API; log4j2 test-only.** The library
-  now logs via `slf4j-api` — the only logging artifact in its dependency tree (65 KB, no
-  dependencies of its own; previously `log4j-core` 2.23.1 (~1.8 MB + CVE surface) arrived
-  transitively with a bundled config that logged the engine's per-operation INFO to the
-  consumer's stdout). **`log4j-core` is no longer provided** — the backend is the
-  application's choice: logback, log4j2 via `log4j-slf4j2-impl`, `slf4j-jdk14`, or none.
-  Example consumer configurations (log4j2 + logback, quiet and diagnostic-verbose) ship in
-  `docs/examples/`; see EMBEDDING.md § Observability. **Migration:** code that relied on
-  log4j2 arriving transitively declares a backend explicitly; an application without any
-  backend sees at most SLF4J's single documented "no provider" notice.
-- **Nested transactions are NOT RECOMMENDED for load-heavy use** (decision 2026-10-26):
-  the nested commit/rollback machinery is a known critical-under-load path; flat
-  transactions with explicit compensating code are the recommended pattern. The rework is
-  scheduled for 2.2.0 (optional task). The isolation stress test is excluded from the
-  gate/release profiles (it stays in the nightly and the RC protocol).
-- **The facade load stress test moves to 2.2.0 for investigation**: the failure-cause
-  analysis and the write-performance improvement paths for the facade flow are planned
-  (docs/tasks/2.2.0/13); the test is excluded from the gate/release profiles.
-
-- **The canonical baseline refreshed for the 2.1.0 feature set** ([43](docs/tasks/2.1.0/43-benchmark-refresh.md)):
-  the 2026-11-21 run (23 trials, machine profile pinned, `enableForeignKeys` disclosed) is the
-  new reference in BENCHMARKS.md. The honest delta vs 2026-10-24 separates machine drift from
-  code (the old revision re-run today): the reads are flat; **the one real code regression is
-  `saveAndDeleteIndexedShipWithCrew` at −24%** — the price of the correctness wave (the
-  overlay staging + the search-key journal), tracked in the W-4 ledger with the rest of the
-  post-release performance backlog.
-- **The foreign-key cost is measured canonically** ([50](docs/tasks/2.1.0/50-fk-cost-benchmark.md)):
-  the JMH A/B (`enableForeignKeys` on/off + an un-annotated control) is published in
-  BENCHMARKS.md § FK A/B and DECISION-GUIDE — the honest verdict is that the FK **write**
-  shapes run outside the engine's ≤2× constant-factor band (cascade-save 23–160×, child delete
-  12–73×, parent update 1.4–12.5×, scaling linearly with the FK-tree size), while the **read**
-  path is free (~1.0×). Enable foreign keys for integrity-critical graphs, not for hot write
-  loops; the O(relations) scan behind the linear scaling is the first W-4c post-release item.
-- **JDK 21 joins the CI matrix** ([27](docs/tasks/2.1.0/27-jdk21-ci-matrix.md)): the suite is
-  verified on Temurin 17 (the gate) and 21 (a parallel CI leg: quick-gate on push/PR, the full
-  suite nightly); the shipped bytecode stays Java 8 (`release=8`). See EMBEDDING § JDK matrix.
-
-- **Quiet-by-default level discipline** (Track L-2). The engine's per-operation INFO lines
-  (save/delete/commit/rollback/prepare traces) are demoted to DEBUG; INFO remains for rare
-  lifecycle events (storage open/close, journal checkpoint). This addresses the log spam
-  observed around the 2.0.0 release: a consumer with a backend now sees lifecycle events
-  only, and a consumer without one sees nothing.
+- **BUG-B** ([16](docs/tasks/2.1.0/16-id-addressability-after-structure-update.md)) — open,
+  refined: the codegen wrapper identity is NAME-based, so two live generations of one entity
+  FQCN collide on one wrapper class. Filed with the exact reproduction; generation-aware
+  wrapper identity is the design decision to make. Everything else from the defect train
+  (BUG-A/C/D/E, DUPKEYS, PWRLOSS) is fixed in this release.
 
 ## [2.0.0] — 2026-10-21 (first public release)
 
 The 2.0 engineering campaign is journaled in detail in
-[OPTIMIZATION-PLAN.md](OPTIMIZATION-PLAN.md) (engine, R-1..R-59),
-[SRE-OPTIMIZATION-PLAN.md](SRE-OPTIMIZATION-PLAN.md) (S-1..S-5, W-1..W-3, O/C phases),
-[CODEGEN-OPTIMIZATION-PLAN.md](CODEGEN-OPTIMIZATION-PLAN.md) and
-[PERFORMANCE-RECOMMENDATIONS.md](PERFORMANCE-RECOMMENDATIONS.md). Highlights below.
+[OPTIMIZATION-PLAN.md](docs/OPTIMIZATION-PLAN.md) (engine, R-1..R-59),
+[SRE-OPTIMIZATION-PLAN.md](docs/SRE-OPTIMIZATION-PLAN.md) (S-1..S-5, W-1..W-3, O/C phases),
+[CODEGEN-OPTIMIZATION-PLAN.md](docs/CODEGEN-OPTIMIZATION-PLAN.md) and
+[PERFORMANCE-RECOMMENDATIONS.md](docs/PERFORMANCE-RECOMMENDATIONS.md). Highlights below.
 
 ### Breaking
 
@@ -335,7 +340,7 @@ The 2.0 engineering campaign is journaled in detail in
   `FilesFormat.JSON` must switch to `FilesFormat.XML` or `FilesFormat.YAML`. A 1.x folder
   written through the old constant is an XML-format folder with a `.json` extension —
   migrate by renaming `*.json` → `*.xml` inside `data/` and `structure/` and reopening with
-  `FilesFormat.XML` (recipe in [EMBEDDING.md](EMBEDDING.md) § Compatibility).
+  `FilesFormat.XML` (recipe in [EMBEDDING.md](docs/EMBEDDING.md) § Compatibility).
 - **YAML readers reject files without the EOF sentinel by default** (S-1). 1.x-era YAML
   folders open with `XdStorageConfig.builder().acceptMissingEofSentinel(true)`; 2.0-created
   folders are unaffected.
@@ -343,11 +348,6 @@ The 2.0 engineering campaign is journaled in detail in
 
 ### Added
 
-- **EXPLAIN** (task 25): `storage.explain(Class, indexName, query)` — the read-only query
-  plan (`XdStorageQueryPlan`): INDEX_SEEK / INDEX_RANGE_WALK / SCAN, the bound shape, the
-  post-filters, the degradation reason (including the FP-1a "range on a Hash id index →
-  scan" fallback) and the shaping summary. Extracted from the routing classification the
-  execution lives by (the plan cannot disagree with it); never executes.
 - **Commit journal** (W-1..W-3): append-only per-transaction journal with O(delta) appends,
   prepare-replay, size-threshold checkpoint, failed-commit compensation; per-transaction
   materialization budget (`txMaterializedObjectsCap`) with loud failure instead of unbounded
@@ -367,28 +367,17 @@ The 2.0 engineering campaign is journaled in detail in
   reproducible builds (`project.build.outputTimestamp`), tag-triggered release workflow,
   Dependabot.
 
-### Fixed
+### Changed
 
-- **BUG-C — numeric ids are addressable by id after a reopen** (2.1.0/17): the hash id-index
-  resource restored record keys without the ENTITY's id-field type (`Long 9000` vs stored
-  `"9000"`), so every numeric-id lookup missed after reopen — generated and explicit alike;
-  String ids masked it for years. Keys are now typed on cache fill; no migration needed
-  (on-disk records were always correct).
-- **BUG-D — `UUID_GENERATOR` now generates** (2.1.0/14): the property never activated
-  auto-generation (all three gates covered: both id-index resources at save time + the
-  writer's four write-out sites, unified into one helper); the mux validates
-  UUID_GENERATOR to String ids loudly; the README id-generation matrix replaces the
-  incorrect "client assigns" text.
-- **BUG-A — a structure update can no longer strand the folder** (2.1.0/15): journal/data
-  records embed `java.lang.Class` values that raw `Class.forName` could not resolve for
-  application-loaded entity generations → null identity → a replay NPE that made the
-  folder unopenable. Class resolution now goes through the metadata registry (any
-  classloader), unresolvable journal upserts are skipped loudly (documented recovery),
-  and the codegen shared loader bridges application code sources.
-- **BUG-B refined, open** (2.1.0/16): after the A/C fixes the remaining seam is precise —
-  the codegen wrapper identity is NAME-based, so two live generations of one entity FQCN
-  collide on one wrapper class. Filed with the exact reproduction; generation-aware
-  wrapper identity is the design decision to make.
+- Engine defaults from the configuration study: worker threads **t=64**, fragment size
+  **frag=128** ([PERFORMANCE-RECOMMENDATIONS.md](docs/PERFORMANCE-RECOMMENDATIONS.md)).
+- Wrapper codegen hardened to the JavaBean specification
+  ([CODEGEN-OPTIMIZATION-PLAN.md](docs/CODEGEN-OPTIMIZATION-PLAN.md)).
+- Test suite: ~706 tests (up from ~120 at the 2.0 campaign start), stress/JMH families
+  included; benchmarks and baselines in [BENCHMARKS.md](docs/BENCHMARKS.md); flake ledger in
+  [FLAKY.md](docs/FLAKY.md) (one documented, tolerated full-suite-load row → Track B3).
+
+### Fixed
 
 - **Track A flake families** (R-54..R-58): facade-storm, GraphPhantom and Xml purge flakes
   resolved — 10/10 all-stress gate, full suite green; 13 regression pins (`333e864`).
@@ -396,17 +385,9 @@ The 2.0 engineering campaign is journaled in detail in
   `node.read/find`.
 - **Reopen divergence** (R-53): commit journal now covers DATA classes only (B+tree
   infrastructure exclusion), caught by a 24h soak.
-- Full engine journal: R-1..R-59 in [OPTIMIZATION-PLAN.md](OPTIMIZATION-PLAN.md).
-
-### Changed
-
-- Engine defaults from the configuration study: worker threads **t=64**, fragment size
-  **frag=128** ([PERFORMANCE-RECOMMENDATIONS.md](PERFORMANCE-RECOMMENDATIONS.md)).
-- Wrapper codegen hardened to the JavaBean specification
-  ([CODEGEN-OPTIMIZATION-PLAN.md](CODEGEN-OPTIMIZATION-PLAN.md)).
-- Test suite: ~706 tests (up from ~120 at the 2.0 campaign start), stress/JMH families
-  included; benchmarks and baselines in [BENCHMARKS.md](BENCHMARKS.md); flake ledger in
-  [FLAKY.md](FLAKY.md) (one documented, tolerated full-suite-load row → Track B3).
+- Full engine journal: R-1..R-59 in [OPTIMIZATION-PLAN.md](docs/OPTIMIZATION-PLAN.md).
+  (The reopen defect family BUG-A/C/D/E and the FK/defect-train fixes of 2.1.0 live in the
+  [Unreleased] section above — they were discovered and shipped after this release.)
 
 ## [1.x] — historical (never tagged)
 
@@ -414,6 +395,6 @@ Pre-history: no tagged releases; on-disk format v1. Notable arcs from the git lo
 storage core, B+tree secondary indexes and hardening, search engine, YAML format
 introduction, wrapper codegen (simple/unmodifiable/observable), resource cache, MVCC
 snapshot isolation, PostgreSQL support removed. 1.x folders open in 2.0 per the
-compatibility matrix in [EMBEDDING.md](EMBEDDING.md).
+compatibility matrix in [EMBEDDING.md](docs/EMBEDDING.md).
 
 [2.0.0]: https://github.com/xdstorage/xdstorage/releases/tag/v2.0.0
