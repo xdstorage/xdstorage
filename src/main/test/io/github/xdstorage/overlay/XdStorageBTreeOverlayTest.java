@@ -7,7 +7,6 @@ import io.github.xdstorage.serialization.FilesFormat;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -82,7 +81,6 @@ public class XdStorageBTreeOverlayTest {
     }
 
     @Test
-    @Disabled("W-4 next layer: the wrapper write-through aliasing — the caller mutates the canonical through the loaded wrapper's setters, so the foreign tx sees the uncommitted mutations through the aliased instance. The pin is CORRECT (the DBMS semantics); the fix = the wrapper-level de-aliasing (the SmartCloner/reference-provider layer). The read-time snapshot capture (this session) closed the ROLLBACK half; the visibility half awaits the wrapper work.")
     @DisplayName("staged insert: своя TX видит пару, чужая — нет до коммита; после коммита видна всем")
     public void stagedInsert_VisibilityContract() throws Exception {
         // TX0: seed the parent
@@ -118,7 +116,6 @@ public class XdStorageBTreeOverlayTest {
     }
 
     @Test
-    @Disabled("W-4 next layer: the same wrapper write-through aliasing — the rollback restore works (the role-split + fillObject verified on the delete flows and MassFillSecond ×3 survivors=0), but the update-on-loaded-wrapper flow restores the already-mutated collection through the aliased canonical. The full closure = the wrapper-level de-aliasing. The delete-only variant of this pin is covered by the resolver/reopen suites.")
     @DisplayName("rollback = discard overlay + pre-tx restore: стейдженные операции исчезают")
     public void rollback_DiscardsOverlay() throws Exception {
         final IXdStorageTransaction tx0 = storage.beginTransaction();

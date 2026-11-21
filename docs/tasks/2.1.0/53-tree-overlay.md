@@ -507,3 +507,64 @@ pins + the task-41 disabled-red repro).
 validator with its own raw compare is a latent CCE on every legal state the main path
 accepts); the loud contracts must be DESIGNED (a pre-flight), not borrowed from an
 accident (a raw-compare CCE deep in the walk).
+
+## W-4 WRAPPER-LAYER BLOCK — CLOSED (2026-11-21, the night): the de-aliasing work item COLLAPSED into a test-entity premise fix; the read-snapshot cost MEASURED and ACCEPTED
+
+**The plan was:** one research session + one implementation for (3) the lazy read-snapshot
+and (4) the wrapper de-aliasing (the 2 @Disabled pins), combined — one area, one pass.
+
+**What the research found (the Explore map + the empirical probes):**
+1. The by-id load path is ALREADY de-aliased at the wrapper level: the caller receives
+   the per-tx memoized simple wrapper whose INNER is a FRESH instance (the reference
+   provider's createAndRegisterReference) — the record canonical is NOT the mutated
+   target. The field packer (XdStorageClonerFieldPacker) deep-copies collections.
+2. The REAL alias channels are narrower than feared: the id-less nested entities
+   materialize as observable wrappers wrapping the ORIGINAL element (the deferred-id
+   write-through is LOAD-BEARING there — that aliasing is BY DESIGN), plus the
+   readByReference fillAndWrap into caller-supplied instances (the API contract).
+3. THE ROOT CAUSE of the 2 red pins was NEVER aliasing: the engine WARNed in plain
+   text — `XdStorageReflectionFieldScanner: Field 'children' of class OvParent has a
+   getter 'getChildren' but no matching setter 'setChildren' — the field is DROPPED
+   from persistence (data loss on reload)!` The overlay test entities violated the
+   engine's JavaBeans contract → NOTHING round-tripped (not the seed, not the commit,
+   not the rollback) → the pins failed for a premise bug. The setter TYPE must match
+   the field's declared type exactly (a Collection param on a List field does NOT
+   match — the first fix attempt still warned).
+
+**The fix:** OvParent got `setChildren(List<OvChild>)` (the MassFillSecond pattern —
+"fix the test, not the engine"; the engine's drop+warn behavior is the documented
+JavaBeans contract, pinned by XdStorageWrapperJavaBeansContractTest). BOTH former
+@Disabled pins re-enabled GREEN + the diagnostic suite promoted to an official pin
+(XdStorageOverlayDiagTest: the commit survival, the REOPEN file-truth, the rollback
+restore to the exact pre-tx content, the foreign-tx visibility — no uncommitted leak).
+
+**The fillObject direction question (the research's load-bearing doubt) — CLOSED
+EMPIRICALLY:** the rollback restore returns the exact pre-tx content (the diag's
+rollback probe: 1 original child after the rollback). The javadoc contradiction
+(fillObject vs fillFromSameTypeObject describing opposite directions) is doc debt,
+not a behavior bug — the identity-swap fallback (prevObject) or the visited-map
+direction makes the observable behavior correct. NOT touched.
+
+**The read-snapshot cost — MEASURED, DECISION: ACCEPT + DOCUMENT (the user's option B,
+now with numbers instead of the ~2x fear):** the A/B probe (XdStorageReadCostProbe,
+the engine patched vs not): small entities (3 children) — cold ~21K vs ~23-25K loads/s,
+warm within noise (~10-15%); large entities (30 children) — cold ~13K vs ~17K (+33%),
+warm ~17K vs ~20.5K (+20%). NOT ~2x. The lazy-snapshot-via-generated-setter-interception
+design has a HOLE: the collection mutations through the live container references
+(getChildren().add(...)) bypass the setters entirely — the interception cannot see them;
+the design must cover the container-reference channel or stay incomplete. AND the eager
+capture is the CORRECTNESS NET for the task-40 alias channels: the in-place nested-element
+mutation through the aliased observable wrappers lands BEFORE the mark — the mark-time
+fallback alone would snapshot the already-mutated canonical (the MassFill family's
+exact vector). The generated-setter lazy capture stays in the 2.2.0 ledger with the
+container-bypass caveat. Task 43 BENCHREFRESH may take the baseline WITH the documented
+~10-33% read-path delta (the probe's numbers are the reference).
+
+**The gate ×3: 1331/0f/0e ×3 BUILD SUCCESS ×3** (1329 + the 2 promoted diag pins; the
+skips 11→9: the two W-4 wrapper pins are GREEN now; the remaining skips = the probe +
+the task-41 disabled-red repro + the profile's own set). The estate: 476/0f/0e.
+
+**The W-4 release posture AFTER this block:** the wrapper de-aliasing — DONE (closed as
+a premise fix, no engine change); the read-snapshot cost — ACCEPTED+DOCUMENTED (the
+lazy capture = 2.2.0 with the design caveat); the B-link tree — post-release design
+work. NOTHING committed (the user commits per their branch discipline).

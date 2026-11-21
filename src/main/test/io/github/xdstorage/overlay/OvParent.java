@@ -30,4 +30,5 @@ public class OvParent {
     public void setId(String id) { this.id = id; }
     public List<OvChild> getChildren() { return children; }
     public void addChild(OvChild c) { children.add(c); }
+    public void setChildren(final java.util.List<OvChild> children) { this.children = children; }
 }
