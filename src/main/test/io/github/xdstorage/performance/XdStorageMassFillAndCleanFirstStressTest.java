@@ -264,11 +264,6 @@ public class XdStorageMassFillAndCleanFirstStressTest {
             Assertions.assertTrue(storage.load(XdGalaxyAutoSave.class, verifyTx).isEmpty(), "Утечка памяти! Найдена XdGalaxy!");
             Assertions.assertTrue(storage.load(XdStarSystemAutoSave.class, verifyTx).isEmpty(), "Утечка памяти! Найдена XdStarSystem!");
             final Collection<XdPlanetAutoSave> leakedPlanets = storage.load(XdPlanetAutoSave.class, verifyTx);
-            if (!leakedPlanets.isEmpty()) {
-                for (final XdPlanetAutoSave lp : leakedPlanets) {
-                    System.out.println("[LEAK-PROBE] выжившая планета id=" + lp.getId() + " name=" + lp.getName());
-                }
-            }
             Assertions.assertTrue(leakedPlanets.isEmpty(), "Утечка памяти! Найдена XdPlanet!");
             verifyTx.commit();
             System.out.println("🎉 Верификация по классам успешна: в памяти СУБД чисто.");

@@ -273,30 +273,6 @@ public final class XdStorageBTreeInvariants {
             onlyViaRoot.removeAll(leavesViaChain);
             final Set<Object> onlyViaChain = new HashSet<>(leavesViaChain);
             onlyViaChain.removeAll(leavesViaRoot);
-            if (XdStorageBTreeNode.CHAIN_DEBUG) {
-                final StringBuilder dump = new StringBuilder("[CHAIN] divergence dump: ");
-                XdStorageBTreeNode cur = tree.getFirstLeaf();
-                while (cur != null) {
-                    dump.append(cur.getId()).append("->").append(cur.getNextTreeNodeOnThisLevel() != null ? cur.getNextTreeNodeOnThisLevel().getId() : "null").append(' ');
-                    cur = cur.getNextTreeNodeOnThisLevel();
-                }
-                System.out.println(dump);
-                // R-56: корневая сторона расхождения — какие ИНСТАНЦИИ обошел descend
-                // (id@identityHash): сравнение с [CHAIN] REGISTER-строками выявляет дуальность
-                // инстанций (спуск шел через не-каноническую копию) против потери связи
-                // (лист в цепочке, но недостижим из корня при канонных инстанциях).
-                try {
-                    final StringBuilder rootDump = new StringBuilder("[CHAIN] root-descent dump: tree@")
-                            .append(System.identityHashCode(tree))
-                            .append(" root@").append(tree.getRoot() == null ? "null" : System.identityHashCode(tree.getRoot()))
-                            .append(" firstLeaf@").append(tree.getFirstLeaf() == null ? "null" : System.identityHashCode(tree.getFirstLeaf()))
-                            .append(" : ");
-                    dumpRootDescent(tree.getRoot(), storage, transaction, rootDump, new HashSet<>());
-                    System.out.println(rootDump);
-                } catch (final Throwable t) {
-                    System.out.println("[CHAIN] root-descent diagnostics failed: " + t);
-                }
-            }
             throw new XdStorageException(context + ": рассинхрон структуры: листьев только из корня: " + onlyViaRoot
                     + ", листьев только из цепочки: " + onlyViaChain
                     + " (из корня: " + leavesViaRoot.size() + ", из цепочки: " + leavesViaChain.size() + ")");
@@ -341,26 +317,6 @@ public final class XdStorageBTreeInvariants {
      * R-56: диагностический обход из корня для дампа расхождения — только id@identityHash,
      * без бросков (диагностика не имеет права маскировать исходное нарушение).
      */
-    private static void dumpRootDescent(final XdStorageBTreeNode node, final IXdStorage storage,
-                                        final XdStorageTransaction transaction,
-                                        final StringBuilder sb, final Set<Object> visited)
-            throws XdStorageException, XdStorageConnectionException {
-        if (node == null || !visited.add(node.getId())) {
-            return;
-        }
-        XdStorageBTreeNode resolved = node;
-        if (XdStorageObjectUtils.isReference(node)) {
-            resolved = XdStorageBTreeNode.materialize(node, storage, transaction, null, null);
-        }
-        sb.append(resolved.getId()).append('@').append(System.identityHashCode(resolved)).append(' ');
-        final List<XdStorageBTreeNode> children = new ArrayList<>(resolved.getChildren());
-        for (final XdStorageBTreeNode child : children) {
-            if (child != null) {
-                dumpRootDescent(child, storage, transaction, sb, visited);
-            }
-        }
-    }
-
     private static void descendCollectingLeaves(final XdStorageBTreeNode node, final IXdStorage storage,
                                                 final XdStorageTransaction transaction, final Set<Object> leaves,
                                                 final String context, final Set<Object> visited,

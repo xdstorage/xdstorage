@@ -613,9 +613,6 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
                 log.warn("search tree {} adopted from the canonical instance registry (cache record lost)", searchBTreeId);
             }
         }
-        if (tree == null && Boolean.getBoolean("xdstorage.chain.debug")) {
-            System.out.println("[CHAIN] SEARCH-TREE-MISS id=" + searchBTreeId + " recordId=" + record.getId());
-        }
         if (tree == null) {
             throw new XdStorageException("object with id " + record.getId() + " does not exists");
         }
