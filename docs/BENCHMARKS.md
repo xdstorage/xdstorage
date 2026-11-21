@@ -135,7 +135,7 @@ the attribution notes in docs/perf/canonical-baseline-2026-11-21/.
 #### The honest delta vs BOTH predecessors (generated; task 43)
 
 | Scenario | Params | 2026-10-24 | 2026-10-22 | 2026-11-21 (new) | 2026-11-21 vs 2026-10-24 | 2026-11-21 vs 2026-10-22 |
-|---|---|---|---|---|---|
+|---|---|---|---|---|---|---|
 | `commitBatch` | batchSize=10 | 2,435 | 116 | 1,393 | 0.57× ⚠️ | 12.04× ↑ |
 | `commitBatch` | batchSize=100 | 310 | 35 | 143 | 0.46× ⚠️ | 4.08× ↑ |
 | `commitBatch` | batchSize=1000 | 31 | 11 | 14 | 0.45× ⚠️ | 1.30× |

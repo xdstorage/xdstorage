@@ -34,7 +34,10 @@ def main():
     out = []
     ratio_header = " | ".join(f"{new_label} vs {c}" for c in header_cols)
     out.append("| Scenario | Params | " + " | ".join(header_cols + [new_label + " (new)"]) + " | " + ratio_header + " |")
-    out.append("|---|" + "---|" * (2 + len(header_cols) + 1))
+    # the separator must MATCH the header's column count (2 + the old columns + the new
+    # column + the ratio columns) — a mismatch breaks the GFM table rendering entirely
+    total_cols = 2 + len(header_cols) + 1 + len(header_cols)
+    out.append("|" + "---|" * total_cols)
     for (m, pt) in keys:
         params = ",".join(f"{k}={v}" for k, v in pt) or "—"
         new_score = new[(m, pt)]
@@ -47,7 +50,8 @@ def main():
                 ratio = new_score / old_score
                 mark = ""
                 if ratio <= 0.75:
-                    mark = " ⚠️"  # a >25% regression on the new set
+                    mark = " ⚠️"  # a >25% regression on the new set (see the Reading notes
+                                  # below the table for the drift-vs-code attribution)
                 elif ratio >= 1.5:
                     mark = " ↑"    # a >50% improvement
                 ratios.append(f"{ratio:.2f}×{mark}")
