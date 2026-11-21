@@ -1,0 +1,25 @@
+[BINEXP] N=5000 rounds=5 lookups=500 root=./target/binexp-780852246562674
+[BINEXP] YAML: 8,141,017 bytes, checkpoint 102 ms
+[BINEXP][diag] yaml lookup round 0: FIRST 30,398 µs (reader 23,475 µs), avg 24 µs/op
+[BINEXP][diag] yaml lookup round 1: FIRST 25,819 µs (reader 19,107 µs), avg 22 µs/op
+[BINEXP][diag] yaml lookup round 2: FIRST 26,187 µs (reader 19,684 µs), avg 22 µs/op
+[BINEXP][diag] yaml lookup round 3: FIRST 33,010 µs (reader 26,532 µs), avg 21 µs/op
+[BINEXP][diag] yaml lookup round 4: FIRST 24,087 µs (reader 18,428 µs), avg 21 µs/op
+[BINEXP] swapped the reader/writer of 80 live resources to binary
+[BINEXP] conversion staged 5000 entities into the cache before the checkpoint
+[BINEXP] 79 base files verified binary (BF1 magic)
+[BINEXP] the index base converted: 5000 records
+[BINEXP] BINARY: 2,594,648 bytes (3.14× of YAML), checkpoint 34 ms
+[BINEXP][diag] bin lookup round 0: FIRST 5,152 µs, avg 7 µs/op
+[BINEXP][diag] bin lookup round 1: FIRST 5,597 µs, avg 7 µs/op
+[BINEXP][diag] bin lookup round 2: FIRST 4,156 µs, avg 5 µs/op
+[BINEXP][diag] bin lookup round 3: FIRST 6,892 µs, avg 7 µs/op
+[BINEXP][diag] bin lookup round 4: FIRST 7,430 µs, avg 7 µs/op
+
+=== BINEXP RESULT (medians over 5 rounds) ===
+cold full scan:  YAML 145 ms (serialization 119 ms) | BINARY 27 ms (serialization 10 ms) | realized 5.28×
+cold FIRST lookup: YAML 26,187 µs | BINARY 5,597 µs | realized 4.68×
+warm lookups:      YAML 22 µs | BINARY 7 µs (format-blind: the record cache)
+checkpoint write-out: YAML 102 ms | BINARY 34 ms | realized 3.00×
+storage bytes: YAML 8,141,017 | BINARY 2,594,648 (3.14× smaller)
+INTEGRITY: every entity field-equal to the source model in BOTH arms; all lookups payload-checked; the bases BF1-magic-verified.

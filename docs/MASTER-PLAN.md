@@ -307,11 +307,13 @@ grouping is tags, not layout.
     task. The 2.2.0 announcement notes are drafted at
     docs/announcements/2.2.0-ANNOUNCEMENT-NOTES.md (the writer's input for task 11).
 
-**2.1.0 exit (2026-11-22 status): everything landed except 33 + 44.** The stress family is
-7/7, the gate ×3 is green through the whole wave (1344/0f/0e at the FKBENCH landing); the
-RC protocol runs after 44 (the writer pass) and 33 (the FP-9 measurement) close: full suite
-×3, kill-9/torn-journal recovery, JMH vs the refreshed 2026-11-21 baseline, fresh-clone +
-2.0.0-upgrade walkthroughs → tag `v2.1.0`.
+**2.1.0 exit (2026-11-22 status): everything landed except 44 (33 BINFEAS closed
+2026-11-22: the FP-9 gate RESOLVED — GO for the design round, see
+docs/perf/binfeas-2026-11-22/RESULTS.md).** The stress family is 7/7, the gate ×3 is
+green through the whole wave (1344/0f/0e at the FKBENCH landing); the RC protocol runs
+after 44 (the writer pass) closes: full suite ×3, kill-9/torn-journal recovery, JMH vs
+the refreshed 2026-11-21 baseline, fresh-clone + 2.0.0-upgrade walkthroughs → tag
+`v2.1.0`.
 
 ### Step 2 — The engine's 2.x maturity (3–5 sessions, design round first)
 
@@ -350,8 +352,13 @@ an embedder) — the frozen-items inventory exists precisely to prevent speculat
 - **FP-2** `explain()` for queries (plan + records visited + elapsed; P1)
 - **FP-7** Spring Boot starter (autoconfiguration, config properties, lifecycle bean; P2)
 - **FP-8** `xdstorage-micrometer` module (amends F-7; P2)
-- **FP-9** binary compact format as non-default SPI (post-W-4; gate = task 33's
-  serialization-share measurement — the OPTIMIZATION-PROPSAL-01 demand signal)
+- **FP-9** binary compact format as non-default SPI (post-W-4; ~~gate = task 33's
+  serialization-share measurement~~ **GATE RESOLVED 2026-11-22: GO for the design
+  round** — the serialization layer is 84–86% of the cold full load, 82–86% of the cold
+  FIRST lookup, 76–79% of the checkpoint write-out (the ceiling ≈ 4.2–7.4× assuming a
+  zero-cost parser; the gzip bytes floor 29.6×). Warm paths are format-blind (1×).
+  Numbers + caveats: docs/perf/binfeas-2026-11-22/RESULTS.md; the open design-round
+  question: the journal-append serialization share (bypasses the SPI, unmeasured)
 - **FP-13** after-commit asynchronous listeners (the OPTIMIZATION-PROPSAL-01 async-trigger
   idea, re-framed): event hooks that run AFTER the commit, never inside it — the in-commit
   veto contract stays untouched; failure = logged, never rollback. Demand-driven.

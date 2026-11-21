@@ -1,0 +1,27 @@
+[BINFEAS] N=20000 rounds=7 lookups=500 root=./target/binfeas-778290035065183
+[BINFEAS] fill: 20000 entities in 785 ms; storage 32,688,726 bytes in 316 files
+[BINFEAS] scan round 0: 1,325 ms wall, reader 719 ms (20000 loaded)
+[BINFEAS] scan round 1: 612 ms wall, reader 529 ms (20000 loaded)
+[BINFEAS] scan round 2: 593 ms wall, reader 504 ms (20000 loaded)
+[BINFEAS] scan round 3: 624 ms wall, reader 533 ms (20000 loaded)
+[BINFEAS] scan round 4: 600 ms wall, reader 516 ms (20000 loaded)
+[BINFEAS] scan round 5: 602 ms wall, reader 529 ms (20000 loaded)
+[BINFEAS] scan round 6: 624 ms wall, reader 550 ms (20000 loaded)
+[BINFEAS] lookup round 0: FIRST 96,167 µs (reader 79,127 µs), then avg 25 µs/op
+[BINFEAS] lookup round 1: FIRST 96,814 µs (reader 80,754 µs), then avg 24 µs/op
+[BINFEAS] lookup round 2: FIRST 106,556 µs (reader 87,153 µs), then avg 25 µs/op
+[BINFEAS] lookup round 3: FIRST 96,544 µs (reader 81,959 µs), then avg 23 µs/op
+[BINFEAS] lookup round 4: FIRST 96,921 µs (reader 83,171 µs), then avg 23 µs/op
+[BINFEAS] lookup round 5: FIRST 100,575 µs (reader 82,341 µs), then avg 32 µs/op
+[BINFEAS] lookup round 6: FIRST 104,197 µs (reader 89,084 µs), then avg 24 µs/op
+[BINFEAS] IO floor (page-cache warm): median 5 ms
+[BINFEAS] gzip lever: yaml 32,688,446 b -> gzip 1,102,836 b (ratio 29.6×)
+[BINFEAS] write wave: 20000 saves in 491 ms (journal-serialized 0 ms counted at the factory)
+[BINFEAS] shutdown checkpoint: 292 ms wall, writer 223 ms
+
+=== BINFEAS RESULT (medians) ===
+scan cold full load:   wall 612 ms | serialization 529 ms (86.4%) | IO floor 5 ms (0.9%) | engine residual 83 ms (13.6%)
+cold FIRST lookup:     96,921 µs | serialization inside 83,370 µs (86.0%)
+warm lookups:          avg 24 µs/op (no parse — the record cache)
+checkpoint write-out:  serialization 76.3% of the checkpoint wall
+storage bytes: 32,688,726 in 316 files

@@ -1,7 +1,7 @@
 ---
 title: "[2.1.0][BINFEAS] Binary-format feasibility: measure the serialization share on cold paths (FP-9's gate)"
 labels: [2.1.0-train, P2, docs, performance]
-status: open
+status: done
 ---
 
 ## Summary
@@ -66,3 +66,95 @@ Estimate: ~0.5–1 dev-day.
 - [PERFORMANCE-RECOMMENDATIONS.md](../../PERFORMANCE-RECOMMENDATIONS.md) §4 (the cold-path
   parse cost data)
 - [MASTER-PLAN.md](../../MASTER-PLAN.md) Step 4, FP-9 (the gate this resolves)
+
+
+---
+
+## DONE (2026-11-22): the gate executed — GO for the FP-9 design round
+
+**The method (no production changes):** a timing DECORATOR over the serialization SPI
+factory, swapped into the services locator via reflection from the harness; the reader
+calls = parse+build, the writer calls = serialization; the IO floor = raw page-cache-warm
+reads of the same files; the engine = the residual; the bytes lever = gzip over the YAML
+(the floor of the structure-aware size reduction); medians over 7 rounds; the canonical
+conditions (WARN-console logging, quiet box, manifest.json beside the results).
+
+**The measured split (docs/perf/binfeas-2026-11-22/RESULTS.md):**
+
+| Scenario | N=5k | N=20k |
+|---|---|---|
+| cold full load | serialization **84.4%**, IO 1.1%, engine 15.6% | serialization **86.4%**, IO 0.9%, engine 13.6% |
+| cold FIRST lookup | 82.0% serialization inside 27 ms | 86.0% inside 97 ms |
+| checkpoint write-out | 78.7% serialization | 76.3% |
+| gzip bytes floor | 29.6× | 29.6× |
+| warm lookups | 23 µs/op (format-blind) | 24 µs/op |
+
+**The ceiling**: 4.2–7.4× assuming a zero-cost parser (the realized gains land at the
+lower end). **The proposal's "5–10×" verdict: the right order of magnitude on the cold
+paths, for the wrong reason — a PARSE win, not an IO win (the IO floor is ~1%).**
+
+**The verdict: GO** — FP-9 proceeds to a design round (2.2.0+, non-default SPI) with
+these numbers as the baseline expectations. The framing the design round inherits: the
+binary format is a RESTART/COLD-START feature (the warm paths are format-blind); the
+open question: the per-commit journal-append serialization share (bypasses the SPI
+factory — unmeasured here).
+
+**The disclosures:** the structure-metadata reads at open precede the decorator install
+(tiny); journal appends bypass the SPI (the write arm = the checkpoint write-out);
+page-cache-warm = the conservative parse-share-maximal view (disk-cold shrinks it, and
+the byte lever partially cancels there).
+
+**Acceptance criteria:**
+- [x] The harness runs under the canonical conditions; the results archived
+      (docs/perf/binfeas-2026-11-22/ — manifest, RESULTS.md, the raw logs).
+- [x] The serialization share stated per scenario at N=5k and N=20k.
+- [x] The go/no-go written with the numbers; MASTER-PLAN Step 4's FP-9 entry updated
+      (GATE RESOLVED — GO); the proposal-analysis mapping row updated.
+- [x] No production code changes (the probe + the entity live in the test tree,
+      surefire-invisible); the suite green (BUILD SUCCESS — see the session record).
+
+
+---
+
+## THE EXPERIMENT ADDENDUM (2026-11-22, the same night): a real binary codec implemented and measured — the ceiling CONFIRMED as an upper bound
+
+The user's directive: "напиши ридер и райтер для бинарного формата с фабрикой, подмены в тесте,
+прокрути, убедись что данные не теряются, дополни документ сравнением теории с экспериментом."
+
+**Implemented** (test-tree only): BinFeasBinaryCodec (the schema-block compact format over the
+SPI's char streams: the field names once per block + the positional values, the length-framed
+raw-char strings, the doubles as raw bits — the exact round trip), BinFeasBinaryIOFactory
+(extends XdStorageYamlIOFactory — the journal machinery intact, the base files compact),
+XdStorageBinaryFormatExperiment (the YAML arm → the conversion → the binary arm, one variable).
+
+**The engineering findings (each a lesson):**
+1. The journal-replay path type-checks `instanceof XdStorageYamlIOFactory` — the codec factory
+   MUST extend the concrete YAML factory (an interface implementation NPEs the replay).
+2. The resources CAPTURE their reader/writer at construction — the locator swap alone does not
+   reach the live resources; the conversion must swap them too (or convert before any touch).
+3. The shutdown checkpoint fires PER RESOURCE and only with a journal tail — a session that
+   only loaded has nothing to rewrite (the staged-load + the per-fragment idempotent-touch
+   recipe converts the data fragments through the checkpoint).
+4. An idempotent update NEVER rewrites the id→fragment routing — the index journal gets no
+   tail and the index checkpoint never fires; the index base converts at the file level
+   (the YAML readData → the neutral records → the codec's record-block writer).
+5. THE CONVENTION TRAP: the YAML readObjectData puts the id into setId() and NOT into the
+   properties — a record-block writer reading properties would write null ids (the NPE that
+   exposed it: fillCache's putIfAbsent(null-key)).
+
+**The measured (docs/perf/binfeas-2026-11-22/RESULTS.md § the experiment — the full
+comparison table):** cold full load **5.28×/5.20×** (the ceiling 6.49×/7.35× — 71–81%
+realized), cold FIRST lookup **4.68×/4.53×** (the ceiling 5.56×/7.14×), checkpoint
+**3.00×/3.68×**, bytes **3.12–3.16×** (vs the 29.6× gzip floor — the naive char-frame
+codec underdelivers on size; a byte-level encoding shrinks further), the warm
+index-warm/fragment-cold reads 3–5×. INTEGRITY: every entity field-equal to the source
+model in both arms, all N; the bases magic-verified; the YAML FIRST-lookup numbers
+reproduce the feasibility probe's — the protocol cross-validates.
+
+**The complete FP-9 verdict:** the ceiling math CONFIRMED as an upper bound (nothing
+exceeded it); the proposal's 5–10× lands at 4.5–5.3× realized with a NAIVE codec on the
+cold paths (the lower end; a production codec closes part of the gap; 10× unreachable —
+the engine residual bounds it). The design round inherits: the realized-gain expectations,
+the char-stream SPI constraint (a byte-level SPI extension = the design round's item),
+the journal-append share question, and the integrity methodology as the acceptance
+template.

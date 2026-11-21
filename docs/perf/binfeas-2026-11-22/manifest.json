@@ -1,0 +1,11 @@
+{
+  "task": "33-binary-format-feasibility (the FP-9 gate)",
+  "dateUtc": "20261121-180156",
+  "gitRev": "ee73c45",
+  "jdk": "openjdk version "21.0.7" 2025-04-15",
+  "cpuModel": "AMD Ryzen 9 5900X 12-Core Processor",
+  "loadavg1m": 1.73,
+  "loggingConfig": "docs/perf/benchmark-log4j2.xml (WARN console)",
+  "method": "the serialization-layer decorator (the SPI factory wrapped via reflection — no production changes): every reader call = parse+build, every writer call = serialization; the IO floor = raw page-cache-warm reads of the same files; the engine = the residual; the bytes lever = gzip on the YAML files (a floor of the binary size reduction); medians over rounds; the page cache deliberately warm (the conservative choice for the parse share — disk-cold would shrink it)",
+  "disclosures": ["the structure-metadata reads at open happen before the decorator install (tiny, one-time)", "journal appends do NOT go through the SPI factory — the write arm measures the CHECKPOINT write-out (the bulk serialization)", "the cold FIRST lookup is the truest cold op; the K-average after it is node-cache-warm"]
+}
