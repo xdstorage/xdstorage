@@ -164,6 +164,65 @@ public final class XdStorageYamlCommitJournal {
         return new Resolution(chosen == null ? journalFileFor(baseFileName) : chosen, superseded);
     }
 
+    /** Task 54 (JRNLDATA): the index-base journal's PRIMARY location — the class's data
+     *  journal directory ({@code data/<Class>/journal/}). The index journals are DATA
+     *  CARRIERS (the sole durable location of the un-checkpointed id→fragment
+     *  addressability between checkpoints) and live with the class's data, not with the
+     *  index layout.
+     *
+     * @param baseFileName the path of the index base file (indexes/<Class>/<name>.yaml)
+     * @param dataClassJournalDir the class's data journal dir (the naming service's
+     *                            getDataClassJournalDir)
+     * @return the journal path inside data/<Class>/journal/ (which may not exist yet)
+     */
+    public static Path dataJournalFileFor(final String baseFileName, final Object dataClassJournalDir) {
+        if (dataClassJournalDir == null) {
+            return null; // the stub-services tests / the pre-wiring states: the legacy chain applies
+        }
+        final String stem = stripFormatExtension(new File(baseFileName).getName());
+        return new File(dataClassJournalDir.toString(), stem + JOURNAL_SUFFIX).toPath();
+    }
+
+    /**
+     * Task 54 (JRNLDATA): the INDEX-base journal resolution — the data-carrier location
+     * first, then the older spellings: the dev-train journal dir next to the index base
+     * (indexes/&lt;Class&gt;/journal/), the sibling, the 2.0.0 stacked. The first existing
+     * wins; the rest are the superseded twins. The fresh case creates at the data location.
+     *
+     * @param baseFileName the path of the index base file
+     * @param dataClassJournalDir the class's data journal dir
+     * @return the resolution: the journal file all future I/O must use, plus the older twins
+     */
+    public static Resolution resolveForIndexBase(final String baseFileName, final Object dataClassJournalDir) {
+        Path chosen = null;
+        final java.util.List<Path> superseded = new java.util.ArrayList<>();
+        // the 5th level: the STACKED spelling anchored at the class's DATA dir — the journal
+        // that lived next to the base BEFORE the indexes/ move (the dev-train folders) or
+        // before the JRNLDATA relocation of the primary (data/<Class>/index.yaml.journal.yaml)
+        if (dataClassJournalDir == null) {
+            return resolveFor(baseFileName); // the stub-services fallback: the pre-JRNLDATA chain
+        }
+        final File dataClassDir = new File(dataClassJournalDir.toString()).getParentFile();
+        final Path dataAnchoredStacked = dataClassDir == null ? null
+                : legacyJournalFileFor(new File(dataClassDir, new File(baseFileName).getName()).getPath());
+        final Path dataAnchoredSibling = dataClassDir == null ? null
+                : new File(dataClassDir, stripFormatExtension(new File(baseFileName).getName()) + JOURNAL_SUFFIX).toPath();
+        for (final Path candidate : new Path[]{
+                dataJournalFileFor(baseFileName, dataClassJournalDir),
+                journalFileFor(baseFileName), siblingJournalFileFor(baseFileName), legacyJournalFileFor(baseFileName),
+                dataAnchoredSibling, dataAnchoredStacked}) {
+            if (candidate != null && Files.exists(candidate)) {
+                if (chosen == null) {
+                    chosen = candidate;
+                } else {
+                    superseded.add(candidate);
+                }
+            }
+        }
+        return new Resolution(
+                chosen == null ? dataJournalFileFor(baseFileName, dataClassJournalDir) : chosen, superseded);
+    }
+
     /**
      * JRNLNAME: called after a successful journal replay — migrates a replayed older-named
      * file into the journal directory, and drops any additional superseded twin (the
@@ -179,6 +238,12 @@ public final class XdStorageYamlCommitJournal {
                                          final String baseFileName) throws java.io.IOException {
         final Path target = journalFileFor(baseFileName);
         if (!replayedFile.equals(target)) {
+            // task 51 (LAYOUTMIG): the migrated stacked journals settle BEFORE any append
+            // ever created the journal/ directory — create it (a 2.0.0 folder opened by
+            // 2.1.0 hits exactly this path; without it the move fails NoSuchFile)
+            if (target.getParent() != null) {
+                java.nio.file.Files.createDirectories(target.getParent());
+            }
             java.nio.file.Files.move(replayedFile, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             log.info("journal migrated into the journal directory: {} -> {}", replayedFile, target);
         }
@@ -189,6 +254,38 @@ public final class XdStorageYamlCommitJournal {
             java.nio.file.Files.delete(stale);
             log.warn("superseded journal naming removed for {}: {} ({} wins)",
                     baseFileName, stale, replayedFile);
+        }
+        return target;
+    }
+
+    /**
+     * Task 54 (JRNLDATA): the settle variant with the EXPLICIT target — the index-base
+     * journals settle into the class's data journal dir (data/&lt;Class&gt;/journal/),
+     * not next to the index base. The same create-parent + move + drop-twins contract.
+     *
+     * @param replayedFile the replayed journal file (any older spelling)
+     * @param superseded the additional older-named twins to remove
+     * @param target the journal path all future I/O must use
+     * @return the target path
+     */
+    public static Path settleAfterReplay(final Path replayedFile, final java.util.List<Path> superseded,
+                                         final Path target) throws java.io.IOException {
+        if (target == null) {
+            return replayedFile; // the stub-services fallback: keep the resolved file in place
+        }
+        if (!replayedFile.equals(target)) {
+            if (target.getParent() != null) {
+                java.nio.file.Files.createDirectories(target.getParent());
+            }
+            java.nio.file.Files.move(replayedFile, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            log.info("journal migrated to the data journal dir: {} -> {}", replayedFile, target);
+        }
+        for (final Path stale : superseded) {
+            if (stale.equals(replayedFile)) {
+                continue;
+            }
+            java.nio.file.Files.delete(stale);
+            log.warn("superseded journal naming removed for {}: {} ({} wins)", target, stale, target);
         }
         return target;
     }
@@ -243,6 +340,10 @@ public final class XdStorageYamlCommitJournal {
         final Path target = new File(base.getParentFile(),
                 stripFormatExtension(base.getName()) + JOURNAL_SUFFIX).toPath();
         if (!replayedFile.equals(target)) {
+            // task 51: same parent-creation pin as settleAfterReplay (the same-dir variant)
+            if (target.getParent() != null) {
+                java.nio.file.Files.createDirectories(target.getParent());
+            }
             java.nio.file.Files.move(replayedFile, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             log.info("search-index journal migrated to same dir: {} -> {}", replayedFile, target);
         }

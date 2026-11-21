@@ -134,7 +134,9 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
         this.supersededSearchIndexJournals = java.util.Collections.emptyList();
         if (searchIndexJournal) {
             final io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.Resolution resolution =
-                    io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.searchIndexJournalResolveFor(getFileName());
+                    io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.resolveForIndexBase(
+                            getFileName(), services.getNamingService() == null ? null
+                                    : services.getNamingService().getDataClassJournalDir(objectClInfo.getClazz()));
             this.searchIndexJournalFile = resolution.file;
             this.supersededSearchIndexJournals = resolution.superseded;
         } else {
@@ -311,9 +313,16 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
             // JRNLNAME: settle after replay — migrate legacy namings into the canonical same-dir location
             if (!supersededSearchIndexJournals.isEmpty()) {
                 try {
-                    final Path settled = io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal
-                            .searchIndexJournalSettleAfterReplay(searchIndexJournalFile,
-                                    supersededSearchIndexJournals, getFileName());
+                    final Path settleTarget = io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal
+                            .dataJournalFileFor(getFileName(),
+                                    services.getNamingService() == null ? null
+                                            : services.getNamingService().getDataClassJournalDir(objectClInfo.getClazz()));
+                    final Path settled = settleTarget == null
+                            ? io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal
+                                    .searchIndexJournalSettleAfterReplay(searchIndexJournalFile,
+                                            supersededSearchIndexJournals, getFileName())
+                            : io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal
+                                    .settleAfterReplay(searchIndexJournalFile, supersededSearchIndexJournals, settleTarget);
                     this.searchIndexJournalFile = settled;
                 } catch (final java.io.IOException e) {
                     log.warn("search-index journal settle-after-replay failed for {}: {} (safe: replay is idempotent)",

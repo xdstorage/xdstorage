@@ -86,7 +86,11 @@ current code, stated so embedding surprises are design-time, not production-time
 ## Files and durability
 
 - The storage folder is engine-owned: `structure/*.yaml`, `data/<Class>/*.yaml` (YAML default),
-  `indexes/<Class>/<Class>.yaml` (id-index / B+Tree heads and nodes — see [IDXLAYOUT](../tasks/2.2.0/07-indexes-subdirectory.md))
+  `indexes/<Class>/<Class>.yaml` (id-index / B+Tree heads and nodes — see [IDXLAYOUT](../tasks/2.2.0/07-indexes-subdirectory.md));
+  **all commit journals live under `data/<Class>/journal/`** — including the id-index and
+  search-index journals (task 54 JRNLDATA: the index journals are DATA CARRIERS — the sole
+  durable location of the un-checkpointed id→fragment addressability between checkpoints —
+  and live with the data they protect, not inside the derived-index directory)
   plus `.xdstorage.lock` and the format marker `.xdstorage.meta`. Do not edit files while the storage is
   open.
 - On open, legacy `data/XdStorageBTree/` and `data/XdStorageBTreeNode/` directories are
@@ -278,7 +282,11 @@ generation is stamped in `.xdstorage.meta` (`formatVersion=3`).
 3. The **data fragments stay in `data/`** (their paths are persisted inside the id-index
    payload — moving them would orphan every record; the fragments do not move, so the
    payload keeps resolving). The stacked 2.0.0 journals stay in place too — each resource's
-   first `prepare` replays and settles them into `journal/` automatically (task 24).
+   first `prepare` replays and settles them into `journal/` automatically (task 24). All
+   commit journals — including the id-index and search-index ones — live under
+   `data/<Class>/journal/` (task 54): a 2.1.0-dev folder whose index journals sit under
+   `indexes/` settles them into `data/<Class>/journal/` lazily at the first prepare; a
+   2.0.0 folder has no index journals at all (W-4a/W-4b are 2.1.0 features).
 4. After a full success the format marker is rewritten `2 → 3`. From then on **a 2.0.0
    library refuses the folder loudly** (the newer-format gate) — the downgrade refusal is
    enforced by the stamp.

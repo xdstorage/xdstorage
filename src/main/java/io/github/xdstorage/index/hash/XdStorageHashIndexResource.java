@@ -74,6 +74,12 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
 
     private java.nio.file.Path indexJournalFile;
 
+    // Task 54 (JRNLDATA): the class's data journal dir — the index journal's PRIMARY
+    // location (data/<Class>/journal/): the id-index journal is a DATA carrier (the sole
+    // durable location of the un-checkpointed id→fragment addressability) and lives with
+    // the class's data, not with the index layout.
+    private final Object dataClassJournalDir;
+
     // JRNLNAME: older-named index journals present at resolution (replay sources / superseded twins)
     private java.util.List<java.nio.file.Path> supersededIndexJournals = java.util.Collections.emptyList();
 
@@ -104,9 +110,12 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
         // references variant keeps the legacy full-file write in this phase.
         final io.github.xdstorage.XdStorageConfig storageConfig = services.getStorageConfig();
         this.indexJournal = storageConfig != null && storageConfig.isIndexJournalWrites() && !isReferences;
+        this.dataClassJournalDir = services.getNamingService() == null ? null
+                : services.getNamingService().getDataClassJournalDir(clInfo.getClazz());
         if (indexJournal) {
             final io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.Resolution resolution =
-                    io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.resolveFor(getFileName());
+                    io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.resolveForIndexBase(
+                            getFileName(), this.dataClassJournalDir);
             this.indexJournalFile = resolution.file;
             this.supersededIndexJournals = resolution.superseded;
         } else {
@@ -144,9 +153,12 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
         // references variant keeps the legacy full-file write in this phase.
         final io.github.xdstorage.XdStorageConfig storageConfig = services.getStorageConfig();
         this.indexJournal = storageConfig != null && storageConfig.isIndexJournalWrites() && !isReferences;
+        this.dataClassJournalDir = services.getNamingService() == null ? null
+                : services.getNamingService().getDataClassJournalDir(clInfo.getClazz());
         if (indexJournal) {
             final io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.Resolution resolution =
-                    io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.resolveFor(getFileName());
+                    io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.resolveForIndexBase(
+                            getFileName(), this.dataClassJournalDir);
             this.indexJournalFile = resolution.file;
             this.supersededIndexJournals = resolution.superseded;
         } else {
@@ -483,8 +495,14 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
             checkpointIndexJournalIfTooBigOnOpen();
             // JRNLNAME: a replayed older-named index journal migrates into the journal directory;
             // superseded twins (both-present anomaly) are removed — after a clean replay
-            indexJournalFile = io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.settleAfterReplay(
-                    indexJournalFile, supersededIndexJournals, getFileName());
+            final java.nio.file.Path settleTarget =
+                    io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.dataJournalFileFor(
+                            getFileName(), dataClassJournalDir);
+            indexJournalFile = settleTarget == null
+                    ? io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.settleAfterReplay(
+                            indexJournalFile, supersededIndexJournals, getFileName())
+                    : io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.settleAfterReplay(
+                            indexJournalFile, supersededIndexJournals, settleTarget);
             supersededIndexJournals = java.util.Collections.emptyList();
         } catch (final Throwable e) {
             throw new XdStorageException("invalid state of database: commit journal of index resource " + resourceId + " cannot be replayed", e);

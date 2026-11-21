@@ -50,4 +50,17 @@ public interface IXdStorageResourceNamingService {
     Object getStructureResourceId(Class<?> cl);
 
     Object getForeignKeyResourceId(String suffix, Class<?> parentClass, Class<?> childClass, String parentClassField);
+
+    /**
+     * Task 54 (JRNLDATA): the journal directory of the class's DATA layer —
+     * {@code data/<Class>/journal/}. ALL of a class's commit journals live here (the
+     * fragment journals, the id-index journal, the search-index journals): the index
+     * journals are DATA CARRIERS (the sole durable location of the un-checkpointed
+     * id→fragment addressability between checkpoints) and belong with the data, not
+     * with the index layout.
+     *
+     * @param cl the entity class
+     * @return the data journal directory path string for the class
+     */
+    Object getDataClassJournalDir(Class<?> cl);
 }

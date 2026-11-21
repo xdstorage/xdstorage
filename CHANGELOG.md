@@ -187,6 +187,15 @@ Planned scope; items land here as they merge:
   an unmovable file (a Windows lock) refuses the open loudly instead of continuing with
   a silently empty index. **A 2.0.0 user must back up their folder before upgrading**
   (the standard `cp -r` while closed). See EMBEDDING "Upgrade from 2.0.0".
+- **Index journals relocated into `data/<Class>/journal/`**
+  ([54](docs/tasks/2.1.0/54-index-journals-to-data.md)): the id-index and search-index
+  commit journals are DATA CARRIERS (the sole durable location of the un-checkpointed
+  id→fragment addressability between checkpoints) and now live with the class's data
+  instead of inside the derived-index `indexes/` directory. All of a class's commit
+  journals — the fragments, the id-index, the search — sit in one place
+  (`data/<Class>/journal/`); the journals found at the older spellings (the 2.1.0-dev
+  `indexes/<Class>/journal/` or the siblings) settle into the data location automatically
+  at the resource's first prepare.
 
 ### Fixed (planned)
 

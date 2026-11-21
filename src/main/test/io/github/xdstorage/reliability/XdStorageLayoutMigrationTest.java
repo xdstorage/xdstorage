@@ -33,15 +33,17 @@ import io.github.xdstorage.index.XdStorageIndexType;
  *
  * <p>Migration moves legacy B+Tree/node files (data/XdStorageBTree/, data/XdStorageBTreeNode/)
  * and legacy id-index files (index/) into a dedicated indexes/ subdirectory at storage open.
- * Journals are NOT moved — they remain under indexes/&lt;class&gt;/journal/ (the JOURNAL_DIR
- * is a nested subdirectory of the index dir).
+ * Journals are NOT moved by the FOLDER migration — the task-24/54 journal-naming chains
+ * own them: the data journals live in data/&lt;class&gt;/journal/, and an index journal found
+ * under indexes/&lt;class&gt;/journal/ (the dev-train spelling) settles into
+ * data/&lt;class&gt;/journal/ at its resource's first prepare (task 54 JRNLDATA).
  *
  * <p>Scope of this class:
  * <ul>
  *   <li>One-time migration of each legacy layout on open</li>
  *   <li>Idempotency: re-opening after migration is a no-op</li>
  *   <li>Combined legacy (BTree + BTreeNode + index/ present together)</li>
- *   <li>Journals stay in place (indexes/&lt;class&gt;/journal/)</li>
+ *   <li>Journals are never touched by the folder migration (the chains settle them)</li>
  *   <li>New storage: indexes/ created from scratch</li>
  * </ul>
  */
@@ -191,29 +193,35 @@ public class XdStorageLayoutMigrationTest {
     // ───────────────────────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("Journals are NOT moved to top-level; they stay under indexes/<class>/journal/")
+    @DisplayName("LAYOUTMIG не трогает журналы; индексный журнал под indexes/ — дев-спеллинг, оседающий в data/<class>/journal/ при prepare")
     public void testJournalsStayUnderIndexesClassJournal() throws Exception {
         final Path dir = tempDir.resolve("journals-stay-db");
         Files.createDirectories(dir);
+        // the legacy layout: the BTree infra + the id-index base under data/
         final Path dataDir = Files.createDirectories(dir.resolve("data/BenchEntity"));
         Files.write(dataDir.resolve("index.yaml"), "objects:\n".getBytes());
         Files.write(dataDir.resolve("BenchEntity.yaml"), "objects:\n".getBytes());
-        // the id-index journal under indexes/<class>/journal/ (the JOURNAL_DIR is a nested
-        // subdirectory of the index dir) — the migration must NOT touch it
-        final Path journalDir = Files.createDirectories(dir.resolve("indexes/BenchEntity/journal"));
-        Files.write(journalDir.resolve("index-journal.yaml"), "- record:\n".getBytes());
+        final Path btreeDir = Files.createDirectories(dir.resolve("data/XdStorageBTree"));
+        Files.write(btreeDir.resolve("BenchEntity.yaml"), "trees:\n".getBytes());
+        // the dev-train spelling of the id-index journal: indexes/<class>/journal/
+        // (the pre-JRNLDATA primary) — the FOLDER migration must not touch it; the
+        // journal-naming chain settles it into data/<class>/journal/ at the resource's
+        // first prepare (task 54)
+        final Path devJournal = Files.createDirectories(dir.resolve("indexes/BenchEntity/journal"))
+                .resolve("index-journal.yaml");
+        Files.write(devJournal, "- record:\n\tserial: 1\n\top: UPSERT\n".getBytes());
         writeFormatMarker(dir);
 
         final IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage("journals-stay", dir.toString(), 64);
         try {
-            assertTrue(Files.exists(journalDir),
-                    "the journal/ subdirectory is not removed by the migration");
-            assertTrue(Files.exists(dir.resolve("indexes/BenchEntity/journal/index-journal.yaml")),
-                    "journals must stay under indexes/<class>/journal/ (JOURNAL_DIR)");
-            assertFalse(Files.exists(dir.resolve("journals")),
-                    "no top-level journals/ directory is created");
-            assertFalse(Files.exists(dir.resolve("journals")),
-                    "no stray journal copies appear");
+            // the folder migration moved the infra, never the journals
+            assertTrue(Files.exists(dir.resolve("indexes/XdStorageBTree")), "the infra moved");
+            // the dev-train journal: either still in place (the resource was never prepared)
+            // or settled into data/<class>/journal/ by the prepare — NEVER deleted
+            final boolean stillDev = Files.exists(devJournal);
+            final boolean settled = Files.exists(dir.resolve("data/BenchEntity/journal/index-journal.yaml"));
+            assertTrue(stillDev || settled,
+                    "the dev-train index journal survives: in place or settled into data/, never lost");
         } finally {
             storage.shutdown();
         }

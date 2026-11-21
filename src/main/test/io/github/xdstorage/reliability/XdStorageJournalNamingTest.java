@@ -141,6 +141,52 @@ public class XdStorageJournalNamingTest {
     }
 
     @Test
+    @DisplayName("JRNLDATA: индексный журнал живёт в data/<class>/journal/ (носитель адресуемости); дев-спеллинг под indexes/ оседает туда же")
+    public void indexJournalLivesInDataJournalDir() throws Exception {
+        // a) while open: the id-index journal is in data/<Class>/journal/; none under indexes/
+        final Path dir = tempDir.resolve("idx-jrnl");
+        final IXdFileStorage storage = open(dir, "jrnl-idx-" + System.nanoTime());
+        saveFive(storage);
+        assertTrue(Files.exists(dir.resolve("data/RangeOpsEntity/journal/index-journal.yaml")),
+                "the id-index journal's primary location: data/<Class>/journal/ (the addressability data carrier)");
+        assertTrue(journals(dir.resolve("indexes"), XdStorageYamlCommitJournal.JOURNAL_SUFFIX).isEmpty(),
+                "no journals under indexes/ — the data carriers live with the data");
+        // capture the while-open state for the dev-spelling simulation
+        copyTree(dir, tempDir.resolve("idx-staged"));
+        storage.shutdown();
+        // the shutdown checkpoint folded the journal into the base
+        assertFalse(Files.exists(dir.resolve("data/RangeOpsEntity/journal/index-journal.yaml")),
+                "the checkpoint folds the journal into the base (task 48)");
+
+        // b) the dev-train spelling (indexes/<class>/journal/) settles into data/ at prepare:
+        //    the id-index base is zeroed — only the journal can restore the five records
+        final Path staged = tempDir.resolve("idx-staged");
+        Files.createDirectories(staged.resolve("indexes/RangeOpsEntity/journal"));
+        Files.move(staged.resolve("data/RangeOpsEntity/journal/index-journal.yaml"),
+                staged.resolve("indexes/RangeOpsEntity/journal/index-journal.yaml"),
+                StandardCopyOption.REPLACE_EXISTING);
+        Files.write(staged.resolve("indexes/RangeOpsEntity/index.yaml"), new byte[0]);
+        // the fixture takeover (the structure metadata pins the absolute paths)
+        Files.move(dir, tempDir.resolve("idx-retired"));
+        Files.move(staged, dir);
+
+        final IXdFileStorage second = open(dir, "jrnl-idx-open-" + System.nanoTime());
+        try {
+            saveSixth(second);
+            final IXdStorageTransaction tx = second.beginTransaction(TX_TIMEOUT);
+            assertEquals(6, second.load(RangeOpsEntity.class, o -> true, tx).size(),
+                    "the id-index journal replay restored the addressability (all six reachable)");
+            second.commitTransaction(tx);
+            assertTrue(Files.exists(dir.resolve("data/RangeOpsEntity/journal/index-journal.yaml")),
+                    "the dev-train journal settled into data/<Class>/journal/ at the prepare");
+            assertFalse(Files.exists(dir.resolve("indexes/RangeOpsEntity/journal/index-journal.yaml")),
+                    "the dev-spelling location is gone after the settle");
+        } finally {
+            second.shutdown();
+        }
+    }
+
+    @Test
     @DisplayName("while open: journals live in the journal/ subdirectory; no stray names anywhere")
     public void newNamingWhileOpen() throws Exception {
         final Path dir = tempDir.resolve("new");

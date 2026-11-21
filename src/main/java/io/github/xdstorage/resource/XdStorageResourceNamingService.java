@@ -57,6 +57,11 @@ public class XdStorageResourceNamingService implements IXdStorageResourceNamingS
     }
 
     @Override
+    public Object getDataClassJournalDir(final Class<?> cl) {
+        return folder + "/" + DATA_DIR + "/" + cl.getSimpleName() + "/journal";
+    }
+
+    @Override
     public Object getForeignKeyResourceId(String suffix, Class<?> parentClass, Class<?> childClass, String parentClassField) {
         String foreignKeyName = parentClass.getSimpleName() + "-" + childClass.getSimpleName() + "-" + parentClassField;
         return folder + "/" + INDEX_DIR + "/" + parentClass.getSimpleName() + "/" + foreignKeyName + "-fk" + "." + fileSuffix;

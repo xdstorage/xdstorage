@@ -251,6 +251,12 @@ public class XdStorageLayout200UpgradeTest {
             // the stacked journals settled into journal/ at their prepares
             assertFalse(new File(FIXTURE_ROOT + "/data/Gal200Child/Gal200Child-gal-0-c0.yaml.journal.yaml").isFile(),
                     "после prepare стековый журнал осел в journal/ (цепочка именования, task 24)");
+            // JRNLDATA (task 54): NO journals under indexes/ — the index journals are data
+            // carriers living in data/<Class>/journal/ (and the checkpoint cleared them)
+            assertFalse(new File(FIXTURE_ROOT + "/indexes/Gal200Hash/journal").exists()
+                            || new File(FIXTURE_ROOT + "/indexes/Gal200Child/journal").exists()
+                            || new File(FIXTURE_ROOT + "/indexes/Gal200Parent/journal").exists(),
+                    "под indexes/ журналов нет — носители данных живут в data/<Class>/journal/ (task 54)");
             assertTrue(new File(FIXTURE_ROOT + "/data/Gal200Child/journal/").isDirectory()
                             || new File(FIXTURE_ROOT + "/data/Gal200Child/journal").isDirectory(),
                     "journal/ subdir exists after the settle");
