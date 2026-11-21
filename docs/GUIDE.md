@@ -56,6 +56,10 @@ runtime wrapper classes per entity (see [Concurrency model](#concurrency-model-a
 - The class **must be a top-level class** (not a nested/inner/anonymous class) — the runtime code generator
   cannot compile wrappers for nested classes on JDK 9+.
 - The identifier field is marked with `@XdStorageObjectId` and **must have a getter and a setter**.
+- Every persisted field needs **both a getter and a setter** (plain JavaBeans). A field with a
+  getter but no setter is **silently dropped from persistence** (a WARN at metadata load) —
+  it never round-trips. Auto-generated/Lombok-style collections without a hand-written setter
+  are the recurring case.
 - The id type must implement `equals()`/`hashCode()`. For custom id classes it must also provide a
   constructor accepting a single `java.lang.String`. Built-in generators support `Long`, `Integer` and
   `String` ids (see [Identifier generation](#identifier-generation-and-observers)).

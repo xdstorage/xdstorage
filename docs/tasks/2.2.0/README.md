@@ -19,6 +19,8 @@ as the 2.1.0 train.
 | 12 | [nested-transactions-load-safety](nested-transactions-load-safety.md) | nested transactions rework — OPTIONAL (fix or deprecate; the isolation stress test returns to the gate) | P2, engine, bug | 2–4 sess |
 | 13 | [facade-load-investigation](facade-load-investigation.md) | the facade load test: failure causes + the performance improvement plan | P1, engine, performance | 2–3 sess |
 | 14 | [profiling-bottlenecks](profiling-bottlenecks.md) | engine-wide profiling → the bottleneck ledger (the evidence pack for 01/05/33) | P1, engine, performance | 2 sess |
+| 21 | [fk-write-path](21-fk-write-path.md) | the FK O(relations) write-path scan → point lookups (the FKBENCH 23–160× verdict must land in a stated band) | P1, engine, performance, w4-design | 2–3 sess |
+| 22 | [lazy-read-snapshot](lazy-read-snapshot.md) | lazy prevSnapshot capture (read-only txs stop paying the 10–33% task-40 net; the collection-getter bypass decided inside) | P2, engine, performance, codegen | 2–3 sess |
 
 Gates: the design rounds before 01/05 (the house rule); property tests grow as the core
 changes (03 protects 01); nightly ×3 green is the train's continuous gate.
@@ -38,6 +40,8 @@ changes (03 protects 01); nightly ×3 green is the train's continuous gate.
 
 | # | File | Task | Labels | Est. |
 |---|---|---|---|---|
+Announcement input: [docs/announcements/2.2.0-ANNOUNCEMENT-NOTES.md](../../announcements/2.2.0-ANNOUNCEMENT-NOTES.md) (draft notes, 2026-11-22).
+
 | 11 | [feature-announcement](11-feature-announcement.md) | the 2.2.0 feature announcement (landing + guide) | P1, docs | 0.5–1 d |
 
 ## Discovery mapping (what went where)

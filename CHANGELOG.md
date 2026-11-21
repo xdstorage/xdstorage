@@ -199,6 +199,33 @@ Planned scope; items land here as they merge:
 
 ### Fixed (planned)
 
+- **Concurrent writers no longer collapse on the shared index trees** (the TREEOVERLAY
+  program, [53](docs/tasks/2.1.0/53-tree-overlay.md)): B+tree key mutations (id-indexes,
+  FK trees) stage into the writing transaction's overlay — invisible to others until the
+  commit — and apply as a batch at the commit; the commit acquisition order across the
+  resource bands is **total** (the tie-break by the resource id), which removed the
+  acquisition-deadlock family (the 2.0.x behavior: 10 concurrent writers decayed to
+  ~1 tx/s through 12–20 s lock-timeout cycles). Measured (FKBENCH, task 50's conditions):
+  10 writers **121–158 tx/s, p99 84–113 ms**, no t=1 regression; the whole stress family
+  (MassFill purge audits, the B+tree stress, reopen-after-checkpoint) green ×3.
+- **Commit-time conflict revalidation — the lost-update window is closed**
+  ([53](docs/tasks/2.1.0/53-tree-overlay.md) LOSTUPD-2): first-committer-wins previously
+  fired at stage time only, so a foreign commit landing inside the stage→commit window won
+  silently. Phase 1 now re-validates the records the transaction read against the true
+  last-commit timestamps: the loser fails **loudly** (the conflict names the record and the
+  foreign commit) with the stored data intact — retry = a fresh read in a new transaction.
+  Content-based semantics: staged-but-aborted foreign work causes no false conflicts
+  (pinned by `XdStorageCommitTimeRevalidationTest`).
+- **Mixed-type keys in one index tree no longer throw `ClassCastException`** (A2.3,
+  [53](docs/tasks/2.1.0/53-tree-overlay.md)): id-index and FK trees compare keys tolerantly
+  (numeric coercion both sides, string fallback) across find/descend/range — a tree holding
+  both `Long` and `String` keys (e.g. an FK relation between a UUID-id parent and an
+  auto-`Long`-id child) is usable. The typed **range queries keep a designed loudness**: a
+  range bound whose type is foreign to the declared field type fails with a clear
+  `XdStorageRuntimeException` at query construction (the accidental CCE it replaces was
+  worse), and `IN` stays equals-membership. Pinned by `XdStorageMixedKeyFindTest`.
+
+
 Still open from the defect train (**a defect discovered by a train's own work ships with the
 train that discovered it**; BUG-A/C/D are fixed — see [Fixed](#fixed) below):
 
@@ -262,6 +289,24 @@ train that discovered it**; BUG-A/C/D are fixed — see [Fixed](#fixed) below):
 - **The facade load stress test moves to 2.2.0 for investigation**: the failure-cause
   analysis and the write-performance improvement paths for the facade flow are planned
   (docs/tasks/2.2.0/13); the test is excluded from the gate/release profiles.
+
+- **The canonical baseline refreshed for the 2.1.0 feature set** ([43](docs/tasks/2.1.0/43-benchmark-refresh.md)):
+  the 2026-11-21 run (23 trials, machine profile pinned, `enableForeignKeys` disclosed) is the
+  new reference in BENCHMARKS.md. The honest delta vs 2026-10-24 separates machine drift from
+  code (the old revision re-run today): the reads are flat; **the one real code regression is
+  `saveAndDeleteIndexedShipWithCrew` at −24%** — the price of the correctness wave (the
+  overlay staging + the search-key journal), tracked in the W-4 ledger with the rest of the
+  post-release performance backlog.
+- **The foreign-key cost is measured canonically** ([50](docs/tasks/2.1.0/50-fk-cost-benchmark.md)):
+  the JMH A/B (`enableForeignKeys` on/off + an un-annotated control) is published in
+  BENCHMARKS.md § FK A/B and DECISION-GUIDE — the honest verdict is that the FK **write**
+  shapes run outside the engine's ≤2× constant-factor band (cascade-save 23–160×, child delete
+  12–73×, parent update 1.4–12.5×, scaling linearly with the FK-tree size), while the **read**
+  path is free (~1.0×). Enable foreign keys for integrity-critical graphs, not for hot write
+  loops; the O(relations) scan behind the linear scaling is the first W-4c post-release item.
+- **JDK 21 joins the CI matrix** ([27](docs/tasks/2.1.0/27-jdk21-ci-matrix.md)): the suite is
+  verified on Temurin 17 (the gate) and 21 (a parallel CI leg: quick-gate on push/PR, the full
+  suite nightly); the shipped bytecode stays Java 8 (`release=8`). See EMBEDDING § JDK matrix.
 
 - **Quiet-by-default level discipline** (Track L-2). The engine's per-operation INFO lines
   (save/delete/commit/rollback/prepare traces) are demoted to DEBUG; INFO remains for rare

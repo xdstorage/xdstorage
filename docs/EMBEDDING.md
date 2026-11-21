@@ -40,6 +40,16 @@ current code, stated so embedding surprises are design-time, not production-time
   (`transaction.getRollbackOnlyCause()` — the marking site, the root exception, the transaction's age
   at the mark, the cascade source), the commit failure names the site and chains the root exception as
   its cause, and repeat marks are counted on the record instead of overwriting it.
+- **Concurrent writers are safe on the shared index trees (2.1.0):** B+tree key mutations
+  stage into the writing transaction's overlay and apply at its commit, and the commit
+  acquisition order is total — concurrent transactions queue instead of deadlocking on the
+  class-level trees (10 concurrent writers measured 121–158 tx/s with p99 under 120 ms;
+  the 2.0.0-era behavior collapsed the same load through lock-timeout cycles).
+- **Conflicts are re-validated at commit time (2.1.0):** first-committer-wins covers the
+  whole stage→commit window — if a foreign transaction committed a change to a record this
+  transaction read, the loser's commit fails **loudly** (the conflict names the record) with
+  the stored data intact; the retry pattern is a fresh read in a new transaction. Staged-but-
+  aborted foreign work does not trigger false conflicts (the semantics are content-based).
 - Nested transactions: `beginTransaction(parentTx, timeout)`; a nested rollback does not poison the
   parent (downward-only rollback-only cascade). **NOT RECOMMENDED for load-heavy use**: the
   nested commit/rollback machinery is a known critical-under-load path (abandoned-nested
@@ -81,6 +91,11 @@ current code, stated so embedding surprises are design-time, not production-time
   ERROR is logged once, the failure is cached for the JVM lifetime, there is no retry).
 - The write target `./gencode/` must be **writable**; a read-only working directory has the same
   permanent-dummy-wrapper failure mode.
+- Every persisted field follows **JavaBeans**: a getter AND a setter. A field that has a
+  getter but no setter (a common slip on generated/Lombok-annotated collections) is **dropped
+  from persistence with a WARN** — it is never written and never restored; nothing round-trips.
+  The engine logs the drop once per class at metadata load; check the WARN before assuming a
+  collection "did not save".
 - Entity classes must be **top-level** (nested classes cannot be compiled on JDK 9+).
 
 ## Files and durability

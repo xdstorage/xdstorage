@@ -1,14 +1,17 @@
 # XdStorage — Master Roadmap
 
-Compiled 2026-10-19; updated 2026-10-20 (architect's evaluation integrated); **updated
-2026-10-21 post-release: the 2.1.0 train is extended with Track T (test coverage & grouping)
-and Track L (log hygiene) — the two things the 2.0.0 release itself surfaced; W-4/B3 move
-explicitly to 2.2.0**. Detailed journals stay authoritative per scope:
+Compiled 2026-10-19; updated 2026-10-20 (architect's evaluation integrated); updated
+2026-10-21 post-release (Track T/L added; W-4/B3 moved explicitly to 2.2.0); **updated
+2026-11-22: the 2.1.0 train is COMPLETE except 33 BINFEAS + 44 DOCSWRITER (the
+TREEOVERLAY/convoy wave, LOSTUPD-2, MIXEDKEY, WRAPLAYER, LAYOUTMIG, JRNLDATA, FKBENCH,
+JDK21, BENCHREFRESH all landed — item 20); the 2.2.0 intake amended — tasks 21/22 pulled
+in (the FK O(relations) write path, the lazy read-snapshot), B3 RESOLVED by the total
+acquisition order**. Detailed journals stay authoritative per scope:
 
 | Plan | Scope | State |
 |---|---|---|
 | [OPTIMIZATION-PLAN.md](OPTIMIZATION-PLAN.md) | Engine campaign journal R-1..R-59 | Phases A/B/D done; **Track A family FIXED (R-54..R-58)**; R-59 SOE fix |
-| [SRE-OPTIMIZATION-PLAN.md](SRE-OPTIMIZATION-PLAN.md) | Whole-project SRE plan (Phases 0/S/W/O/C) | 0, S, O, C **DONE**; W-1..W-3 **DONE**; W-4 open |
+| [SRE-OPTIMIZATION-PLAN.md](SRE-OPTIMIZATION-PLAN.md) | Whole-project SRE plan (Phases 0/S/W/O/C) | 0, S, O, C **DONE**; W-1..W-3 **DONE**; **W-4a/b/c DONE (2.1.0); W-4d = 2.2.0 task 05** |
 | [WRITE-PATH-DESIGN.md](WRITE-PATH-DESIGN.md) | Phase W design (journal + checkpoint) | W-1..W-3 implemented; W-4 = the deferred design round |
 | [CODEGEN-OPTIMIZATION-PLAN.md](CODEGEN-OPTIMIZATION-PLAN.md) | Wrapper codegen | Items 1/2/5 applied; **items 3/4 superseded by FP-3 (AOT)** |
 | [PERFORMANCE-RECOMMENDATIONS.md](PERFORMANCE-RECOMMENDATIONS.md) | Config study (2nd ed, post-R-53) | Recommendations APPLIED (t=64, frag=128); §5.3 **CLOSED** (2.1.0 B2: verified 0.6–0.7 ms/op flat, BENCHMARKS addendum) |
@@ -206,9 +209,9 @@ grouping is tags, not layout.
    duplicate copies; the persisted structure record's identity is the class FQCN (not
    the Class object), so two live generations of one FQCN are ONE stored class whose
    evolution is detected (structure + index-structure ids converted to FQCN identity);
-   **BUG-E (18, P0, OPEN)** search-index key types not restored at reopen — numeric
-   range/EQUALS seeks crash after a close/open cycle (`XdStorageSearchRangeReopenTest`
-   disabled).
+   **BUG-E (18, P0) — FIXED**: search-index key types are restored at reopen (the typed
+   key/pointer/record restoration per the declared field type; `XdStorageKeyTypeRestore`).
+   The defect train is fully closed (BUG-A..E all fixed with pinned tests).
 8. **FP-11 — decision-guide page** (comparison vs MapDB/Xodus/RocksDB/Chronicle/EclipseStore +
    "when to choose XdStorage" + runnable example app): lands LAST so it describes the shipped
    2.1.0 (including range queries); fixes the README test-count staleness.
@@ -270,33 +273,45 @@ grouping is tags, not layout.
     gap-and-decline); ANALYSIS-ARCHITECTURE.md (the full engine specification, 716 lines)
     joins the documentation index.
 
-19. **LAYOUT MIGRATION (task 51, P0 BLOCKER): the 2.0.0→2.1.0 on-disk layout migration —
-    the indexes/ subdirectory relocation, the journal re-location, the format marker
-    update, crash-tolerant, cross-OS (Windows path separators + mandatory locks,
-    macOS case sensitivity, the charset pinning), the upgrade walkthrough pinned by
-    tests. A 2.0.0 user who upgrades to 2.1.0 must have their storage opened, migrated,
-    and working. EMBEDDING § Upgrade from 2.0.0 documents the procedure. The 2.2.0
-    implementation plans (docs/analysis/) carry the step-by-step details.
-14. **NESTED-TRANSACTIONS DECISION (2026-10-26, maintainer):** nested transactions
-    (`beginTransaction(parentTx, timeout)`) are **NOT RECOMMENDED for load-heavy use** —
-    the machinery is critical under load (the R-40/R-41 history + the stress evidence).
-    Documented in EMBEDDING/GUIDE/CHANGELOG; the isolation stress test is excluded from
-    the gate/release profiles AND the nightly build; the **optional** rework task is 2.2.0 #12 (fix or
-    deprecate — decided inside that task).
-15. **FACADE LOAD TEST DECISION (2026-10-26, maintainer):** the facade load stress test is
-    excluded from the gate/release profiles AND the nightly build, and moves to 2.2.0 #13 — the failure-cause
-    investigation + the facade-flow performance improvement plan (the B3 striping and
-    W-4b become inputs to that investigation).
-16. **THE 2.2.0 TRAIN IS COMPILED** (docs/tasks/2.2.0/, from the maintainer's discovery
-    document): two parallel road maps — A: Memory/Consistency/Durability (the consistency
-    core on standard primitives with the disabled B+Tree tests enabled, the loud-failures
-    inventory, property tests, W-4d memory, WAL hardening, the indexes/ layout, the CI
-    stress-gate policy), B: platform (FP-3 JRE/AOT pulled forward per the maintainer's
-    demand, server mode as a design-only go/no-go). Plus tasks 45/46 added to 2.1.0 (the
-    commit-refusal diagnosis and the wrapper-observer leak — both defect-class).
+19. **LAYOUT MIGRATION (task 51, P0 BLOCKER) — DONE (2026-11-21):** the migration hardened
+    on the real-2.0.0 golden fixture (generated by the released 2.0.0, relocatable): the
+    bases move `data/<Class>/ → indexes/<Class>/` (fragments stay), the marker is stamped
+    **v3 on success — the 2.0.0 downgrade refusal is REAL now**, crash-tolerant + LOUD
+    failure policy, UTF-8 pinned across the persistence I/O, journals never touched by the
+    layout migration (JRNLDATA, task 54, relocated them into `data/<Class>/journal/` — they
+    are data carriers). EMBEDDING § Upgrade from 2.0.0 documents the procedure.
 
-**2.1.0 exit:** RC protocol per RELEASE-PLAN §2 (full suite ×3 green, kill-9/torn-journal
-recovery, JMH vs baselines, fresh-clone README walkthrough) → tag `v2.1.0`.
+20. **THE 2026-11-21/22 WAVE + THE 2.2.0 INTAKE AMENDED (architect, 2026-11-22):** the
+    TREEOVERLAY program landed (task 53: the B+tree per-tx overlay, the prevSnapshot role
+    split, the **total acquisition order that destroyed the commit-lock convoy** — B3's
+    root cause was an ACQUISITION DEADLOCK, not hold time; the stress family 7/7, the
+    gate ×3 1344/0f/0e); **LOSTUPD-2 closed the lost-update window** (the commit-time
+    version revalidation — the maintainer chose fix-now over document-and-defer);
+    **MIXEDKEY** (A2.3) tolerant compare + designed loud bounds; **WRAPLAYER** closed the
+    2 red pins (the setChildren JavaBeans premise, NOT aliasing — the setter contract is
+    now documented in GUIDE/EMBEDDING) and MEASURED the read-snapshot at ~10–33%
+    (accepted); LAYOUTMIG (19) + JRNLDATA (54) + **FKBENCH (50: the FK writes 23–160×,
+    LINEAR in the FK-tree size — the O(relations) scan)** + JDK21 (27) + BENCHREFRESH
+    (43: the 2026-11-21 baseline + the attribution method — the ONE real code regression
+    is saveAndDeleteIndexedShipWithCrew −24%, the correctness wave's price, tracked in
+    the W-4 ledger). **The 2.2.0 intake takes: task 21 (the FK O(relations) write path —
+    the measured debt must land in a stated band) and task 22 (the lazy read-snapshot —
+    read-only txs stop paying the alias net).** NOT filed as tasks, recorded here:
+    **B3 as a standalone track is CLOSED** (the convoy root-cause is fixed; the residual
+    contention work rides 2.2.0 task 13's investigation; the FLAKY row is re-recorded);
+    the **R-56 multi-scan walk race** (latent — 0 phantoms on the overlay vs 24810 at
+    HEAD) folds into task 01's consistency core / task 03's property tests as a pinning
+    target; the **B-link tree upgrade** stays evidence-gated (a Step-2/05 design-round
+    input, build on a nightly-logs signal). **33 BINFEAS stays in 2.1.0** (measurement-
+    only; it gates FP-9's Step-4 demand signal); 44 DOCSWRITER is 2.1.0's last substantive
+    task. The 2.2.0 announcement notes are drafted at
+    docs/announcements/2.2.0-ANNOUNCEMENT-NOTES.md (the writer's input for task 11).
+
+**2.1.0 exit (2026-11-22 status): everything landed except 33 + 44.** The stress family is
+7/7, the gate ×3 is green through the whole wave (1344/0f/0e at the FKBENCH landing); the
+RC protocol runs after 44 (the writer pass) and 33 (the FP-9 measurement) close: full suite
+×3, kill-9/torn-journal recovery, JMH vs the refreshed 2026-11-21 baseline, fresh-clone +
+2.0.0-upgrade walkthroughs → tag `v2.1.0`.
 
 ### Step 2 — The engine's 2.x maturity (3–5 sessions, design round first)
 
@@ -351,8 +366,8 @@ an embedder) — the frozen-items inventory exists precisely to prevent speculat
 | Order | Work | Effort | Unlocks | Release |
 |---|---|---|---|---|
 | 0 | Step 0: A2 + E-1..E-6 + D-3 → **2.0.0** — **DONE: shipped 2026-10-21** | 1–2 sess | Everything public | **2.0.0** |
-| 1 | **2.1.0 train:** Track L + Track T + BENCH + B2 + FP-1 + **BUG-A..E** + **PWRLOSS/JRNLNAME/BACKUP/N50K/DOCSLINT** + AUTOSAVE + **master-plan pulls: FP-2 explain (25), FP-5-core verify (26), D-2 JDK-21 matrix (27)** — **IN PROGRESS (pom at 2.1.0)** | 5–7 sess | Quiet library default; a measured, grouped test estate; query expressiveness + plan visibility; read-heavy workloads; **no data-stranding defects; self-service integrity verification** | **2.1.0** |
-| 2 | W-4 (B1/F-3) + B3 | 3–5 sess | Large datasets; ≥10× writes; zero stress flakes | **2.2.0** |
+| 1 | **2.1.0 train:** Track L + T + BENCH + B2 + FP-1 + BUG-A..E + PWRLOSS/JRNLNAME/BACKUP/N50K/DOCSLINT + AUTOSAVE + pulls (25/26/27) + FK + W-4a/b/c + TREEOVERLAY/LOSTUPD-2/MIXEDKEY + LAYOUTMIG/JRNLDATA + FKBENCH/BENCHREFRESH — **COMPLETE except 33 BINFEAS + 44 DOCSWRITER** | ~20 sess actual | Quiet library default; grouped estate; queries + plans; **FK integrity; concurrent writes unlocked; the lost-update window closed; the layout migration; honest costs published** | **2.1.0** |
+| 2 | **2.2.0 = the compiled train** (docs/tasks/2.2.0/): consistency core (01) + loud failures (02) + property tests (03) + W-4d memory (05) + WAL txid (06) + **FKWRITE (21) + READSNAP (22)**; platform: AOT/JRE (08), backup (15), CLI (16), schema-diff (17), agent surface (18), recovery automation (19); decisions: server mode (09, design-only), Windows (04), CI policy (10), nested tx (12, optional), facade (13), profiling (14) | per-task | Operability; JRE deployments; the FK band; the memory profile; the consistency estate | **2.2.0** |
 | 3 | FP-3 AOT + FP-5/FP-6 ops tooling | 2–3 sess | JRE/native-image deployments; operability | 2.3.0 |
 | 4 | FP-2/7/8/9/10/12/13 ecosystem train | 1–2 sess each | Mainstream adoption surface | 2.x→3.0 |
 

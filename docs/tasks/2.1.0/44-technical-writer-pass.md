@@ -117,6 +117,68 @@ and costs. The writer's checklist for the block:
    FK/cascade entries get one pass for the same terminology (front/reverse, secondary
    key, veto).
 
+## Discovery addition (2026-11-22): the user-facing inventory — "what you're getting into"
+
+The train's final state (everything except this task and 33 closed) shipped more than the
+checklist above covers. The writer's pass must make every one of these **visible to an
+evaluator within the first two screens or one GUIDE click** — facts already verified and
+published in the ledgers, needing prose and placement:
+
+**Features (lead the what's-new):**
+1. **Concurrent writes unlocked** — B+tree key mutations stage per-transaction and apply at
+   commit; the commit acquisition order is total. The headline number: 10 concurrent writers
+   **121–158 tx/s, p99 84–113 ms** (2.0.x collapsed the same load to ~1 tx/s through lock
+   timeouts). Nothing user-facing says this today — the README/GUIDE concurrency story is
+   pre-overlay. Source: BENCHMARKS/DECISION-GUIDE numbers + task 53.
+2. **`verify(folder)`**, **`explain()`**, the query power pack (ranges/ORDER BY/LIMIT/count),
+   `@XdStorageAutoSave` cascade + `@XdStorageParentObject` foreign keys (the secondary-key
+   story per the 2026-11-21 block), the upgrade walkthrough — all shipped; check each has a
+   landing mention, not just a GUIDE section.
+
+**Bugs fixed (the "what changed for me" list):**
+3. **Commit-time conflict revalidation** — first-committer-wins now covers the whole
+   stage→commit window; the loser gets a LOUD conflict (the record + the foreign commit
+   named) with the data intact; retry = a fresh read. The old silent-lost-update window is
+   gone (EMBEDDING § Transactions now states it — keep GUIDE consistent).
+4. **Mixed-type keys no longer CCE** — a tree holding `Long` and `String` keys works
+   (tolerant compare); a foreign-typed range bound fails with a DESIGNED loud error at
+   query construction. A real-world FK pairing (UUID parent + auto-Long child) previously
+   crashed; now documented.
+5. **The JavaBeans setter contract made explicit** — a field with a getter but NO setter is
+   **dropped from persistence with a WARN** (nothing round-trips). GUIDE § entity rules +
+   EMBEDDING § Codegen carry it now; the writer must keep it prominent — this is a
+   silent-data-loss-class trap for Lombok/generated entities.
+6. The defect ledger is fully closed: BUG-A..E, DUPKEYS (MULTI-tree deletes), the reopen
+   key-type restoration, the record-identity envelope — each already changelogged; the
+   writer's job is the digest version on the landing/docs, not new facts.
+
+**Performance (honest, both directions):**
+7. **W-4a/c journals** — 64.9 → 0.13 ms/tx small writes; checkpoint-on-clean-shutdown
+   (already in CHANGELOG; verify the README numbers cite the 2026-11-21 baseline).
+8. **The FK cost, honestly** — BENCHMARKS § FK A/B: cascade-save **23–160×**, child delete
+   **12–73×**, parent update 1.4–12.5× — outside the ≤2× band at every size, scaling
+   LINEARLY with the FK-tree size; the FK read path is free. DECISION-GUIDE already carries
+   the row; the landing must too — **a user enabling FK on a hot write loop must know
+   before adopting, not after**.
+9. **The one regression, attributed** — `saveAndDeleteIndexedShipWithCrew` **−24%** vs the
+   2026-10-24 baseline = the correctness wave's price (the overlay staging + the W-4b
+   journal; machine drift ruled out by re-running the old revision today). DECISION-GUIDE
+   has the row; keep it — the honesty IS the positioning.
+10. **The read-snapshot cost** — eager capture ~10–33% by graph size (measured, accepted as
+    the alias-safety net; the lazy capture is a 2.2.0 candidate). One sentence in the GUIDE
+    performance section.
+11. **Runtimes** — JDK 17 (gate) + JDK 21 (CI leg), bytecode `release=8`; README Building +
+    EMBEDDING § JDK matrix already updated — verify the landing's requirements line agrees.
+
+**Where each fact must land:** landing what's-new (items 1, 2, 8), GUIDE (3, 4, 5, 10),
+EMBEDDING (3, 5, 11 — mostly landed), CHANGELOG (already carries all of it — the writer
+edits prose, never the facts). The 2.2.0 forward pointer:
+
+**The next-train announcement notes live in
+[docs/announcements/2.2.0-ANNOUNCEMENT-NOTES.md](../../announcements/2.2.0-ANNOUNCEMENT-NOTES.md)**
+(the writer's raw input for 2.2.0 task 11 — the per-task user-meaning notes, the honest-costs
+carry-over block, and the mechanics). Do not merge its content into 2.1.0 documents; link it.
+
 ## Out of scope
 
 - Writing NEW tutorials beyond what exists (the quickstart example covers the demo need);

@@ -6,6 +6,11 @@ status: open
 
 ## Summary
 
+**The writer's input is prepared: [docs/announcements/2.2.0-ANNOUNCEMENT-NOTES.md](../../announcements/2.2.0-ANNOUNCEMENT-NOTES.md)**
+(the per-task user-meaning notes, the headline story, the honest-costs carry-over block, the
+mechanics). Re-verify each note against the task's final status at writing time.
+
+
 Write the 2.2.0 feature announcement: the landing page's what's-new block and the GUIDE
 sections for everything the train ships (the memory train, the consistency core, the
 durability hardening, JRE/AOT support, plus whatever of the ecosystem train landed).
