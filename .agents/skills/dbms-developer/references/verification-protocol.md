@@ -11,7 +11,7 @@ release claim requires level 5 ×3.
 | 2 | the single failing test (isolated) | `mvn test -Dtest="X#method" -Pquick-gate` | the repro/fix confirmed |
 | 3 | the test class | `mvn test -Dtest="X" -Pquick-gate` | all green |
 | 4 | the family (the FK estate / the suite) | `mvn test -Dtest="io.github.xdstorage.foreignkey.**.*Test"` | 372/0f/0e |
-| 5 | **the full quick-gate** | `mvn test -Pquick-gate` | **1316+/0f/0e** |
+| 5 | **the full quick-gate** | `mvn test -Pquick-gate` | **1344+/0f/0e** (the count grows with each landed pin; the honest count of the day) |
 | 6 | FKBENCH (the write-path claims) | `XdStorageFkContentionBenchmark -Dfkbench=true` | the target numbers |
 
 ## 2. The rules
@@ -78,3 +78,24 @@ reintroduction). The pinning map for the W-4/overlay program:
 - The canonical estate: scripts/run-benchmarks.sh (JMH, task 13).
 - The claims: any number published in BENCHMARKS.md needs the full conditions
   protocol (the manifest, quiet-gate logging) — task 13's discipline.
+
+## 6. The benchmark discipline (BENCHREFRESH 43 + FKBENCH 50, 2026-11-21/22)
+
+1. **The canonical tables are GENERATED** (render-bench-baseline.py,
+   render-fk-bench-table.py, render-bench-delta.py) — never hand-typed. The delta
+   table's separator row MUST match the header's column count (a mismatch = the GFM
+   table renders as raw text — the silent killer; count the pipes).
+2. **An archived-vs-new delta is NOT a code delta.** The attribution method: re-run
+   the OLD revision TODAY (a throwaway worktree + the same single-fork protocol); if
+   the old rev reproduces its archive on shape X → a gap on X is code; if not → the
+   archive was environment-flattered (drift). The drift is scenario-dependent (the
+   allocation/GC-heavy batch shapes drift the most; the search-write shapes hold).
+   Archive the attribution beside the result set (ATTRIBUTION.md).
+3. **The nightly smoke shape is FROZEN**: the row-count assertions (9 canonical +
+   14 search, ZERO FK rows) — a heavy-preload benchmark joins a DEDICATED invocation,
+   never the smoke set (the FK benchmark's preload would add ~20 min).
+4. **The manifest discloses the flags AND the machine profile** (CPU/RAM/fs — no
+   hostnames); BENCH_JDK pins the JDK and the manifest records the version FROM THE
+   BINARY THAT RUNS.
+5. **A benchmark asserts its data** (the field-by-field integrity vs the
+   deterministic model) — a measurement without the integrity gate proves nothing.

@@ -1,25 +1,28 @@
 ---
 name: dbms-developer
-description: "XdStorage DBMS engine development: the transaction subsystem (2PC, isolation, rollback), the B+tree mutation model, the overlay engine (task 53), the W-4 write-path program, failure-family diagnosis, and the verification protocol. Use whenever the work touches the engine core (XdStorageTransaction, ResourceCache, B+tree, commit/rollback paths), when a data-integrity bug is suspected (lost updates, dangling references, vanished records, rollback residue), when designing concurrent-write or recovery behavior, or when the user asks for W-4 program work."
+description: "XdStorage DBMS engine development: the transaction subsystem (2PC, isolation, rollback), the B+tree mutation model, the overlay engine (task 53), the W-4 write-path program, failure-family diagnosis, and the verification protocol. Also the measurement/research/migration jobs: a feasibility gate ('measure if X is justified'), a benchmark delta or A/B cost question, an upgrade/migration hardening ('2.0.0 must migrate'), and a red-pin triage ('is it the engine or the test'). Use whenever the work touches the engine core (XdStorageTransaction, ResourceCache, B+tree, commit/rollback paths), when a data-integrity bug is suspected (lost updates, dangling references, vanished records, rollback residue), when designing concurrent-write or recovery behavior, when the user asks for W-4 program work, or loosely phrased ('померяй', 'оправдан ли X', 'миграция', 'пин красный')."
 ---
 
 # DBMS engine developer — XdStorage core
 
 You are the project's DBMS engine developer. Your recurring job: evolve the
 storage engine's core (transactions, B+trees, commit/rollback, concurrency)
-without breaking the invariants, and diagnose integrity bugs to their root —
-not to the first plausible patch. This skill compiles the W-4 debugging
-marathon (2026-11-15 → 2026-11-21): the overlay engine (task 53, LANDED — the convoy
-destroyed, the gate ×3 1321/0f/0e), five core battle-scar fixes, the FKBENCH
-measurement (the 140× concurrent-write collapse and its cure), and the failure-family
-registry. Classify the work's complexity tier FIRST —
+without breaking the invariants, diagnose integrity bugs to their root — not to
+the first plausible patch — and run the train's measurement/research/migration
+jobs. This skill compiles the W-4 debugging marathon (2026-11-15 → 11-21: the
+overlay engine, the convoy destroyed, five battle-scar fixes) AND the
+train-closing wave (2026-11-21/22: A2.3 mixed-key, the wrapper-pin premise fix,
+LAYOUTMIG 51, JRNLDATA 54, FKBENCH 50, JDK21 27, BENCHREFRESH 43, BINFEAS 33
+with the real-codec experiment). Classify the work's complexity tier FIRST —
 [references/general-recommendations.md](references/general-recommendations.md) sets
 the minimum evidence bundle per tier (C0 data → C5 architectural) and the universal
-principles that hold at every tier.
+principles that hold at every tier. For the recurring NON-core jobs (a feasibility
+gate, a benchmark delta, an A/B cost, a migration hardening, a red pin) — follow the
+recipes: [references/recipes-research-measurement.md](references/recipes-research-measurement.md).
 
 ## 0. Ground rules (non-negotiable)
 
-1. **The verdict is the full estate.** `mvn test -Pquick-gate` (1316 tests) —
+1. **The verdict is the full estate.** `mvn test -Pquick-gate` (1344+ tests, the honest count of the day) —
    a single green test proves nothing; a single red test is a release blocker.
    Never judge from one test's output. Remove `target/surefire-reports` before
    aggregating (stale reports lie).
@@ -46,6 +49,7 @@ principles that hold at every tier.
 | Designing/changing commit, rollback, isolation, recovery | [references/tx-model.md](references/tx-model.md) — the commit/rollback algorithms step by step |
 | Anything B+tree-mutation related (incl. task 53 overlay) | [references/btree-overlay.md](references/btree-overlay.md) — the overlay design, the contract pitfalls |
 | Writing tests / benchmarking | [references/verification-protocol.md](references/verification-protocol.md) — the estates, the gates, FKBENCH |
+| A feasibility gate, a benchmark delta, an A/B cost, a migration hardening, a red pin | [references/recipes-research-measurement.md](references/recipes-research-measurement.md) — the five step-by-step recipes |
 
 Project-wide deep dives (keep in sync; the skill references them):
 - [docs/analysis/TX_COMMIT_ROLLBACK_MODEL.md](../../../docs/analysis/TX_COMMIT_ROLLBACK_MODEL.md)
@@ -88,6 +92,9 @@ Full registry with mechanisms: [references/failure-families.md](references/failu
 | "Recursive update" (fast-thrown, no stack) | CHM computeIfAbsent lambda touching the same map |
 | "B+Tree node N is referenced but missing" | in-place tree mutation surviving an unsound rollback (task 41 family) |
 | "reference cannot be null" at load | load-by-reference of a not-yet-restored record (rollback ordering) — or the test deleting a null load result |
+| "Field 'X' ... no matching setter — the field is DROPPED from persistence" | the JavaBeans contract: a getter without a type-matching setter silently drops the field (grep the WARNs FIRST) — the test-entity premise bug, not the engine |
+| "Not all foreign keys are deleted/registered" | the FK veto contract (CANON 2026-11-20): delete-child-alone with the parent still referencing = designed refusal — sync the collection first |
+| "is exists" on save | the unique-id invariant (no FK overlay on the plain path) — restore with a NEW id and replace the pool entry |
 
 ## 4. The overlay engine (task 53) — LANDED (2026-11-21), rules unchanged
 
@@ -120,18 +127,30 @@ Short: the FK estate (372) → MassFill ×2 → cache suites → quick-gate full
 each ×3 for a release claim; FKBENCH (task 50) for the write-path claims;
 every W-4 step lands with its pinning tests listed in the task file.
 
-## 6. Current program state (2026-11-21)
+## 6. The program state (2026-11-22): 2.1.0 complete except task 44
 
-- **Landed and verified:** W-4a/c index journaling (64.9→0.13 ms/tx at N=50k);
-  LOSTUPD stage-time first-committer-wins; TREEFILE fresh-parse recovery;
-  FK write-set in the 2PC; **the tree overlay (task 53) + the total acquisition
-  order + the prevSnapshot role split + the read-time capture** — the stress
-  family 7/7, the gate ×3 1321/0f/0e, the collapse-rollback test green.
-- **Post-release remainder (the next W-4 layers):** the lost-update window
-  (the stage→commit version revalidation — "Рассинхрон"), the read-snapshot
-  cost (~2× the load; the lazy capture on the first mutation), the wrapper
-  write-through de-aliasing (2 @Disabled pins in XdStorageBTreeOverlayTest),
-  the BTreeStress R-56/multi-scan race follow-up (0 phantoms ON the overlay vs
-  24810 at HEAD — the fix is the version-validated retry / snapshot-leaf
-  chain), and the A2.3 mixed-key CCE (exposed at scale by the benchmark; the
-  typed key normalization per tree, FOREIGN_KEYS.md §9).
+- **The train-closing wave (all landed, the gate ×3 green through every step,
+  final count 1344/0f/0e):** A2.3 mixed-key (the tolerant compare at 12 key-compare
+  sites + the DESIGNED pre-flight loud-bound contract for the typed range queries —
+  the accidental CCE loudness replaced); the wrapper block (the 2 red pins were the
+  test-entity JavaBeans premise — NOT aliasing; the read-snapshot cost measured
+  10–33%, ACCEPTED + documented); LAYOUTMIG 51 (the real-2.0.0 golden fixture, the
+  marker v3 — the downgrade refusal REAL, the UTF-8 pins, the loud failure policy);
+  JRNLDATA 54 (the index journals are DATA CARRIERS — relocated into
+  data/<Class>/journal/, the 6-level resolution chain); FKBENCH 50 (the FK write
+  shapes OUTSIDE the ≤2× band at every size, the LINEAR FK-tree-size scaling → the
+  W-4c follow-up; the FK read path free); JDK21 27 (the CI leg, variant b);
+  BENCHREFRESH 43 (the 2026-11-21 canonical baseline + the honest delta vs BOTH
+  predecessors with the old-rev-today attribution — commitBatch "−50%" = machine
+  drift, saveAndDelete −24% = the correctness wave's real price); BINFEAS 33 (the
+  FP-9 gate: serialization = 84–86% of the cold paths → GO for the 2.2.0 design
+  round; the real-codec experiment realized 63–86% of the ceiling — the upper
+  bound CONFIRMED).
+- **Post-release remainder:** the wrapper de-aliasing framing is CLOSED (the pins
+  green — the premise was the entities); the B-link tree; the lazy read-snapshot
+  (2.2.0, the collection-getter bypass caveat); the journal-append serialization
+  share (BINFEAS's open question); the FK write-cost optimization (the W-4c
+  follow-up: the O(relations) scan suspect).
+- **The RC protocol** (after 44): the full suite ×3, kill-9/torn-journal recovery,
+  JMH vs the refreshed baseline, the fresh-clone + the 2.0.0-upgrade walkthrough →
+  tag `v2.1.0`.

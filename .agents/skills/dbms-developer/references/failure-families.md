@@ -148,3 +148,15 @@ a family signature, check the family's known mechanism FIRST.
    re-scope. (The 2026-11-20 overlay revert: 30f/46e broad regression.)
 3. New families: add the signature, the mechanism, the repro, and the probes
    that found it — the next debugger starts from the registry, not zero.
+
+## 5. The persistence/migration/codec families (LAYOUTMIG 51 + JRNLDATA 54 + BINFEAS 33)
+
+| Signature | Mechanism |
+|---|---|
+| "Field 'X' ... has a getter but no matching setter — DROPPED from persistence" (WARN) | the JavaBeans contract: the field silently vanishes from persistence; NOTHING round-trips (no seed, no commit, no rollback) — the test-entity premise bug; the setter's param TYPE must match the declared field type exactly |
+| "uses on-disk format vN, but this library supports up to vM" | the format-marker gate: v3 = the 2.1.0 layout generation (LAYOUTMIG rewrites 2→3 after the migration; the downgrade refusal is REAL) |
+| "the stream is not BF1 (got 'objects:')" | a YAML base read by the binary reader — the conversion did not cover that file class (the index base converts at the file level: an idempotent update never gives the index journal a tail, its checkpoint never fires) |
+| NPE `putIfAbsent` in fillCache after a codec round trip | the YAML readObjectData convention: the id lands in setId(), NOT the properties — a record writer reading properties writes null ids |
+| "cannot be replayed ... factory is null" | the journal replay type-checks `instanceof XdStorageYamlIOFactory` — a codec factory must EXTEND the concrete YAML factory, not implement the interface |
+| "I/O error reading resource <indexes/...>" right after a conversion | the resources CAPTURE their reader/writer at construction — the locator swap alone doesn't reach live resources; swap their fields or convert before any touch |
+| "layout migration failed at '...' — the storage is NOT opened" | the LOUD failure policy (LAYOUTMIG): an unmovable file refuses the open rather than continuing with a silently empty id index (the first save would clobber fragment-0) |

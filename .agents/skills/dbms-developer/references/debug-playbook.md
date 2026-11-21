@@ -108,3 +108,32 @@ window; only in-window commits counted; the stall/sweeper/gate counters.
 Read: fk=OFF t=1 ≈ the base write path (WRTPATH domain); fk=ON t=10 vs fk=ON
 t=1 = the choke price. The 2026-11-20 measurement: **167 → 1.2 tx/s (140×
 collapse), FK-independent** (the id-index change-slot choke).
+
+## 8. The measurement trap registry (the research/experiment wave, 2026-11-22)
+
+1. **Surefire cuts exception stacks at the test boundary** (a CCE showed ONE frame);
+   `-XX:-OmitStackTraceInFastThrow` through assertDoesNotThrow does NOT help —
+   catch the exception LIVE in the test and print getStackTrace() (the true
+   75-frame stacks).
+2. **grep the run's WARN/ERROR lines FIRST** — the engine announces what it drops
+   (the JavaBeans field drop WARN was in every run before anyone read it).
+3. **surefire -Dtest substring patterns silently miss classes** (a short pattern
+   matched nothing and the phase "passed" empty); stale
+   `target/surefire-reports/` lie in aggregations — rm before reading.
+4. **Measuring the "cold FIRST lookup" inside the scan's session measures the
+   PREPARED CACHE (50µs), not the cold path (13ms)** — the lookup rounds must
+   REOPEN fresh (the feasibility probe's protocol was right; the experiment's
+   first draft wasn't).
+5. **The resources capture their codec at construction** — the factory swap reaches
+   only the not-yet-created resources; the conversion swaps the live resources'
+   reader/writer fields too.
+6. **The shutdown checkpoint fires per resource and only with a journal tail** —
+   a load-only session has nothing to rewrite; stage a per-fragment-stride
+   idempotent touch to give every resource's journal a tail.
+7. **The char-stream SPI shapes any binary format**: the pipes are UTF-8 Readers/
+   Writers — a byte-level format needs the SPI extended (the FP-9 design round's
+   item); a char-framed codec (length-framed strings, bit doubles) measures the
+   honest achievable number through the existing pipe.
+8. **An idempotent update never rewrites the id→fragment routing** — the index
+   journal stays empty and its checkpoint never fires; the index base converts at
+   the file level (readData → the records → the codec).
