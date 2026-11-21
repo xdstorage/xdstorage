@@ -45,7 +45,7 @@ if [ -z "${GH_TOKEN:-}" ] && [ -n "${XDSTORAGE_ISSUES_TOKEN:-}" ]; then
   export GH_TOKEN="$XDSTORAGE_ISSUES_TOKEN"
 fi
 
-created=0; closed=0; updated=0; insync=0; warned=0
+created=0; closed=0; updated=0; insync=0; warned=0; failed=0
 SUMMARY="| action | count |
 |---|---|
 "
@@ -74,6 +74,19 @@ label "bug"         "EE0701" "Engine defect discovered by the test estate"
 label "benchmark"   "0E9BD8" "Benchmark estate work"
 label "w4-design"   "5AEFFB" "The W-4 write-path program (design/implementation)"
 label "durability"  "7A9E9F" "Durability: journal, checkpoint, recovery"
+label "layout"      "BFD4F2" "On-disk layout / migration work"
+
+# --- 1b. Auto-ensure every label the task files use (the drift-proof net) ----------------
+# The curated block above gives the well-known labels their colors/descriptions; this
+# loop guarantees a NEW label appearing in any task file's frontmatter is created here,
+# before it is referenced. A missing label fails `gh issue create --label`, and with
+# pipefail that aborted the whole run (the recurring 2026-11 breakage). `-train` labels
+# are excluded — they are ensured per-directory below with their own color.
+for USED in $(find "$TASKS_ROOT" -mindepth 2 -maxdepth 2 -name '*.md' -print0 \
+              | xargs -0 -r sed -n 's/^labels: \[\(.*\)\]$/\1/p' | tr -d ' ' | tr ',' '\n' | sort -u); do
+  case "$USED" in *-train|"") continue ;; esac
+  label "$USED" "ededed" "Ensured from the task files (default color)"
+done
 
 # --- 2. Milestones (existence cached per name; attached at creation only) ----------------
 MILESTONE_CACHE=" "
@@ -191,6 +204,124 @@ close_issue() { # $1 = number, $2 = task file path, $3 = the status explanation 
 }
 
 # --- 4. Per train directory, per task file -------------------------------------------------
+# Failure isolation: each file syncs inside sync_task_file(); a gh failure on ONE file
+# (API hiccup, vanished issue, unexpected state) warns, counts, and the run CONTINUES —
+# one bad file no longer kills the whole sync. The issue-list fetch above stays the
+# ONLY deliberate loud abort: a partial list would create duplicate issues.
+sync_task_file() { # $1 = file, $2 = relpath; globals in: ISSUES, MILESTONE(+ARG); out: counters
+  local f="$1" relpath="$2"
+  title=$(sed -n 's/^title: "\(.*\)"$/\1/p' "$f")
+  labels=$(sed -n 's/^labels: \[\(.*\)\]$/\1/p' "$f" | tr -d ' ')
+  status=$(sed -n 's/^status: \(.*\)$/\1/p' "$f")
+  status=${status:-open}
+  # 2026-10-26: the status may carry a short explanation — "done (core fixed; ...)".
+  # The KEYWORD (first word, case-insensitive) drives the state machine; the explanation
+  # rides in the closing comment so the issue records WHY it closed.
+  status_kw=$(printf '%s' "$status" | tr '[:upper:]' '[:lower:]' | cut -d' ' -f1)
+  status_note=""
+  [[ "$status" == *" "* ]] && status_note="${status#* }"
+  if [ -z "$title" ] || [ -z "$labels" ]; then
+    echo "WARN: $f - missing/invalid frontmatter (title/labels), skipped"
+    warned=$((warned+1)); return 0
+  fi
+  case "$status_kw" in open|done) ;; *)
+    echo "WARN: $f - invalid status '$status' (expected: open|done [explanation]), skipped"
+    warned=$((warned+1)); return 0 ;;
+  esac
+
+  marker=$(marker_for "$relpath")
+
+  # --- ownership: marker match FIRST (stable across title edits), title fallback ------
+  matched_line=""
+  for line in ${ISSUES[@]+"${ISSUES[@]}"}; do
+    b64=$(printf '%s' "$line" | awk -F'\t' '{print $4}')
+    if printf '%s' "$b64" | base64 -d 2>/dev/null | grep -qF "$marker"; then
+      matched_line="$line"
+      break
+    fi
+  done
+  if [ -z "$matched_line" ]; then
+    matched_line=$(issue_lookup_line "$title" || true)
+  fi
+
+  num=""; state=""; stored_title=""
+  if [ -n "$matched_line" ]; then
+    num=$(printf '%s' "$matched_line" | awk -F'\t' '{print $1}')
+    state=$(printf '%s' "$matched_line" | awk -F'\t' '{print $3}')
+    stored_title=$(printf '%s' "$matched_line" | awk -F'\t' '{print $2}')
+  fi
+
+  # --- content drift: stored body/labels/title vs the file's current state ------------
+  content_changed=0
+  title_differs=0
+  labels_differs=0
+  if [ -n "$num" ]; then
+    stored=$(issue_body_of "$num")
+    expected=$(body_of "$f")
+    [ "$(norm "$stored")" = "$(norm "$expected")" ] || content_changed=1
+    printf '%s' "$stored" | grep -qF "$marker" || content_changed=1   # legacy body: no marker yet
+    [ "$stored_title" = "$title" ] || title_differs=1
+    cur_labels=$(issue_labels_of "$num")
+    cur_sorted=$(printf '%s' "$cur_labels" | tr ',' '\n' | sort | tr '\n' ',' | sed 's/,$//')
+    want_sorted=$(printf '%s' "$labels" | tr ',' '\n' | sort | tr '\n' ',' | sed 's/,$//')
+    [ "$cur_sorted" = "$want_sorted" ] || labels_differs=1
+  fi
+
+  if [ -z "$num" ]; then
+    if [ "$DRY_RUN" = 1 ]; then
+      echo "PLAN: create '$title' (status: $status, milestone: $MILESTONE)"
+    else
+      newnum=$(create_issue "$f" "$title" "$labels") || return 1
+      [ -n "$newnum" ] || { echo "gh issue create returned no issue number for: $title"; return 1; }
+      echo "created #$newnum: $title"
+      if [ "$status_kw" = "done" ]; then
+        close_issue "$newnum" "$f" "$status_note" || return 1
+        echo "closed  #$newnum (status: done at creation)"
+        closed=$((closed+1))
+      fi
+    fi
+    created=$((created+1)); return 0
+  fi
+
+  case "$state:$status_kw" in
+    OPEN:open|CLOSED:done)
+      if [ "$content_changed" = 1 ] || [ "$title_differs" = 1 ] || [ "$labels_differs" = 1 ]; then
+        newtitle=""; [ "$title_differs" = 1 ] && newtitle="$title"
+        if [ "$DRY_RUN" = 1 ]; then
+          echo "PLAN: update #$num '$title' (content drifted)"
+        else
+          update_issue_content "$num" "$newtitle" "$f" "$cur_labels" "$labels" || return 1
+          echo "updated #$num: $title"
+        fi
+        updated=$((updated+1))
+      else
+        insync=$((insync+1))
+      fi ;;
+    OPEN:done)
+      if [ "$DRY_RUN" = 1 ]; then
+        echo "PLAN: close #$num '$title' (status: done)"
+      else
+        if [ "$content_changed" = 1 ] || [ "$title_differs" = 1 ]; then
+          update_issue_content "$num" "$title" "$f" "$cur_labels" "$labels" || return 1
+        fi
+        close_issue "$num" "$relpath" "$status_note" || return 1
+        echo "closed  #$num: $title (status: done)"
+      fi
+      closed=$((closed+1)) ;;
+    CLOSED:open)
+      if [ "$content_changed" = 1 ]; then
+        if [ "$DRY_RUN" = 1 ]; then
+          echo "PLAN: update #$num body (closed; state mismatch warned)"
+        else
+          update_issue_content "$num" "" "$f" "$cur_labels" "$labels" || return 1
+        fi
+      fi
+      echo "WARN: #$num '$title' is closed on GitHub but the file says status: open - left closed (a machine never reopens; fix the file or the issue by hand)"
+      warned=$((warned+1)) ;;
+  esac
+  return 0
+}
+
 for DIR in "$TASKS_ROOT"/*/; do
   MILESTONE="$(basename "${DIR%/}")"
   milestone_arg "$MILESTONE"
@@ -202,125 +333,22 @@ for DIR in "$TASKS_ROOT"/*/; do
     [ -f "$f" ] || continue
     synced_in_dir=$((synced_in_dir+1))
     relpath="${f#./}"
-    title=$(sed -n 's/^title: "\(.*\)"$/\1/p' "$f")
-    labels=$(sed -n 's/^labels: \[\(.*\)\]$/\1/p' "$f" | tr -d ' ')
-    status=$(sed -n 's/^status: \(.*\)$/\1/p' "$f")
-    status=${status:-open}
-    # 2026-10-26: the status may carry a short explanation — "done (core fixed; ...)".
-    # The KEYWORD (first word, case-insensitive) drives the state machine; the explanation
-    # rides in the closing comment so the issue records WHY it closed.
-    status_kw=$(printf '%s' "$status" | tr '[:upper:]' '[:lower:]' | cut -d' ' -f1)
-    status_note=""
-    [[ "$status" == *" "* ]] && status_note="${status#* }"
-    if [ -z "$title" ] || [ -z "$labels" ]; then
-      echo "WARN: $f - missing/invalid frontmatter (title/labels), skipped"
-      warned=$((warned+1)); continue
+    if sync_task_file "$f" "$relpath"; then :; else
+      echo "WARN: $relpath - the sync action failed (the gh error above); skipped this run — it retries on the next push"
+      failed=$((failed+1))
     fi
-    case "$status_kw" in open|done) ;; *)
-      echo "WARN: $f - invalid status '$status' (expected: open|done [explanation]), skipped"
-      warned=$((warned+1)); continue ;;
-    esac
-
-    marker=$(marker_for "$relpath")
-
-    # --- ownership: marker match FIRST (stable across title edits), title fallback ------
-    matched_line=""
-    for line in ${ISSUES[@]+"${ISSUES[@]}"}; do
-      b64=$(printf '%s' "$line" | awk -F'\t' '{print $4}')
-      if printf '%s' "$b64" | base64 -d 2>/dev/null | grep -qF "$marker"; then
-        matched_line="$line"
-        break
-      fi
-    done
-    if [ -z "$matched_line" ]; then
-      matched_line=$(issue_lookup_line "$title" || true)
-    fi
-
-    num=""; state=""; stored_title=""
-    if [ -n "$matched_line" ]; then
-      num=$(printf '%s' "$matched_line" | awk -F'\t' '{print $1}')
-      state=$(printf '%s' "$matched_line" | awk -F'\t' '{print $3}')
-      stored_title=$(printf '%s' "$matched_line" | awk -F'\t' '{print $2}')
-    fi
-
-    # --- content drift: stored body/labels/title vs the file's current state ------------
-    content_changed=0
-    title_differs=0
-    labels_differs=0
-    if [ -n "$num" ]; then
-      stored=$(issue_body_of "$num")
-      expected=$(body_of "$f")
-      [ "$(norm "$stored")" = "$(norm "$expected")" ] || content_changed=1
-      printf '%s' "$stored" | grep -qF "$marker" || content_changed=1   # legacy body: no marker yet
-      [ "$stored_title" = "$title" ] || title_differs=1
-      cur_labels=$(issue_labels_of "$num")
-      cur_sorted=$(printf '%s' "$cur_labels" | tr ',' '\n' | sort | tr '\n' ',' | sed 's/,$//')
-      want_sorted=$(printf '%s' "$labels" | tr ',' '\n' | sort | tr '\n' ',' | sed 's/,$//')
-      [ "$cur_sorted" = "$want_sorted" ] || labels_differs=1
-    fi
-
-    if [ -z "$num" ]; then
-      if [ "$DRY_RUN" = 1 ]; then
-        echo "PLAN: create '$title' (status: $status, milestone: $MILESTONE)"
-      else
-        newnum=$(create_issue "$f" "$title" "$labels")
-        echo "created #$newnum: $title"
-        if [ "$status_kw" = "done" ]; then
-          close_issue "$newnum" "$f" "$status_note"
-          echo "closed  #$newnum (status: done at creation)"
-          closed=$((closed+1))
-        fi
-      fi
-      created=$((created+1)); continue
-    fi
-
-    case "$state:$status_kw" in
-      OPEN:open|CLOSED:done)
-        if [ "$content_changed" = 1 ] || [ "$title_differs" = 1 ] || [ "$labels_differs" = 1 ]; then
-          newtitle=""; [ "$title_differs" = 1 ] && newtitle="$title"
-          if [ "$DRY_RUN" = 1 ]; then
-            echo "PLAN: update #$num '$title' (content drifted)"
-          else
-            update_issue_content "$num" "$newtitle" "$f" "$cur_labels" "$labels"
-            echo "updated #$num: $title"
-          fi
-          updated=$((updated+1))
-        else
-          insync=$((insync+1))
-        fi ;;
-      OPEN:done)
-        if [ "$DRY_RUN" = 1 ]; then
-          echo "PLAN: close #$num '$title' (status: done)"
-        else
-          if [ "$content_changed" = 1 ] || [ "$title_differs" = 1 ]; then
-            update_issue_content "$num" "$title" "$f" "$cur_labels" "$labels"
-          fi
-          close_issue "$num" "$relpath" "$status_note"
-          echo "closed  #$num: $title (status: done)"
-        fi
-        closed=$((closed+1)) ;;
-      CLOSED:open)
-        if [ "$content_changed" = 1 ]; then
-          if [ "$DRY_RUN" = 1 ]; then
-            echo "PLAN: update #$num body (closed; state mismatch warned)"
-          else
-            update_issue_content "$num" "" "$f" "$cur_labels" "$labels"
-          fi
-        fi
-        echo "WARN: #$num '$title' is closed on GitHub but the file says status: open - left closed (a machine never reopens; fix the file or the issue by hand)"
-        warned=$((warned+1)) ;;
-    esac
   done
 
   [ "$synced_in_dir" -gt 0 ] && echo "train $MILESTONE: $synced_in_dir task file(s) processed"
 done
 
-echo "sync complete: $created created, $updated updated, $closed closed, $insync already in sync, $warned warnings"
+echo "sync complete: $created created, $updated updated, $closed closed, $insync already in sync, $warned warnings, $failed sync-action failures (retried on the next push)"
 SUMMARY="${SUMMARY}| created | ${created} |
 | updated | ${updated} |
 | closed | ${closed} |
 | already in sync | ${insync} |
 | warnings | ${warned} |
+| sync actions failed | ${failed} |
 "
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
   printf '%s\n' "$SUMMARY" >> "${GITHUB_STEP_SUMMARY}"

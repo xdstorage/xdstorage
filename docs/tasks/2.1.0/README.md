@@ -187,6 +187,15 @@ update (a human-added label is never stripped); titles and bodies sync verbatim.
 file paths stable**: the marker is the path — renaming a task file orphans its issue by
 design.
 
+**Robustness (2026-11-21).** Two hardening layers keep the run alive: (1) **label
+auto-ensure** — before anything else, every label found in any task file's frontmatter
+is ensured to exist (a new label in a task file can no longer abort the run — the
+recurring 2026-11 breakage; the curated block above still gives the well-known labels
+their colors); (2) **per-file failure isolation** — each file syncs in its own
+function: a gh failure on one file warns, counts as the `sync actions failed` row in
+the job summary, and retries on the next push. Only the issue-list fetch aborts the
+run loudly (a partial list would create duplicate issues).
+
 **Token setup (one-time).** The workflow authenticates with the repository secret
 **`XDSTORAGE_ISSUES_TOKEN`** — *Settings → Secrets and variables → Actions → New repository
 secret*: a token (fine-grained PAT or classic) with **Issues: read & write** on this
