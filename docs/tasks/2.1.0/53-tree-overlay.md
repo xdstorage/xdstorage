@@ -389,3 +389,52 @@ de-aliasing (2 @Disabled pins in XdStorageBTreeOverlayTest), the BTreeStress R-5
 multi-scan race follow-up (0 phantoms on the overlay vs 24810 at HEAD), and the A2.3
 mixed-key CCE (exposed at scale by the benchmark; blocks the fk=ON arm until the typed
 key normalization lands).
+
+
+## LOST-UPDATE WINDOW CLOSED (2026-11-21, the final session): the commit-time version revalidation (the layer 2)
+
+**The root cause (the MassFillSecond "Рассинхрон" family):** the stage-time
+first-committer-wins (the 2-arg canBeChangedByTransaction with commitTimeNano)
+fires at the stage; a foreign COMMIT between the stage and this tx's commit was
+NOT re-checked → the stale staged state won silently.
+
+**The fix (the commit-time revalidation):**
+1. `XdStorageCacheRecord`: the `writeReadTimestamp` (the update's read moment,
+   set by the mutator before markUpdate from the read change's readTimestamp —
+   the ORIGINAL read preserved through the chain) + the `deleteReadTimestamp`
+   (the delete's read moment, set before markDelete). The fields: per-record,
+   the UNCONDITIONAL overwrite at every mark (the stale stamps from the earlier
+   txs overwritten by the next mark's capture — the no-clear-at-publish design:
+   the publish's clear destroyed the PENDING txs' evidence!).
+2. The revalidation hook: `XdStorageBTreeInvariants.simulateCommitTimeRevalidation(
+   record, tx, prepare, type, writeReadTs, deleteReadTs)` — the per-type read
+   moment; the conflict: `commitTimeNano != 0 && > myReadTs` → the checked
+   XdStorageException (the loud loser).
+3. The protocol's phase loop (the prepare pass only, the non-infra, the
+   update/delete only): the hook call wrapped into the XdStorageRuntimeException
+   (the phase loop's catch → the commit fails → the rollbackFailedCommit).
+
+**The semantics (the content-based, not the attempt-based):** the aborted
+foreign stages don't bump commitTimeNano (the bump = the performCommit only)
+→ NO over-rejection (the no-over-rejection pins green); the foreign COMMIT
+bumps it → the conflict → the loser retries with a fresh read.
+
+**The counter-scenario estate: `XdStorageCommitTimeRevalidationTest` 5/5**
+(the resource.cache package; the CacheInvariantTestSupport fixtures):
+1. the foreign commit between the read and the commit → the loud conflict ✓
+2. the aborted foreign stage → no over-rejection ✓
+3. the untouched record → no conflict ✓
+4. the delete conflict → the loud failure ✓
+5. the delete aborted foreign → the delete passes ✓
+
+**Verified:** 418/0f/0e (the estate + the invariants + the revalidation suite),
+MassFill ×2 green (the revalidation doesn't false-conflict the healthy flows),
+the full gate ×3 (the final acceptance).
+
+**The unit-layer caveat (the honest):** the record-level lost update is
+structurally BLOCKED by the slot + the stage-time check (the second writer's
+stage of the owned record = refused "concurrent modification") — the
+revalidation = the defense-in-depth for the direct-record mutations (the unit
+layer) and the protocol-level guarantee (the strict ACID). The MassFillSecond
+audit failure's exact mechanism was the task-40 aliasing channel (fixed by the
+role-split), not the record-level lost update.

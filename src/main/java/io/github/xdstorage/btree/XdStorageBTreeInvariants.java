@@ -1,5 +1,10 @@
 package io.github.xdstorage.btree;
 
+import io.github.xdstorage.resource.XdStorageObjectOperationType;
+import io.github.xdstorage.transaction.IXdStorageTransaction;
+
+import io.github.xdstorage.resource.cache.XdStorageCacheRecord;
+
 import io.github.xdstorage.IXdStorage;
 import io.github.xdstorage.exceptions.XdStorageConnectionException;
 import io.github.xdstorage.exceptions.XdStorageException;
@@ -375,6 +380,35 @@ public final class XdStorageBTreeInvariants {
                 }
             }
             descendCollectingLeaves(resolved, storage, transaction, leaves, context, visited, allowEqualSeparators);
+        }
+    }
+    /**
+     * LOSTUPD-2 (task 53): the COMMIT-TIME revalidation hook — the stage→commit window
+     * re-check shared by the commit protocol's phase loop and the tests. The semantics:
+     * a foreign COMMIT between this transaction's read of the record (writeReadTimestamp,
+     * captured at the read registration) and this commit makes the staged write stale →
+     * the loud conflict (the first-committer-wins extended to the commit; the loser
+     * retries with a fresh read). The aborted foreign stages don't bump commitTimeNano
+     * → no over-rejection. The update/delete changes only (the inserts: the duplicate-id
+     * guard; the infra: the R-42 structure-owned semantics — the caller filters).
+     */
+    public static void simulateCommitTimeRevalidation(final XdStorageCacheRecord record,
+                                                      final IXdStorageTransaction transaction,
+                                                      final boolean prepare,
+                                                      final XdStorageObjectOperationType type,
+                                                      final long writeReadTs,
+                                                      final long deleteReadTs) throws XdStorageException {
+        if (!prepare || record == null) {
+            return;
+        }
+        if (type != XdStorageObjectOperationType.Update && type != XdStorageObjectOperationType.Delete) {
+            return;
+        }
+        final long myReadTs = type == XdStorageObjectOperationType.Update ? writeReadTs : deleteReadTs;
+        final long foreignCommit = record.getCommitTimeNano();
+        if (myReadTs != 0 && foreignCommit != 0 && foreignCommit > myReadTs) {
+            throw new XdStorageException("COMMIT-TIME CONFLICT (first-committer-wins): record " + record.getId()
+                    + " was committed by another transaction after this transaction's read — the staged write is stale; retry with a fresh read");
         }
     }
 }

@@ -57,6 +57,26 @@ public class XdStorageCacheRecord {
      */
     private Object prevSnapshot;
 
+    /**
+     * LOSTUPD-2 (the commit-time revalidation): the moment THIS transaction first read
+     * the record (the read change's readTimestamp, captured by the mutator before the
+     * mark). The phase-1 revalidation compares the record's commitTimeNano (the last
+     * FOREIGN commit) against it: a foreign commit landed between this tx's read and
+     * its commit = the staged write is stale → the loud commit-time conflict (the
+     * first-committer-wins extended to the commit). 0 = not captured (the inserts, the
+     * infra pass-through).
+     */
+    private volatile long writeReadTimestamp;
+
+    /**
+     * LOSTUPD-2: the delete's read moment (captured at the markDelete by the mutator
+     * from the read change) — the DELETER's pending-conflict evidence. Kept separate
+     * from writeReadTimestamp: a foreign commit's publish must NOT clear it (the
+     * deleter's pending delete outlives the foreign commits — its conflict evidence
+     * is checked at the DELETER's own commit).
+     */
+    private volatile long deleteReadTimestamp;
+
     private Object object;
 
     private Object newObject;
@@ -951,6 +971,8 @@ public class XdStorageCacheRecord {
         }
         this.prevObject = null;
         this.prevSnapshot = null;
+        this.writeReadTimestamp = 0L; // the rollback clears the read stamps
+        this.deleteReadTimestamp = 0L;
         this.newObject = null;
         this.state = this.previousState;
         this.previousState = State.undefined;
@@ -1090,5 +1112,30 @@ public class XdStorageCacheRecord {
         this.locked = new AtomicBoolean(src.locked.get());
         this.version = src.version;
         this.commitSerial = src.commitSerial;
+    }
+
+    /** LOSTUPD-2: the TRUE commit moment of the last committed change (0 = never committed). */
+    public long getCommitTimeNano() {
+        return this.commitTimeNano;
+    }
+
+    /** LOSTUPD-2: the read moment captured by the mutator before the mark (0 = unset). */
+    public void stageWriteReadTimestamp(final long readTimestamp) {
+        // The UNCONDITIONAL overwrite: the last mark's read moment wins (the stale
+        // stamps from the earlier txs are overwritten by the next mark's capture)
+        this.writeReadTimestamp = readTimestamp;
+    }
+
+    /** LOSTUPD-2: the delete's read moment (set at the markDelete by the mutator). */
+    public void stageDeleteReadTimestamp(final long readTimestamp) {
+        this.deleteReadTimestamp = readTimestamp;
+    }
+
+    public long getDeleteReadTimestamp() {
+        return this.deleteReadTimestamp;
+    }
+
+    public long getWriteReadTimestamp() {
+        return this.writeReadTimestamp;
     }
 }

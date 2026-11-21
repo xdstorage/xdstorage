@@ -157,6 +157,27 @@ public class XdStorageCacheCommitProtocol {
                             oldObject != null ? XdStorageObjectUtils.cloneObject(oldObject) : null,
                             newObject != null ? newObject : null);
 
+                    // LOSTUPD-2 (task 53, the commit-time revalidation): the stage→commit
+                    // window re-check — a foreign COMMIT between this tx's read of the record
+                    // and this commit makes the staged write stale (the silent lost update:
+                    // the MassFillSecond "Рассинхрон" family). The strict ACID: the loser
+                    // fails LOUDLY here and retries with a fresh read. The aborted foreign
+                    // stages don't bump commitTimeNano → no over-rejection; the infra records
+                    // are skipped (the R-42 structure-owned semantics); the inserts skip (no
+                    // read moment — the duplicate-id guard owns that path).
+                    if (prepare && !cache.isInfrastructureCache()
+                            && (type == XdStorageObjectOperationType.Update || type == XdStorageObjectOperationType.Delete)) {
+                        // LOSTUPD-2: the revalidation hook (the single source — the tests pin
+                        // the same logic); throws on the stale staged write (the foreign
+                        // commit after this tx's read)
+                        try {
+                            io.github.xdstorage.btree.XdStorageBTreeInvariants.simulateCommitTimeRevalidation(
+                                    record, transaction, true, type,
+                                    record.getWriteReadTimestamp(), record.getDeleteReadTimestamp());
+                        } catch (final XdStorageException commitTimeConflict) {
+                            throw new XdStorageRuntimeException(commitTimeConflict);
+                        }
+                    }
                     if (prepare) {
                         record.prepareCommit(transaction);
                         listener.notify(XdStorageCacheCommitPhase.PREPARE_COMMIT, type, oldObject, newObject, transaction);

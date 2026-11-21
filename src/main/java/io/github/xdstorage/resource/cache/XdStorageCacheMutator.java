@@ -282,6 +282,7 @@ public final class XdStorageCacheMutator {
 
             if (record.isReadChange()) {
                 record.setNewObject(cache.materializeForCache(newObject));
+                record.stageWriteReadTimestamp(change != null ? change.readTimestamp : transaction.getTimestart());
                 record.markUpdate(transaction);
                 readObjects.put(objectId, new XdStorageCacheObjectChange(newObject, XdStorageCacheChange.update, change != null ? change.readTimestamp : transaction.getTimestart()));
             } else if (!record.isCommittedState() && record.isChangedByTransaction(transaction)) {
@@ -305,6 +306,7 @@ public final class XdStorageCacheMutator {
                 }
             } else if (infraRelax || record.canBeChangedByTransaction(transaction)) {
                 record.setNewObject(cache.materializeForCache(newObject));
+                record.stageWriteReadTimestamp(change != null ? change.readTimestamp : transaction.getTimestart());
                 record.markUpdate(transaction);
                 readObjects.put(objectId, new XdStorageCacheObjectChange(newObject, XdStorageCacheChange.update, change != null ? change.readTimestamp : transaction.getTimestart()));
             } else {
@@ -391,6 +393,7 @@ public final class XdStorageCacheMutator {
 
             if (record.isReadChange()) {
                 record.setNewObject(null);
+                record.stageDeleteReadTimestamp(change != null ? change.readTimestamp : transaction.getTimestart());
                 record.markDelete(transaction);
                 readObjects.remove(objectId);
             } else if (!record.isCommittedState() && record.isChangedByTransaction(transaction)) {
@@ -401,12 +404,14 @@ public final class XdStorageCacheMutator {
                         // R-40: инфра-вставка, удаленная в той же tx, остается обслуживаемой —
                         // живой инстанс может оставаться в структуре дерева.
                         record.setNewObject(null);
-                        record.markDelete(transaction);
+                        record.stageDeleteReadTimestamp(change != null ? change.readTimestamp : transaction.getTimestart());
+                record.markDelete(transaction);
                     }
                     readObjects.remove(objectId);
                 } else if (record.isUpdateChange()) {
                     record.setNewObject(null);
-                    record.markDelete(transaction);
+                    record.stageDeleteReadTimestamp(change != null ? change.readTimestamp : transaction.getTimestart());
+                record.markDelete(transaction);
                     readObjects.remove(objectId);
                 } else {
                     record.unlock(transaction);
@@ -414,6 +419,7 @@ public final class XdStorageCacheMutator {
                 }
             } else if (infraRelax || record.canBeChangedByTransaction(transaction)) {
                 record.setNewObject(null);
+                record.stageDeleteReadTimestamp(change != null ? change.readTimestamp : transaction.getTimestart());
                 record.markDelete(transaction);
                 readObjects.remove(objectId);
             } else {
