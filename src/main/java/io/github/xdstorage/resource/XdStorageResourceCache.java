@@ -907,13 +907,6 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
                     readObjects.putIfAbsent(id, new XdStorageCacheObjectChange(object, XdStorageCacheChange.read, System.nanoTime()));
                     return readObjects.get(id).object;
                 }
-                if (Boolean.getBoolean("xdstorage.chain.debug")) {
-                    synchronized (record) {
-                        System.out.println("[CHAIN] INFRA-NULL id=" + id + " tx=" + transaction.getTransactionId()
-                                + " state=" + record.getState() + " own=" + record.isChangedByTransaction(transaction)
-                                + " owner=" + record.getOwnerTransactionId());
-                    }
-                }
                 return null;
             }
 
@@ -1044,21 +1037,6 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
         // начала его транзакции / транзитно откатена) — штатный ответ MVCC
         // «в вашей версии графа этого элемента нет», а не повреждение структуры.
         if (record != null) {
-            if (Boolean.getBoolean("xdstorage.refdiag")) {
-                final StringBuilder diag = new StringBuilder("[REFDIAG] invisible by reference ")
-                        .append(clazz.getSimpleName()).append('#').append(objectId)
-                        .append(" update=").append(record.isUpdateChange())
-                        .append(" insert=").append(record.isInsertChange())
-                        .append(" delete=").append(record.isDeleteChange())
-                        .append(" committed=").append(record.isCommittedState())
-                        .append(" ownerAlive=").append(services.getTransactionsManager().isTransactionAlive(record.getOwnerTransaction()))
-                        .append(" ownChange=").append(record.isChangedByTransaction(transaction))
-                        .append(" readerSnap=").append(transaction instanceof XdStorageTransaction ? ((XdStorageTransaction) transaction).getSnapshotSerial() : null)
-                        .append(" readerTimestart=").append(transaction.getTimestart())
-                        .append(" recCommitSerial=").append(record.getCommitSerial())
-                        .append(" recTimestamp=").append(record.getTimestamp());
-                System.out.println(diag);
-            }
             throw new io.github.xdstorage.exceptions.XdStorageReferenceInvisibleException(
                     "reference is not visible in the reader snapshot: object of " + reference.getClass()
                             + " with id " + field.get(reference));
@@ -1163,15 +1141,7 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
             final Object materializedId = field.get(materialized);
             if (materializedId != null) {
                 final Object canonical = registry.adoptOrRegister(clazz, materializedId, materialized);
-                if (Boolean.getBoolean("xdstorage.chain.debug")) {
-                    System.out.println("[CHAIN] REGISTER class=" + clazz.getName() + " id=" + materializedId
-                            + " instance@" + System.identityHashCode(materialized)
-                            + (canonical != materialized ? " ADOPTED-EXISTING@" + System.identityHashCode(canonical) : " NEW"));
-                }
                 return canonical != null ? canonical : materialized;
-            } else if (Boolean.getBoolean("xdstorage.chain.debug")) {
-                System.out.println("[CHAIN] REGISTER-SKIP-NULL-ID class=" + clazz.getName()
-                        + " object@" + System.identityHashCode(materialized));
             }
         }
         return materialized;

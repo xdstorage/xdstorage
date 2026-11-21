@@ -1296,10 +1296,6 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
                 }
 
                 if (root == null) {
-                    if (XdStorageBTreeNode.CHAIN_DEBUG) {
-                        System.out.println("[CHAIN] UPDATE-MISS tree=" + id + " key=" + key + " wasInitialized=" + wasInitialized);
-                        new Exception("update-miss-stack").printStackTrace(System.out);
-                    }
                     throw new XdStorageException("object of " + id + " with id " + key + " does not exists");
                 }
                 structureVersion.incrementAndGet();

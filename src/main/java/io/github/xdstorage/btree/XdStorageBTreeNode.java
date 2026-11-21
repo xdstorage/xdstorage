@@ -73,7 +73,6 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
     private volatile XdStorageBTreeNode nextTreeNodeOnThisLevel;
 
     /** Диагностика цепочки листьев (включается -Dxdstorage.chain.debug=true). */
-    public static final boolean CHAIN_DEBUG = Boolean.getBoolean("xdstorage.chain.debug");
 
 
     private static String idsOf(final List<XdStorageBTreeNode> nodes) {
@@ -82,12 +81,6 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
             sb.append(n != null ? n.getId() : "null").append(',');
         }
         return sb.append(']').toString();
-    }
-
-    private static void chainDebug(final String event) {
-        if (CHAIN_DEBUG) {
-            System.out.println("[CHAIN] " + event);
-        }
     }
 
     /**
@@ -913,7 +906,6 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         // молча не срабатывает, а для multiple-деревьев удаляет ВТОРОЙ равный разделитель —
         // у ноды остается keys = children - 1 (каскад: спуски мисроутят, join'ы сиротят листья).
         if (isLeaf) {
-            chainDebug("SPLIT this=" + this.getId() + " right=" + right.getId() + " oldNext=" + (this.getNextTreeNodeOnThisLevel() != null ? this.getNextTreeNodeOnThisLevel().getId() : null));
             right.setNextTreeNodeOnThisLevel(this.getNextTreeNodeOnThisLevel());
             this.setNextTreeNodeOnThisLevel(right);
         }
@@ -972,7 +964,6 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                 dump.append(c.getId()).append('@').append(System.identityHashCode(c)).append(i < childrenOfParent.size() - 1 ? "," : "");
             }
             dump.append("] tree=").append(getTree().getId());
-            chainDebug(dump.toString());
             throw new XdStorageException("split of node " + this.getId() + " cannot find itself in its parent "
                     + this.getParent().getId() + " (children=" + childrenOfParent.size() + ") — parent pointer desynchronized");
         }
@@ -1051,7 +1042,6 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         // Разделитель midKey уже изъят итератором (см. комментарий в splitAndInsertIntoParent) —
         // повторный remove(midKey) ломал multiple-деревья (двойное удаление равного разделителя).
         if (isLeaf) {
-            chainDebug("SPLIT this=" + this.getId() + " right=" + right.getId() + " oldNext=" + (this.getNextTreeNodeOnThisLevel() != null ? this.getNextTreeNodeOnThisLevel().getId() : null));
             right.setNextTreeNodeOnThisLevel(this.getNextTreeNodeOnThisLevel());
             this.setNextTreeNodeOnThisLevel(right);
         }
@@ -1451,9 +1441,6 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         }
 
         if (rightChildren.isEmpty()) {
-            chainDebug("JOIN-RIGHT this=" + this.getId() + " absorbing right=" + right.getId() + " right.next=" + (right.getNextTreeNodeOnThisLevel() != null ? right.getNextTreeNodeOnThisLevel().getId() : null)
-                    + " this.nextBefore=" + (this.getNextTreeNodeOnThisLevel() != null ? this.getNextTreeNodeOnThisLevel().getId() : null)
-                    + " parent=" + this.getParent().getId() + " parentChildren=" + idsOf(this.getParent().getChildren()));
             this.setNextTreeNodeOnThisLevel(right.getNextTreeNodeOnThisLevel());
         }
 
@@ -1532,10 +1519,6 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
             }
 
             if (thisChildren.isEmpty()) {
-                chainDebug("JOIN-LEFT left=" + left.getId() + " absorbing this=" + this.getId() + " this.next=" + (this.getNextTreeNodeOnThisLevel() != null ? this.getNextTreeNodeOnThisLevel().getId() : null)
-                        + " left.nextBefore=" + (left.getNextTreeNodeOnThisLevel() != null ? left.getNextTreeNodeOnThisLevel().getId() : null)
-                        + " parent=" + this.getParent().getId() + " parentChildren=" + idsOf(this.getParent().getChildren())
-                        + " parentKeys=" + this.getParent().getKeys());
                 left.setNextTreeNodeOnThisLevel(this.getNextTreeNodeOnThisLevel());
             }
 
@@ -1719,14 +1702,6 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         }
 
         if (!deleted) {
-            if (CHAIN_DEBUG) {
-                final Comparable firstKey = getKeys().isEmpty() ? null : getKeys().get(0);
-                final Comparable lastKey = getKeys().isEmpty() ? null : getKeys().get(getKeys().size() - 1);
-                chainDebug("DELETE-MISS leaf=" + getId() + " key=" + key + " leafRange=[" + firstKey + ".." + lastKey + "]"
-                        + " parent=" + (getParent() != null ? getParent().getId() : null)
-                        + " parentKeys=" + (getParent() != null ? getParent().getKeys() : null)
-                        + " parentChildren=" + (getParent() != null ? idsOf(getParent().getChildren()) : null));
-            }
             throw new XdStorageException("object of " + tree.getId() + " with id " + key + " does not exists");
         }
 
@@ -1913,9 +1888,6 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         }
 
         if (!deleted) {
-            if (CHAIN_DEBUG) {
-                chainDebug("DELETE-PAIR-MISS leaf=" + getId() + " key=" + key + " value=" + value);
-            }
             throw new XdStorageException("object of " + tree.getId() + " with key " + key + " and value " + value + " does not exists");
         }
 
