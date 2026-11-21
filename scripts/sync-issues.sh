@@ -58,6 +58,7 @@ label() {
 label "P0"          "B60205" "Must land in the current train"
 label "P1"          "D93F0B" "Should land in the current train"
 label "P2"          "0E8A16" "Nice to have in the current train"
+label "P3"          "C7DEF8" "Backlog candidate for a later train"
 label "logging"     "5319E7" "Logging subsystem"
 label "testing"     "2374CA" "Test estate: coverage, grouping, suites"
 label "engine"      "F9D0C4" "Storage engine internals"
@@ -70,6 +71,9 @@ label "chore"       "CCCCCC" "Maintenance"
 label "tech-debt"   "D4C5F9" "Known debt to pay down"
 label "performance" "FEF2C0" "Performance work"
 label "bug"         "EE0701" "Engine defect discovered by the test estate"
+label "benchmark"   "0E9BD8" "Benchmark estate work"
+label "w4-design"   "5AEFFB" "The W-4 write-path program (design/implementation)"
+label "durability"  "7A9E9F" "Durability: journal, checkpoint, recovery"
 
 # --- 2. Milestones (existence cached per name; attached at creation only) ----------------
 MILESTONE_CACHE=" "

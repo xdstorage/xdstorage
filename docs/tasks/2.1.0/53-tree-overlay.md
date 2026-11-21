@@ -1,5 +1,5 @@
 ---
-title: "[2.1.0][TREEOVERLAY] B+tree per-tx overlay: sound rollback + per-op release of the tree change-slot (W4-DESIGN, task 41 + the concurrent-write unlock)"
+title: "[2.1.0][TREEOVERLAY] B+tree per-tx overlay: sound rollback and concurrent-write unlock (task 53)"
 labels: [2.1.0-train, P0, engine, w4-design, performance]
 status: done (the overlay + the convoy fix + the role-split landed and verified: the stress family 7/7, the gate ×3 1321/0f/0e, FKBENCH t=10 121–158 tx/s; the remaining W-4 layers — the lost-update window, the read-snapshot cost, the wrapper de-aliasing — are POST-RELEASE, ledgered below and in the dbms-developer skill)
 ---
