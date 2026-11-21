@@ -121,22 +121,23 @@ embedded configuration/feature-flag stores with queries and triggers.
 | Selective range (`BETWEEN`, `GT`) | ~24k / ~14k ops/s (vs ~1.6k for a scan) | `searchByPrimaryBetweenSelective`, `searchByPrimaryGT` |
 | Paged range (`ORDER BY` + `LIMIT 50`) | ~17.8k ops/s | `searchByPrimaryBetweenPagedLimit50` |
 | Scan path (no selective primary) | ~1.6k ops/s — O(dataset), keep primaries `EQUALS`/selective | `searchByScanNotEqualsPrimary` |
-| Read-only transaction (begin→load→commit) | ~78.5k ops/s | `readOnlyTx` |
-| Indexed save+delete (entity with children) | ~752 ops/s (flat at tiny N — the scaling story is below) | `saveAndDeleteIndexedShipWithCrew` |
+| Read-only transaction (begin→load→commit) | ~71k ops/s | `readOnlyTx` |
+| Indexed save+delete (entity with children) | ~600 ops/s on the 2026-11-21 set (-24% code-level vs 2026-10-24 — the correctness wave's price on the indexed-write path, tracked in the W-4 ledger; see BENCHMARKS.md § the honest delta) | `saveAndDeleteIndexedShipWithCrew` |
 | Indexed rename/update | ~2.0k ops/s (W-4b pending on the key-tree path) | `updateShipRenameSearchKey` |
 | Data-heavy write (journal on/off) | **~9,000 / ~3,100 tx/s** — the O(N) index rewrite removed by W-4a | `writeDataHeavy` |
 | `durableWrites=true` | ~82 ops/s — **fsync costs ~107×** on this shape; off by default | `writeDurable` |
-| Batch commit | 2,435 tx/s @ 10 obj → 31 tx/s @ 1000 obj; objects/s now **flat ~24k–31k** at every batch size | `commitBatch` |
+| Batch commit | ~1,400 tx/s @ 10 obj → ~14 tx/s @ 1000 obj; objects/s **flat ~14k–16k** at every batch size (the archived 2026-10-24 set showed ~24k–31k; the same-rev re-run showed the archived batch numbers were machine-state-flattered — the same-code delta is -5%, BENCHMARKS.md § the honest delta) | `commitBatch` |
 | Small write at N=50k | **0.13 ms/tx** (flat from 10³ to 5·10⁴ — was 64.9 ms/tx pre-W-4a) | docs/perf/w4a-write-scaling.md |
 | FK-related write (cascade of N children) | **12–160× slower than the same graph with FK off**, and the delta grows LINEARLY with the FK-tree size (the W-4c follow-up's finding — FK reads are free: ~1.0×) | `XdStorageForeignKeyBenchmark` (the FK A/B subsection) |
 
-Conditions: 2026-10-24 (post-W-4a index journaling), JDK 21.0.7, quiet Linux box —
+Conditions: 2026-11-21 (BENCHREFRESH — the full 2.1.0 feature set: W-4b/W-4c, the TREEOVERLAY write path, the commit-time revalidation; the FK engine idles on these entities), JDK 21.0.7, quiet Linux box —
 **AMD Ryzen 9 5900X (12 cores / 24 threads), 64 GB RAM, NVMe SSD (970 EVO Plus), ext4** —
 WARN-console logging, YAML format. The storage pair matters: the durability cost (~107×
 with `durableWrites`) is an NVMe-ext4 fsync cost — an HDD shifts it materially. Full
-manifest in `docs/perf/canonical-baseline-2026-10-24/` (the before-set:
-`docs/perf/canonical-baseline-2026-10-22/`; the full before/after delta table lives in
-BENCHMARKS.md § Before/after W-4a). Re-run: `bash scripts/run-benchmarks.sh full`.
+manifest + the attribution notes in `docs/perf/canonical-baseline-2026-11-21/` (the
+predecessors: `docs/perf/canonical-baseline-2026-10-24/` and `-2026-10-22/`; the honest
+delta table lives in BENCHMARKS.md § the honest delta vs BOTH predecessors). Re-run:
+`bash scripts/run-benchmarks.sh full`.
 
 Every number above has its field frame and a per-family "in real terms" reading on
 [BENCHMARKS.md](BENCHMARKS.md) (§ In context — what the figures measure, the sourced

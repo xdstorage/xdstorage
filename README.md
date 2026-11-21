@@ -133,9 +133,11 @@ The full table (LMDB, Chronicle Map, H2 MVStore), the sourced order-of-magnitude
 Writes were the project's known weak spot — measured, and **the main fix has landed in 2.1.0**
 (W-4a, index journaling): the small-write cost is now **flat 0.13–0.27 ms/tx from 10³ to 5·10⁴
 objects** (it degraded linearly to 64.9 ms/tx at 5·10⁴ before), and the canonical write shapes
-measure **~3.1k tx/s journal-off / ~9k tx/s journal-on** on data-heavy writes (was 348/370).
-That is still one to two orders below raw KV stores, and one path remains whole-file: the search
-key-tree rewrites (the rename/update scenario, W-4b pending — measured ~2.0k ops/s, +9%).
+measure **~3.1k tx/s journal-off / ~8k tx/s journal-on** on data-heavy writes (was 348/370;
+the 2.6× journal ratio re-confirmed on the 2026-11-21 baseline). That is still one to two orders
+below raw KV stores, and one path remains whole-file: the search key-tree rewrites (the
+rename/update scenario — measured ~1.7k ops/s on the 2026-11-21 baseline; the indexed
+save+delete shape carries a -24% correctness-wave cost, see BENCHMARKS.md § the honest delta).
 **The analysis, design, and measurements are public**:
 [docs/W4-DESIGN.md](docs/W4-DESIGN.md),
 [docs/perf/w4a-write-scaling.md](docs/perf/w4a-write-scaling.md), the full before/after

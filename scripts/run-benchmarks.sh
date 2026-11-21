@@ -102,6 +102,7 @@ cat > "$OUT/manifest.json" << EOF
   "configFlags": {
     "journalWrites": "default true (writeDataHeavy A/B overrides via @Param)",
     "indexJournalWrites": "default true (W-4a: the hash id-index commit journal)",
+    "enableForeignKeys": "default true (task 42; the canonical entities carry no FK relations — the FK engine idles; the FK cost is measured separately by XdStorageForeignKeyBenchmark, task 50)",
     "durableWrites": "default false (writeDurable A/B overrides via @Param)",
     "fragmentSize": 25,
     "note": "canonical CORE scenarios are fragment-heavy by design (disclosed)"
@@ -122,9 +123,17 @@ case "$MODE" in
     else
       JMH_ARGS=( )   # full: each class's own annotations (canonical defaults)
     fi
-    # the unified JMH set: the canonical CORE scenarios + the search-engine family + the FK-cost A/B (task 50)
+    # the unified JMH set: the canonical CORE scenarios + the search-engine family.
+    # The FK-cost A/B (task 50) runs as a DEDICATED invocation, NOT in this set — its
+    # per-trial preload (up to 100k entities) would multiply the quick-mode (nightly
+    # smoke) runtime by ~20 min and change the nightly shape (BENCHREFRESH task 43's
+    # "nightly shape unchanged" criterion). Dedicated run (the conditions protocol
+    # identical — the same LOG_CONF/classpath; the A/B table is rendered by
+    # scripts/render-fk-bench-table.py into BENCHMARKS.md § FK A/B):
+    #   "$JAVA_BIN" -Dlog4j.configurationFile="$LOG_CONF" -Xmx2g -cp "$CP" org.openjdk.jmh.Main \
+    #     "XdStorageForeignKeyBenchmark.*" -f 1 -wi 3 -w 2s -i 5 -r 2s -rf json -rff <out>.json
     "$JAVA_BIN" -Dlog4j.configurationFile="$LOG_CONF" -Xmx2g -cp "$CP" org.openjdk.jmh.Main \
-      "XdStorageCanonicalBenchmark.*" "XdStorageSearchEngineBenchmark.*" "XdStorageForeignKeyBenchmark.*" \
+      "XdStorageCanonicalBenchmark.*" "XdStorageSearchEngineBenchmark.*" \
       "${JMH_ARGS[@]}" -rf json -rff "$OUT/jmh-$MODE.json" \
       > "$OUT/jmh-$MODE.log" 2>&1 || { tail -40 "$OUT/jmh-$MODE.log"; exit 1; }
     grep -E "^XdStorage" "$OUT/jmh-$MODE.log" | tail -40 || true

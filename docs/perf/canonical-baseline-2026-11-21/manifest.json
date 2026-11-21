@@ -1,0 +1,27 @@
+{
+  "mode": "full",
+  "dateUtc": "20261121-104837",
+  "gitRev": "92d2c37",
+  "gitDirtyFiles": 3,
+  "jdk": "openjdk version \"21.0.7\" 2025-04-15",
+  "jdkSource": "BENCH_JDK parameter (/usr/lib/jvm/java-21-openjdk-amd64)",
+  "jdkHome": "/usr/lib/jvm/java-21-openjdk-amd64",
+  "cpuModel": "AMD Ryzen 9 5900X 12-Core Processor",
+  "cpuCores": "",
+  "ramGB": "63",
+  "rootFilesystem": "ext4",
+  "rootDiskKind": "?",
+  "loadavg1m": 1.40,
+  "maxLoadavg": 2.0,
+  "loadGateForced": false,
+  "loggingConfig": "docs/perf/benchmark-log4j2.xml (WARN console, no hot-path file I/O)",
+  "format": "YAML",
+  "configFlags": {
+    "journalWrites": "default true (writeDataHeavy A/B overrides via @Param)",
+    "indexJournalWrites": "default true (W-4a: the hash id-index commit journal)",
+    "enableForeignKeys": "default true (task 42; the canonical entities carry no FK relations — the FK engine idles; the FK cost is measured separately by XdStorageForeignKeyBenchmark, task 50)",
+    "durableWrites": "default false (writeDurable A/B overrides via @Param)",
+    "fragmentSize": 25,
+    "note": "canonical CORE scenarios are fragment-heavy by design (disclosed)"
+  }
+}

@@ -2,10 +2,16 @@
 
 Status: **W-4a + W-4c IMPLEMENTED (2026-10-23, task 32)** — index journaling is the
 default write path; gate numbers in docs/perf/w4a-write-scaling.md (small write at N=50k:
-64.9 → 0.13 ms/tx, the ≤3× gate met at 0.48×) — **canonically confirmed 2026-10-24**:
-the full JMH re-run puts `writeDataHeavy` at 8,967 ops/s journal-on / 3,098 journal-off
-(was 370/348 — 24×/8.9×), `commitBatch` objects/s flat ~24k–31k at every batch size, reads
-flat within noise; the full before/after delta lives in BENCHMARKS.md § Before/after W-4a. W-4b/W-4d remain gated as designed.
+64.9 → 0.13 ms/tx, the ≤3× gate met at 0.48×) — canonically confirmed 2026-10-24
+(`writeDataHeavy` 8,967 journal-on / 3,098 journal-off) and **re-confirmed on the
+BENCHREFRESH set 2026-11-21 (task 43)**: `writeDataHeavy` 8,055 journal-on / 3,070
+journal-off = the **2.6× journal ratio holds** (the W-4a gain survives the full 2.1.0
+feature set); `writeDurable` fsync ratio intact (~95×). The one real regression on the
+new set — `saveAndDeleteIndexedShipWithCrew` -24% code-level — belongs to the
+correctness wave (the TREEOVERLAY/W-4b layers, task 53's ledger), NOT to W-4a; the
+full honest delta lives in BENCHMARKS.md § the honest delta vs BOTH predecessors.
+W-4b/W-4d remain gated as designed (the W-4b readiness question answered by the same
+data: the search-write cost is visible and bounded).
 Design delivered by task 31 (docs/tasks/2.1.0/31); the implementation task is
 [docs/tasks/2.1.0/32](tasks/2.1.0/32-w4-write-path-implementation.md).
 Supersedes the W-4 sections of [WRITE-PATH-DESIGN.md](WRITE-PATH-DESIGN.md) (W-1..W-3 remain
