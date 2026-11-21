@@ -42,6 +42,18 @@ public class XdStorageQueryPlan {
     private final String fallbackReason;
     private final String shaping;
 
+    /**
+     * Builds the plan snapshot; the list arguments are defensively copied unmodifiable.
+     *
+     * @param indexName      the search index the query was routed to
+     * @param idIndexType    the id-index structure type of the entity's class ("BTree"/"Hash")
+     * @param path           the execution path the engine would take
+     * @param boundShape     the range bound shape (null when the path is not a range walk)
+     * @param postFilters    the criteria evaluated per fetched record, one line each
+     * @param steps          the per-OR-alternative routing steps, one line each
+     * @param fallbackReason why the plan degraded from the ideal path (null when it did not)
+     * @param shaping        the ORDER BY/LIMIT/OFFSET shaping summary (null when unshaped)
+     */
     public XdStorageQueryPlan(final String indexName, final String idIndexType, final Path path,
                               final String boundShape, final List<String> postFilters,
                               final List<String> steps, final String fallbackReason, final String shaping) {
@@ -55,41 +67,66 @@ public class XdStorageQueryPlan {
         this.shaping = shaping;
     }
 
+    /**
+     * The search index the query was routed to.
+     * @return the search index name
+     */
     public String getIndexName() {
         return indexName;
     }
 
-    /** The id-index structure type of the entity's class ("BTree"/"Hash"). */
+    /**
+     * The id-index structure type of the entity's class ("BTree"/"Hash").
+     * @return the id-index structure type
+     */
     public String getIdIndexType() {
         return idIndexType;
     }
 
-    /** The execution path the engine would take. */
+    /**
+     * The execution path the engine would take.
+     * @return the execution path
+     */
     public Path getPath() {
         return path;
     }
 
-    /** The range bound shape (null when the path is not a range walk). */
+    /**
+     * The range bound shape (null when the path is not a range walk).
+     * @return the range bound shape, or null
+     */
     public String getBoundShape() {
         return boundShape;
     }
 
-    /** The criteria evaluated per fetched record (post-filters), one line each. */
+    /**
+     * The criteria evaluated per fetched record (post-filters), one line each.
+     * @return the unmodifiable post-filter lines; empty when none
+     */
     public List<String> getPostFilters() {
         return postFilters;
     }
 
-    /** The per-OR-alternative routing steps (one line each). */
+    /**
+     * The per-OR-alternative routing steps (one line each).
+     * @return the unmodifiable routing step lines; empty when none
+     */
     public List<String> getSteps() {
         return steps;
     }
 
-    /** Why the plan degraded from the ideal path, or {@code null} when it did not. */
+    /**
+     * Why the plan degraded from the ideal path, or {@code null} when it did not.
+     * @return the degradation reason, or null
+     */
     public String getFallbackReason() {
         return fallbackReason;
     }
 
-    /** The ORDER BY/LIMIT/OFFSET shaping summary, or {@code null} when unshaped. */
+    /**
+     * The ORDER BY/LIMIT/OFFSET shaping summary, or {@code null} when unshaped.
+     * @return the shaping summary, or null
+     */
     public String getShaping() {
         return shaping;
     }

@@ -107,6 +107,12 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
     private IXdStorageCacheInternalListener internalListener =
             (phase, change, oldObject, newObject, transaction) -> { };
 
+    /**
+     * Installs the cache's internal commit-phase listener (wired through to the commit
+     * protocol); a null argument restores the do-nothing listener.
+     *
+     * @param listener the internal listener to notify on commit phases (null = none)
+     */
     public void setInternalListener(IXdStorageCacheInternalListener listener) {
         this.internalListener = listener != null
                 ? listener

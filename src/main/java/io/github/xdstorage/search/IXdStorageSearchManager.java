@@ -134,7 +134,8 @@ public interface IXdStorageSearchManager {
      * @param query       the criteria plus optional shaping
      * @param transaction the caller's transaction ({@code null} — an internal probe)
      * @return the query plan value object
-     * @throws XdStorageException when the index does not exist for the class
+     * @throws XdStorageException          when the index does not exist for the class
+     * @throws XdStorageConnectionException on a connection-level failure
      */
     io.github.xdstorage.search.query.XdStorageQueryPlan explain(Class<?> cl, String indexName,
                                                                 XdStorageSearchQuery query,

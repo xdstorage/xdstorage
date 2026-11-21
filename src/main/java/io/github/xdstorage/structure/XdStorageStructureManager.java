@@ -114,6 +114,16 @@ public class XdStorageStructureManager {
      *       migration has committed and the caller's subsequent operations run against the
      *       migrated schema.</li>
      * </ul>
+     *
+     * @param cl the stored class to verify and, if needed, migrate
+     * @param tx the caller's transaction context (accepted for API compatibility, not used —
+     *           the migration runs in an autonomous transaction)
+     * @return the migration scripts executed by this call in execution order, empty when
+     *         the structure was already up to date
+     * @throws XdStorageException           when the structure synchronization or a migration
+     *                                       script failed
+     * @throws XdStorageConnectionException when the storage connection failed during the
+     *                                       migration
      */
     public List<IXdStorageStructureUpdater> checkAndUpdateStructureIfNeed(final Class<?> cl, final XdStorageTransaction tx) throws XdStorageException, XdStorageConnectionException {
         AtomicBoolean state = states.get(cl);

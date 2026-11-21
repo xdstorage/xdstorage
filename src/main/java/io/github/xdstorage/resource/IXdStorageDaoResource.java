@@ -187,5 +187,15 @@ public interface IXdStorageDaoResource extends IXdStorageListenableResource {
      */
     void delete(final Object object, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
 
+    /**
+     * Whether the record with the given id is currently staged-deleted BY the given
+     * transaction (a delete change owned by it in the record cache) — the delete-aware
+     * existence probe used by callers that must not treat a deleted-in-this-tx record
+     * as present.
+     *
+     * @param id          the record id to probe
+     * @param transaction the transaction whose staged delete is tested
+     * @return {@code true} when the transaction has staged a delete of this record, {@code false} otherwise
+     */
     boolean isDeleted(Object id, XdStorageTransaction transaction);
 }

@@ -39,6 +39,12 @@ public class XdStorageAutoSaveFieldInfo {
     private final XdStorageObjectField accessor;
     private final Shape shape;
 
+    /**
+     * Builds the cascade-field metadata.
+     *
+     * @param accessor the {@code @XdStorageAutoSave} field accessor
+     * @param shape    the declared shape deciding how the cascade extracts child objects
+     */
     public XdStorageAutoSaveFieldInfo(final XdStorageObjectField accessor, final Shape shape) {
         this.accessor = accessor;
         this.shape = shape;

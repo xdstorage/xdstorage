@@ -11,11 +11,23 @@ see `XdStorageFormatMeta`):
 - **v1** — the 1.x era: YAML files without an end-of-file sentinel, no commit journal.
 - **v2** — the 2.0 era: YAML EOF sentinel (S-1), optional per-transaction commit journal
   (W-1, `journalWrites` ON by default since W-3).
+- **v3** — the 2.1.0 era: the `indexes/` subdirectory layout; the marker is stamped at the
+  automatic migration (a 2.1.0 folder cannot be opened by 2.0.0 — see the Breaking entry
+  below).
 
-## [Unreleased] — the 2.1.0 train (MASTER-PLAN Step 1)
+## [2.1.0] — 2026-11-22
 
 The train's user-facing changes; everything below has landed on the train and ships with
 the 2.1.0 release.
+
+**Release notes (the release-time disclosures):** upgrading from 2.0.0 runs the automatic
+on-disk layout migration (the folder marker is stamped `formatVersion=3` — a 2.1.0 folder
+cannot be opened by 2.0.0; back the folder up first, see the Breaking entry below; the
+format generations are recorded in the header above). Known flake row at release
+(documented, load-specific, no structure corruption):
+`XdStorageBTreeResourceCacheIntegrationTest.testIntegration_HeavyParallelLoad_NoDeadlocksOrTimeouts`
+(`@Tag integration`) — lock-contention backpressure under full-suite load only; see
+[FLAKY.md](docs/FLAKY.md).
 
 ### Breaking
 

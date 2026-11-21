@@ -22,6 +22,16 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Per-transaction registry of pending foreign-key work used as a commit gate.
+ *
+ * <p>While a transaction waits for deferred child/parent identifiers or for parent-side
+ * deletions to dissolve foreign-key pairs, per-transaction {@link AtomicLong} counters
+ * (insert-waiting / delete-waiting) stay positive; {@link #checkAllNotificationsReceived}
+ * vetoes the commit ("Not all foreign keys are registered/deleted") while a counter is
+ * nonzero. Delete-waiter listeners also arm per-transaction delete pairs that phase-1
+ * can sweep by state.</p>
+ */
 public class XdStorageForeignKeyChangeRegistry {
 
     private static final Logger log = LoggerFactory.getLogger(XdStorageForeignKeyChangeRegistry.class);
@@ -44,7 +54,15 @@ public class XdStorageForeignKeyChangeRegistry {
     // deleted BY DESIGN and the pinned DeleteChildAlone veto rides the counter).
     private final Map<String, Map<String, Object[]>> armedDeletePairs = new ConcurrentHashMap<>();
 
-    /** Tracks an armed delete-waiter pair for the phase-1 state sweep. */
+    /**
+     * Tracks an armed delete-waiter pair for the phase-1 state sweep.
+     * @param transaction the owning transaction
+     * @param parentObjectId the parent id
+     * @param childObjectId the child id
+     * @param sweepable true for the parent-deletion/update families (the waiter may be
+     *        resolved by state when the child record is already gone); false for the
+     *        child-deletion family, whose DeleteChildAlone veto must ride the counter
+     */
     public void trackArmedDeletePair(final IXdStorageTransaction transaction,
                                      final Comparable<?> parentObjectId, final Comparable<?> childObjectId,
                                      final boolean sweepable) {
@@ -53,7 +71,15 @@ public class XdStorageForeignKeyChangeRegistry {
                 .put(parentObjectId + "\u001F" + childObjectId, new Object[]{parentObjectId, childObjectId, sweepable});
     }
 
-    /** Untracks a resolved waiter pair and balances the delete counter. */
+    /**
+     * Untracks a resolved waiter pair and balances the delete counter. Removes the armed
+     * pair keyed by the parent/child ids from the transaction's sweep set and decrements
+     * the per-transaction delete-waiting counter.
+     *
+     * @param transaction the owning transaction
+     * @param parentObjectId the parent id of the resolved pair
+     * @param childObjectId the child id of the resolved pair
+     */
     public void resolveArmedDeletePair(final IXdStorageTransaction transaction,
                                        final Comparable<?> parentObjectId, final Comparable<?> childObjectId) {
         final Map<String, Object[]> pairs = armedDeletePairs.get(transaction.getTransactionId());
@@ -63,16 +89,37 @@ public class XdStorageForeignKeyChangeRegistry {
         decrementDeleteWaitingIdentifier(transaction);
     }
 
-    /** The armed delete-waiter pairs of the transaction (the phase-1 sweep input). */
+    /**
+     * The armed delete-waiter pairs of the transaction (the phase-1 sweep input).
+     *
+     * @param transaction the transaction whose armed pairs to list
+     * @return the armed pairs as {@code Object[]{parentId, childId, sweepable}} entries,
+     *         empty when the transaction has none
+     */
     public java.util.Collection<Object[]> armedDeletePairs(final IXdStorageTransaction transaction) {
         final Map<String, Object[]> pairs = armedDeletePairs.get(transaction.getTransactionId());
         return pairs != null ? pairs.values() : java.util.Collections.emptyList();
     }
 
+    /**
+     * Creates a change registry bound to the relation served by the given registry.
+     *
+     * @param registry the foreign-key registry providing the parent/child class infos and
+     *        the parent field, and performing the actual foreign-key registration changes
+     */
     public XdStorageForeignKeyChangeRegistry(IXdStorageForeignKeyRegistry registry) {
         this.registry = registry;
     }
 
+    /**
+     * Phase-1 commit gate: vetoes the commit while deferred foreign-key work is pending.
+     * Logs (and then throws) when the transaction's insert-waiting counter is positive —
+     * not all foreign keys are registered — or when its delete-waiting counter is
+     * positive — not all foreign keys are deleted.
+     *
+     * @param transaction the transaction being validated
+     * @throws XdStorageRuntimeException when either counter is still positive at phase-1
+     */
     public void checkAllNotificationsReceived(IXdStorageTransaction transaction) {
         if (insertWaitingIdentifiers.getOrDefault(transaction.getTransactionId(), new java.util.concurrent.atomic.AtomicLong()).get() != 0) {
             log.error("Not all foreign keys are registered for relation "
@@ -99,6 +146,13 @@ public class XdStorageForeignKeyChangeRegistry {
                     + clParentInfo.getClazz() + "#" + clParentField.getName() + " -> " + clChildInfo.getClazz());
     }
 
+    /**
+     * Discards all per-transaction state: the insert-waiting and delete-waiting counters
+     * and the armed delete-waiter pairs. Called when the transaction ends, so that
+     * never-resolved remainders do not leak into later transactions.
+     *
+     * @param transaction the transaction whose state to drop
+     */
     public void release(IXdStorageTransaction transaction) {
         final String txId = transaction.getTransactionId();
         final AtomicLong remainingIns = insertWaitingIdentifiers.get(txId);
@@ -108,6 +162,19 @@ public class XdStorageForeignKeyChangeRegistry {
         armedDeletePairs.remove(txId);
     }
 
+    /**
+     * Arms a delete-waiter on the given resource for an Update change: at
+     * PREPARE_COMMIT of the owning resource, when the parent's new state no longer
+     * references the child, the foreign-key pair is unregistered, the armed waiter
+     * resolves and the transaction's delete-waiting counter decrements. Increments the
+     * delete-waiting counter and tracks a sweepable armed pair immediately.
+     *
+     * @param resource the owning resource whose commit notifications drive the waiter
+     * @param parentObjectId the id of the parent object currently referencing the child
+     * @param childObjectId the id of the referenced child object
+     * @param parentIdField the parent's id field, used to match change events to the parent
+     * @param transaction the transaction the waiter is armed for
+     */
     public void registerUpdateListener(XdStorageResource resource, Comparable<?> parentObjectId, Comparable<?> childObjectId,
                                        XdStorageObjectIdField parentIdField, IXdStorageTransaction transaction) {
         XdStorageObjectField clParentField = registry.getParentField();
@@ -135,6 +202,19 @@ public class XdStorageForeignKeyChangeRegistry {
         }, transaction);
     }
 
+    /**
+     * Arms a delete-waiter on the given B+tree index resource for an Update change: at
+     * PREPARE_COMMIT of the owning resource, when the parent's new state no longer
+     * references the child, the foreign-key pair is unregistered, the armed waiter
+     * resolves and the transaction's delete-waiting counter decrements. Increments the
+     * delete-waiting counter and tracks a sweepable armed pair immediately.
+     *
+     * @param resource the owning B+tree index resource whose commit notifications drive the waiter
+     * @param parentObjectId the id of the parent object currently referencing the child
+     * @param childObjectId the id of the referenced child object
+     * @param parentIdField the parent's id field, used to match change events to the parent
+     * @param transaction the transaction the waiter is armed for
+     */
     public void registerUpdateListener(XdStorageBTreeIndexResource resource, Comparable<?> parentObjectId, Comparable<?> childObjectId,
                                        XdStorageObjectIdField parentIdField, IXdStorageTransaction transaction) {
         XdStorageObjectField clParentField = registry.getParentField();
@@ -161,6 +241,19 @@ public class XdStorageForeignKeyChangeRegistry {
         }, transaction);
     }
 
+    /**
+     * Arms a delete-waiter on the given hash index resource for an Update change: at
+     * PREPARE_COMMIT of the owning resource, when the parent's new state no longer
+     * references the child, the foreign-key pair is unregistered, the armed waiter
+     * resolves and the transaction's delete-waiting counter decrements. Increments the
+     * delete-waiting counter and tracks a sweepable armed pair immediately.
+     *
+     * @param resource the owning hash index resource whose commit notifications drive the waiter
+     * @param parentObjectId the id of the parent object currently referencing the child
+     * @param childObjectId the id of the referenced child object
+     * @param parentIdField the parent's id field, used to match change events to the parent
+     * @param transaction the transaction the waiter is armed for
+     */
     public void registerUpdateListener(XdStorageHashIndexResource resource, Comparable<?> parentObjectId, Comparable<?> childObjectId,
                                        XdStorageObjectIdField parentIdField, IXdStorageTransaction transaction) {
         XdStorageObjectField clParentField = registry.getParentField();
@@ -228,6 +321,19 @@ public class XdStorageForeignKeyChangeRegistry {
         return fieldObject == null;
     }
 
+    /**
+     * Arms a delete-waiter on the given resource for the Delete-OR-Update family: at
+     * PREPARE_COMMIT of the owning resource, when the change is a Delete or an Update
+     * of the watched child, the foreign-key pair is unregistered, the armed waiter
+     * resolves and the transaction's delete-waiting counter decrements. Increments the
+     * delete-waiting counter and tracks a sweepable armed pair immediately.
+     *
+     * @param resource the owning resource whose commit notifications drive the waiter
+     * @param parentObjectId the id of the parent object holding the foreign key
+     * @param childObjectId the id of the child object whose deletion/update dissolves the pair
+     * @param childIdField the child's id field, used to match change events to the child
+     * @param transaction the transaction the waiter is armed for
+     */
     public void registerDeleteUpdateListener(XdStorageResource resource, Comparable<?> parentObjectId, Comparable<?> childObjectId,
                                              XdStorageObjectIdField childIdField, IXdStorageTransaction transaction) {
         incrementDeleteWaitingIdentifier(transaction);
@@ -252,6 +358,19 @@ public class XdStorageForeignKeyChangeRegistry {
         }, transaction);
     }
 
+    /**
+     * Arms a delete-waiter on the given B+tree index resource for the Delete-OR-Update
+     * family: at PREPARE_COMMIT of the owning resource, when the change is a Delete or
+     * an Update of the watched child, the foreign-key pair is unregistered, the armed
+     * waiter resolves and the transaction's delete-waiting counter decrements.
+     * Increments the delete-waiting counter and tracks a sweepable armed pair immediately.
+     *
+     * @param resource the owning B+tree index resource whose commit notifications drive the waiter
+     * @param parentObjectId the id of the parent object holding the foreign key
+     * @param childObjectId the id of the child object whose deletion/update dissolves the pair
+     * @param childIdField the child's id field, used to match change events to the child
+     * @param transaction the transaction the waiter is armed for
+     */
     public void registerDeleteUpdateListener(XdStorageBTreeIndexResource resource, Comparable<?> parentObjectId, Comparable<?> childObjectId,
                                              XdStorageObjectIdField childIdField, IXdStorageTransaction transaction) {
         incrementDeleteWaitingIdentifier(transaction);
@@ -275,6 +394,19 @@ public class XdStorageForeignKeyChangeRegistry {
         }, transaction);
     }
 
+    /**
+     * Arms a delete-waiter on the given hash index resource for the Delete-OR-Update
+     * family: at PREPARE_COMMIT of the owning resource, when the change is a Delete or
+     * an Update of the watched child, the foreign-key pair is unregistered, the armed
+     * waiter resolves and the transaction's delete-waiting counter decrements.
+     * Increments the delete-waiting counter and tracks a sweepable armed pair immediately.
+     *
+     * @param resource the owning hash index resource whose commit notifications drive the waiter
+     * @param parentObjectId the id of the parent object holding the foreign key
+     * @param childObjectId the id of the child object whose deletion/update dissolves the pair
+     * @param childIdField the child's id field, used to match change events to the child
+     * @param transaction the transaction the waiter is armed for
+     */
     public void registerDeleteUpdateListener(XdStorageHashIndexResource resource, Comparable<?> parentObjectId, Comparable<?> childObjectId,
                                              XdStorageObjectIdField childIdField, IXdStorageTransaction transaction) {
         incrementDeleteWaitingIdentifier(transaction);
@@ -299,6 +431,20 @@ public class XdStorageForeignKeyChangeRegistry {
         }, transaction);
     }
 
+    /**
+     * Arms a delete-waiter for the parent-removal family: at PREPARE_COMMIT of the
+     * owning resource, a Delete of the parent dissolves the pair unconditionally, while
+     * an Update dissolves it only when the parent's new state actually dropped the child
+     * — deleting a child alone while the parent still references it keeps the waiter
+     * armed so the phase-1 counter veto fires. Increments the delete-waiting counter and
+     * tracks a non-sweepable armed pair immediately.
+     *
+     * @param resource the owning resource whose commit notifications drive the waiter
+     * @param parentObjectId the id of the parent object whose removal is awaited
+     * @param childObjectId the id of the referenced child object
+     * @param parentIdField the parent's id field, used to match change events to the parent
+     * @param transaction the transaction the waiter is armed for
+     */
     public void registerParentDeleteUpdateListener(XdStorageResource resource, Comparable<?> parentObjectId, Comparable<?> childObjectId,
                                                    XdStorageObjectIdField parentIdField, IXdStorageTransaction transaction) {
         incrementDeleteWaitingIdentifier(transaction);
@@ -336,6 +482,16 @@ public class XdStorageForeignKeyChangeRegistry {
         }, transaction);
     }
 
+    /**
+     * Arms the deferred-id waiter on the child side: increments the insert-waiting
+     * counter and attaches an id observer to the child wrapper, so that when the
+     * child's generated id lands the foreign-key pair (parentId, childId) is registered
+     * and the counter decrements.
+     *
+     * @param parentId the id of the parent object referencing the not-yet-identified child
+     * @param childObject the child wrapper whose generated id is awaited
+     * @param transaction the transaction the waiter is armed for
+     */
     public void registerChildIdWaiter(Comparable<?> parentId, IXdStorageIdObservableWrapper childObject, XdStorageTransaction transaction) {
         incrementInsertWaitingIdentifier(transaction);
         childObject.addObserver(new XdStorageAbstractIdObserver() {
@@ -351,6 +507,16 @@ public class XdStorageForeignKeyChangeRegistry {
         });
     }
 
+    /**
+     * Arms the deferred-id waiter on the parent side: increments the insert-waiting
+     * counter and attaches an id observer to the parent wrapper, so that when the
+     * parent's generated id lands the foreign-key pair (parentId, childId) is registered
+     * and the counter decrements.
+     *
+     * @param childId the id of the child object referenced by the not-yet-identified parent
+     * @param parentObject the parent wrapper whose generated id is awaited
+     * @param transaction the transaction the waiter is armed for
+     */
     public void registerParentIdWaiter(Comparable<?> childId, IXdStorageIdObservableWrapper parentObject, XdStorageTransaction transaction) {
         incrementInsertWaitingIdentifier(transaction);
         parentObject.addObserver(new XdStorageAbstractIdObserver() {
@@ -366,6 +532,16 @@ public class XdStorageForeignKeyChangeRegistry {
         });
     }
 
+    /**
+     * Arms deferred-id waiters on both sides of a relation whose parent and child
+     * identifiers are both still unset: increments the insert-waiting counter twice and
+     * attaches id observers to both wrappers; the foreign-key pair is registered once
+     * both generated ids have landed, and the counter decrements accordingly.
+     *
+     * @param parentObject the parent wrapper whose generated id is awaited
+     * @param childObject the child wrapper whose generated id is awaited
+     * @param transaction the transaction the waiters are armed for
+     */
     public void registerRelationIdsWaiters(IXdStorageIdObservableWrapper parentObject, IXdStorageIdObservableWrapper childObject, XdStorageTransaction transaction) {
         Object[] relationIds = new Object[2];
         incrementInsertWaitingIdentifier(transaction);
@@ -400,21 +576,48 @@ public class XdStorageForeignKeyChangeRegistry {
         });
     }
 
+    /**
+     * Increments the transaction's insert-waiting counter: one more foreign key is
+     * waiting for a deferred identifier to be registered. A positive counter at phase-1
+     * vetoes the commit.
+     *
+     * @param transaction the transaction whose counter to increment
+     */
     public void incrementInsertWaitingIdentifier(IXdStorageTransaction transaction) {
         insertWaitingIdentifiers.computeIfAbsent(transaction.getTransactionId(), tId -> new AtomicLong())
                 .incrementAndGet();
     }
 
+    /**
+     * Decrements the transaction's insert-waiting counter: one deferred foreign key has
+     * been registered. Must mirror a prior {@link #incrementInsertWaitingIdentifier} call.
+     *
+     * @param transaction the transaction whose counter to decrement
+     */
     public void decrementInsertWaitingIdentifier(IXdStorageTransaction transaction) {
         insertWaitingIdentifiers.computeIfAbsent(transaction.getTransactionId(), tId -> new AtomicLong())
                 .decrementAndGet();
     }
 
+    /**
+     * Increments the transaction's delete-waiting counter: one more armed delete-waiter
+     * is waiting for a foreign-key pair to be dissolved. A positive counter at phase-1
+     * vetoes the commit.
+     *
+     * @param transaction the transaction whose counter to increment
+     */
     public void incrementDeleteWaitingIdentifier(IXdStorageTransaction transaction) {
         deleteWaitingIdentifiers.computeIfAbsent(transaction.getTransactionId(), tId -> new AtomicLong())
                 .incrementAndGet();
     }
 
+    /**
+     * Decrements the transaction's delete-waiting counter: one armed delete-waiter has
+     * resolved and its foreign-key pair has been dissolved. Must mirror a prior
+     * {@link #incrementDeleteWaitingIdentifier} call.
+     *
+     * @param transaction the transaction whose counter to decrement
+     */
     public void decrementDeleteWaitingIdentifier(IXdStorageTransaction transaction) {
         deleteWaitingIdentifiers.computeIfAbsent(transaction.getTransactionId(), tId -> new AtomicLong())
                 .decrementAndGet();

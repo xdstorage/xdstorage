@@ -109,6 +109,9 @@ public final class XdStorageCollectionCloner {
      * iteration semantics are what the snapshot preserves. Also reused by the smart
      * cloner's collection processor (XdStorageClonerCollectionProcessor) for the same
      * non-instantiable-container fallback.
+     * @param src the source collection whose class is probed and whose semantic
+     *            interface (SortedSet/Set/Queue/Deque, {@link RandomAccess}) selects the fallback type
+     * @return a fresh EMPTY mutable container of the closest semantic type (never {@code null})
      */
     public static Collection<Object> newCollectionInstance(final Collection<Object> src) {
         final Class<? extends Collection> collectionClass = src.getClass();
@@ -142,6 +145,9 @@ public final class XdStorageCollectionCloner {
      * materializes the clone container for a source MAP whose class cannot be reflectively
      * re-instantiated: the synchronized-map wrapper when recognized, SortedMap → TreeMap
      * (natural order), everything else → HashMap. See {@link #newCollectionInstance}.
+     * @param src the source map whose class is probed and whose {@link SortedMap}
+     *            interface selects the fallback type
+     * @return a fresh EMPTY mutable Map of the closest semantic type (never {@code null})
      */
     @SuppressWarnings("unchecked")
     public static Map<Object, Object> newMapInstance(final Map<Object, Object> src) {

@@ -279,6 +279,11 @@ public class XdStorageServicesLocator {
         return referencesProvider;
     }
 
+    /**
+     * The storage's foreign-key engine (wired at init; mock locators may run FK-less).
+     *
+     * @return the FK engine (a no-op engine when foreign keys are disabled), {@code null} before init
+     */
     public IXdStorageForeignKeyEngine getForeignKeyEngine() {
         return foreignKeyEngine;
     }

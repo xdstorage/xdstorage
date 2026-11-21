@@ -19,6 +19,12 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
 
+/**
+ * The foreign-key engine implementation: routes object changes through the declared
+ * income relations (the child's {@code @XdStorageParentObject}) and outcome relations
+ * (the parent's {@code @XdStorageAutoSave}), registering/dissolving FK pairs and arming
+ * the commit waiters, and closes the staged pair write-set at commit/rollback.
+ */
 public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
 
     private static final Logger log = LoggerFactory.getLogger(XdStorageForeignKeyEngine.class);
@@ -27,6 +33,16 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
     private final XdStorageForeignKeyResourcesManager foreignKeyResourcesManager;
     private final XdStorageForeignKeyRegistry foreignKeyRegistry;
 
+    /**
+     * Creates the engine.
+     *
+     * @param foreignKeyResourcesManager the FK resources manager owning the per-relation
+     *        FK resources and the shared pair write-set
+     * @param foreignKeyRegistry the relation registry providing each class's income and
+     *        outcome relations
+     * @param enabled whether foreign-key processing is enabled (when off, every engine
+     *        operation is a no-op)
+     */
     public XdStorageForeignKeyEngine(XdStorageForeignKeyResourcesManager foreignKeyResourcesManager,
                                      XdStorageForeignKeyRegistry foreignKeyRegistry, boolean enabled) {
         this.enabled = enabled;
@@ -34,6 +50,11 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
         this.foreignKeyRegistry = foreignKeyRegistry;
     }
 
+    /**
+     * Access to the engine's resources manager — needed by shutdown cleanup.
+     *
+     * @return the FK resources manager owning the FK resources and the shared write-set
+     */
     public XdStorageForeignKeyResourcesManager getForeignKeyResourcesManager() {
         return foreignKeyResourcesManager;
     }

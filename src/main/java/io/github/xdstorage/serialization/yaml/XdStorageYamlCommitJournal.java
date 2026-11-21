@@ -267,6 +267,8 @@ public final class XdStorageYamlCommitJournal {
      * @param superseded the additional older-named twins to remove
      * @param target the journal path all future I/O must use
      * @return the target path
+     * @throws java.io.IOException when creating the target's parent or moving/deleting a
+     *         journal file fails
      */
     public static Path settleAfterReplay(final Path replayedFile, final java.util.List<Path> superseded,
                                          final Path target) throws java.io.IOException {
@@ -331,6 +333,8 @@ public final class XdStorageYamlCommitJournal {
      * @param superseded   the lower-priority journals
      * @param baseFileName the path of the search-index's base file
      * @return the canonical same-dir journal path for all future I/O
+     * @throws java.io.IOException when creating the target's parent or moving/deleting a
+     *         journal file fails
      */
     public static Path searchIndexJournalSettleAfterReplay(final Path replayedFile,
                                                             final java.util.List<Path> superseded,

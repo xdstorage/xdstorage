@@ -22,6 +22,7 @@ public interface XdStorageCacheContext {
      * insert/update/delete). The production context delegates to the resource's
      * per-transaction listener chain (the foreign-key engine registers there); tests
      * override it. Default: no listener.
+     * @return the internal phase listener, or {@code null} when none is registered
      */
     default IXdStorageCacheInternalListener internalListener() {
         return null;

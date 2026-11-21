@@ -28,6 +28,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+/**
+ * The per-relation foreign-key resource implementation: owns the dual FK B+trees (front
+ * parent→child, reverse child→parent) for one declared relation, stages every pair into
+ * the shared write-set (never writing the trees directly at registration time), serves
+ * the read APIs with the read-your-own-read overlay, and runs the phase-1 validation
+ * (pending/manual-id parents, armed delete-waiters, orphaned children).
+ */
 public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource, IXdStorageForeignKeyRegistry {
 
     private static final Logger log = LoggerFactory.getLogger(XdStorageForeignKeyResource.class);
@@ -117,6 +124,18 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
         }
     }
 
+    /**
+     * Creates the resource for one declared relation: derives the dual FK tree ids and
+     * binds the shared change registry and write-set.
+     *
+     * @param services        the storage services locator
+     * @param manager         the core storage resources manager
+     * @param fkResourcesManager the FK resources manager owning the shared write-set and registry
+     * @param resourceId      the FK resource id (from the naming service)
+     * @param clParentInfo    the relation's parent (referencing) class info
+     * @param clChildInfo     the relation's child (referenced) class info
+     * @param clParentField   the parent's referencing field
+     */
     public XdStorageForeignKeyResource(XdStorageServicesLocator services,
                                        XdStorageAbstractResourcesManager manager,
                                        XdStorageForeignKeyResourcesManager fkResourcesManager,
@@ -454,11 +473,11 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
     }
 
     /**
-     * @param objectId
-     * @param transaction
+     * @param objectId    the parent id to read the front tree by
+     * @param transaction the owning transaction (the overlay source)
      * @return Returns collection of child identifiers.
-     * @throws XdStorageException
-     * @throws XdStorageConnectionException
+     * @throws XdStorageException           on a storage-level failure
+     * @throws XdStorageConnectionException on a connection-level failure
      */
     @Override
     public Collection<Object> readByParentObjectId(Comparable<?> objectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
@@ -581,11 +600,11 @@ public class XdStorageForeignKeyResource implements IXdStorageForeignKeyResource
 
     /**
      *
-     * @param objectId
-     * @param transaction
+     * @param objectId    the child id to read the reverse tree by
+     * @param transaction the owning transaction (the overlay source)
      * @return Returns collection of parent identifiers.
-     * @throws XdStorageException
-     * @throws XdStorageConnectionException
+     * @throws XdStorageException           on a storage-level failure
+     * @throws XdStorageConnectionException on a connection-level failure
      */
     @Override
     public Collection<Object> readByChildObjectId(Comparable<?> objectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {

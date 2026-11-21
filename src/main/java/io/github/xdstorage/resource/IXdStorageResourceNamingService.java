@@ -49,6 +49,17 @@ public interface IXdStorageResourceNamingService {
      */
     Object getStructureResourceId(Class<?> cl);
 
+    /**
+     * The resource id of a relation's foreign-key tree file (the dedicated file under the
+     * parent class's index directory, named from the parent class, child class and the
+     * parent's referencing field).
+     *
+     * @param suffix           the FK file kind suffix (e.g. {@code "fk"})
+     * @param parentClass      the relation's parent (referencing) class
+     * @param childClass       the relation's child (referenced) class
+     * @param parentClassField the parent's referencing field name
+     * @return the foreign-key resource id (a relative file path)
+     */
     Object getForeignKeyResourceId(String suffix, Class<?> parentClass, Class<?> childClass, String parentClassField);
 
     /**

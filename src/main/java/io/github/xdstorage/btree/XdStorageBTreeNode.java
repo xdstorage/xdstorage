@@ -1710,6 +1710,15 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
 
     /**
      * Точечный спуск по поддереву для удаления конкретной пары Ключ + Значение.
+     *
+     * @param tree        дерево-владелец (для id/undo-журнала)
+     * @param key         ключ пары
+     * @param value       значение пары (MULTI-деревья: удаляется одно вхождение)
+     * @param storage     хранилище для materialize/write-back узла
+     * @param transaction транзакция-владелец (staging в overlay + undo)
+     * @param retryDelete флаг повторного спуска (глубокая блокировка занята другим удаляющим)
+     * @throws XdStorageException           пара не найдена или отказ структуры
+     * @throws XdStorageConnectionException отказ на уровне соединения
      */
     public void delete(final XdStorageBTree tree, final Comparable key, final Comparable value,
                        final IXdStorage storage, final IXdStorageTransaction transaction, final AtomicBoolean retryDelete)

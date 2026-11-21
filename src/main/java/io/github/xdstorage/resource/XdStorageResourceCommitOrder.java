@@ -31,5 +31,6 @@ public class XdStorageResourceCommitOrder {
     /** Search-index resources, last — after both data and id indexes. */
     public static final int SEARCH_INDEX_RESOURCE_ORDER = 5000;
 
+    /** Foreign-key resources, after everything else they may reference. */
     public static final int FOREIGN_KEY_RESOURCE_ORDER = 7500;
 }

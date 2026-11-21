@@ -34,11 +34,23 @@ public final class XdStorageForeignKeyPair {
     private final XdStorageBTreeId frontTreeId;
     private final XdStorageBTreeId reverseTreeId;
 
+    /**
+     * Builds the staged pair and derives the front/reverse tree ids exactly as the FK
+     * resource does (one naming, no forks).
+     *
+     * @param frontId         the key written into the front (parent→child) tree; null for a
+     *                        deferred pair awaiting its id
+     * @param reverseId       the key written into the reverse (child→parent) tree; null for a
+     *                        deferred pair awaiting its id
+     * @param parentClassInfo the relation's parent (referencing) class info
+     * @param childClassInfo  the relation's child (referenced) class info
+     * @param parentField     the parent's referencing field
+     * @param type            the staged intent kind (INSERT or DELETE)
+     */
     public XdStorageForeignKeyPair(final Comparable<?> frontId, final Comparable<?> reverseId,
                                    final XdStorageClassInfo parentClassInfo, final XdStorageClassInfo childClassInfo,
                                    final XdStorageObjectField parentField,
-                                   final XdStorageForeignKeyObjectChangeType type) {
-        this.frontId = frontId;
+                                   final XdStorageForeignKeyObjectChangeType type) {        this.frontId = frontId;
         this.reverseId = reverseId;
         this.parentClassInfo = parentClassInfo;
         this.childClassInfo = childClassInfo;
@@ -51,40 +63,69 @@ public final class XdStorageForeignKeyPair {
                 parentClassInfo.getClazz().getSimpleName() + "_" + parentField.getName() + "_foreign_key");
     }
 
-    /** The relation-scoped identity (no type): INSERT/DELETE of the same pair share it. */
+    /**
+     * The relation-scoped identity (no type): INSERT/DELETE of the same pair share it.
+     * @return the front id, reverse id and relation coordinates joined with the unit separator
+     */
     public String baseKey() {
         return frontId + "\u001F" + reverseId + "\u001F" + parentClassInfo.getClazz().getName()
                 + "\u001F" + childClassInfo.getClazz().getName() + "\u001F" + parentField.getName();
     }
 
+    /**
+     * The staged intent kind of this pair.
+     * @return the staged intent kind (INSERT or DELETE)
+     */
     public XdStorageForeignKeyObjectChangeType type() {
         return type;
     }
 
+    /**
+     * The front-tree positional id.
+     * @return the key written into the front (parent→child) tree, null while deferred
+     */
     public Comparable<?> frontId() {
         return frontId;
     }
 
+    /**
+     * The reverse-tree positional id.
+     * @return the key written into the reverse (child→parent) tree, null while deferred
+     */
     public Comparable<?> reverseId() {
         return reverseId;
     }
 
-    /** The front (parent→child) tree id this pair's relation maps to. */
+    /**
+     * The front (parent→child) tree id this pair's relation maps to.
+     * @return the front tree id derived from the relation coordinates
+     */
     public XdStorageBTreeId frontTreeId() {
         return frontTreeId;
     }
 
-    /** The reverse (child→parent) tree id this pair's relation maps to. */
+    /**
+     * The reverse (child→parent) tree id this pair's relation maps to.
+     * @return the reverse tree id derived from the relation coordinates
+     */
     public XdStorageBTreeId reverseTreeId() {
         return reverseTreeId;
     }
 
-    /** Whether this pair belongs to the given (front, reverse) tree pair. */
+    /**
+     * Whether this pair belongs to the given (front, reverse) tree pair.
+     * @param frontTreeId  the front tree id to test against
+     * @param reverseTreeId the reverse tree id to test against
+     * @return {@code true} when both of this pair's tree ids equal the given ones
+     */
     public boolean belongsTo(final XdStorageBTreeId frontTreeId, final XdStorageBTreeId reverseTreeId) {
         return this.frontTreeId.equals(frontTreeId) && this.reverseTreeId.equals(reverseTreeId);
     }
 
-    /** Whether both positional ids are resolved (a deferred pair has neither). */
+    /**
+     * Whether both positional ids are resolved (a deferred pair has neither).
+     * @return {@code true} when neither id is null, i.e. the pair can be validated and persisted
+     */
     public boolean isResolved() {
         return frontId != null && reverseId != null;
     }

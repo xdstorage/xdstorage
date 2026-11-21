@@ -20,7 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * transaction stages goes through THIS cache through the phase pipeline
  * PREPARE_COMMIT → PERFORM_COMMIT → COMMIT (or disappears on ROLLBACK) — the pairs are
  * NEVER written into the FK B+trees at registration time. The B+tree write happens ONLY
- * at COMMIT ({@link #persistAllForTransaction}), after every entity record is committed.
+ * at COMMIT ({@link #commitAllFxPairs}), after every entity record is committed.
  *
  * <p><b>Ownership:</b> ONE instance per storage, owned by
  * {@link XdStorageForeignKeyResourcesManager} and shared by the FK engine and every FK
@@ -44,7 +44,15 @@ public final class XdStorageForeignKeyCache {
     private final Map<String, XdStorageForeignKeyCacheRecord> records = new ConcurrentHashMap<>();
     private final Map<String, Set<String>> transactionRecords = new ConcurrentHashMap<>();
 
-    /** Stages an INSERT intent (called by the FK resource at registration time). */
+    /** Creates an empty write-set; ONE instance per storage, shared by the engine and every FK resource. */
+    public XdStorageForeignKeyCache() {
+    }
+
+    /**
+     * Stages an INSERT intent (called by the FK resource at registration time).
+     * @param pair the FK pair intent (ids, relation, operation kind)
+     * @param tx the owning transaction
+     */
     public void cacheInsert(final XdStorageForeignKeyPair pair, final XdStorageTransaction tx) {
         final String fullKey = fullKey(tx, pair);
         final XdStorageForeignKeyCacheRecord existing = records.get(fullKey);
@@ -60,7 +68,14 @@ public final class XdStorageForeignKeyCache {
         transactionRecords.computeIfAbsent(tx.getTransactionId(), k -> ConcurrentHashMap.newKeySet()).add(fullKey);
     }
 
-    /** Stages a DELETE intent (called by the FK resource at dissolution time). */
+    /**
+     * Stages a DELETE intent (called by the FK resource at dissolution time). Later-wins:
+     * a delete over a staged INSERT removes the pair from the write-set (it never lands);
+     * a duplicate DELETE is idempotent.
+     *
+     * @param pair the FK pair intent (ids, relation, operation kind)
+     * @param tx the owning transaction
+     */
     public void cacheDelete(final XdStorageForeignKeyPair pair, final XdStorageTransaction tx) {
         final String fullKey = fullKey(tx, pair);
         final XdStorageForeignKeyCacheRecord existing = records.get(fullKey);
@@ -90,7 +105,12 @@ public final class XdStorageForeignKeyCache {
         return tx.getTransactionId() + "\u001F" + pair.baseKey();
     }
 
-    /** All pairs staged by the transaction (any intent) — the resource's overlay source. */
+    /**
+     * All pairs staged by the transaction (any intent) — the resource's overlay source.
+     *
+     * @param tx the owning transaction
+     * @return the staged pairs for the transaction, an empty list when none are staged
+     */
     public List<XdStorageForeignKeyPair> pairsForTransaction(final XdStorageTransaction tx) {
         final Set<String> keys = transactionRecords.get(tx.getTransactionId());
         if (keys == null || keys.isEmpty()) {
@@ -106,7 +126,11 @@ public final class XdStorageForeignKeyCache {
         return result;
     }
 
-    /** Whether the transaction has any staged pair for this relation scope. */
+    /**
+     * Whether the transaction has any staged pair in the write-set.
+     * @param tx the owning transaction
+     * @return true when at least one pair is staged for the transaction, false otherwise
+     */
     public boolean hasPairsForTransaction(final XdStorageTransaction tx) {
         final Set<String> keys = transactionRecords.get(tx.getTransactionId());
         return keys != null && !keys.isEmpty();
@@ -118,6 +142,7 @@ public final class XdStorageForeignKeyCache {
      * fired — a loud integration failure, thrown here (the commit must not persist a
      * half-known pair). The SEMANTIC validation (pending manual-ID parents, waiter
      * counters) stays in the FK resource's phase-1, which owns those contracts.
+     * @param tx the owning transaction
      */
     public void validateAllForTransaction(final XdStorageTransaction tx) {
         final List<XdStorageForeignKeyPair> pairs = pairsForTransaction(tx);
@@ -131,7 +156,11 @@ public final class XdStorageForeignKeyCache {
         }
     }
 
-    /** POINT 4 (phase 2): promote every staged pair to PERFORM_COMMIT. */
+    /**
+     * POINT 4 (phase 2): promote every staged pair to PERFORM_COMMIT.
+     *
+     * @param tx the transaction whose staged pairs to promote
+     */
     public void promoteAllForTransaction(final XdStorageTransaction tx) {
         final List<XdStorageForeignKeyCacheRecord> recs = recordsFor(tx);
         for (final XdStorageForeignKeyCacheRecord record : recs) {
@@ -148,13 +177,21 @@ public final class XdStorageForeignKeyCache {
      * through the node cache's MVCC, and are made permanent by the trees' own commit —
      * which runs as part of THIS transaction's commit. A rolled-back transaction's pairs
      * roll back with the node contour AND its write-set is released (rollback/release).
+     *
+     * @param tx the committing transaction whose write-set is closed
      */
     public void commitAllFxPairs(final XdStorageTransaction tx) {
         promoteAllForTransaction(tx);
         release(tx);
     }
 
-    /** The phase of the staged pair (test/introspection surface). */
+    /**
+     * The commit phase of the staged pair (test/introspection surface).
+     *
+     * @param tx the owning transaction
+     * @param pair the staged pair to look up
+     * @return the pair's current commit phase, or null when the pair is not staged
+     */
     public XdStorageCacheCommitPhase phaseFor(final XdStorageTransaction tx, final XdStorageForeignKeyPair pair) {
         final XdStorageForeignKeyCacheRecord record = records.get(fullKey(tx, pair));
         return record != null ? record.phase() : null;
@@ -163,6 +200,9 @@ public final class XdStorageForeignKeyCache {
     /**
      * FNKEY: removes a specific pair from the transaction's write-set (used by
      * deferred-ID callbacks to replace an incomplete pair with a resolved one).
+     *
+     * @param tx the owning transaction
+     * @param pair the pair to drop from the write-set
      */
     public void removePairForTransaction(final XdStorageTransaction tx, final XdStorageForeignKeyPair pair) {
         final String fullKey = fullKey(tx, pair);
@@ -173,7 +213,13 @@ public final class XdStorageForeignKeyCache {
         }
     }
 
-    /** POINT 7/8 (rollback and release): discards the transaction's write-set. */
+    /**
+     * POINT 7/8 (rollback and release): discards the transaction's write-set — every
+     * staged pair record of this transaction is removed, so nothing leaks into other
+     * transactions.
+     *
+     * @param tx the transaction whose write-set to discard
+     */
     public void release(final XdStorageTransaction tx) {
         final String txId = tx.getTransactionId();
         final Set<String> keys = transactionRecords.remove(txId);
@@ -206,6 +252,14 @@ public final class XdStorageForeignKeyCache {
      * <p><b>resolvePosition:</b> which position to resolve — "front" for deferred-parent
      * (the observed object is the parent) or "reverse" for deferred-child
      * (the observed object is the child). When both IDs are null, this is REQUIRED.</p>
+     *
+     * @param pair the (possibly partially unresolved) FK pair to stage as an INSERT intent
+     * @param childObject the id-observable wrapper whose generated id resolves the pair
+     * @param tx the owning transaction
+     * @param resolvePosition which position to resolve: "front" when the observed object
+     *        is the deferred parent, "reverse" when it is the deferred child
+     * @param onFiredCallback invoked with (resolvedId, transaction) when the deferred id
+     *        lands, so the FK resource can write the resolved pair to the B+tree; may be null
      */
     public void cacheInsertWithDeferredId(final XdStorageForeignKeyPair pair,
                                           final IXdStorageIdObservableWrapper childObject,
@@ -254,7 +308,17 @@ public final class XdStorageForeignKeyCache {
         records.clear();
     }
 
-    /** Convenience overload without callback (FK cache handles both positions). */
+    /**
+     * Convenience overload without observer position or callback: stages the INSERT
+     * intent and arms the deferred-ID observer on the wrapper, delegating to
+     * {@link #cacheInsertWithDeferredId(XdStorageForeignKeyPair, IXdStorageIdObservableWrapper,
+     * XdStorageTransaction, String, java.util.function.BiConsumer)} with no resolve
+     * position and no fired callback.
+     *
+     * @param pair the (possibly partially unresolved) FK pair to stage as an INSERT intent
+     * @param childObject the id-observable wrapper whose generated id resolves the pair
+     * @param tx the owning transaction
+     */
     public void cacheInsertWithDeferredId(final XdStorageForeignKeyPair pair,
                                           final IXdStorageIdObservableWrapper childObject,
                                           final XdStorageTransaction tx) {

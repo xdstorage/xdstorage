@@ -40,7 +40,10 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
      */
     protected final XdStorageServicesLocator services;
 
-    /** Get the storage's service locator (for FK engine access). */
+    /** Get the storage's service locator (for FK engine access).
+     *
+     * @return the storage's service locator
+     */
     public XdStorageServicesLocator getServices() {
         return services;
     }

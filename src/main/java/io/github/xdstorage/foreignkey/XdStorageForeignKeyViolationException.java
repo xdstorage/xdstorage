@@ -12,7 +12,9 @@ import io.github.xdstorage.exceptions.XdStorageRuntimeException;
  */
 public class XdStorageForeignKeyViolationException extends XdStorageRuntimeException {
 
+    /** The committing transaction whose invariants broke. */
     private final String transactionId;
+    /** The violated relation name (parent class + field + child class). */
     private final String relation;
 
     /**

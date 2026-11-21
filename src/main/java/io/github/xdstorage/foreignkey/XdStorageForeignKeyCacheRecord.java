@@ -67,22 +67,27 @@ public final class XdStorageForeignKeyCacheRecord {
     }
 
     /**
+     * The pair's relation-scoped identity, without the intent type.
      * @return the pair's relation-scoped identity (no intent type)
      */
     public String key() { return pair.baseKey(); }
     /**
+     * The staged FK pair intent held by this record.
      * @return the staged pair intent
      */
     public XdStorageForeignKeyPair pair() { return pair; }
     /**
+     * The pair's current commit phase (PREPARE_COMMIT, PERFORM_COMMIT or COMMIT).
      * @return the pair's current commit phase
      */
     public XdStorageCacheCommitPhase phase() { return phase; }
     /**
+     * The id of the transaction that staged this pair.
      * @return the owning transaction's id
      */
     public String transactionId() { return transactionId; }
     /**
+     * Whether the pair has passed the commit-time validation.
      * @return whether the pair passed the commit validation
      */
     public boolean isValidated() { return validated; }

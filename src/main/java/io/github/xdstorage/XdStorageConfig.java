@@ -171,6 +171,13 @@ public final class XdStorageConfig {
         return txMaterializedObjectsCap;
     }
 
+    /**
+     * Whether the declarative foreign-key subsystem is enabled (default ON): when on,
+     * relations declared via parent/child annotations are enforced and validated by the
+     * FK engine's commit protocol.
+     *
+     * @return {@code true} when foreign keys are enabled, {@code false} to bypass the FK enforcement
+     */
     public boolean isEnableForeignKeys() {
         return enableForeignKeys;
     }
@@ -332,6 +339,11 @@ public final class XdStorageConfig {
             return this;
         }
 
+        /** Enables or disables the declarative foreign-key subsystem (default ON). When off, relations declared via parent/child annotations are not enforced.
+         *
+         * @param enableForeignKeys {@code true} to enable foreign keys (the default)
+         * @return this builder, for call chaining
+         */
         public Builder setEnableForeignKeys(boolean enableForeignKeys) {
             this.enableForeignKeys = enableForeignKeys;
             return this;

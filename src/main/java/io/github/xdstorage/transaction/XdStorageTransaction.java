@@ -1144,6 +1144,10 @@ public class XdStorageTransaction implements IXdStorageTransaction {
      * RBCAUSE: cascade hop of {@link #markRollbackOnly(String, Throwable)} — the mark
      * lands on THIS transaction while {@code cascadedFrom} keeps the id of the nested
      * transaction whose failure started the cascade.
+     *
+     * @param site          the mark site descriptor
+     * @param cause         the first-cause of the rollback-only poisoning (may be null)
+     * @param cascadedFrom  the id of the nested transaction that started the cascade
      */
     public void markRollbackOnlyCascaded(final String site, final Throwable cause, final String cascadedFrom) {
         if (globalTransaction == null || globalTransaction.isRollbackOnly() || isRollbackOnly()) {

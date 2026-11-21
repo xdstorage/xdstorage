@@ -15,6 +15,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * The FK resources manager: owns the per-relation foreign-key resources (created and
+ * cached by resource id), the relation registry and the storage-wide FK pair write-set
+ * shared by the engine and every FK resource.
+ */
 public class XdStorageForeignKeyResourcesManager {
 
     private static final Logger log = LoggerFactory.getLogger(XdStorageForeignKeyResourcesManager.class);
@@ -32,16 +37,26 @@ public class XdStorageForeignKeyResourcesManager {
      */
     private final XdStorageForeignKeyCache foreignKeyCache = new XdStorageForeignKeyCache();
 
+    /**
+     * The relation registry backing every FK resource of this storage.
+     * @return the shared {@link XdStorageForeignKeyRegistry}
+     */
     public XdStorageForeignKeyRegistry getForeignKeyRegistry() {
         return foreignKeyRegistry;
     }
 
-    /** The shared FK pair write-set (one per storage). */
+    /**
+     * The shared FK pair write-set (one per storage).
+     * @return the shared {@link XdStorageForeignKeyCache}
+     */
     public XdStorageForeignKeyCache getForeignKeyCache() {
         return foreignKeyCache;
     }
 
-    /** The storage the FK pairs persist into (the commit-phase tree writes). */
+    /**
+     * The storage the FK pairs persist into (the commit-phase tree writes).
+     * @return the storage services locator
+     */
     public XdStorageServicesLocator getServices() {
         return services;
     }
@@ -49,18 +64,30 @@ public class XdStorageForeignKeyResourcesManager {
     /** Open resources by resource id; entries live until storage shutdown. */
     private final Map<Object, IXdStorageForeignKeyResource> resources;
 
-    /** Access to the resources map for shutdown cleanup (FK resources are class-keyed and reused across storages). */
+    /**
+     * Access to the resources map for shutdown cleanup (FK resources are class-keyed and reused across storages).
+     * @return the open FK resources by resource id
+     */
     public Map<Object, IXdStorageForeignKeyResource> getResources() {
         return resources;
     }
 
+    /**
+     * Creates the manager.
+     *
+     * @param services the storage services locator (naming service, storage access)
+     * @param manager  the core storage resources manager the FK resources delegate to
+     */
     public XdStorageForeignKeyResourcesManager(XdStorageServicesLocator services, XdStorageAbstractResourcesManager manager) {
         this.services = services;
         this.manager = manager;
         this.resources = new ConcurrentHashMap<>();
     }
 
-    /** Access to the core storage resources manager (needed by FK resource). */
+    /**
+     * Access to the core storage resources manager (needed by FK resource).
+     * @return the core storage resources manager
+     */
     public XdStorageAbstractResourcesManager getManager() {
         return manager;
     }
@@ -68,6 +95,9 @@ public class XdStorageForeignKeyResourcesManager {
     /**
      * FNKEY: Notifies all FK resources of orphaned children for commit-time validation.
      * Called by the FK engine at commit time (before first-phase commit of each FK resource).
+     *
+     * @param transaction     the committing transaction
+     * @param orphanedParents the ids of the parents whose children turned orphaned
      */
     public void notifyOrphanedChildren(XdStorageTransaction transaction, Set<Comparable<?>> orphanedParents) {
         for (IXdStorageForeignKeyResource resource : resources.values()) {
@@ -79,11 +109,26 @@ public class XdStorageForeignKeyResourcesManager {
 
     /**
      * FNKEY: Registers orphaned children via the FK registry (for FK resources to read at commit).
+     *
+     * @param tx        the owning transaction
+     * @param parentIds the ids of the parents whose children turned orphaned
      */
     public void registerOrphanedChildren(XdStorageTransaction tx, Set<Comparable<?>> parentIds) {
         foreignKeyRegistry.registerOrphanedChildren(tx, parentIds);
     }
 
+    /**
+     * Resolves (or atomically creates) the FK resource serving the given relation and
+     * registers/prepares it for the transaction.
+     *
+     * @param clParentInfo the relation's parent (referencing) class info
+     * @param clChildInfo  the relation's child (referenced) class info
+     * @param clParentField the parent's referencing field
+     * @param transaction  the transaction to lock and prepare the resource for
+     * @return the locked, registered and prepared FK resource
+     * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
+     * @throws XdStorageException          on a storage-level failure
+     */
     public IXdStorageForeignKeyResource lockForeignKeyResource(XdStorageClassInfo clParentInfo, XdStorageClassInfo clChildInfo,
                                                                XdStorageObjectField clParentField, XdStorageTransaction transaction) throws XdStorageConnectionException, XdStorageException {
         final Object resourceId = services.getNamingService().getForeignKeyResourceId("fk", clParentInfo.getClazz(), clChildInfo.getClazz(), clParentField.getName());
@@ -105,6 +150,16 @@ public class XdStorageForeignKeyResourcesManager {
         }, transaction);
     }
 
+    /**
+     * Creates the FK resource for the given relation (the {@code lockForeignKeyResource}
+     * factory step; overridable in tests).
+     *
+     * @param resourceId    the FK resource id (from the naming service)
+     * @param clParentInfo  the relation's parent (referencing) class info
+     * @param clChildInfo   the relation's child (referenced) class info
+     * @param clParentField the parent's referencing field
+     * @return the created FK resource
+     */
     protected IXdStorageForeignKeyResource createFkResource(Object resourceId, XdStorageClassInfo clParentInfo, XdStorageClassInfo clChildInfo, XdStorageObjectField clParentField) {
         return new XdStorageForeignKeyResource(services, manager, this, resourceId, clParentInfo, clChildInfo, clParentField);
     }

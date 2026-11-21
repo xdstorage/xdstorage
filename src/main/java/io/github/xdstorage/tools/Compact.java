@@ -21,6 +21,13 @@ public class Compact {
         // utility class
     }
 
+    /**
+     * CLI entry point: opens the storage, force-checkpoints every journal and shuts down.
+     * Exits with status 1 on a usage error and 2 on a storage failure.
+     *
+     * @param args {@code <folder> [name]} — the storage folder to compact and the
+     *             optional storage name (default {@code "compact"})
+     */
     public static void main(String[] args) {
         if (args.length < 1 || args.length > 2) {
             System.err.println("Usage: java -cp xdstorage.jar io.github.xdstorage.tools.Compact <folder> [name]");

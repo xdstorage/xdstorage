@@ -270,6 +270,11 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      * физический путь, undo-log однооперационный: undo(insert)=delete, undo(delete)=insert.
      * Отказ середины пакета: undo в обратном порядке + rethrow (TX откатывается целиком).
      * "is exists"/"does not exists" поглощаются идемпотентно.
+     *
+     * @param transaction транзакция-владелец overlay-пакета
+     * @param storage     хранилище, в которое пишут infra-ресурсы при применении
+     * @throws XdStorageException           отказ пакета (после undo-повтора; TX откатывается)
+     * @throws XdStorageConnectionException отказ на уровне соединения
      */
     public void applyOverlays(final IXdStorageTransaction transaction, final IXdStorage storage) throws XdStorageException, XdStorageConnectionException {
         if (transaction == null) {
@@ -369,6 +374,11 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      * Применяет overlay ВСЕХ деревьев, тронутых TX (вызов из phase-1 владельца).
      * Работает по реестру инстансов — БЕЗ storage.load: инфра-кэш READ COMMITTED,
      * и load записи дерева в фазе-1 ждёт видимости собственного применения (3s-столлы).
+     *
+     * @param transaction транзакция-владелец overlay-пакетов
+     * @param storage     хранилище, фиксируемое для последующего apply по реестру
+     * @throws XdStorageException           отказ применения (после undo-повтора)
+     * @throws XdStorageConnectionException отказ на уровне соединения
      */
     public static void applyAllOverlays(final IXdStorageTransaction transaction, final IXdStorage storage) throws XdStorageException, XdStorageConnectionException {
         TX_OVERLAY_STORAGE.putIfAbsent(transaction.getTransactionId(), storage);
@@ -380,6 +390,10 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      * очереди ресурсов): применение регистрирует infra-ресурсы в TX через мутатор,
      * поэтому обязано случиться ДО acquisition-цикла — иначе зарегистрированные
      * посреди коммита ресурсы не войдут в фазы и их файлы не запишутся.
+     *
+     * @param transaction транзакция-владелец overlay-пакетов
+     * @throws XdStorageException           отказ применения (после undo-повтора)
+     * @throws XdStorageConnectionException отказ на уровне соединения
      */
     public static void applyAllOverlays(final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
         if (transaction == null) {
@@ -395,7 +409,11 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
         }
     }
 
-    /** Откат TX: overlay всех тронутых деревьев отбрасывается (без storage.load). */
+    /**
+     * Откат TX: overlay всех тронутых деревьев отбрасывается (без storage.load).
+     *
+     * @param transaction транзакция, чьи overlay-пакеты отбрасываются
+     */
     public static void discardAllOverlays(final IXdStorageTransaction transaction) {
         if (transaction == null) {
             return;
@@ -415,6 +433,8 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      * порядке (возврат удаленных записей id-индексов/FK-деревьев, снятие вставленных).
      * Идемпотентен по "is exists"/"does not exists"; закрывает дыру атомарности
      * apply→rollback (sweeper-убийство TX после применения пакета).
+     *
+     * @param transaction транзакция, чьи применённые операции откатываются
      */
     public static void undoAllAppliedOverlays(final IXdStorageTransaction transaction) {
         if (transaction == null) {
@@ -447,14 +467,22 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
         }
     }
 
-    /** Коммит-успех: применённые изменения стали коммитом — undo-журнал снят. */
+    /**
+     * Коммит-успех: применённые изменения стали коммитом — undo-журнал снят.
+     *
+     * @param transaction транзакция, чей undo-журнал снимается
+     */
     public static void dropAppliedUndos(final IXdStorageTransaction transaction) {
         if (transaction != null) {
             APPLIED_UNDOS.remove(transaction.getTransactionId());
         }
     }
 
-    /** Откат TX: overlay отбрасывается целиком (физическое дерево не мутировалось). */
+    /**
+     * Откат TX: overlay отбрасывается целиком (физическое дерево не мутировалось).
+     *
+     * @param transaction транзакция, чей overlay отбрасывается
+     */
     public void discardOverlays(final IXdStorageTransaction transaction) {
         if (transaction == null) {
             return;

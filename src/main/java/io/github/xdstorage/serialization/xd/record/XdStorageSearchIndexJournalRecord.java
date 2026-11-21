@@ -45,6 +45,15 @@ public final class XdStorageSearchIndexJournalRecord {
     /** The object id being keyed. */
     public final String objectId;
 
+    /**
+     * Builds the journal record.
+     *
+     * @param serial   the commit serial (0 for the open-time guard auto-checkpoint)
+     * @param treeId   the B+Tree identity (e.g. {@code "search-tree-Order"})
+     * @param op       {@code "ADDKEY"} or {@code "DELKEY"}
+     * @param key      the search-key primary value (the value being indexed)
+     * @param objectId the object id being keyed
+     */
     public XdStorageSearchIndexJournalRecord(final long serial, final String treeId,
                                               final String op, final String key,
                                               final String objectId) {
@@ -55,12 +64,18 @@ public final class XdStorageSearchIndexJournalRecord {
         this.objectId = objectId;
     }
 
-    /** Whether this is an ADDKEY operation. */
+    /**
+     * Whether this is an ADDKEY operation.
+     * @return {@code true} when {@code op} is {@code "ADDKEY"}
+     */
     public boolean isAddKey() {
         return OP_ADDKEY.equals(op);
     }
 
-    /** Whether this is a DELKEY operation. */
+    /**
+     * Whether this is a DELKEY operation.
+     * @return {@code true} when {@code op} is {@code "DELKEY"}
+     */
     public boolean isDelKey() {
         return OP_DELKEY.equals(op);
     }

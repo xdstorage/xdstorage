@@ -289,6 +289,7 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
      *         does not exist
      * @throws XdStorageRuntimeException when the file exists but cannot be parsed — treated
      *         as an invalid database state
+     * @throws XdStorageConnectionException on an I/O error reading the backing file (a retry may help)
      */
     public Collection<XdStorageIdentifiableObject> readAsData(XdStorageTransaction transaction) throws XdStorageConnectionException {
         Collection<XdStorageIdentifiableObject> objects = null;

@@ -5,6 +5,12 @@ import io.github.xdstorage.utils.XdStorageObjectField;
 
 import java.util.Objects;
 
+/**
+ * One declared foreign-key relation: the parent (referencing) side, the child
+ * (referenced) side, the declaring field and the registration flags. Each declared
+ * {@code @XdStorageAutoSave}/{@code @XdStorageParentObject} field yields a canonical
+ * relation plus a mirrored ("reverse") relation registered on the counterpart class.
+ */
 public class XdStorageForeignKeyRelation {
 
     private final XdStorageClassInfo classFrom;
@@ -40,18 +46,40 @@ public class XdStorageForeignKeyRelation {
         return parentAnchored;
     }
 
+    /**
+     * The relation's From side: the parent (referencing) class on a canonical relation,
+     * flipped to the counterpart side on a reverse relation.
+     * @return the From-side class info
+     */
     public XdStorageClassInfo getClassFrom() {
         return classFrom;
     }
 
+    /**
+     * The relation's To side: the child (referenced) class on a canonical relation,
+     * flipped to the counterpart side on a reverse relation.
+     * @return the To-side class info
+     */
     public XdStorageClassInfo getClassTo() {
         return classTo;
     }
 
+    /**
+     * Whether this entry is the mirrored relation registered on the counterpart class
+     * (with the {@code REVERSE_RELATION_FIELD} placeholder) rather than the canonical
+     * relation owned by the declaring field.
+     * @return {@code true} for the mirrored (incoming-from-the-other-side) relation
+     */
     public boolean isReverseRelation() {
         return reverseRelation;
     }
 
+    /**
+     * The field declaring the relation (the {@code @XdStorageAutoSave} or
+     * {@code @XdStorageParentObject} field); the placeholder
+     * {@code REVERSE_RELATION_FIELD} on reverse relations.
+     * @return the declaring field, or the reverse-relation placeholder
+     */
     public XdStorageObjectField getField() {
         return field;
     }

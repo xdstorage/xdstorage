@@ -14,10 +14,25 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * The foreign-key relation registry: scans each entity class's {@code @XdStorageAutoSave}
+ * and {@code @XdStorageParentObject} fields once, storing the canonical and mirrored
+ * (reverse) relations per class, and serves the engine's outcome/income relation lookups.
+ * Also bridges the engine's orphan detection to the resource's phase-1 validation via the
+ * per-transaction orphaned-parent sets.
+ */
 public class XdStorageForeignKeyRegistry {
 
     private static final Logger log = LoggerFactory.getLogger(XdStorageForeignKeyRegistry.class);
 
+    /** Creates an empty relation registry; relations are scanned lazily per class. */
+    public XdStorageForeignKeyRegistry() {
+    }
+
+    /**
+     * The placeholder field marking reverse (mirrored) relations — they are declared by
+     * the counterpart's field, not by an own annotated field.
+     */
     public static final XdStorageObjectField REVERSE_RELATION_FIELD = new XdStorageObjectField(
             null, null, null, null
     );
@@ -34,6 +49,13 @@ public class XdStorageForeignKeyRegistry {
     // the FK resource's first-phase commit validation (which throws at commit time).
     private final Map<String, Set<Comparable<?>>> orphanedChildrenByParent = new ConcurrentHashMap<>();
 
+    /**
+     * Scans the class's {@code @XdStorageAutoSave} and {@code @XdStorageParentObject}
+     * fields once (idempotent per class) and registers the canonical relations plus the
+     * mirrored reverse relations for both sides.
+     *
+     * @param classInfo the class whose declared relations to register
+     */
     public void registerRelations(XdStorageClassInfo classInfo) {
         if (!registeredClasses.add(classInfo.getClazz())) {
             return;
@@ -99,6 +121,14 @@ public class XdStorageForeignKeyRegistry {
         });
     }
 
+    /**
+     * The relations this class declares as the From (parent/referencing) side — the
+     * engine's outcome-relation path (the {@code @XdStorageAutoSave} cascades).
+     * Registers the class's relations first if not yet scanned.
+     *
+     * @param classInfo the class whose outcome relations to look up
+     * @return the relations declared from this class; empty when the class declares none
+     */
     public Collection<XdStorageForeignKeyRelation> getOutcomeRelations(XdStorageClassInfo classInfo) {
         registerRelations(classInfo);
         final Collection<XdStorageForeignKeyRelation> result = relations.entrySet().stream()
@@ -113,6 +143,14 @@ public class XdStorageForeignKeyRegistry {
         return result;
     }
 
+    /**
+     * The relations in which this class is the To (child/referenced) side — the engine's
+     * income-relation path (the {@code @XdStorageParentObject} references). Registers the
+     * class's relations first if not yet scanned.
+     *
+     * @param classInfo the class whose income relations to look up
+     * @return the relations targeting this class; empty when none target it
+     */
     public Collection<XdStorageForeignKeyRelation> getIncomeRelations(XdStorageClassInfo classInfo) {
         registerRelations(classInfo);
         final Collection<XdStorageForeignKeyRelation> result = relations.values().stream().map(Map::values)
@@ -125,18 +163,32 @@ public class XdStorageForeignKeyRegistry {
         return result;
     }
 
-    /** FNKEY: Registers orphaned children for commit-time validation. */
+    /**
+     * FNKEY: Registers orphaned children for commit-time validation.
+     *
+     * @param tx        the owning transaction
+     * @param parentIds the ids of the parents whose children turned orphaned by the update
+     */
     public void registerOrphanedChildren(XdStorageTransaction tx, Set<Comparable<?>> parentIds) {
         orphanedChildrenByParent.computeIfAbsent(tx.getTransactionId(), k -> ConcurrentHashMap.newKeySet())
                 .addAll(parentIds);
     }
 
-    /** FNKEY: Returns orphaned children for the given transaction. */
+    /**
+     * FNKEY: Returns orphaned children for the given transaction.
+     *
+     * @param tx the owning transaction
+     * @return the orphaned parents registered for the transaction, or null when none
+     */
     public Set<Comparable<?>> getOrphanedChildren(XdStorageTransaction tx) {
         return orphanedChildrenByParent.get(tx.getTransactionId());
     }
 
-    /** FNKEY: Clears orphaned children for the given transaction. */
+    /**
+     * FNKEY: Clears orphaned children for the given transaction.
+     *
+     * @param tx the transaction whose orphaned-parent set to drop
+     */
     public void clearOrphanedChildren(XdStorageTransaction tx) {
         orphanedChildrenByParent.remove(tx.getTransactionId());
     }

@@ -122,6 +122,11 @@ public class XdStorageClassInfo {
         return idField;
     }
 
+    /**
+     * Sets the id field accessor (registry-builder step).
+     *
+     * @param idField the {@code @XdStorageObjectId} accessor for this class
+     */
     public void setIdField(XdStorageObjectIdField idField) {
         this.idField = idField;
     }
@@ -135,6 +140,12 @@ public class XdStorageClassInfo {
         return autoSaveFields;
     }
 
+    /**
+     * Appends one {@code @XdStorageAutoSave} cascade field to this class's metadata
+     * (registry-builder step, in scan order).
+     *
+     * @param info the cascade field metadata to add
+     */
     public void addAutoSaveField(final XdStorageAutoSaveFieldInfo info) {
         autoSaveFields.add(info);
     }

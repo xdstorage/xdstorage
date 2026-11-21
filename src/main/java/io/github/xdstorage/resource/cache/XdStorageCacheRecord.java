@@ -573,6 +573,17 @@ public class XdStorageCacheRecord {
         }
     }
 
+    /**
+     * Marks the record as updated by the given transaction: bumps the version, snapshots
+     * the clean pre-stage content ({@code prevSnapshot}, captured at the read or lazily
+     * here) for the in-place rollback restore, archives the current object as
+     * {@code prevObject}, and stamps the record with the writer's timestart while keeping
+     * the historical timestamp grid intact ({@code prevTimestamp} is overwritten only
+     * from a real commit timestamp). The record enters the {@code update/locked} state.
+     *
+     * @param transaction the transaction staging the update (its timestart becomes the
+     *                    record's version timestamp)
+     */
     public void markUpdate(IXdStorageTransaction transaction) {
         ++version;
         // W4-DESIGN / task 40: де-алиасинг prevObject. Раньше prevObject = сырая ссылка
@@ -782,10 +793,22 @@ public class XdStorageCacheRecord {
         return false;
     }
 
+    /**
+     * Phase 1 of the record's two-phase commit protocol without a transaction scope:
+     * arms the prepare flag under the legacy arming key, which satisfies any later
+     * {@code commit}.
+     */
     public void prepareCommit() {
         prepareCommit(null);
     }
 
+    /**
+     * Phase 1 of the record's two-phase commit protocol, armed for a specific
+     * transaction: only a commit by the same transaction (or the legacy contour)
+     * accepts the arming — a co-staged transaction's rollback cannot disarm it.
+     *
+     * @param transaction the transaction arming phase 1 (null arms the legacy key)
+     */
     public void prepareCommit(final IXdStorageTransaction transaction) {
         firstPhaseCommit = true;
         phaseOneArmedFor.add(markerKey(transaction));
@@ -799,6 +822,13 @@ public class XdStorageCacheRecord {
         performCommit(null);
     }
 
+    /**
+     * Phase 2 of the record's two-phase commit protocol, armed for a specific
+     * transaction: completes the precondition pair checked by {@code commit}, scoped
+     * to the arming transaction so a co-staged rollback cannot disarm it.
+     *
+     * @param transaction the transaction arming phase 2 (null arms the legacy key)
+     */
     public void performCommit(final IXdStorageTransaction transaction) {
         secondPhaseCommit = true;
         phaseTwoArmedFor.add(markerKey(transaction));
@@ -918,6 +948,7 @@ public class XdStorageCacheRecord {
      * timestamp is rolled back — the exact inverse of the mutation that created the record's
      * undo point. A late or racing rollback of an already-committed record is suppressed with
      * a warning instead of inverting committed data (R-58).
+     * @param tx the owning transaction
      */
     public void rollback(IXdStorageTransaction tx) {
         // RBCOMMIT/RECIDENT (docs/tasks/2.1.0/47): the arming markers of the rolling
@@ -994,6 +1025,8 @@ public class XdStorageCacheRecord {
      * состояние чистого чтения текущего живого инстанса: узел разрешим и обновляем
      * любой транзакцией (state=undefined), его содержание совпадает с той версией
      * структуры, на которую и ссылается память дерева.
+     *
+     * @param tx the transaction rolling back the infra insert
      */
     public void rollbackInsertKeepServing(IXdStorageTransaction tx) {
         final Object liveInstance = this.newObject;
@@ -1093,6 +1126,15 @@ public class XdStorageCacheRecord {
         return result;
     }
 
+    /**
+     * Copies the full MVCC state of the source record into this one: both object
+     * versions (previous and pending), the owning transaction, the timestamp grid, the
+     * commit-time nanos, the change/state machine (current and previous), the two-phase
+     * arming flags, a fresh latch with the source's lock state, and the version and
+     * commit serial. Used by {@link #clone()}.
+     *
+     * @param src the record whose state to copy
+     */
     public void fill(XdStorageCacheRecord src) {
         this.id = src.id;
         this.prevObject = src.prevObject;
@@ -1114,27 +1156,51 @@ public class XdStorageCacheRecord {
         this.commitSerial = src.commitSerial;
     }
 
-    /** LOSTUPD-2: the TRUE commit moment of the last committed change (0 = never committed). */
+    /**
+     * LOSTUPD-2: the TRUE commit moment of the last committed change
+     * ({@code 0} = never committed through a real two-phase commit).
+     * @return the wall-nano commit moment of the last committed change, 0 when never committed
+     */
     public long getCommitTimeNano() {
         return this.commitTimeNano;
     }
 
-    /** LOSTUPD-2: the read moment captured by the mutator before the mark (0 = unset). */
+    /**
+     * LOSTUPD-2: captures the read moment the mutator observed before marking the
+     * update — the commit-time revalidation's read side. Overwrites unconditionally:
+     * the last mark's read moment wins.
+     *
+     * @param readTimestamp the wall-nano moment this transaction read the record, 0 when unset
+     */
     public void stageWriteReadTimestamp(final long readTimestamp) {
         // The UNCONDITIONAL overwrite: the last mark's read moment wins (the stale
         // stamps from the earlier txs are overwritten by the next mark's capture)
         this.writeReadTimestamp = readTimestamp;
     }
 
-    /** LOSTUPD-2: the delete's read moment (set at the markDelete by the mutator). */
+    /**
+     * LOSTUPD-2: captures the delete's read moment (set at the markDelete by the
+     * mutator) — the deleter's pending-conflict evidence, kept separate from the write
+     * read timestamp so a foreign commit's publish does not clear it.
+     *
+     * @param readTimestamp the wall-nano moment this transaction read the record before deleting it
+     */
     public void stageDeleteReadTimestamp(final long readTimestamp) {
         this.deleteReadTimestamp = readTimestamp;
     }
 
+    /**
+     * LOSTUPD-2: the staged delete's read moment.
+     * @return the wall-nano read moment captured at the markDelete, 0 when unset
+     */
     public long getDeleteReadTimestamp() {
         return this.deleteReadTimestamp;
     }
 
+    /**
+     * LOSTUPD-2: the staged update's read moment.
+     * @return the wall-nano read moment captured before the last mark, 0 when unset
+     */
     public long getWriteReadTimestamp() {
         return this.writeReadTimestamp;
     }

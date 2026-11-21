@@ -391,6 +391,14 @@ public final class XdStorageBTreeInvariants {
      * retries with a fresh read). The aborted foreign stages don't bump commitTimeNano
      * → no over-rejection. The update/delete changes only (the inserts: the duplicate-id
      * guard; the infra: the R-42 structure-owned semantics — the caller filters).
+     *
+     * @param record      the cache record being committed
+     * @param transaction the committing transaction
+     * @param prepare     the phase flag (the revalidation runs in phase-1 only)
+     * @param type        the operation kind (Update/Delete revalidated; Insert skipped)
+     * @param writeReadTs the read timestamp captured at the update's read registration
+     * @param deleteReadTs the read timestamp captured at the delete's read registration
+     * @throws XdStorageException the loud stale-write conflict (the loser retries with a fresh read)
      */
     public static void simulateCommitTimeRevalidation(final XdStorageCacheRecord record,
                                                       final IXdStorageTransaction transaction,

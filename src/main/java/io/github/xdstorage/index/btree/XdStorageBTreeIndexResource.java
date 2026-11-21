@@ -275,8 +275,9 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
      * @param transaction the transaction context of the read (unused by the file read itself)
      * @return the persisted identifiable objects, or {@code null} when the backing file
      *         does not exist
-     * @throws XdStorageRuntimeException when the file exists but cannot be parsed — treated
+     * @throws XdStorageRuntimeException    when the file exists but cannot be parsed — treated
      *         as an invalid database state
+     * @throws XdStorageConnectionException on a connection-level failure
      */
     public Collection<XdStorageIdentifiableObject> readAsData(final XdStorageTransaction transaction) throws XdStorageConnectionException {
         Collection<XdStorageIdentifiableObject> objects = null;

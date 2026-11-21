@@ -23,7 +23,7 @@ import io.github.xdstorage.serialization.yaml.XdStorageYamlEmitter;
  * {@code writeKey}/{@code writeScalar}/{@code closeBlock} calls), terminated by
  * the S-1 EOF sentinel ({@code # xdstorage-eof}).
  *
- * <p>Reader parses with a private {@link #Tokenizer} (same structure as the
+ * <p>Reader parses with a private {@code Tokenizer} inner class (same structure as the
  * {@code XdStorageYamlTokenizer} — tab nesting, list-item detection, quoted-string
  * unquoting). Records after the last sentinel (a torn tail from a crash mid-append)
  * are discarded with a WARN.
@@ -34,6 +34,10 @@ import io.github.xdstorage.serialization.yaml.XdStorageYamlEmitter;
 public final class XdStorageSearchIndexJournal {
 
     private static final Logger log = LoggerFactory.getLogger(XdStorageSearchIndexJournal.class);
+
+    /** Holder of static journal I/O only — constructing it carries no state. */
+    public XdStorageSearchIndexJournal() {
+    }
 
     /** The S-1 EOF sentinel line (same as {@code XdStorageYamlTokenizer}). */
     private static final String EOF_SENTINEL_LINE = "# xdstorage-eof";

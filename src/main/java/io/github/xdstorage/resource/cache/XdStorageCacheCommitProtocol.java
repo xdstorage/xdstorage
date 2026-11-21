@@ -59,11 +59,22 @@ public class XdStorageCacheCommitProtocol {
         this.listener = DO_NOTHING_LISTENER;
     }
 
+    /**
+     * Installs the cache's internal listener receiving the per-record commit-phase
+     * notifications; a null argument restores the do-nothing listener.
+     *
+     * @param listener the internal listener to notify on commit phases (null = none)
+     */
     public void setInternalListener(IXdStorageCacheInternalListener listener) {
         this.listener = listener != null ? listener : DO_NOTHING_LISTENER;
     }
 
-    /** FNKEY POINT 6 wiring: the engine whose commitAllFxPairs runs at COMMIT. */
+    /**
+     * FNKEY POINT 6 wiring: the engine whose commitAllFxPairs runs at COMMIT.
+     *
+     * @param foreignKeyEngine the FK engine persisting the staged pair write-set at COMMIT
+     *                         (nullable — mock storages run FK-less)
+     */
     public void setForeignKeyEngine(final io.github.xdstorage.foreignkey.IXdStorageForeignKeyEngine foreignKeyEngine) {
         this.foreignKeyEngine = foreignKeyEngine;
     }
