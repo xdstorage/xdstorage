@@ -18,3 +18,4 @@ facade_stress_db/
 # python byte-code litter
 __pycache__/
 *.pyc
+tools/fixture-output/golden-2000/

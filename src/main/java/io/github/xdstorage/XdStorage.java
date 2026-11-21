@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import io.github.xdstorage.exceptions.XdStorageConnectionException;
 import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
+import io.github.xdstorage.utils.XdStorageFormatMeta;
 import io.github.xdstorage.index.IXdStorageIndexDaoResource;
 import io.github.xdstorage.resource.*;
 import io.github.xdstorage.search.IXdStorageSearchManager;
@@ -87,7 +88,7 @@ class XdStorage implements IXdFileStorage {
         }
         services = new XdStorageServicesLocator();
         services.initFileConfiguration(this, folder, fragmentSize, format, this.config);
-        migrateLegacyBTreeFiles(folder);
+        migrateLegacyLayout(folder, name, format.name());
         if (this.config.isRegisterShutdownHook()) {
             // S-4: best-effort закрытие при выходе JVM. НЕ заменяет daemonWorkerThreads:
             // хуки запускаются только после завершения последнего не-daemon потока, поэтому
@@ -1558,44 +1559,165 @@ class XdStorage implements IXdFileStorage {
     }
 
 
-    /** W-4e: one-time migration — legacy data/XdStorageBTree/ and data/XdStorageBTreeNode/
-     *  are moved into indexes/; legacy index/ → indexes/ (id-index layout). New storages
-     *  create the layout directly. */
-    private void migrateLegacyBTreeFiles(final String folderPath) {
-        // 1. move index/ → indexes/ (id-index files)
-        final File indexDir = new File(folderPath, "index");
-        final File indexesDir = new File(folderPath, "indexes");
+    /** Task 51 (LAYOUTMIG): the one-time legacy-layout migration at open — the released
+     *  2.0.0 arrangement (and the unreleased intermediate spellings) into the 2.1.0
+     *  {@code indexes/} layout. Idempotent and crash-tolerant: every step checks
+     *  source-exists/dest-absent before moving, so a half-migrated folder (a crash
+     *  mid-migration) is recognized by the same structural detection and completed by
+     *  the next open. On full success the format marker is rewritten v2 → v3
+     *  (the layout-generation stamp; a v3 folder opened by a 2.0 library refuses loudly
+     *  through the pre-existing newer-version gate).
+     *
+     *  <p>What moves:
+     *  <ul>
+     *    <li>the interim top-level {@code index/} → {@code indexes/} (never written by the
+     *        released 2.0.0 — the dev-train folders only);</li>
+     *    <li>the legacy index bases inside {@code data/<Class>/}: the id-index
+     *        {@code index.yaml}, the references base {@code references.yaml} (the
+     *        StoreAsSingleObject classes) and the search-index bases
+     *        {@code <indexName>.yaml} → {@code indexes/<Class>/}. The classification is
+     *        stem-based: a file whose stem equals {@code <Class>} or starts with
+     *        {@code <Class>-} is a DATA FRAGMENT and stays (the fragment paths inside the
+     *        id-index payload keep resolving — the fragments do not move); every other
+     *        base file moves. The pathological case (an index literally named like a
+     *        fragment) stays behind and surfaces as an empty index — the post-open
+     *        verification walk catches it;</li>
+     *    <li>the B+Tree infra dirs {@code data/XdStorageBTree/} and
+     *        {@code data/XdStorageBTreeNode/} → {@code indexes/}.</li>
+     *  </ul>
+     *
+     *  <p>What does NOT move: the data fragments (their paths are persisted inside the
+     *  id-index payload — task 24), the stacked 2.0.0 journals
+     *  ({@code <base>.yaml.journal.yaml} — the journal naming chain replays and settles
+     *  them lazily at each resource's first prepare), {@code structure/}, the lock/marker
+     *  files. New storages create the layout directly and run no steps.
+     *
+     *  <p>Any move failure (a Windows file lock, permissions) = a LOUD open refusal:
+     *  continuing with a half-moved index would surface as a silently empty id index and
+     *  the first save would clobber fragment-0 (the counters rebuild from an empty index)
+     *  — silent data loss is worse than a refused open. */
+    private void migrateLegacyLayout(final String folderPath, final String storageName, final String format) {
+        final File folder = new File(folderPath);
+        final File indexDir = new File(folder, "index");
+        final File indexesDir = new File(folder, "indexes");
+        final File dataDir = new File(folder, "data");
+        // 1. the interim index/ → indexes/ (dev-train folders)
         if (indexDir.isDirectory() && !indexesDir.exists()) {
-            log.info("migration: moving index/ → indexes/ (id-index layout)");
-            if (!indexDir.renameTo(indexesDir)) {
-                log.warn("migration failed for index/: could not rename to indexes/");
-            }
+            log.info("LAYOUTMIG: moving index/ -> indexes/ (interim id-index layout)");
+            moveLoudly(indexDir.toPath(), indexesDir.toPath(), "index/ -> indexes/");
         }
-        // 2. move data/XdStorageBTree/ and data/XdStorageBTreeNode/ into indexes/
-        final File dataDir = new File(folderPath, "data");
-        // indexes/ may not exist yet (no legacy index/ to rename to it)
-        if (!indexesDir.exists()) {
-            indexesDir.mkdirs();
+        if (!indexesDir.exists() && !indexesDir.mkdirs()) {
+            throw new XdStorageRuntimeException("LAYOUTMIG: cannot create the indexes/ directory in " + folderPath
+                    + " — check the permissions/a file named 'indexes' blocking the path");
         }
+
+        // 2. the legacy index bases inside data/<Class>/ → indexes/<Class>/
+        migrateLegacyIndexBases(dataDir, indexesDir);
+
+        // 3. the B+Tree infra dirs
         final File[] subDirs = dataDir.listFiles();
         if (subDirs != null) {
             for (final File sub : subDirs) {
                 if (!sub.isDirectory()) {
                     continue;
                 }
-                final String name = sub.getName();
-                if (!"XdStorageBTree".equals(name) && !"XdStorageBTreeNode".equals(name)) {
+                final String infraName = sub.getName();
+                if (!"XdStorageBTree".equals(infraName) && !"XdStorageBTreeNode".equals(infraName)) {
                     continue;
                 }
-                final File dest = new File(indexesDir, name);
+                final File dest = new File(indexesDir, infraName);
                 if (dest.exists()) {
-                    continue; // already migrated
+                    continue; // already migrated (the crash-tolerance re-entry)
                 }
-                log.info("migration: moving data/{} → indexes/{} (indexes/ layout)", name, name);
-                if (!sub.renameTo(dest)) {
-                    log.warn("migration failed for data/{}: could not rename to indexes/{}", name, name);
-                }
+                log.info("LAYOUTMIG: moving data/{}/ -> indexes/{}/ (indexes/ layout)", infraName, infraName);
+                moveLoudly(sub.toPath(), dest.toPath(), "data/" + infraName + "/ -> indexes/" + infraName + "/");
             }
+        }
+
+        // 4. the format marker catch-up (v2 -> v3): also runs when nothing moved — the
+        //    2.1.0-dev folders created before the stamp get their marker finished here
+        XdStorageFormatMeta.upgradeFormatMarkerToCurrent(folder, storageName, format);
+    }
+
+    /** Task 51 step 2: the legacy index bases in {@code data/<Class>/} →
+     *  {@code indexes/<Class>/}. See {@link #migrateLegacyLayout} for the classification. */
+    private void migrateLegacyIndexBases(final File dataDir, final File indexesDir) {
+        if (!dataDir.isDirectory()) {
+            return;
+        }
+        final File[] classDirs = dataDir.listFiles();
+        if (classDirs == null) {
+            return;
+        }
+        for (final File classDir : classDirs) {
+            if (!classDir.isDirectory()) {
+                continue; // loose files in data/ are not a 2.0.0 shape — untouched
+            }
+            final String className = classDir.getName();
+            if ("XdStorageBTree".equals(className) || "XdStorageBTreeNode".equals(className)) {
+                continue; // the infra dirs are handled by their own step
+            }
+            final File[] entries = classDir.listFiles();
+            if (entries == null) {
+                continue;
+            }
+            for (final File entry : entries) {
+                if (!entry.isFile()) {
+                    continue; // journal/ subdirs and nested dirs stay
+                }
+                final String fileName = entry.getName();
+                if (fileName.endsWith(".journal.yaml") || fileName.endsWith("-journal.yaml")) {
+                    continue; // a STACKED/SIBLING commit journal — the task-24 chain replays and
+                              // settles it lazily; the folder migration must not touch it
+                }
+                final String stem = stripBaseSuffix(fileName);
+                if (stem == null) {
+                    continue; // not a base file (a .tmp litter — the S-5 sweep handles it)
+                }
+                if (stem.equals(className) || stem.startsWith(className + "-")) {
+                    continue; // a data fragment — stays (the id-index payload points here)
+                }
+                final File destDir = new File(indexesDir, className);
+                if (!destDir.exists() && !destDir.mkdirs()) {
+                    throw new XdStorageRuntimeException("LAYOUTMIG: cannot create " + destDir);
+                }
+                final File dest = new File(destDir, fileName);
+                if (dest.exists()) {
+                    continue; // already migrated (the crash-tolerance re-entry)
+                }
+                log.info("LAYOUTMIG: moving data/{}/{} -> indexes/{}/{} (the legacy index base)",
+                        className, fileName, className, fileName);
+                moveLoudly(entry.toPath(), dest.toPath(),
+                        "data/" + className + "/" + fileName + " -> indexes/" + className + "/" + fileName);
+            }
+        }
+    }
+
+    /** Strips a base-file suffix; {@code null} when the name carries none (litter). */
+    private static String stripBaseSuffix(final String fileName) {
+        final String[] suffixes = {".yaml", ".yml", ".xml", ".json"};
+        for (final String suffix : suffixes) {
+            if (fileName.endsWith(suffix) && fileName.length() > suffix.length()) {
+                return fileName.substring(0, fileName.length() - suffix.length());
+            }
+        }
+        return null;
+    }
+
+    /** NIO move with the ATOMIC_MOVE preference and the loud failure contract. */
+    private static void moveLoudly(final java.nio.file.Path source, final java.nio.file.Path target, final String what) {
+        try {
+            try {
+                java.nio.file.Files.move(source, target, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (final java.nio.file.AtomicMoveNotSupportedException atomicUnsupported) {
+                // cross-device or a filesystem without atomic renames — the plain move keeps
+                // the crash-tolerance contract (a partial move re-enters the migration)
+                java.nio.file.Files.move(source, target);
+            }
+        } catch (final java.io.IOException moveFailure) {
+            throw new XdStorageRuntimeException("LAYOUTMIG: the legacy-layout migration failed at '" + what
+                    + "': " + moveFailure.getMessage() + " — the storage is NOT opened; resolve the file lock"
+                    + " or the permissions problem and reopen", moveFailure);
         }
     }
 }

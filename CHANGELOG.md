@@ -178,10 +178,15 @@ Planned scope; items land here as they merge:
 - **On-disk layout change** ([51](docs/tasks/2.1.0/51-layout-migration-upgrade.md)):
   indexes and B+Tree files relocated to a dedicated `indexes/` subdirectory. The
   migration runs automatically at open — a 2.0.0 folder is migrated in place (the old
-  layout is not preserved; the format marker prevents a 2.1.0 folder from being opened
-  by 2.0.0). The migration is crash-tolerant: a crash mid-migration is completed at
-  the next open. **A 2.0.0 user must back up their folder before upgrading** (the
-  standard `cp -r` while closed).
+  layout is not preserved; the data fragments stay in `data/`, the stacked journals are
+  settled lazily by the journal-naming chain). The layout generation is stamped:
+  after the migration the folder marker reads `formatVersion=3` — **a 2.1.0 folder
+  cannot be opened by 2.0.0** (the newer-format gate refuses loudly; before this stamp
+  both generations wrote `formatVersion=2` and the refusal claim was aspirational).
+  The migration is crash-tolerant: a crash mid-migration is completed at the next open;
+  an unmovable file (a Windows lock) refuses the open loudly instead of continuing with
+  a silently empty index. **A 2.0.0 user must back up their folder before upgrading**
+  (the standard `cp -r` while closed). See EMBEDDING "Upgrade from 2.0.0".
 
 ### Fixed (planned)
 

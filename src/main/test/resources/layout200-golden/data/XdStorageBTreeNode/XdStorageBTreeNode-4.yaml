@@ -1,0 +1,65 @@
+objects:
+	- object:
+		class: 'io.github.xdstorage.btree.XdStorageBTreeNode'
+		fields:
+			- field:
+				name: 'reference'
+				type: 'boolean'
+				value: 'false'
+			- field:
+				name: 'children'
+				type: 'java.util.List'
+				value:
+					collection:
+						class: 'java.util.Collections$SynchronizedList'
+						- item:
+							type: 'io.github.xdstorage.btree.XdStorageBTreeNode'
+							value:
+								reference:
+									class: 'io.github.xdstorage.btree.XdStorageBTreeNode'
+									objectId: '1'
+						- item:
+							type: 'io.github.xdstorage.btree.XdStorageBTreeNode'
+							value:
+								reference:
+									class: 'io.github.xdstorage.btree.XdStorageBTreeNode'
+									objectId: '5'
+			- field:
+				name: 'keys'
+				type: 'java.util.List'
+				value:
+					collection:
+						class: 'java.util.Collections$SynchronizedList'
+						- item:
+							type: 'java.lang.String'
+							value: 'gal-3'
+			- field:
+				name: 'objects'
+				type: 'java.util.List'
+				value:
+					collection:
+						class: 'java.util.Collections$SynchronizedList'
+			- field:
+				name: 'tree'
+				type: 'io.github.xdstorage.btree.XdStorageBTree'
+				value:
+					reference:
+						class: 'io.github.xdstorage.btree.XdStorageBTree'
+						objectId:
+							object:
+								class: 'io.github.xdstorage.btree.XdStorageBTreeId'
+								fields:
+									- field:
+										name: 'name'
+										type: 'java.lang.String'
+										value: 'id_index'
+									- field:
+										name: 'cl'
+										type: 'java.lang.Class'
+										value: 'tools.Gal200Parent'
+			- field:
+				name: 'id'
+				type: 'java.lang.Long'
+				value: '4'
+
+# xdstorage-eof

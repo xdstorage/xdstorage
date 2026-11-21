@@ -11,6 +11,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.util.Properties;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -193,26 +195,25 @@ public class XdStorageLayoutMigrationTest {
     public void testJournalsStayUnderIndexesClassJournal() throws Exception {
         final Path dir = tempDir.resolve("journals-stay-db");
         Files.createDirectories(dir);
+        final Path dataDir = Files.createDirectories(dir.resolve("data/BenchEntity"));
+        Files.write(dataDir.resolve("index.yaml"), "objects:\n".getBytes());
+        Files.write(dataDir.resolve("BenchEntity.yaml"), "objects:\n".getBytes());
+        // the id-index journal under indexes/<class>/journal/ (the JOURNAL_DIR is a nested
+        // subdirectory of the index dir) — the migration must NOT touch it
+        final Path journalDir = Files.createDirectories(dir.resolve("indexes/BenchEntity/journal"));
+        Files.write(journalDir.resolve("index-journal.yaml"), "- record:\n".getBytes());
+        writeFormatMarker(dir);
 
-        // Create a new storage — it will have indexes/XdStorageBTreeNode/ and
-        // indexes/<Class>/journal/
         final IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage("journals-stay", dir.toString(), 64);
         try {
-            final IXdStorageTransaction tx = storage.beginTransaction();
-            storage.save(new BenchmarkEntity("j-1", "alpha"), tx);
-            tx.commit();
-
-            // Verify journal lives under indexes/<class>/journal/ (the JOURNAL_DIR)
-            final Path classIndexDir = dir.resolve("indexes").resolve("BenchmarkEntity");
-            final Path journalDir = classIndexDir.resolve(XdStorageYamlCommitJournal.JOURNAL_DIR);
             assertTrue(Files.exists(journalDir),
+                    "the journal/ subdirectory is not removed by the migration");
+            assertTrue(Files.exists(dir.resolve("indexes/BenchEntity/journal/index-journal.yaml")),
                     "journals must stay under indexes/<class>/journal/ (JOURNAL_DIR)");
-
-            // Verify NO top-level journals/ directory was created
             assertFalse(Files.exists(dir.resolve("journals")),
-                    "NO top-level journals/ directory should be created");
+                    "no top-level journals/ directory is created");
             assertFalse(Files.exists(dir.resolve("journals")),
-                    "journals must NOT be at storage root level");
+                    "no stray journal copies appear");
         } finally {
             storage.shutdown();
         }
@@ -331,6 +332,66 @@ public class XdStorageLayoutMigrationTest {
     // ───────────────────────────────────────────────────────────────────────────────
     // Helpers
     // ───────────────────────────────────────────────────────────────────────────────
+
+    // ───────────────────────────────────────────────────────────────────────────────
+    // 8. Task 51 (LAYOUTMIG): the loud failure contract + the format marker upgrade
+    // ───────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("LAYOUTMIG: сбой миграции (indexes/ заблокирован файлом) = ГРОМКИЙ отказ открытия, не warn-and-continue")
+    public void testMigrationFailureRefusesOpenLoudly() throws Exception {
+        final Path dir = tempDir.resolve("mig-fail-db");
+        Files.createDirectories(dir);
+        // the legacy layout: the id-index bases under data/<Class>/
+        final Path dataDir = Files.createDirectories(dir.resolve("data/SomeEntity"));
+        Files.write(dataDir.resolve("index.yaml"), "objects:\n".getBytes());
+        Files.write(dataDir.resolve("SomeEntity.yaml"), "objects:\n".getBytes());
+        // a FILE named 'indexes' blocks the target directory creation
+        Files.write(dir.resolve("indexes"), "not a directory\n".getBytes());
+        writeFormatMarker(dir);
+
+        final Exception refused = assertThrows(Exception.class,
+                () -> XdStorageProvider.newOrGetFileStorage("mig-fail", dir.toString(), 64),
+                "открытие с невыполнимой миграцией обязано отказаться громко — продолжение с"
+                        + " молчаливо пустым индексом теряет данные на первой записи");
+        assertTrue(String.valueOf(refused.getMessage()).contains("LAYOUTMIG")
+                        || String.valueOf(refused.getCause()).contains("LAYOUTMIG"),
+                "сообщение несёт сигнатуру миграции: " + refused.getMessage());
+    }
+
+    @Test
+    @DisplayName("LAYOUTMIG: маркер апгрейдится до v3 после миграции; новая папка создаётся сразу с v3")
+    public void testFormatMarkerUpgradedToV3() throws Exception {
+        final Path dir = tempDir.resolve("mig-marker-db");
+        Files.createDirectories(dir);
+        final Path dataDir = Files.createDirectories(dir.resolve("data/SomeEntity"));
+        Files.write(dataDir.resolve("index.yaml"), "objects:\n".getBytes());
+        writeFormatMarker(dir); // v2 — the 2.0.0 stamp
+
+        final IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage("mig-marker", dir.toString(), 64);
+        try {
+            final Properties meta = new Properties();
+            try (final InputStream in = Files.newInputStream(dir.resolve(".xdstorage.meta"))) {
+                meta.load(in);
+            }
+            assertEquals("3", meta.getProperty("formatVersion"), "маркер переписан v2 → v3 после миграции");
+        } finally {
+            storage.shutdown();
+        }
+
+        // a brand-new folder is created straight at v3
+        final Path fresh = tempDir.resolve("fresh-v3-db");
+        final IXdFileStorage freshStorage = XdStorageProvider.newOrGetFileStorage("mig-fresh", fresh.toString(), 64);
+        try {
+            final Properties freshMeta = new Properties();
+            try (final InputStream in = Files.newInputStream(fresh.resolve(".xdstorage.meta"))) {
+                freshMeta.load(in);
+            }
+            assertEquals("3", freshMeta.getProperty("formatVersion"), "новая папка: v3 при создании");
+        } finally {
+            freshStorage.shutdown();
+        }
+    }
 
     private void writeFormatMarker(final Path dir) throws IOException {
         final Path meta = dir.resolve(".xdstorage.meta");

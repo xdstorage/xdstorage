@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>io.github.xdstorage.tools</groupId>
+    <artifactId>layout200-fixture-generator</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <description>
+        Task 51 (LAYOUTMIG): generates the golden 2.0.0 storage folder used by the
+        2.0.0-to-2.1.0 layout-migration tests. Pinned to the RELEASED 2.0.0 artifact
+        (Maven Central). Run ONCE to (re)generate the committed fixture:
+            mvn -q package exec:java -Dexec.mainClass=tools.FixtureGenerator \
+                -Dexec.args="TARGET_FOLDER"
+        then copy TARGET_FOLDER into src/main/test/resources/layout200-golden/
+        (everything except .xdstorage.lock, which is recreated at open).
+    </description>
+
+    <properties>
+        <maven.compiler.source>8</maven.compiler.source>
+        <maven.compiler.target>8</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.github.xdstorage</groupId>
+            <artifactId>xdstorage</artifactId>
+            <version>2.0.0</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.1.0</version>
+            </plugin>
+        </plugins>
+    </build>
+</project>

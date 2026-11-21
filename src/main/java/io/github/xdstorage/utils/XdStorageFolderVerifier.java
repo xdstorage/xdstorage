@@ -344,7 +344,7 @@ public final class XdStorageFolderVerifier {
         }
         long entries = 0;
         boolean sentinelSeen = false;
-        try (final BufferedReader reader = new BufferedReader(new FileReader(file.toFile()), 1 << 16)) {
+        try (final BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(new java.io.FileInputStream(file.toFile()), java.nio.charset.StandardCharsets.UTF_8), 1 << 16)) { // task 51: pinned cross-OS
             final XdStorageYamlTokenizer tokenizer = new XdStorageYamlTokenizer(reader);
             YamlLineToken token;
             while ((token = tokenizer.nextToken()) != null) {

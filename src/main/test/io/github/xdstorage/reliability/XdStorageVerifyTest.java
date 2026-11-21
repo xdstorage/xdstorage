@@ -135,7 +135,7 @@ public class XdStorageVerifyTest {
         assertTrue(report.findings.isEmpty(), "no findings on a healthy folder: " + report.findings);
         assertTrue(report.isOk());
         assertNotNull(report.formatVersion, "the format marker is read");
-        assertEquals("2", report.formatVersion);
+        assertEquals("3", report.formatVersion); // the v3 layout generation (task 51 LAYOUTMIG)
         assertFalse(report.inUse);
 
         // counts: the entity fragment holds 5 objects, the id-index 5 entries

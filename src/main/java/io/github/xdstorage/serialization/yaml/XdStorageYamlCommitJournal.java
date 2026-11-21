@@ -398,7 +398,7 @@ public final class XdStorageYamlCommitJournal {
         }
         emitter.writeEofSentinel();
 
-        final byte[] bytes = out.toString().getBytes(Charset.defaultCharset());
+        final byte[] bytes = out.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8); // task 51: pinned cross-OS
         final Object appendLock = appendLockFor(file);
         // сериализация выше — вне лока; под локом только системный аппенд
         synchronized (appendLock) {
@@ -460,7 +460,7 @@ public final class XdStorageYamlCommitJournal {
         if (!Files.exists(file)) {
             return replay;
         }
-        try (BufferedReader reader = new BufferedReader(new FileReader(file.toFile()), 1 << 16)) {
+        try (BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(new java.io.FileInputStream(file.toFile()), java.nio.charset.StandardCharsets.UTF_8), 1 << 16)) { // task 51: pinned cross-OS
             final XdStorageYamlTokenizer tokenizer = new XdStorageYamlTokenizer(reader);
             final List<Object[]> pending = new ArrayList<>();   // [Boolean delete, Object idOrObject]
             boolean tornTail = false;

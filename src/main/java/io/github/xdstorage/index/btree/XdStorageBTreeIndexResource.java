@@ -228,7 +228,7 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
         try {
             final File file = new File(getFileName());
             if (file.exists()) {
-                Reader xmlReader = new java.io.BufferedReader(new FileReader(file), 1 << 16);
+                Reader xmlReader = new java.io.BufferedReader(new java.io.InputStreamReader(new java.io.FileInputStream(file), java.nio.charset.StandardCharsets.UTF_8), 1 << 16); // task 51: pinned cross-OS
                 try {
                     objects = reader.read(xmlReader);
                 } finally {
@@ -283,7 +283,7 @@ public class XdStorageBTreeIndexResource implements IXdStorageIndexResourceObjec
         try {
             final File file = new File(getFileName());
             if (file.exists()) {
-                Reader xmlReader = new java.io.BufferedReader(new FileReader(file), 1 << 16);
+                Reader xmlReader = new java.io.BufferedReader(new java.io.InputStreamReader(new java.io.FileInputStream(file), java.nio.charset.StandardCharsets.UTF_8), 1 << 16); // task 51: pinned cross-OS
                 try {
                     objects = reader.readData(xmlReader, idField);
                 } finally {

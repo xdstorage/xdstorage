@@ -82,7 +82,7 @@ public final class XdStorageSearchIndexJournal {
                 parent.mkdirs();
             }
             try (FileOutputStream fos = new FileOutputStream(file.toFile(), true)) {   // true = append
-                fos.write(out.toString().getBytes(java.nio.charset.Charset.defaultCharset()));
+                fos.write(out.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)); // task 51: pinned cross-OS
             }
         }
     }
@@ -120,7 +120,7 @@ public final class XdStorageSearchIndexJournal {
         if (!Files.exists(file)) {
             return records;
         }
-        try (BufferedReader reader = new BufferedReader(new java.io.FileReader(file.toFile()), 1 << 16)) {
+        try (BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(new java.io.FileInputStream(file.toFile()), java.nio.charset.StandardCharsets.UTF_8), 1 << 16)) { // task 51: pinned cross-OS
             final Tokenizer tokenizer = new Tokenizer(reader);
             final List<JournalRecord> pending = new ArrayList<>();
             boolean tornTail = false;

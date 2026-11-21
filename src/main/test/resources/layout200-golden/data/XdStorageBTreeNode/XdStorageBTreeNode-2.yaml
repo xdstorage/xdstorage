@@ -1,0 +1,220 @@
+objects:
+	- object:
+		class: 'io.github.xdstorage.btree.XdStorageBTreeNode'
+		fields:
+			- field:
+				name: 'reference'
+				type: 'boolean'
+				value: 'false'
+			- field:
+				name: 'children'
+				type: 'java.util.List'
+				value:
+					collection:
+						class: 'java.util.Collections$SynchronizedList'
+			- field:
+				name: 'keys'
+				type: 'java.util.List'
+				value:
+					collection:
+						class: 'java.util.Collections$SynchronizedList'
+						- item:
+							type: 'java.lang.String'
+							value: 'gal-0'
+						- item:
+							type: 'java.lang.String'
+							value: 'gal-1'
+						- item:
+							type: 'java.lang.String'
+							value: 'gal-2'
+						- item:
+							type: 'java.lang.String'
+							value: 'gal-3'
+						- item:
+							type: 'java.lang.String'
+							value: 'gal-4'
+						- item:
+							type: 'java.lang.String'
+							value: 'gal-5'
+						- item:
+							type: 'java.lang.String'
+							value: 'gal-6'
+						- item:
+							type: 'java.lang.String'
+							value: 'gal-7'
+						- item:
+							type: 'java.lang.String'
+							value: 'gal-8'
+						- item:
+							type: 'java.lang.String'
+							value: 'gal-9'
+			- field:
+				name: 'objects'
+				type: 'java.util.List'
+				value:
+					collection:
+						class: 'java.util.Collections$SynchronizedList'
+						- item:
+							type: 'io.github.xdstorage.search.data.XdStorageSearchKeyIndexRecord'
+							value:
+								object:
+									class: 'io.github.xdstorage.search.data.XdStorageSearchKeyIndexRecord'
+									fields:
+										- field:
+											name: 'value'
+											type: 'java.lang.Object'
+											value: 'Система-альфа-0'
+										- field:
+											name: 'objectId'
+											type: 'java.lang.Object'
+											value: 'gal-0'
+						- item:
+							type: 'io.github.xdstorage.search.data.XdStorageSearchKeyIndexRecord'
+							value:
+								object:
+									class: 'io.github.xdstorage.search.data.XdStorageSearchKeyIndexRecord'
+									fields:
+										- field:
+											name: 'value'
+											type: 'java.lang.Object'
+											value: 'Система-альфа-1'
+										- field:
+											name: 'objectId'
+											type: 'java.lang.Object'
+											value: 'gal-1'
+						- item:
+							type: 'io.github.xdstorage.search.data.XdStorageSearchKeyIndexRecord'
+							value:
+								object:
+									class: 'io.github.xdstorage.search.data.XdStorageSearchKeyIndexRecord'
+									fields:
+										- field:
+											name: 'value'
+											type: 'java.lang.Object'
+											value: 'Система-альфа-2'
+										- field:
+											name: 'objectId'
+											type: 'java.lang.Object'
+											value: 'gal-2'
+						- item:
+							type: 'io.github.xdstorage.search.data.XdStorageSearchKeyIndexRecord'
+							value:
+								object:
+									class: 'io.github.xdstorage.search.data.XdStorageSearchKeyIndexRecord'
+									fields:
+										- field:
+											name: 'value'
+											type: 'java.lang.Object'
+											value: 'Система-альфа-3'
+										- field:
+											name: 'objectId'
+											type: 'java.lang.Object'
+											value: 'gal-3'
+						- item:
+							type: 'io.github.xdstorage.search.data.XdStorageSearchKeyIndexRecord'
+							value:
+								object:
+									class: 'io.github.xdstorage.search.data.XdStorageSearchKeyIndexRecord'
+									fields:
+										- field:
+											name: 'value'
+											type: 'java.lang.Object'
+											value: 'Система-альфа-4'
+										- field:
+											name: 'objectId'
+											type: 'java.lang.Object'
+											value: 'gal-4'
+						- item:
+							type: 'io.github.xdstorage.search.data.XdStorageSearchKeyIndexRecord'
+							value:
+								object:
+									class: 'io.github.xdstorage.search.data.XdStorageSearchKeyIndexRecord'
+									fields:
+										- field:
+											name: 'value'
+											type: 'java.lang.Object'
+											value: 'Система-альфа-5'
+										- field:
+											name: 'objectId'
+											type: 'java.lang.Object'
+											value: 'gal-5'
+						- item:
+							type: 'io.github.xdstorage.search.data.XdStorageSearchKeyIndexRecord'
+							value:
+								object:
+									class: 'io.github.xdstorage.search.data.XdStorageSearchKeyIndexRecord'
+									fields:
+										- field:
+											name: 'value'
+											type: 'java.lang.Object'
+											value: 'Система-альфа-6'
+										- field:
+											name: 'objectId'
+											type: 'java.lang.Object'
+											value: 'gal-6'
+						- item:
+							type: 'io.github.xdstorage.search.data.XdStorageSearchKeyIndexRecord'
+							value:
+								object:
+									class: 'io.github.xdstorage.search.data.XdStorageSearchKeyIndexRecord'
+									fields:
+										- field:
+											name: 'value'
+											type: 'java.lang.Object'
+											value: 'Система-альфа-7'
+										- field:
+											name: 'objectId'
+											type: 'java.lang.Object'
+											value: 'gal-7'
+						- item:
+							type: 'io.github.xdstorage.search.data.XdStorageSearchKeyIndexRecord'
+							value:
+								object:
+									class: 'io.github.xdstorage.search.data.XdStorageSearchKeyIndexRecord'
+									fields:
+										- field:
+											name: 'value'
+											type: 'java.lang.Object'
+											value: 'Система-альфа-8'
+										- field:
+											name: 'objectId'
+											type: 'java.lang.Object'
+											value: 'gal-8'
+						- item:
+							type: 'io.github.xdstorage.search.data.XdStorageSearchKeyIndexRecord'
+							value:
+								object:
+									class: 'io.github.xdstorage.search.data.XdStorageSearchKeyIndexRecord'
+									fields:
+										- field:
+											name: 'value'
+											type: 'java.lang.Object'
+											value: 'Система-альфа-9'
+										- field:
+											name: 'objectId'
+											type: 'java.lang.Object'
+											value: 'gal-9'
+			- field:
+				name: 'tree'
+				type: 'io.github.xdstorage.btree.XdStorageBTree'
+				value:
+					reference:
+						class: 'io.github.xdstorage.btree.XdStorageBTree'
+						objectId:
+							object:
+								class: 'io.github.xdstorage.btree.XdStorageBTreeId'
+								fields:
+									- field:
+										name: 'name'
+										type: 'java.lang.String'
+										value: 'key_titleIdx'
+									- field:
+										name: 'cl'
+										type: 'java.lang.Class'
+										value: 'tools.Gal200Parent'
+			- field:
+				name: 'id'
+				type: 'java.lang.Long'
+				value: '2'
+
+# xdstorage-eof

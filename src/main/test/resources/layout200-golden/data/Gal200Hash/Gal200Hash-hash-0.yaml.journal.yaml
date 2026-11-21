@@ -1,0 +1,204 @@
+- record:
+	serial: 4
+	op: UPSERT
+	id: 'hash-0'
+	object:
+		class: 'tools.Gal200Hash'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'hash-0'
+			- field:
+				name: 'value'
+				type: 'java.lang.String'
+				value: 'значение-0'
+
+# xdstorage-eof
+- record:
+	serial: 6
+	op: UPSERT
+	id: 'hash-1'
+	object:
+		class: 'tools.Gal200Hash'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'hash-1'
+			- field:
+				name: 'value'
+				type: 'java.lang.String'
+				value: 'значение-1'
+
+# xdstorage-eof
+- record:
+	serial: 8
+	op: UPSERT
+	id: 'hash-2'
+	object:
+		class: 'tools.Gal200Hash'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'hash-2'
+			- field:
+				name: 'value'
+				type: 'java.lang.String'
+				value: 'значение-2'
+
+# xdstorage-eof
+- record:
+	serial: 10
+	op: UPSERT
+	id: 'hash-3'
+	object:
+		class: 'tools.Gal200Hash'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'hash-3'
+			- field:
+				name: 'value'
+				type: 'java.lang.String'
+				value: 'значение-3'
+
+# xdstorage-eof
+- record:
+	serial: 12
+	op: UPSERT
+	id: 'hash-4'
+	object:
+		class: 'tools.Gal200Hash'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'hash-4'
+			- field:
+				name: 'value'
+				type: 'java.lang.String'
+				value: 'значение-4'
+
+# xdstorage-eof
+- record:
+	serial: 14
+	op: UPSERT
+	id: 'hash-5'
+	object:
+		class: 'tools.Gal200Hash'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'hash-5'
+			- field:
+				name: 'value'
+				type: 'java.lang.String'
+				value: 'значение-5'
+
+# xdstorage-eof
+- record:
+	serial: 16
+	op: UPSERT
+	id: 'hash-6'
+	object:
+		class: 'tools.Gal200Hash'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'hash-6'
+			- field:
+				name: 'value'
+				type: 'java.lang.String'
+				value: 'значение-6'
+
+# xdstorage-eof
+- record:
+	serial: 18
+	op: UPSERT
+	id: 'hash-7'
+	object:
+		class: 'tools.Gal200Hash'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'hash-7'
+			- field:
+				name: 'value'
+				type: 'java.lang.String'
+				value: 'значение-7'
+
+# xdstorage-eof
+- record:
+	serial: 20
+	op: UPSERT
+	id: 'hash-8'
+	object:
+		class: 'tools.Gal200Hash'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'hash-8'
+			- field:
+				name: 'value'
+				type: 'java.lang.String'
+				value: 'значение-8'
+
+# xdstorage-eof
+- record:
+	serial: 22
+	op: UPSERT
+	id: 'hash-9'
+	object:
+		class: 'tools.Gal200Hash'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'hash-9'
+			- field:
+				name: 'value'
+				type: 'java.lang.String'
+				value: 'значение-9'
+
+# xdstorage-eof
+- record:
+	serial: 25
+	op: UPSERT
+	id: 'hash-tail-0'
+	object:
+		class: 'tools.Gal200Hash'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'hash-tail-0'
+			- field:
+				name: 'value'
+				type: 'java.lang.String'
+				value: 'хвост-0'
+
+# xdstorage-eof
+- record:
+	serial: 26
+	op: UPSERT
+	id: 'hash-tail-1'
+	object:
+		class: 'tools.Gal200Hash'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'hash-tail-1'
+			- field:
+				name: 'value'
+				type: 'java.lang.String'
+				value: 'хвост-1'
+
+# xdstorage-eof

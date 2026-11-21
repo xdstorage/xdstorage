@@ -1,0 +1,43 @@
+objects:
+	- object:
+		class: 'io.github.xdstorage.btree.XdStorageBTree'
+		fields:
+			- field:
+				name: 't'
+				type: 'int'
+				value: '4'
+			- field:
+				name: 'firstLeaf'
+				type: 'io.github.xdstorage.btree.XdStorageBTreeNode'
+				value:
+					reference:
+						class: 'io.github.xdstorage.btree.XdStorageBTreeNode'
+						objectId: '1'
+			- field:
+				name: 'root'
+				type: 'io.github.xdstorage.btree.XdStorageBTreeNode'
+				value:
+					reference:
+						class: 'io.github.xdstorage.btree.XdStorageBTreeNode'
+						objectId: '4'
+			- field:
+				name: 'multiple'
+				type: 'boolean'
+				value: 'false'
+			- field:
+				name: 'id'
+				type: 'io.github.xdstorage.btree.XdStorageBTreeId'
+				value:
+					object:
+						class: 'io.github.xdstorage.btree.XdStorageBTreeId'
+						fields:
+							- field:
+								name: 'name'
+								type: 'java.lang.String'
+								value: 'id_index'
+							- field:
+								name: 'cl'
+								type: 'java.lang.Class'
+								value: 'tools.Gal200Parent'
+
+# xdstorage-eof

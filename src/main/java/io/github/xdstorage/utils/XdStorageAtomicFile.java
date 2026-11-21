@@ -89,7 +89,7 @@ public final class XdStorageAtomicFile {
                 // Phase D: буферизация обязательна — сырой FileWriter делает syscall на каждый
                 // append сериализации; на full-file write-out это доминирующая стоимость коммита
                 fos = new FileOutputStream(tmp);
-                writer = new BufferedWriter(new OutputStreamWriter(fos), 1 << 16);
+                writer = new BufferedWriter(new OutputStreamWriter(fos, java.nio.charset.StandardCharsets.UTF_8), 1 << 16); // task 51: pinned cross-OS
                 content.write(writer);
                 writer.flush();
                 if (durable) {

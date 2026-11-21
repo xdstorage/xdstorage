@@ -1,0 +1,410 @@
+- record:
+	serial: 3
+	op: UPSERT
+	id: 'gal-0'
+	object:
+		class: 'tools.Gal200Parent'
+		fields:
+			- field:
+				name: 'children'
+				type: 'java.util.Collection'
+				value:
+					collection:
+						class: 'java.util.ArrayList'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-0-c0'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-0-c1'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-0-c2'
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-0'
+			- field:
+				name: 'title'
+				type: 'java.lang.String'
+				value: 'Система-альфа-0'
+
+# xdstorage-eof
+- record:
+	serial: 5
+	op: UPSERT
+	id: 'gal-1'
+	object:
+		class: 'tools.Gal200Parent'
+		fields:
+			- field:
+				name: 'children'
+				type: 'java.util.Collection'
+				value:
+					collection:
+						class: 'java.util.ArrayList'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-1-c0'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-1-c1'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-1-c2'
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-1'
+			- field:
+				name: 'title'
+				type: 'java.lang.String'
+				value: 'Система-альфа-1'
+
+# xdstorage-eof
+- record:
+	serial: 7
+	op: UPSERT
+	id: 'gal-2'
+	object:
+		class: 'tools.Gal200Parent'
+		fields:
+			- field:
+				name: 'children'
+				type: 'java.util.Collection'
+				value:
+					collection:
+						class: 'java.util.ArrayList'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-2-c0'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-2-c1'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-2-c2'
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-2'
+			- field:
+				name: 'title'
+				type: 'java.lang.String'
+				value: 'Система-альфа-2'
+
+# xdstorage-eof
+- record:
+	serial: 9
+	op: UPSERT
+	id: 'gal-3'
+	object:
+		class: 'tools.Gal200Parent'
+		fields:
+			- field:
+				name: 'children'
+				type: 'java.util.Collection'
+				value:
+					collection:
+						class: 'java.util.ArrayList'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-3-c0'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-3-c1'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-3-c2'
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-3'
+			- field:
+				name: 'title'
+				type: 'java.lang.String'
+				value: 'Система-альфа-3'
+
+# xdstorage-eof
+- record:
+	serial: 11
+	op: UPSERT
+	id: 'gal-4'
+	object:
+		class: 'tools.Gal200Parent'
+		fields:
+			- field:
+				name: 'children'
+				type: 'java.util.Collection'
+				value:
+					collection:
+						class: 'java.util.ArrayList'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-4-c0'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-4-c1'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-4-c2'
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-4'
+			- field:
+				name: 'title'
+				type: 'java.lang.String'
+				value: 'Система-альфа-4'
+
+# xdstorage-eof
+- record:
+	serial: 13
+	op: UPSERT
+	id: 'gal-5'
+	object:
+		class: 'tools.Gal200Parent'
+		fields:
+			- field:
+				name: 'children'
+				type: 'java.util.Collection'
+				value:
+					collection:
+						class: 'java.util.ArrayList'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-5-c0'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-5-c1'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-5-c2'
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-5'
+			- field:
+				name: 'title'
+				type: 'java.lang.String'
+				value: 'Система-альфа-5'
+
+# xdstorage-eof
+- record:
+	serial: 15
+	op: UPSERT
+	id: 'gal-6'
+	object:
+		class: 'tools.Gal200Parent'
+		fields:
+			- field:
+				name: 'children'
+				type: 'java.util.Collection'
+				value:
+					collection:
+						class: 'java.util.ArrayList'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-6-c0'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-6-c1'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-6-c2'
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-6'
+			- field:
+				name: 'title'
+				type: 'java.lang.String'
+				value: 'Система-альфа-6'
+
+# xdstorage-eof
+- record:
+	serial: 17
+	op: UPSERT
+	id: 'gal-7'
+	object:
+		class: 'tools.Gal200Parent'
+		fields:
+			- field:
+				name: 'children'
+				type: 'java.util.Collection'
+				value:
+					collection:
+						class: 'java.util.ArrayList'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-7-c0'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-7-c1'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-7-c2'
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-7'
+			- field:
+				name: 'title'
+				type: 'java.lang.String'
+				value: 'Система-альфа-7'
+
+# xdstorage-eof
+- record:
+	serial: 19
+	op: UPSERT
+	id: 'gal-8'
+	object:
+		class: 'tools.Gal200Parent'
+		fields:
+			- field:
+				name: 'children'
+				type: 'java.util.Collection'
+				value:
+					collection:
+						class: 'java.util.ArrayList'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-8-c0'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-8-c1'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-8-c2'
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-8'
+			- field:
+				name: 'title'
+				type: 'java.lang.String'
+				value: 'Система-альфа-8'
+
+# xdstorage-eof
+- record:
+	serial: 21
+	op: UPSERT
+	id: 'gal-9'
+	object:
+		class: 'tools.Gal200Parent'
+		fields:
+			- field:
+				name: 'children'
+				type: 'java.util.Collection'
+				value:
+					collection:
+						class: 'java.util.ArrayList'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-9-c0'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-9-c1'
+						- item:
+							type: 'tools.Gal200Child'
+							value:
+								reference:
+									class: 'tools.Gal200Child'
+									objectId: 'gal-9-c2'
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-9'
+			- field:
+				name: 'title'
+				type: 'java.lang.String'
+				value: 'Система-альфа-9'
+
+# xdstorage-eof

@@ -1,0 +1,333 @@
+objects:
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-8-c0'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-8-c2'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-6-c0'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-8-c1'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-3-c0'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-3-c1'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-5-c2'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-5-c1'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-5-c0'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-1-c2'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-7-c2'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-1-c0'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-3-c2'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-1-c1'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-9-c1'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-9-c0'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-7-c0'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-7-c1'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-9-c2'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-4-c2'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-4-c1'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-2-c0'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-4-c0'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-6-c1'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-0-c0'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-6-c2'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-2-c1'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-0-c2'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-0-c1'
+	- object:
+		class: 'io.github.xdstorage.index.hash.XdStorageHashIndexRecord'
+		fields:
+			- field:
+				name: 'resourceId'
+				type: 'java.lang.Object'
+				value: 'golden-2000/data/Gal200Child/Gal200Child-gal-0-c0.yaml'
+			- field:
+				name: 'objectId'
+				type: 'java.lang.Object'
+				value: 'gal-2-c2'
+
+# xdstorage-eof

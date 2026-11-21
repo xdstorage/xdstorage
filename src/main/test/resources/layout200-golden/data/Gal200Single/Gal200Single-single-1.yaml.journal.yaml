@@ -1,0 +1,25 @@
+- record:
+	serial: 24
+	op: UPSERT
+	id: 'single-1'
+	object:
+		class: 'tools.Gal200Single'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'single-1'
+			- field:
+				name: 'tags'
+				type: 'java.util.Collection'
+				value:
+					collection:
+						class: 'java.util.ArrayList'
+						- item:
+							type: 'java.lang.String'
+							value: 'тег-раз-1'
+						- item:
+							type: 'java.lang.String'
+							value: 'тег-два-1'
+
+# xdstorage-eof

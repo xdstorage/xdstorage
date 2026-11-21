@@ -247,16 +247,58 @@ E-6: what "supported" means, stated up front so upgrades are design-time decisio
 The format generation is recorded per storage folder in `.xdstorage.meta`
 (`formatVersion`; see `XdStorageFormatMeta`):
 
-| Folder was written by | 2.0 library behavior |
+| Folder was written by | 2.1 library behavior |
 |---|---|
-| 2.0+ (marker `formatVersion=2`) | opens normally; startup INFO announces `format v2`. Older folders may carry journals in pre-subdirectory namings (the 2.0.0-era `<base>.journal.yaml` stack, or the sibling `<base>-journal.yaml`) — 2.1 replays them and migrates the files into the `journal/` subdirectory automatically; no manual rename |
+| 2.1+ (marker `formatVersion=3`) | opens normally; startup INFO announces `format v3` |
+| 2.0 (marker `formatVersion=2`) | opens normally; the one-time **layout migration** runs at open (see "Upgrade from 2.0.0" below) and the marker is rewritten to `3` on success. The journals may carry the 2.0.0-era stacked naming (`<base>.yaml.journal.yaml`) or the sibling spelling — 2.1 replays them and migrates the files into the `journal/` subdirectory automatically; no manual rename |
 | 1.x (no marker, files present) | opens with a legacy INFO; **YAML** content additionally requires `acceptMissingEofSentinel(true)` until the first commit rewrites the files; **XML** content opens as-is |
-| a **newer** library (marker `formatVersion` > 2) | loud `XdStorageRuntimeException` before any engine state is built — upgrade the library |
-| fresh/empty folder | marker `formatVersion=2` written at open |
+| a **newer** library (marker `formatVersion` > 3) | loud `XdStorageRuntimeException` before any engine state is built — upgrade the library |
+| fresh/empty folder | marker `formatVersion=3` written at open |
 
 The folder is single-writer (exclusive lock); a folder may be read concurrently only by the
 owning process. There is no multi-process write access and no down-level writer after a
 format bump — that is what the marker check is for.
+
+### Upgrade from 2.0.0 (task 51 LAYOUTMIG)
+
+The 2.1.0 on-disk **layout** moved the id-index, references, search-index and B+Tree infra
+files into a dedicated `indexes/` subdirectory. The content format is unchanged; the layout
+generation is stamped in `.xdstorage.meta` (`formatVersion=3`).
+
+**The upgrade procedure:**
+1. Close the 2.0.0 process cleanly (or accept that a dirty close leaves un-checkpointed
+   journal tails — the migration handles both; a backup is still recommended: `cp -r` while
+   closed).
+2. Open the same folder with 2.1.0. The one-time migration runs at open, before any resource:
+   - the interim `index/` directory → `indexes/`;
+   - `data/<Class>/index.yaml` (the id-index), `data/<Class>/references.yaml` (the
+     StoreAsSingleObject classes), `data/<Class>/<indexName>.yaml` (the search bases) →
+     `indexes/<Class>/`;
+   - `data/XdStorageBTree/` and `data/XdStorageBTreeNode/` → `indexes/`.
+3. The **data fragments stay in `data/`** (their paths are persisted inside the id-index
+   payload — moving them would orphan every record; the fragments do not move, so the
+   payload keeps resolving). The stacked 2.0.0 journals stay in place too — each resource's
+   first `prepare` replays and settles them into `journal/` automatically (task 24).
+4. After a full success the format marker is rewritten `2 → 3`. From then on **a 2.0.0
+   library refuses the folder loudly** (the newer-format gate) — the downgrade refusal is
+   enforced by the stamp.
+
+**Crash tolerance:** the migration is a sequence of idempotent steps (each checks
+source-exists/dest-absent). A crash mid-migration leaves a half-migrated folder with the
+marker still at `2`; the next open detects the remainder structurally and completes it
+(pinned by the crash-matrix tests on the golden 2.0.0 fixture).
+
+**Failure policy:** any unmovable file (a Windows lock, permissions) = a loud open refusal
+(`LAYOUTMIG` in the message). Continuing with a half-moved index would surface as a silently
+empty id index and the first save would overwrite the fragment-0 content — a refused open is
+the safe behavior. Resolve the file lock / permissions and reopen.
+
+**Known limitations:** (1) the id-index payload stores fragment paths verbatim — a folder
+created with a RELATIVE folder path stays relocatable, a folder created with an ABSOLUTE path
+relocates only via takeover (task 24); (2) an index literally named like a data fragment
+(`<Class>`/`<Class>-…`) would stay behind and surface as an empty index — verify after the
+upgrade (`XdStorageProvider.verify`); (3) the 2.0.0-era folders written on Windows may carry
+OS-separated payload paths — verify on Windows before relying on the upgrade there.
 
 ### Migrating a 1.x folder that used `FilesFormat.JSON`
 

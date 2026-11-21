@@ -1,0 +1,470 @@
+- record:
+	serial: 3
+	op: UPSERT
+	id: 'gal-0-c0'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-0-c0'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-0-0'
+- record:
+	serial: 3
+	op: UPSERT
+	id: 'gal-0-c2'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-0-c2'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-0-2'
+- record:
+	serial: 3
+	op: UPSERT
+	id: 'gal-0-c1'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-0-c1'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-0-1'
+
+# xdstorage-eof
+- record:
+	serial: 5
+	op: UPSERT
+	id: 'gal-1-c2'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-1-c2'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-1-2'
+- record:
+	serial: 5
+	op: UPSERT
+	id: 'gal-1-c0'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-1-c0'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-1-0'
+- record:
+	serial: 5
+	op: UPSERT
+	id: 'gal-1-c1'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-1-c1'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-1-1'
+
+# xdstorage-eof
+- record:
+	serial: 7
+	op: UPSERT
+	id: 'gal-2-c0'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-2-c0'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-2-0'
+- record:
+	serial: 7
+	op: UPSERT
+	id: 'gal-2-c1'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-2-c1'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-2-1'
+- record:
+	serial: 7
+	op: UPSERT
+	id: 'gal-2-c2'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-2-c2'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-2-2'
+
+# xdstorage-eof
+- record:
+	serial: 9
+	op: UPSERT
+	id: 'gal-3-c0'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-3-c0'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-3-0'
+- record:
+	serial: 9
+	op: UPSERT
+	id: 'gal-3-c1'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-3-c1'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-3-1'
+- record:
+	serial: 9
+	op: UPSERT
+	id: 'gal-3-c2'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-3-c2'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-3-2'
+
+# xdstorage-eof
+- record:
+	serial: 11
+	op: UPSERT
+	id: 'gal-4-c2'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-4-c2'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-4-2'
+- record:
+	serial: 11
+	op: UPSERT
+	id: 'gal-4-c1'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-4-c1'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-4-1'
+- record:
+	serial: 11
+	op: UPSERT
+	id: 'gal-4-c0'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-4-c0'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-4-0'
+
+# xdstorage-eof
+- record:
+	serial: 13
+	op: UPSERT
+	id: 'gal-5-c2'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-5-c2'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-5-2'
+- record:
+	serial: 13
+	op: UPSERT
+	id: 'gal-5-c1'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-5-c1'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-5-1'
+- record:
+	serial: 13
+	op: UPSERT
+	id: 'gal-5-c0'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-5-c0'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-5-0'
+
+# xdstorage-eof
+- record:
+	serial: 15
+	op: UPSERT
+	id: 'gal-6-c1'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-6-c1'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-6-1'
+- record:
+	serial: 15
+	op: UPSERT
+	id: 'gal-6-c2'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-6-c2'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-6-2'
+- record:
+	serial: 15
+	op: UPSERT
+	id: 'gal-6-c0'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-6-c0'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-6-0'
+
+# xdstorage-eof
+- record:
+	serial: 17
+	op: UPSERT
+	id: 'gal-7-c2'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-7-c2'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-7-2'
+- record:
+	serial: 17
+	op: UPSERT
+	id: 'gal-7-c0'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-7-c0'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-7-0'
+- record:
+	serial: 17
+	op: UPSERT
+	id: 'gal-7-c1'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-7-c1'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-7-1'
+
+# xdstorage-eof
+- record:
+	serial: 19
+	op: UPSERT
+	id: 'gal-8-c0'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-8-c0'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-8-0'
+- record:
+	serial: 19
+	op: UPSERT
+	id: 'gal-8-c2'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-8-c2'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-8-2'
+- record:
+	serial: 19
+	op: UPSERT
+	id: 'gal-8-c1'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-8-c1'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-8-1'
+
+# xdstorage-eof
+- record:
+	serial: 21
+	op: UPSERT
+	id: 'gal-9-c1'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-9-c1'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-9-1'
+- record:
+	serial: 21
+	op: UPSERT
+	id: 'gal-9-c0'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-9-c0'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-9-0'
+- record:
+	serial: 21
+	op: UPSERT
+	id: 'gal-9-c2'
+	object:
+		class: 'tools.Gal200Child'
+		fields:
+			- field:
+				name: 'id'
+				type: 'java.lang.String'
+				value: 'gal-9-c2'
+			- field:
+				name: 'label'
+				type: 'java.lang.String'
+				value: 'Планета-9-2'
+
+# xdstorage-eof

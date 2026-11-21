@@ -1,0 +1,17 @@
+- record:
+	serial: 2
+	op: UPSERT
+	id: 'io.github.xdstorage.btree.XdStorageBTreeNode'
+	object:
+		class: 'io.github.xdstorage.idgeneration.XdStorageLongIdCounterRecord'
+		fields:
+			- field:
+				name: 'cl'
+				type: 'java.lang.Class'
+				value: 'io.github.xdstorage.btree.XdStorageBTreeNode'
+			- field:
+				name: 'counter'
+				type: 'java.lang.Long'
+				value: '100'
+
+# xdstorage-eof

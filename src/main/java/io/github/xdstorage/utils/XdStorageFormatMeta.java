@@ -18,6 +18,13 @@ import java.util.Properties;
  *   <li>{@code formatVersion=1} — the 1.x era: no YAML EOF sentinel, no commit journal;</li>
  *   <li>{@code formatVersion=2} — the 2.0 era: YAML EOF sentinel (S-1) and the optional
  *       per-transaction commit journal (W-1, journalWrites=ON default since W-3).</li>
+ *   <li>{@code formatVersion=3} — the 2.1 era: the {@code indexes/} layout generation
+ *       (task 51 LAYOUTMIG). The CONTENT format is unchanged (sentinel + journal); the
+ *       generation stamps the on-disk ARRANGEMENT: the id-index/references/search bases
+ *       and the B+Tree infra live under {@code indexes/}. A v2 folder opened by this
+ *       library runs the one-time legacy-layout migration and the marker is rewritten to
+ *       3 on success; a v3 folder opened by a 2.0 library refuses loudly (the pre-existing
+ *       newer-version gate) — the documented downgrade refusal is enforced by this stamp.</li>
  * </ul>
  * The marker is what makes the compatibility statement in docs/EMBEDDING.md checkable instead
  * of folklore: at open time the provider announces "opened storage X, format vN", detects
@@ -33,7 +40,7 @@ public final class XdStorageFormatMeta {
     public static final String META_FILE_NAME = ".xdstorage.meta";
 
     /** The current generation of the on-disk format. Bump ONLY with a documented migration path in EMBEDDING.md. */
-    public static final int FORMAT_VERSION = 2;
+    public static final int FORMAT_VERSION = 3;
 
     private static final String KEY_FORMAT_VERSION = "formatVersion";
     private static final String KEY_FORMAT = "format";
@@ -125,6 +132,50 @@ public final class XdStorageFormatMeta {
         } catch (final IOException e) {
             throw new XdStorageRuntimeException("cannot write " + META_FILE_NAME + " into storage folder " + folder, e);
         }
+    }
+
+    /**
+     * Task 51 (LAYOUTMIG): rewrites the marker to the current format generation after a
+     * successful legacy-layout migration (or on a first open of a v2 folder that needs no
+     * migration — the stamp catch-up). Preserves {@code createdAt}, {@code format} and
+     * {@code storage}; refreshes {@code libraryVersion} (the last writer is this library).
+     * A no-op when the marker is absent (legacy 1.x folders keep the acceptMissingEofSentinel
+     * contract untouched) or already at the current version. The rewrite is what makes the
+     * crash-tolerance of the migration observable: a v2 marker + a mixed layout means the
+     * migration did not finish and the next open completes it.
+     *
+     * @param folder the storage folder whose marker is upgraded
+     * @param storageName the storage name recorded in the (rewritten) marker
+     * @param format the storage format name recorded in the (rewritten) marker
+     * @return {@code true} when the marker was rewritten
+     * @throws io.github.xdstorage.exceptions.XdStorageRuntimeException when the marker cannot be written
+     */
+    public static boolean upgradeFormatMarkerToCurrent(final File folder, final String storageName, final String format) {
+        final Properties meta = read(folder);
+        if (meta == null) {
+            return false; // the legacy 1.x no-marker contract stays untouched
+        }
+        final int version = parseFormatVersion(meta, storageName, folder);
+        if (version >= FORMAT_VERSION) {
+            return false; // already current
+        }
+        final Properties upgraded = new Properties();
+        upgraded.setProperty(KEY_FORMAT_VERSION, String.valueOf(FORMAT_VERSION));
+        upgraded.setProperty(KEY_FORMAT, meta.getProperty(KEY_FORMAT, format));
+        upgraded.setProperty(KEY_STORAGE, meta.getProperty(KEY_STORAGE, storageName));
+        upgraded.setProperty(KEY_LIBRARY_VERSION, XdStorageVersion.getVersion());
+        upgraded.setProperty(KEY_CREATED_AT, meta.getProperty(KEY_CREATED_AT, java.time.OffsetDateTime.now().toString()));
+        final File metaFile = new File(folder, META_FILE_NAME);
+        try (final OutputStream out = new FileOutputStream(metaFile)) {
+            // Properties.store(OutputStream) is fixed ISO-8859-1 with unicode escapes by
+            // spec — deterministic cross-OS (not a platform-default-charset write)
+            upgraded.store(out, "XdStorage on-disk format marker (generated; do not edit)");
+        } catch (final IOException e) {
+            throw new XdStorageRuntimeException("cannot rewrite " + META_FILE_NAME + " in storage folder " + folder, e);
+        }
+        log.info("LAYOUTMIG: format marker upgraded v{} -> v{} for storage '{}' at {}",
+                version, FORMAT_VERSION, storageName, folder);
+        return true;
     }
 
     /** Anything that is not the lock file or the marker itself counts as storage content. */

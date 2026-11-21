@@ -1,0 +1,18 @@
+references:
+	- reference:
+		class: 'io.github.xdstorage.btree.XdStorageBTreeNode'
+		objectId: '1'
+	- reference:
+		class: 'io.github.xdstorage.btree.XdStorageBTreeNode'
+		objectId: '2'
+	- reference:
+		class: 'io.github.xdstorage.btree.XdStorageBTreeNode'
+		objectId: '3'
+	- reference:
+		class: 'io.github.xdstorage.btree.XdStorageBTreeNode'
+		objectId: '4'
+	- reference:
+		class: 'io.github.xdstorage.btree.XdStorageBTreeNode'
+		objectId: '5'
+
+# xdstorage-eof

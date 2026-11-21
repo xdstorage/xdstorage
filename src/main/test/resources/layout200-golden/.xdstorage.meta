@@ -1,0 +1,7 @@
+#XdStorage on-disk format marker (generated; do not edit)
+#Sat Nov 21 13:20:47 NOVT 2026
+createdAt=2026-11-21T13\:20\:47.045902769+07\:00
+format=YAML
+formatVersion=2
+libraryVersion=2.0.0
+storage=golden-2000
