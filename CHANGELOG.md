@@ -15,6 +15,10 @@ see `XdStorageFormatMeta`):
   automatic migration (a 2.1.0 folder cannot be opened by 2.0.0 — see the Breaking entry
   below).
 
+## [Unreleased] — the 2.2.0 train
+
+Nothing yet; items land here as they merge.
+
 ## [2.1.0] — 2026-11-22
 
 The train's user-facing changes; everything below has landed on the train and ships with
