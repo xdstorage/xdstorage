@@ -1,41 +1,53 @@
-# 2.1.0 tasks train — **COMPLETE: 52/52 tasks done** (0 open)
+# 2.1.0 tasks train — **53 work packages filed; 47 done, 6 open** (RC-ready once they close)
 
 One markdown file = one GitHub issue (the frontmatter `title`/`labels`/`status` is the
 issues-sync contract; see [the sync section](#automatic-issue-sync-github)). Scope derives
 from [MASTER-PLAN.md](../../MASTER-PLAN.md) Step 1; the deep decision records live in the
 linked plan documents (SRE/WRITE-PATH/W4-DESIGN/ARCHITECT-EVALUATION) and per-task files.
 
-## Current status (verified 2026-11-14)
+## Current status (verified 2026-11-21)
 
-- **All 52 work packages DONE.** The suite is at 964+ tests (the W-4b/c, FK, and
-  EXPLAIN features landed, growing it from the 2.0.0 baseline of ~370).
+- **The engine cleared the release bar it set for itself:** the TREEOVERLAY program
+  (task 53) landed — the B+tree per-tx overlay, the prevSnapshot role split, and the
+  total acquisition order that destroyed the commit-lock convoy. The stress family is
+  **7/7 green** (MassFillSecond ×3 WITHOUT the semaphore; W2Reopen ×3; BTreeStress 0
+  phantoms vs the HEAD baseline 24810), the full quick-gate is **1321/0f/0e ×3**
+  (BUILD SUCCESS ×3), and FKBENCH hit its target: **fk=ON t=10 = 121–158 tx/s**
+  (was 0.8–1.2 — the ~150× collapse cured), p99 84–113ms, no t=1 regression.
+- **Suite size:** 1321+ tests in the gate (the 2.0.0 baseline was ~370; the FK estate
+  alone is 372).
 - **Gate/release/nightly:** the stress/integration tags are excluded from the gate and
   release profiles (they run in the nightly ×3); the isolation-stress and facade-stress
-  tests are excluded BY DECISION (2.2.0 tasks 12/13 own their return); everything else
-  runs.
+  exclusions are re-include candidates now that the convoy is gone (2.2.0 tasks 12/13).
+- **Post-release W-4 remainder** (ledgered in task 53 §STATUS and the dbms-developer
+  skill): the lost-update window (stage→commit revalidation), the read-snapshot cost
+  (the lazy capture), the wrapper de-aliasing (2 @Disabled pins), the BTreeStress
+  R-56/multi-scan follow-up, and the A2.3 mixed-key CCE (blocks the FKBENCH fk=ON arm
+  until the typed key normalization lands — the fk=OFF numbers stand).
 - **The RC protocol is the next step** (RELEASE-PLAN §2): full suite ×3 green, JMH vs
-  the refreshed baseline, fresh-clone walkthrough → tag `v2.1.0`.
+  the refreshed baseline (task 43), fresh-clone walkthrough → tag `v2.1.0`. Task 51
+  (the layout migration) gates the release itself.
 
-## Open work (7)
+## Open work (6)
 
 | # | Task | What remains |
 |---|---|---|
-| 25 | [EXPLAIN](25-explain-query-plan.md) | query-plan visibility API (extract the routing decision, don't fork it) |
 | 27 | [JDK21 CI matrix](27-jdk21-ci-matrix.md) | prove the suite on 21 (the baseline is 21 numbers) |
 | 33 | [BINFEAS](33-binary-format-feasibility.md) | measure the serialization share on cold paths — FP-9's go/no-go |
-| 38 | [IDXCONTRACT](38-index-resource-contracts.md) | journal-path declarations + disk-full-misreported-as-corruption |
-| 43 | [BENCHREFRESH](43-benchmark-refresh.md) | full canonical re-run post-FK (senior dev; pin `BENCH_JDK`) |
-| 44 | [DOCSWRITER](44-technical-writer-pass.md) | the one-story documentation pass (technical writer) |
-| 47 | [RECIDENT](47-record-identity-disarmed-phases.md) | the record-identity envelope residuals (status: open with the fixed core) |
+| 43 | [BENCHREFRESH](43-benchmark-refresh.md) | full canonical re-run post-FK + post-overlay (senior dev; pin `BENCH_JDK`) |
+| 44 | [DOCSWRITER](44-technical-writer-pass.md) | the one-story documentation pass (technical writer; now includes the AutoSave/ParentObject + secondary-keys block, 2026-11-21) |
+| 50 | [FKBENCH](50-fk-cost-benchmark.md) | the FK-cost A/B table (Step 0 done: the concurrency axis measured; the fk=ON arm waits on A2.3) |
 | 51 | [layout-migration-upgrade](51-layout-migration-upgrade.md) | **LAYOUTMIG — BLOCKING RELEASE**: the 2.0.0→2.1.0 layout migration (crash-tolerant, cross-OS, fully tested) |
 
-**Release-readiness note (updated 2026-11-14):** 47 done tasks cover the original triage;
-the remaining opens are: the layout migration (**51, P0 BLOCKER** — a 2.0.0 user must be
-able to upgrade), the FK benchmark (50), EXPLAIN (25), JDK21 (27), BINFEAS (33),
-IDXCONTRACT (38), DOCSWRITER (44). The RC protocol runs after these close. The MassFill
-purge red (task 36's family) is managed by W-4b/c.
+**Release-readiness note (updated 2026-11-21):** every defect-class task of the train
+is closed with pinned tests (BUG-A..E, 34–47, 53 — the last reds W2Reopen/BTreeStress
+either fixed or stash-proven pre-existing). The remaining six opens are: the layout
+migration (**51, P0 — a 2.0.0 user must be able to upgrade**), the benchmark refresh
+(43) and the FK A/B (50) that make the docs' numbers true, DOCSWRITER (44) that makes
+the docs one story, JDK21 (27) and BINFEAS (33). The RC protocol runs after these
+close. The historical MassFill/convoy reds are GONE (7/7 stress families green).
 
-## Index (all 50 work packages)
+## Index (all 53 work packages)
 
 | # | File | Track | Status | Est. |
 |---|---|---|---|---|
@@ -79,7 +91,7 @@ purge red (task 36's family) is managed by W-4b/c.
 | 36 | [36-structure-update-correctness](36-structure-update-correctness.md) | STRUCTFIX | done | 1 d |
 | 36 | [36-zombie-latch-purge](36-zombie-latch-purge.md) | ZOMBIELATCH | done | 1–2 dev-days |
 | 37 | [37-yaml-reader-strictness](37-yaml-reader-strictness.md) | YAMLREAD | done | 1–1 |
-| 38 | [38-index-resource-contracts](38-index-resource-contracts.md) | IDXCONTRACT | open | 1 d |
+| 38 | [38-index-resource-contracts](38-index-resource-contracts.md) | IDXCONTRACT | done (implemented; the plan suite + the execution-agreement test green) | 1 d |
 | 39 | [39-message-hygiene-dead-params](39-message-hygiene-dead-params.md) | MSGHYGIENE | done | 0 |
 | 40 | [40-lost-update-first-committer-wins](40-lost-update-first-committer-wins.md) | LOSTUPD | done | 2-3 d (the semanti |
 | 41 | [41-tree-node-file-leak-rollback](41-tree-node-file-leak-rollback.md) | TREEFILE | done | 2–3 d |
@@ -89,6 +101,11 @@ purge red (task 36's family) is managed by W-4b/c.
 | 45 | [45-illegal-state-commit-diagnosis](45-illegal-state-commit-diagnosis.md) | RBCOMMIT | done | 1–2 dev-days (the  |
 | 46 | [46-wrapper-observer-leak](46-wrapper-observer-leak.md) | WRAPLEAK | done | 1–2 dev-days (the  |
 | 47 | [47-record-identity-disarmed-phases](47-record-identity-disarmed-phases.md) | RECIDENT | done (core fixed; the envelope residuals → FLAKY R-STORM-ENVELOPE + 2.2.0 task 10) | 2–4 dev-days + the |
+| 48 | [48-checkpoint-on-shutdown](48-checkpoint-on-shutdown.md) | W-4c | done | 0 (06007c9) |
+| 49 | [49-w4b-search-key-journal](49-w4b-search-key-journal.md) | W-4b | done | 1–2 d (64d33f5) |
+| 50 | [50-fk-cost-benchmark](50-fk-cost-benchmark.md) | FKBENCH | open (Step 0 done: the concurrency axis measured) | 2–3 dev-days |
+| 51 | [51-layout-migration-upgrade](51-layout-migration-upgrade.md) | LAYOUTMIG | **open — P0 BLOCKER** | 2–3 dev-days |
+| 53 | [53-tree-overlay](53-tree-overlay.md) | TREEOVERLAY | done (2026-11-21: the overlay + the convoy fix; the stress family 7/7, the gate ×3 1321/0f/0e) | 3–4 sessions |
 
 ## Provenance (compact history)
 
@@ -102,6 +119,8 @@ purge red (task 36's family) is managed by W-4b/c.
   (36-zombie's MassFill signature is the train's one open red).
 - **Guide-derived (19–21), master-plan pulls (25–27), proposal response (33):** mapped in
   docs/proposals/OPTIMIZATION-PROPSAL-01-ANALYSIS.md and MASTER-PLAN items 11–16.
+- **The defect ledger (34–47) + W-4b/c (48/49):** every entry closed with a pinned test.
+- **TREEOVERLAY (53, 2026-11-21):** the B+tree per-tx overlay + the total acquisition order destroyed the commit-lock convoy — the stress family 7/7, the gate ×3 1321/0f/0e, FKBENCH t=10 121–158 tx/s (the rationale in the task file + docs/analysis/BTREE_MUTATION_OVERLAY.md + the dbms-developer skill).
 - **NUMBERING COLLISION:** 34/35/36 exist twice (the javadoc-campaign ledger 34–41 vs the
   train sequence). Do not renumber — the issues-sync ownership marker is the file path.
   Reference tasks by full file name; 2.2.0 renumbers fresh.

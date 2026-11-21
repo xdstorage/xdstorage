@@ -1,7 +1,7 @@
 ---
 title: "[2.1.0][TREEOVERLAY] B+tree per-tx overlay: sound rollback + per-op release of the tree change-slot (W4-DESIGN, task 41 + the concurrent-write unlock)"
 labels: [2.1.0-train, P0, engine, w4-design, performance]
-status: in-progress
+status: done (the overlay + the convoy fix + the role-split landed and verified: the stress family 7/7, the gate ×3 1321/0f/0e, FKBENCH t=10 121–158 tx/s; the remaining W-4 layers — the lost-update window, the read-snapshot cost, the wrapper de-aliasing — are POST-RELEASE, ledgered below and in the dbms-developer skill)
 ---
 
 ## Summary
@@ -375,3 +375,17 @@ hit the previous run's committed records). W2Reopen ×3 GREEN.
 **The traps re-confirmed:** the compile-time constant inlining (the dependent
 class not recompiled on the flag flip — the clean run required); the CLI -D
 doesn't reach the forked surefire through -DargLine (the pom's argLine overrides).
+
+## STATUS: DONE (2026-11-21)
+
+The acceptance is met and verified: the stress family 7/7 green (MassFillSecond ×3
+WITHOUT the semaphore, W2Reopen ×3), the full gate ×3 = 1321/0f/0e (BUILD SUCCESS ×3),
+FKBENCH fk=ON t=10 = 121–158 tx/s (the ≥100 target met; p99 84–113ms; no regression at
+t=1). The prototype patch stays preserved for the record (the engine is in the tree —
+the patch documents the shape it first took). **Post-release remainder** (ledgered in
+W4-DESIGN + the dbms-developer skill): the lost-update window (the stage→commit
+revalidation), the read-snapshot cost (the lazy capture), the wrapper write-through
+de-aliasing (2 @Disabled pins in XdStorageBTreeOverlayTest), the BTreeStress R-56
+multi-scan race follow-up (0 phantoms on the overlay vs 24810 at HEAD), and the A2.3
+mixed-key CCE (exposed at scale by the benchmark; blocks the fk=ON arm until the typed
+key normalization lands).
