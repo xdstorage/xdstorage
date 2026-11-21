@@ -239,7 +239,7 @@ public final class XdStorageBTreeInvariants {
                 if (key == null) {
                     throw new XdStorageException(context + ": лист " + current.getId() + " содержит null-ключ");
                 }
-                if (previousKey[0] != null && previousKey[0].compareTo(key) > 0) {
+                if (previousKey[0] != null && XdStorageBTreeNode.compareMixedKeys(previousKey[0], key) > 0) {
                     throw new XdStorageException(context + ": нарушение сортировки в цепочке листьев: " + previousKey[0] + " > " + key
                             + " (лист " + current.getId() + ") — некорректный split/merge");
                 }
@@ -298,7 +298,7 @@ public final class XdStorageBTreeInvariants {
         // Для multiple-деревьев равные разделители легитимны (дубликаты ключа лежат в разных листьях)
         final boolean allowEqualSeparators = node.getTree() != null && node.getTree().isMultiple();
         for (int i = 1; i < keys.size(); ++i) {
-            final int cmp = keys.get(i - 1).compareTo(keys.get(i));
+            final int cmp = XdStorageBTreeNode.compareMixedKeys(keys.get(i - 1), keys.get(i));
             if (cmp > 0 || (cmp == 0 && !allowEqualSeparators)) {
                 throw new XdStorageException("[tripwire:" + op + "] нода " + node.getId()
                         + ": дубликат/убывание разделителя keys[" + (i - 1) + "]=" + keys.get(i - 1)
@@ -353,7 +353,7 @@ public final class XdStorageBTreeInvariants {
             childrenSnapshot = new ArrayList<>(node.getChildren());
         }
         for (int i = 1; i < nodeKeys.size(); ++i) {
-            final int cmp = nodeKeys.get(i - 1).compareTo(nodeKeys.get(i));
+            final int cmp = XdStorageBTreeNode.compareMixedKeys(nodeKeys.get(i - 1), nodeKeys.get(i));
             if (cmp > 0 || (cmp == 0 && !allowEqualSeparators)) {
                 throw new XdStorageException(context + ": нарушение монотонности разделителей внутренней ноды " + node.getId()
                         + ": keys[" + (i - 1) + "]=" + nodeKeys.get(i - 1) + " >= keys[" + i + "]=" + nodeKeys.get(i)

@@ -438,3 +438,72 @@ revalidation = the defense-in-depth for the direct-record mutations (the unit
 layer) and the protocol-level guarantee (the strict ACID). The MassFillSecond
 audit failure's exact mechanism was the task-40 aliasing channel (fixed by the
 role-split), not the record-level lost update.
+## A2.3 STATUS (2026-11-21, the night): the scan/find tolerant compare LANDED; the insert path = the next session
+
+**Landed:** the mixed-key tolerant compare on ALL the node's scan/descend/delete compare
+sites (compareMixedKeys: the numeric coercion both-sides + the string fallback) + the
+symmetric helper. The finds work on the mixed trees (the scan sites covered).
+
+**NOT covered:** the INSERT path's compare site — the CCE on the inserts into the
+mixed tree (the fast-throw hides the site; the fresh-CCE rethrow forensics = the next
+session's first step). The mixed-key test: @Disabled ×3 (the honest pattern — the pins
+document the target semantics).
+
+**The A2.3's source mystery (the traces):** the StarSystem's id_index contains the
+UUID keys (the systems' ids ✓) AND the Long keys (2, 3, 4... — the planets' auto-ids?!
+— the planets' id_index is a DIFFERENT tree (the BTreeId (cl, name) distinct ✓)!).
+The mixed-source: WHY the planets' Long keys landed in the StarSystem's id_index —
+the tree lookup/instance mix-up: THE NEXT SESSION's diagnosis (the insert-path probe:
+the tree's cl at the insert + the fresh-CCE stack).
+
+## A2.3 MIXED-KEY CCE — DONE (2026-11-21, the night): the tolerant compare everywhere + the designed loud-bound contract
+
+**The forensics (the fresh-CCE probe method — the reliable one):** the surefire/JUnit
+frames are CUT at the test/lambda boundary (the exception report showed ONE frame —
+never trust it); catching the CCE live in the test and printing the stack revealed the
+true 75-77-frame stacks. THREE distinct sites, all key-compare raw `compareTo`:
+
+1. **XdsStorageBTree$2.look (BTree:1375)** — the multi-find viewer: the horizontal
+   leaf walk for `multiple=true` trees compared the tree's objectId (Long) vs the
+   search key (String) raw → the CCE on EVERY find in the mixed tree. The inserts
+   were ALREADY green (the node's descend/insert sites were covered first) — the
+   CCEs came from the FINDS.
+2. **XdsStorageBTreeInvariants.checkStructuralAlignment:301** — the R-56 split
+   tripwire: the sortedness check compared the node's ADJACENT KEYS raw → the CCE
+   on every split of a mixed tree (the mass-insert pin caught it; the small trees
+   never split). The validator must share the tree's compare policy — otherwise it
+   declares valid trees invalid.
+3. The range-walk boundary compares (BTree 1194 snapshot scan + 1566/1572 fromKey/
+   toKey) + the walk-order check (Invariants:242) + the second sortedness check
+   (:356) — all key-compare sites, all covered.
+
+**The fix:** `compareMixedKeys` (fast path → the numeric coercion both sides → the
+string fallback) is now package-private in the Node and applied at ALL 12 key-compare
+sites (the Node descend/self/leaf/nextLeaf/snapshot + the BTree 4 + the Invariants 3).
+The PAYLOAD compares (the duplicate sorting:1091, the value-exact delete:1879/1197)
+stay raw by contract — the payloads are same-typed per key.
+
+**The designed loud-bound contract (the search layer):** the tolerant tree compare
+removed the ACCIDENTAL loudness mechanism of the typed range queries (the pinned
+mixedTypeFailsLoudly relied on the walk's CCE wrapped into XdStorageRuntimeException).
+The designed replacement: the PRE-FLIGHT bound validation in BOTH range executors
+(walkRangeCriterion — the processor/count flow, and handleRangePrimaryCriterion — the
+load flow): the ORDER bounds (GT/GTE/LT/LTE + both BETWEEN ends) are validated against
+the declared primary field type (boxed-normalized, isInstance) BEFORE the walk → a
+foreign-typed bound throws XdStorageRuntimeException loudly; IN stays equals-membership
+(no compare, no validation); Object-typed fields are not pre-validatable. The walk's
+CCE→wrap catch stays as the second net. Two parallel executors discovered — the
+pre-flight wired into both (the first anchor landed into the wrong one; compile caught
+it, both wired).
+
+**The pins:** XdStorageMixedKeyFindTest 3/3 GREEN (re-enabled): the insert+find of the
+both types / the duplicates multi-find / the mass inserts (200, splits) without a CCE.
+
+**The gate ×3: 1329/0f/0e ×3, BUILD SUCCESS ×3** — the A2.3 acceptance MET (the estate
+incl. the search package: 473/0f/0e with the honest 3 skips: 2 W-4 wrapper-aliasing
+pins + the task-41 disabled-red repro).
+
+**The lesson:** an invariant validator MUST share the data's compare policy (a
+validator with its own raw compare is a latent CCE on every legal state the main path
+accepts); the loud contracts must be DESIGNED (a pre-flight), not borrowed from an
+accident (a raw-compare CCE deep in the walk).

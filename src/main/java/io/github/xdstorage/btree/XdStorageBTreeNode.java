@@ -773,7 +773,7 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                 final List<XdStorageBTreeNode> currentChildren = current.getChildren();
 
                 for (int i = 0; i < current.getKeys().size(); ++i) {
-                    final int compareResult = key.compareTo(current.getKeys().get(i));
+                    final int compareResult = compareMixedKeys(key, current.getKeys().get(i));
                     if (compareResult < 0) {
                         // Ключ строго меньше разделителя — гарантированно уходим налево
                         child = current.loadChildOfThisNode(i, storage, transaction);
@@ -1073,7 +1073,7 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         // tree-level loop re-descends from the root and re-computes on the fresh state.
         try {
         for (i = 0; i < getKeys().size(); ++i) {
-            final int compareResult = key.compareTo(getKeys().get(i));
+            final int compareResult = compareMixedKeys(key, getKeys().get(i));
 
             if (compareResult == 0) {
                 // ИНВАРИАНТ УНИКАЛЬНОСТИ: Если дерево уникальное — двойная вставка запрещена
@@ -1107,7 +1107,7 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         if (!isInserted) {
             if (tree.isMultiple() && object instanceof Comparable) {
                 XdStorageBTreeNode nextLeaf = this.getNextTreeNodeOnThisLevel();
-                if (nextLeaf != null && nextLeaf.getKeys().get(0).compareTo(key) == 0) {
+                if (nextLeaf != null && compareMixedKeys(nextLeaf.getKeys().get(0), key) == 0) {
                     if (!nextLeaf.tryDeepLockForInsert(transaction)) {
                         retryInsert.set(true);
                         return false;
@@ -1228,7 +1228,7 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                 final List<XdStorageBTreeNode> currentChildren = current.getChildren();
 
                 for (int i = 0; i < current.getKeys().size(); ++i) {
-                    final int compareResult = key.compareTo(current.getKeys().get(i));
+                    final int compareResult = compareMixedKeys(key, current.getKeys().get(i));
                     if (compareResult < 0) {
                         // Ключ строго меньше разделителя — уходим налево
                         child = current.loadChildOfThisNode(i, storage, transaction);
@@ -1691,7 +1691,7 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         while (keyIterator.hasNext()) {
             final Comparable currenComparable = keyIterator.next();
             objectIterator.next();
-            final int compareResult = currenComparable.compareTo(key);
+            final int compareResult = compareMixedKeys(currenComparable, key);
             if (compareResult == 0) {
                 keyIterator.remove();
                 objectIterator.remove();
@@ -1803,7 +1803,7 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                 final List<XdStorageBTreeNode> currentChildren = current.getChildren();
 
                 for (int i = 0; i < current.getKeys().size(); ++i) {
-                    final int compareResult = key.compareTo(current.getKeys().get(i));
+                    final int compareResult = compareMixedKeys(key, current.getKeys().get(i));
                     if (compareResult < 0) {
                         child = current.loadChildOfThisNode(i, storage, transaction);
                         isFound = true;
@@ -1873,7 +1873,7 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
             final Comparable currentKey = keyIterator.next();
             final Object currentVal = objectIterator.next();
 
-            final int keyCmp = currentKey.compareTo(key);
+            final int keyCmp = compareMixedKeys(currentKey, key);
             if (keyCmp == 0) {
                 // Ключи совпали. Теперь проверяем значение (кастуем к Comparable по контракту СУБД)
                 if (currentVal instanceof Comparable && ((Comparable) currentVal).compareTo(value) == 0) {
@@ -1925,7 +1925,7 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
             try {
                 boolean isFound = false;
                 for (int i = 0; i < current.getKeys().size(); ++i) {
-                    if (key.compareTo(current.getKeys().get(i)) < 0) {
+                    if (compareMixedKeys(key, current.getKeys().get(i)) < 0) {
                         child = current.loadChildOfThisNode(i, storage, transaction);
                         isFound = true;
                         break;
@@ -1948,7 +1948,7 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         try {
             boolean isUpdated = false;
             for (int i = 0; i < current.getKeys().size(); ++i) {
-                final int compareResult = key.compareTo(current.getKeys().get(i));
+                final int compareResult = compareMixedKeys(key, current.getKeys().get(i));
                 if (compareResult == 0) {
                     current.getObjects().set(i, value);
                     storage.update(current, transaction);
@@ -2021,7 +2021,7 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                 }
 
                 for (int i = 0; i < snapshotKeys.size(); ++i) {
-                    if (key.compareTo(snapshotKeys.get(i)) < 0) {
+                    if (compareMixedKeys(key, snapshotKeys.get(i)) < 0) {
                         if (i < snapshotChildren.size()) {
                             child = current.loadChildOfThisNode(i, storage, transaction);
                             isFound = true;
@@ -2074,7 +2074,7 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                 }
 
                 for (int i = 0; i < leafKeysSnapshot.size(); ++i) {
-                    final int compareResult = key.compareTo(leafKeysSnapshot.get(i));
+                    final int compareResult = compareMixedKeys(key, leafKeysSnapshot.get(i));
                     if (compareResult == 0) {
                         if (i < leafObjectsSnapshot.size()) {
                             result.add(leafObjectsSnapshot.get(i));
@@ -2270,6 +2270,39 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
             if (previous != null) {
                 previous.unlockRead();
             }
+        }
+    }
+    /**
+     * A2.3 (task 53): the mixed-key comparison — the stored key coerced toward the
+     * search key's type (the numeric strings parsed, the rest compared as strings).
+     * The mixed-type keys (the auto-Long ids vs the manual UUID Strings landing in one
+     * id_index tree) made the raw compareTo throw CCE on EVERY descent/scan — the whole
+     * tree became unusable. The tolerant compare keeps the scan alive: the unconvertible
+     * pairs compare by the string form (the stable order, no CCE).
+     */
+    /** Package-private: the tree-level compare sites (the viewer find, the range walk) reuse the same tolerant policy. */
+    static int compareMixedKeys(final Comparable a, final Comparable b) {
+        // the fast path: the same types
+        try {
+            return a.compareTo(b);
+        } catch (final ClassCastException ignored) {
+        }
+        // the numeric coercion: the both sides parsed as the longs when possible (the
+        // auto-Long ids vs the numeric-string keys compare numerically, symmetric)
+        final Long aLong = tryParseLong(a);
+        final Long bLong = tryParseLong(b);
+        if (aLong != null && bLong != null) {
+            return aLong.compareTo(bLong);
+        }
+        // the string fallback: the stable order, no CCE
+        return String.valueOf(a).compareTo(String.valueOf(b));
+    }
+
+    private static Long tryParseLong(final Comparable value) {
+        try {
+            return Long.parseLong(String.valueOf(value));
+        } catch (final NumberFormatException notNumeric) {
+            return null;
         }
     }
 }

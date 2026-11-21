@@ -1190,7 +1190,7 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
             }
             boolean passedBeyondKey = false;
             for (int i = 0; i < keySnapshot.size(); ++i) {
-                final int cmp = keySnapshot.get(i).compareTo(key);
+                final int cmp = XdStorageBTreeNode.compareMixedKeys(keySnapshot.get(i), key);
                 if (cmp == 0) {
                     final Object candidate = objectSnapshot.get(i);
                     if (candidate instanceof Comparable && ((Comparable) candidate).compareTo(value) == 0) {
@@ -1371,7 +1371,7 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
             this.read(storage, transaction, new IXdStorageBTreeViewer() {
                 @Override
                 public void look(final Comparable objectId, final Object value) {
-                    if (objectId != null && objectId.compareTo(key) == 0) {
+                    if (objectId != null && XdStorageBTreeNode.compareMixedKeys(objectId, key) == 0) {
                         multiResult.add(value);
                     }
                 }
@@ -1562,13 +1562,13 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
                 @Override
                 public void look(final Comparable key, final Object value) throws XdStorageException, XdStorageConnectionException {
                     if (fromKey != null) {
-                        final int cmp = key.compareTo(fromKey);
+                        final int cmp = XdStorageBTreeNode.compareMixedKeys(key, fromKey);
                         if (cmp < 0 || (cmp == 0 && !fromInclusive)) {
                             return;
                         }
                     }
                     if (toKey != null) {
-                        final int cmp = key.compareTo(toKey);
+                        final int cmp = XdStorageBTreeNode.compareMixedKeys(key, toKey);
                         if (cmp > 0 || (cmp == 0 && !toInclusive)) {
                             throw new RangeWalkAborted();
                         }

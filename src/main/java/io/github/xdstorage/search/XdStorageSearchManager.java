@@ -538,7 +538,7 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
         }
 
         for (final XdStoragePair<IXdStoragePrimaryCriterion, IXdStorageCriterion> pair : ranges) {
-            handleRangePrimaryCriterion(transaction, clInfo, policy, result, storage, tree, pair.a, pair.b);
+            handleRangePrimaryCriterion(transaction, clInfo, policy, result, storage, tree, index.getPrimaryField().field.getType(), pair.a, pair.b);
         }
 
         if (!notEquals.isEmpty()) {
@@ -913,7 +913,7 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
         }
 
         for (final XdStoragePair<IXdStoragePrimaryCriterion, IXdStorageCriterion> pair : rangePairs) {
-            walkRangeCriterion(transaction, clInfo, policy, storage, tree, pair.a, pair.b, processor);
+            walkRangeCriterion(transaction, clInfo, policy, storage, tree, index.getPrimaryField().field.getType(), pair.a, pair.b, processor);
         }
         for (final XdStoragePair<IXdStoragePrimaryCriterion, IXdStorageCriterion> pair : equalsPairs) {
             collectEqualsCriterion(transaction, clInfo, policy, storage, tree, pair.a, pair.b, processor);
@@ -930,6 +930,7 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
      */
     private void walkRangeCriterion(final XdStorageTransaction transaction, final XdStorageClassInfo clInfo,
                                     final XdStoragePolicy policy, final IXdStorage storage, final XdStorageBTree tree,
+                                    final Class<?> primaryFieldType,
                                     final IXdStoragePrimaryCriterion primaryCriterion,
                                     final IXdStorageCriterion criterion, final MatchProcessor processor)
             throws XdStorageException, XdStorageConnectionException {
@@ -966,6 +967,19 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
             throw new XdStorageRuntimeException("not a range operator: " + operator);
         }
 
+        // A2.3 companion: the tolerant tree compare keeps the MIXED-CONTENT id_index trees
+        // usable, so the accidental walk CCE no longer polices the typed query bounds. The
+        // typed range query validates the ORDER bounds against the declared primary field
+        // type BEFORE the walk — a foreign-typed bound fails loudly, never silently-empty;
+        // IN stays equals-membership (no order comparison, no validation).
+        if (operator == IXdStorageCriterionOperator.BETWEEN) {
+            final XdStorageRange range = (XdStorageRange) value;
+            validateOrderBound(range.getFrom(), operator, primaryFieldType, clInfo);
+            validateOrderBound(range.getTo(), operator, primaryFieldType, clInfo);
+        } else if (fromKey != null || toKey != null) {
+            validateOrderBound(value, operator, primaryFieldType, clInfo);
+        }
+
         try {
             tree.readRange(fromKey, fromInclusive, toKey, toInclusive, storage, transaction, new IXdStorageBTreeViewer() {
                 @Override
@@ -980,8 +994,8 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
                 }
             });
         } catch (final ClassCastException e) {
-            // the walk compares index entries with the wrapped bounds — a bound whose type
-            // differs from the indexed values fails loudly here, never silently-empty
+            // the second net: the pre-flight above is the primary loud-failure mechanism;
+            // a bound that slipped it (e.g. an unrestore-corrected tree) still fails loudly here
             throw new XdStorageRuntimeException("range operator " + operator + ": criterion bound of type "
                     + (value == null ? "null" : value.getClass().getName())
                     + " is not comparable with the indexed values of index criteria for class "
@@ -1060,6 +1074,7 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
     private <T> void handleRangePrimaryCriterion(final XdStorageTransaction transaction, final XdStorageClassInfo clInfo,
                                                  final XdStoragePolicy policy, final Map<Object, T> result,
                                                  final IXdStorage storage, final XdStorageBTree tree,
+                                                 final Class<?> primaryFieldType,
                                                  final IXdStoragePrimaryCriterion primaryCriterion,
                                                  final IXdStorageCriterion criterion) throws XdStorageException, XdStorageConnectionException {
         final IXdStorageCriterionOperator operator = primaryCriterion.getOperator();
@@ -1095,6 +1110,16 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
             throw new XdStorageRuntimeException("not a range operator: " + operator);
         }
 
+        // A2.3 companion: the pre-flight type check (see walkRangeCriterion) — the load-flow
+        // executor validates the same way so both range paths fail loudly on foreign bounds.
+        if (operator == IXdStorageCriterionOperator.BETWEEN) {
+            final XdStorageRange range = (XdStorageRange) value;
+            validateOrderBound(range.getFrom(), operator, primaryFieldType, clInfo);
+            validateOrderBound(range.getTo(), operator, primaryFieldType, clInfo);
+        } else if (fromKey != null || toKey != null) {
+            validateOrderBound(value, operator, primaryFieldType, clInfo);
+        }
+
         try {
             tree.readRange(fromKey, fromInclusive, toKey, toInclusive, storage, transaction, new IXdStorageBTreeViewer() {
                 @Override
@@ -1116,6 +1141,35 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
                     + " is not comparable with the indexed values of index criteria for class "
                     + clInfo.getClazz().getName() + " — mixed-type comparison fails loudly", e);
         }
+    }
+
+    /** A2.3: the ORDER-bound type pre-flight — see handleRangePrimaryCriterion. */
+    private void validateOrderBound(final Object bound, final IXdStorageCriterionOperator operator,
+                                    final Class<?> primaryFieldType, final XdStorageClassInfo clInfo) {
+        if (bound == null || primaryFieldType == null) {
+            return; // null bounds are refused by searchBoundKey; Object-typed fields are not pre-validatable
+        }
+        final Class<?> declared = boxedType(primaryFieldType);
+        if (!declared.isInstance(bound)) {
+            throw new XdStorageRuntimeException("range operator " + operator + ": criterion bound of type "
+                    + bound.getClass().getName() + " is not comparable with the indexed values of index criteria for class "
+                    + clInfo.getClazz().getName() + " — mixed-type comparison fails loudly");
+        }
+    }
+
+    private static Class<?> boxedType(final Class<?> type) {
+        if (!type.isPrimitive()) {
+            return type;
+        }
+        if (type == Long.TYPE) return Long.class;
+        if (type == Integer.TYPE) return Integer.class;
+        if (type == Double.TYPE) return Double.class;
+        if (type == Float.TYPE) return Float.class;
+        if (type == Short.TYPE) return Short.class;
+        if (type == Byte.TYPE) return Byte.class;
+        if (type == Character.TYPE) return Character.class;
+        if (type == Boolean.TYPE) return Boolean.class;
+        return type;
     }
 
     private static Comparable searchBoundKey(final Object bound, final IXdStorageCriterionOperator operator) {
