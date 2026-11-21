@@ -1,7 +1,7 @@
 ---
 title: "[2.1.0][FKBENCH] FK-cost benchmark: measure the degradation introduced by the foreign-key engine"
 labels: [2.1.0-train, P1, engine, performance, benchmark]
-status: open
+status: done
 ---
 
 ## Summary
@@ -126,3 +126,63 @@ fk=ON  t=10     |     0.8 |    18s1 |    21s2 |    21s2 |     21s2 |        10 |
 2. **Конкурентная запись схлопывается на ~140× и это НЕ FK**: t=1→t=10: 167→1.2 tx/s, p50 5ms→12s — В FK-off плече. Отказы называют файлы классовых B+tree-ресурсов **id-индексов** (`XdStorageBTree-XdP...` без FK). Штопор = change-слот классового id-index btree, держимый контуром до коммита: все писатели класса сериализуются на длительности TX.
 3. **FK-деревья — второй слой того же штопора** (+50% ко времени столла: 12s→15-21s; tx/s 2.2→0.8-2.2). Фикс FK-деревьев без фикса id-индексов проблему конкурентной записи не закрывает.
 4. **Починка = task 41 (W-4-DESIGN: звуковой per-op undo btree-структур → release change-слота per-op)** — с квантифицированным эффектом: конкурентная запись 1.2 → потенциально 100+ tx/s, p99 12-21s → ms. WRTPATH (task 31) — второй рычаг (абсолютная цена операции: 5-7ms против ~μs у RocksDB).
+
+
+---
+
+## DONE (2026-11-21): the canonical A/B (the JMH family) — the acceptance record
+
+**The benchmark class**: `XdStorageForeignKeyBenchmark` (JMH, surefire-invisible, the
+task-13 protocol via scripts/run-benchmarks.sh — the class added to the unified JMH set).
+The entities: `performance/entities/FkBenchParent` (@XdStorageAutoSave children) +
+`FkBenchChild` (@XdStorageParentObject back-ref) + the un-annotated twins
+(`FkPlainParent`/`FkPlainChild`) for the control arm. The matrix: children {1,10} ×
+parents {1000,10000} × fk {on,off} + the plain arms; the (10000,100)=1M-relations combo
+excluded as runtime-prohibitive (disclosed); the (1000,10) vs (10000,1) pair holds the
+relations constant at 10k — the density-vs-dataset decomposition.
+
+**The contract finding (the diagnostics that reshaped the benchmark)**: a
+delete-child-ALONE while the parent's collection still references it is a DESIGNED VETO
+(the CANON 2026-11-20, pinned by XdStorageForeignKeyDeletionTest). The naive
+delete-only benchmark shape was refused loudly at commit ("Not all foreign keys are
+deleted" — the change registry's phase-1 check); the benchmark's childDelete is the
+CONTRACT cycle (sync the parent's collection → delete → commit + the restore cycle), both
+arms identical — the delta stays FK-pure. The diagnostic suite:
+`XdStorageForeignKeyDeleteReinsertDiagTest` (the (a)-(h) scenario ladder, the contract
+cycle green).
+
+**The A/B verdict (the numbers in BENCHMARKS.md § the FK A/B subsection):**
+1. **The FK read path is free** (fkLookup ≈ 1.0× at every tree size).
+2. **The FK write shapes are OUTSIDE the W-4a ≤2× band at EVERY size** — even the
+   single-relation cascadeSave pays ~23×; the acceptable-band verdict is NEGATIVE.
+3. **The degradation scales LINEARLY with the FK-tree size** (the task's depth question:
+   the curve is LINEAR, not log): fk_off stays flat while fk_on degrades 5.3–5.7× per
+   each 10× of relations (cascadeSave c=10: 74→12.9 ops/s; childDelete: 202→51;
+   parentUpdate: 5,241→961). Somewhere in the FK write path there is an O(relations)
+   scan — the W-4c follow-up's first suspect. The task's "per-op, not per-dataset"
+   expectation is refuted by the data.
+4. **The cascade is free** (fk_off ≈ plain everywhere) — the whole delta is the FK
+   engine.
+
+**The overhead decomposition**: fk_on − fk_off = the FK engine (the B+tree ops + the
+registry/veto checks); fk_off − plain ≈ 0 on every shape (the AutoSave cascade is
+neutral); the registry/waiter internals are NOT separately quantifiable without
+instrumentation (disclosed honestly — the deferred-id waiter path is not exercised by
+these pre-id'd shapes at all).
+
+**The acceptance criteria:**
+- [x] The A/B delta table published (BENCHMARKS.md, generated from the JSON by
+      scripts/render-fk-bench-table.py; the result sets
+      target/bench-results/20261121-074706-fkbench* + the manifest.json).
+- [x] The B+tree depth scaling: the curve documented as LINEAR (the finding).
+- [x] The overhead decomposition (the engine vs the cascade; the internals honestly
+      disclosed as not-separately-quantifiable).
+- [x] The verdict: FLAGGED for optimization (outside the ≤2× band at every size; the
+      linear-scaling finding) — NOT optimized here (out of scope).
+- [x] DECISION-GUIDE § numbers table: the FK row added.
+
+**The step-0 contention axis (the 2026-11-20 addendum above)**: its pre-TREEOVERLAY
+table (0.8-1.2 tx/s at t=10) is historical — post-TREEOVERLAY the same harness reports
+121-158 tx/s at t=10 (the convoy destroyed, task 53); the single-threaded FK overhead
+(~17%) matches this task's cascadeSave c=1 finding qualitatively (the per-op constant
+costs), while the LINEAR tree-size scaling found here refines the attribution.

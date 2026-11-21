@@ -122,9 +122,9 @@ case "$MODE" in
     else
       JMH_ARGS=( )   # full: each class's own annotations (canonical defaults)
     fi
-    # the unified JMH set: the canonical CORE scenarios + the search-engine scenario family
+    # the unified JMH set: the canonical CORE scenarios + the search-engine family + the FK-cost A/B (task 50)
     "$JAVA_BIN" -Dlog4j.configurationFile="$LOG_CONF" -Xmx2g -cp "$CP" org.openjdk.jmh.Main \
-      "XdStorageCanonicalBenchmark.*" "XdStorageSearchEngineBenchmark.*" \
+      "XdStorageCanonicalBenchmark.*" "XdStorageSearchEngineBenchmark.*" "XdStorageForeignKeyBenchmark.*" \
       "${JMH_ARGS[@]}" -rf json -rff "$OUT/jmh-$MODE.json" \
       > "$OUT/jmh-$MODE.log" 2>&1 || { tail -40 "$OUT/jmh-$MODE.log"; exit 1; }
     grep -E "^XdStorage" "$OUT/jmh-$MODE.log" | tail -40 || true

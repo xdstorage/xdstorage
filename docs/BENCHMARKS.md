@@ -129,6 +129,58 @@ noise.
 > Error bars are JMH 3-iteration scores on a shared machine — wide by design; the
 > before/after deltas above are quoted against the same protocol on the same box.
 
+#### `XdStorageForeignKeyBenchmark` (the FK-cost A/B — FKBENCH, task 50)
+
+The foreign-key engine's cost, isolated by the A/B (the SAME annotated entity graph with
+`enableForeignKeys` on/off; the `plain` arm = the un-annotated twin graph, FK off — the
+cascade-vs-engine decomposition: `fk_on − fk_off` = the FK engine, `fk_off − plain` = the
+AutoSave cascade). **Generated** from the JMH JSON by scripts/render-fk-bench-table.py
+(the result set 2026-11-21-074706-fkbench*, the manifest in target/bench-results/ —
+JDK 21.0.7, 1 fork, 3×2s warmup + 5×2s measurement, WARN-console logging, YAML, the
+fragment 100, the disclosed protocol deviations in the task file).
+
+| Shape | children | parents (relations) | plain | fk OFF | fk ON | FK degradation |
+|---|---|---|---|---|---|---|
+| cascadeSave | 1 | 1000 (1k rel) | 5,592 | 5,542 | 242 | **22.9×** |
+| cascadeSave | 10 | 1000 (10k rel) | 2,255 | 2,193 | 74 | **29.6×** |
+| cascadeSave | 1 | 10000 (10k rel) | 5,811 | 5,686 | 228 | **25.0×** |
+| cascadeSave | 10 | 10000 (100k rel) | 2,123 | 2,073 | 12.9 | **160.3×** |
+| childDelete (the contract cycle) | 1 | 1000 (1k rel) | 4,043 | 4,191 | 336 | **12.5×** |
+| childDelete (the contract cycle) | 10 | 1000 (10k rel) | 4,189 | 3,659 | 202 | **18.1×** |
+| childDelete (the contract cycle) | 1 | 10000 (10k rel) | 4,227 | 4,256 | 198 | **21.5×** |
+| childDelete (the contract cycle) | 10 | 10000 (100k rel) | 3,971 | 3,726 | 51 | **73.1×** |
+| parentUpdate | 1 | 1000 (1k rel) | 14,805 | 14,408 | 10,295 | **1.40×** |
+| parentUpdate | 10 | 1000 (10k rel) | 12,203 | 12,027 | 5,241 | **2.29×** |
+| parentUpdate | 1 | 10000 (10k rel) | 14,891 | 15,150 | 5,013 | **3.02×** |
+| parentUpdate | 10 | 10000 (100k rel) | 12,190 | 12,057 | 961 | **12.5×** |
+| fkLookup (child→parent read) | 1 | 1000 (1k rel) | 77,820 | 63,217 | 63,999 | 0.99× |
+| fkLookup (child→parent read) | 10 | 1000 (10k rel) | 69,336 | 63,597 | 67,552 | 0.94× |
+| fkLookup (child→parent read) | 1 | 10000 (10k rel) | 68,438 | 67,726 | 64,540 | 1.05× |
+| fkLookup (child→parent read) | 10 | 10000 (100k rel) | 63,246 | 72,405 | 78,544 | 0.92× |
+
+**The reading (the honest verdict — FKBENCH, task 50):**
+
+1. **The FK read path is free** (fkLookup ≈ 1.0× at every size): the child→parent
+   traversal does not touch the FK trees.
+2. **The FK write shapes are OUTSIDE the W-4a ≤2× band at EVERY size** — not only at the
+   edges: even the single-relation cascadeSave pays 22.9×. The task's "per-op, not
+   per-dataset" expectation is REFUTED by the data.
+3. **The degradation scales LINEARLY with the FK-tree size** (the task's B+tree depth
+   question answered: the curve is LINEAR, not log/flat): the fk_off arm stays flat as
+   the dataset grows (2,193→2,073), while fk_on degrades 5.3–5.7× per each 10× of the
+   relation-tree growth (cascadeSave c=10: 74→12.9; childDelete: 202→51; parentUpdate:
+   5,241→961). Somewhere in the FK write path there is an O(relations) scan — the W-4c
+   follow-up's first suspect (the dup-key bookkeeping of the MULTI FK trees).
+4. **The cascade is free** (fk_off ≈ plain on every shape): the entire delta is the FK
+   engine — the annotation/cascade cost does not mask it.
+5. **The childDelete shape is the CONTRACT cycle** (the CANON 2026-11-20 veto: a
+   delete-child-alone while the parent's collection still references it is a designed
+   refusal — the sync-the-collection-then-delete cycle is the legal path; both arms run
+   it, so the delta stays FK-pure).
+
+The findings feed the W-4c follow-up (the FK-tree write path) — optimizing the engine is
+out of task 50's scope.
+
 ---
 
 ## Historical sections (pre-canonical conditions — kept as labeled history)

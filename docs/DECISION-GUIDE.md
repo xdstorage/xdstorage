@@ -128,6 +128,7 @@ embedded configuration/feature-flag stores with queries and triggers.
 | `durableWrites=true` | ~82 ops/s — **fsync costs ~107×** on this shape; off by default | `writeDurable` |
 | Batch commit | 2,435 tx/s @ 10 obj → 31 tx/s @ 1000 obj; objects/s now **flat ~24k–31k** at every batch size | `commitBatch` |
 | Small write at N=50k | **0.13 ms/tx** (flat from 10³ to 5·10⁴ — was 64.9 ms/tx pre-W-4a) | docs/perf/w4a-write-scaling.md |
+| FK-related write (cascade of N children) | **12–160× slower than the same graph with FK off**, and the delta grows LINEARLY with the FK-tree size (the W-4c follow-up's finding — FK reads are free: ~1.0×) | `XdStorageForeignKeyBenchmark` (the FK A/B subsection) |
 
 Conditions: 2026-10-24 (post-W-4a index journaling), JDK 21.0.7, quiet Linux box —
 **AMD Ryzen 9 5900X (12 cores / 24 threads), 64 GB RAM, NVMe SSD (970 EVO Plus), ext4** —
