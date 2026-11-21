@@ -244,7 +244,7 @@ E-6: what "supported" means, stated up front so upgrades are design-time decisio
 | Library bytecode | Java **8** (`release=8`, platform API pinned — H-5) |
 | Runtime | any JRE/JDK 8+ **for the bytecode** — but see the codegen requirement above: wrapper generation needs a **JDK at runtime** until FP-3 (AOT) ships |
 | Building XdStorage itself | JDK **17+**, Maven **3.6.3+** (enforced) |
-| CI / tested runtimes | Temurin 17 (gate + nightly); 21 used in development |
+| CI / tested runtimes | Temurin **17** (the full-suite gate + the nightly ×3) and Temurin **21** (the quick-gate profile on pushes/PRs + the full suite nightly — JDK21, task 27); 21 is also the canonical-baseline runtime. Bytecode stays `release=8` either way |
 
 ### On-disk format compatibility
 

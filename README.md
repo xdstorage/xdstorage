@@ -190,6 +190,10 @@ Notes:
 
 - The build pins `--release 8` — post-JDK-8 API usage fails compilation even on a JDK 17 toolchain
   (the build itself enforces JDK 17+ / Maven 3.6.3+).
+- Tested runtimes (CI): Temurin **17** (the full-suite gate on every push + the nightly ×3) and
+  Temurin **21** (the quick-gate profile on pushes/PRs + the full suite nightly). The library
+  bytecode remains `release=8`; 21 is also the runtime behind the canonical benchmark baseline
+  (BENCHMARKS.md) — see docs/tasks/2.1.0/27-jdk21-ci-matrix.md.
 - Test storages are created under `./target/`; stale storage folders from interrupted runs can pollute a
   re-run, so prefer `mvn clean test` when tests misbehave.
 - The full suite is run in a single fork; rare stress flakes under extreme machine load are documented

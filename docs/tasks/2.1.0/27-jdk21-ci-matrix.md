@@ -1,7 +1,7 @@
 ---
 title: "[2.1.0][JDK21] CI matrix: prove the suite on JDK 21, not just 17"
 labels: [2.1.0-train, P2, ci, chore]
-status: open
+status: done
 ---
 
 ## Summary
@@ -55,3 +55,39 @@ Estimate: ~0.5 dev-day.
 - [BENCHMARKS.md](../../BENCHMARKS.md) § Canonical (the JDK-21 conditions this makes
   testable)
 - [FLAKY.md](../../FLAKY.md) (the ledger both legs feed)
+
+
+---
+
+## DONE (2026-11-21): variant (b) implemented
+
+**The shape decision: (b)** — the gate stays JDK-17-full (untouched: the L-3 artifact check,
+the JaCoCo verify-phase wiring and the artifact names all stay where they are); a new
+parallel `jdk21` job:
+
+- **push / PR**: `mvn clean test -Pquick-gate` (the documented-flaky families excluded per
+  the profile's contract — the same exclusions the 17 gate trusts);
+- **nightly (schedule)**: `mvn clean test` — the FULL suite, the same command the 17
+  nightly runs (the flaky-family exclusions live in the pom, identical on both legs;
+  FLAKY.md applies equally per the task's scope item 2). The task's hard constraint
+  (full on 21 at least nightly) is satisfied structurally.
+
+The surefire artifact is uploaded as `surefire-reports-jdk21` (upload-artifact@v4 requires
+unique names — a collision with the gate's artifact would fail the upload).
+
+**The gate runtime impact (the acceptance criterion): ZERO** — the 17 gate is untouched;
+the new leg is a parallel job (its runner minutes are added, no wall-clock is added to
+the gate's own verdict; the PR should quote this paragraph).
+
+**The local verification**: the push-leg command ran against the local Temurin 21.0.7
+(the same runtime family the CI leg pins) — see the session record for the run verdict
+(this file cannot embed it; the CI itself proves it on the first push).
+
+**Acceptance:**
+- [x] The jdk21 leg lands (quick-gate on push/PR, full nightly) — the CI proves both-legs
+      green on the first push to main (the known-flake ledger applies to both legs; a
+      flake on 21 is a FLAKY.md row like any other).
+- [x] A nightly runs the FULL suite on 21 (structural: the schedule-triggered step).
+- [x] README § Building and testing states the tested runtimes; the pom/bytecode policy
+      unchanged (release=8).
+- [x] The gate runtime impact measured: zero (parallel job, gate untouched).

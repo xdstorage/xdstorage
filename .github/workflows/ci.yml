@@ -48,6 +48,45 @@ jobs:
           path: target/site/jacoco/
           if-no-files-found: ignore
 
+  jdk21:
+    # JDK21 (docs/tasks/2.1.0/27): the second CI leg — variant (b) of the task's shape
+    # options. The gate above stays JDK-17-full; this leg proves the suite on JDK 21
+    # (the runtime the canonical benchmark baseline reports — BENCHMARKS.md). Pushes/PRs
+    # run the quick-gate profile (the documented-flaky families excluded); the NIGHTLY
+    # run executes the FULL suite on 21 (the task's hard constraint: full on 21 at least
+    # nightly). The gate runtime impact: zero (a parallel job, the 17 gate untouched).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'          # the second tested runtime; library bytecode stays release=8
+          cache: maven
+      - name: Push/PR — quick-gate profile on 21
+        if: github.event_name != 'schedule'
+        run: |
+          mvn clean test -Pquick-gate > /tmp/mvn-jdk21-push.log 2>&1 || { tail -100 /tmp/mvn-jdk21-push.log; exit 1; }
+          grep -E "BUILD (SUCCESS|FAILURE)" /tmp/mvn-jdk21-push.log
+          grep -q "BUILD SUCCESS" /tmp/mvn-jdk21-push.log || { echo "BUILD FAILURE detected"; exit 1; }
+          grep -E "Tests run: [0-9]+, Failures" /tmp/mvn-jdk21-push.log | tail -1
+      - name: Nightly — FULL suite on 21 (the task-27 constraint)
+        if: github.event_name == 'schedule'
+        run: |
+          # The same FULL-suite command the 17 nightly runs (the flaky-family exclusions
+          # live in the pom, identical on both legs — FLAKY.md applies equally, per task 27).
+          mvn clean test > /tmp/mvn-jdk21-nightly.log 2>&1 || { tail -100 /tmp/mvn-jdk21-nightly.log; exit 1; }
+          grep -E "BUILD (SUCCESS|FAILURE)" /tmp/mvn-jdk21-nightly.log
+          grep -q "BUILD SUCCESS" /tmp/mvn-jdk21-nightly.log || { echo "BUILD FAILURE detected"; exit 1; }
+          grep -E "Tests run: [0-9]+, Failures" /tmp/mvn-jdk21-nightly.log | tail -1
+      - name: Archive surefire reports (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports-jdk21
+          path: target/surefire-reports/
+          if-no-files-found: ignore
+
   nightly:
     # C-2: flake-rate tracking (full suite x3) + JMH smoke with an assertion on the
     # table row count (JMH silently SKIPS failed trials — the row count is the check,
