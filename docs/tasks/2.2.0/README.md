@@ -21,6 +21,7 @@ as the 2.1.0 train.
 | 14 | [profiling-bottlenecks](profiling-bottlenecks.md) | engine-wide profiling → the bottleneck ledger (the evidence pack for 01/05/33) | P1, engine, performance | 2 sess |
 | 21 | [fk-write-path](21-fk-write-path.md) | the FK O(relations) write-path scan → point lookups (the FKBENCH 23–160× verdict must land in a stated band) | P1, engine, performance, w4-design | 2–3 sess |
 | 22 | [lazy-read-snapshot](lazy-read-snapshot.md) | lazy prevSnapshot capture (read-only txs stop paying the 10–33% task-40 net; the collection-getter bypass decided inside) | P2, engine, performance, codegen | 2–3 sess |
+| 23 | [r56-multiscan-race](r56-multiscan-race.md) | the multi-scan walk race (intermittent wrong EMPTY reads under concurrent writes): the deterministic repro + the version-validated retry (the latch-held experiment is rejected with evidence) | P1, engine, bug, testing | 2–3 sess |
 
 Gates: the design rounds before 01/05 (the house rule); property tests grow as the core
 changes (03 protects 01); nightly ×3 green is the train's continuous gate.

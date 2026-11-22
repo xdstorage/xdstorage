@@ -302,7 +302,8 @@ grouping is tags, not layout.
     contention work rides 2.2.0 task 13's investigation; the FLAKY row is re-recorded);
     the **R-56 multi-scan walk race** (latent — 0 phantoms on the overlay vs 24810 at
     HEAD) folds into task 01's consistency core / task 03's property tests as a pinning
-    target; the **B-link tree upgrade** stays evidence-gated (a Step-2/05 design-round
+    target; **[AMENDED 2026-11-22: FILED as its own task — 2.2.0 task 23 R56SCAN]** the
+    **B-link tree upgrade** stays evidence-gated (a Step-2/05 design-round
     input, build on a nightly-logs signal). **33 BINFEAS closed 2026-11-22** (the FP-9
     gate GO + the real-codec experiment — docs/perf/binfeas-2026-11-22/RESULTS.md);
     **44 DOCSWRITER closed 2026-11-22** (the five-surface one-story pass). The 2.2.0
