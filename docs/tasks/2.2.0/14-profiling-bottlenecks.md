@@ -1,7 +1,7 @@
 ---
 title: "[2.2.0][PROFILE] Engine-wide profiling and bottleneck ledger — measured evidence for the 2.2.0 priorities"
 labels: [2.2.0-train, P1, engine, performance]
-status: open
+status: done
 ---
 
 ## Summary
@@ -74,3 +74,47 @@ Runs on a quiet machine (the task-13 gate); coordinates with task 43's refreshed
   and § Memory (the allocation evidence for W-4d)
 - [W4-DESIGN.md](../../W4-DESIGN.md) § Bottleneck ledger (the format to extend)
 - MASTER-PLAN Step 2 (B3/W-4d — the consumers)
+
+
+---
+
+## DONE (2026-11-23): the ledger taken, the evidence pack delivered
+
+**The harness**: XdStorageProfilingDriver (one scenario per JVM; the fill → READY →
+the profiler attaches AFTER the setup) + async-profiler 4.4 `ctimer` collapsed profiles
+(the box's `perf_event_paranoid=4` blocks the perf-events CPU sampling — the ctimer
+works without root; the JFR method sampler through attach proved unreliable on this
+JDK: 8 samples / 17 s while the same template gave 795 on a pure loop — both recorded
+in the java-profiler skill's trap registry). The parser:
+scripts/render-profile-ledger.py (the exclusive leaf-bucket attribution, sums to ~100%).
+
+**The matrix**: 14 CPU profiles (scan_cold/point_warm/search×3/write/save_delete/batch/
+concurrent × N=5k/50k) + 2 alloc profiles + the concurrent JFR pass —
+docs/perf/profile-2026-11-23/ (LEDGER.md = the ranked findings; the manifest beside).
+
+**The ledger (the ranked findings)**:
+1. **~34% of write_heavy = the file-metadata syscalls** (lxstat/open64/xstat/access)
+   on the journal append path → **task 24 JOURNALAPPEND** (the per-commit metadata
+   elimination);
+2. **~50% of scan_cold = G1 GC** fed by the parse garbage + **6–10% the YAML scalar
+   machinery** (the regex/trim/UTF-8 leaves) → **task 25 PARSEALLOC** (+ FP-9
+   confirmed from the live-run side);
+3. **~60% of the warm read = the hash-map lookups + the string ops** → the task-16
+   family pointer (near the structural floor);
+4. **the contention at t=10 = the FCW conflicts** (3,532/2,522 on the hot workers),
+   thin parks (44/30 s) → **task 26 CONTENTIONPROBE** (the scale probe feeding task 01);
+5. the allocation rate: byte[] 69.4% of the write allocations, the parse garbage the
+   scan's — **the task 05 (W-4d) evidence pack delivered**;
+6. the FP-9 parse share — already measured by task 33 (84–86%); this profiling
+   confirms it from the live-run side.
+
+**Acceptance criteria:**
+- [x] The profiles archived under docs/perf/profile-2026-11-23/ with the manifest and
+      the ledger.
+- [x] The ledger: the bottlenecks ranked by the measured share, each mapped to the fix
+      family; the uncovered ones → tasks 24/25/26.
+- [x] The evidence pack: the lock-wait/conflict distribution (task 01 — the t=10
+      baseline + task 26 for the scale), the allocation profile (task 05), the parse
+      share (task 33 — delivered there, confirmed here).
+- [x] No production code changes (the driver + the parser live in the test tree /
+      scripts); the canonical suite unaffected (BUILD SUCCESS — the session record).

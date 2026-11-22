@@ -1,0 +1,20 @@
+{
+  "task": "14-profiling-bottlenecks (the engine-wide ledger)",
+  "dateUtc": "2026-11-23",
+  "gitRev": "post-abe4dfa",
+  "jdk": "OpenJDK 21.0.7",
+  "cpuModel": "AMD Ryzen 9 5900X 12-Core Processor",
+  "profiler": "async-profiler 4.4 ctimer (collapsed) — perf_events unavailable (perf_event_paranoid=4); JFR for the ThreadPark/contention pass",
+  "loggingConfig": "docs/perf/benchmark-log4j2.xml (WARN console)",
+  "format": "YAML",
+  "scenarios": {
+    "scan_cold": "reopen → the full first-touch load per round (the cold-parse profile)",
+    "point_warm": "one open, warm, then the by-id lookups",
+    "search_equals/range/paged": "RangeOpsEntity/range_idx (BTree t=8) — the FP-1 shapes",
+    "write_heavy": "single-entity saves (journal appends)",
+    "save_delete": "indexed save+delete",
+    "batch_commit": "100/tx",
+    "concurrent_writers": "10 threads × update-tx with the FCW-retry (the conflict counts per worker in the log)"
+  },
+  "notes": "the JFR method sampling through jcmd attach proved unreliable on this JDK/box (8 samples/17s vs 795/8s on the pure loop) — the CPU evidence comes from asprof ctimer; the leak: the structure-metadata reads at open precede the attach"
+}
