@@ -308,6 +308,17 @@ grouping is tags, not layout.
     **44 DOCSWRITER closed 2026-11-22** (the five-surface one-story pass). The 2.2.0
     announcement notes are drafted at
     docs/announcements/2.2.0-ANNOUNCEMENT-NOTES.md (the writer's input for task 11).
+21. **HOTFIX 2.1.1 (2026-11-22, the procedure rehearsed end-to-end):** the post-release
+    dependency CVE sweep found commons-lang3 **3.8.1 pinned in 2.0.0/2.1.0 affected by
+    [CVE-2025-48924](https://nvd.nist.gov/vuln/detail/CVE-2025-48924)** (ClassUtils.getClass
+    recursion DoS; fixed in 3.18.0). Route (a) per RELEASE-PLAN §2.8: branch `release/2.1`
+    FROM the tag v2.1.0 → the bump + the version 2.1.1 + the CHANGELOG `## [2.1.1]` section
+    (commit `f301eac`) → the full gate caught TWO version-pin collaterals of the bump (the
+    walkthrough's hardcoded libraryVersion expectation — now derives from
+    `XdStorageProvider.getVersion()`; the quickstart pin) → gate green 1345/0f/0e ×2 →
+    the user tagged/pushed `v2.1.1` (Central-verified, the stranger test green) → merged
+    back to main (`e2b0495`). The LESSON: a version bump is never one line — the
+    version-pin contract tests fire by design; budget a fix round.
 
 **2.1.0 exit (2026-11-22 status): everything landed, all 54 work packages closed
 (44 DOCSWRITER landed 2026-11-22: the glossary, the FK story, the canonical numbers on
