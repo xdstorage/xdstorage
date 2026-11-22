@@ -11,7 +11,7 @@
          /xdstorage.properties resource (XdStorage.getVersion()). Bumped at TRAIN START
          (docs/RELEASE-PLAN.md §2 step 3): the pom carries the version of the release the
          train is heading toward; the tag at the end matches it (version-sanity check). -->
-    <version>2.1.0</version>
+    <version>2.1.1</version>
 
     <name>XdStorage</name>
     <description>Embedded Java object storage: ACID transactions with MVCC snapshots over human-readable
@@ -56,7 +56,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <!-- E-2: reproducible builds — fixed timestamp baked into jar entries. Bump it in the
              release checklist (docs/RELEASE-PLAN.md §2) so every release is byte-distinct. -->
-        <project.build.outputTimestamp>2026-11-22T00:00:00Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2026-11-22T03:00:00Z</project.build.outputTimestamp>
     </properties>
 
     <dependencies>
@@ -64,7 +64,7 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
-            <version>3.8.1</version>
+            <version>3.18.0</version>
         </dependency>
 
         <!-- L-0/L-1 (docs/tasks/2.1.0/01): the ONLY logging artifact in main scope — the

@@ -15,6 +15,18 @@ see `XdStorageFormatMeta`):
   automatic migration (a 2.1.0 folder cannot be opened by 2.0.0 — see the Breaking entry
   below).
 
+## [2.1.1] — 2026-11-22
+
+### Fixed
+
+- **commons-lang3 `3.8.1` → `3.18.0`** — [CVE-2025-48924](https://nvd.nist.gov/vuln/detail/CVE-2025-48924)
+  (uncontrolled recursion in `ClassUtils.getClass()` → a denial-of-service `StackOverflowError`;
+  every commons-lang3 line before 3.18.0 is affected, including the `3.8.1` pin of 2.1.0/2.0.0).
+  The engine's own exposure was minimal (basic helpers only, no hostile class-name inputs on
+  the engine's paths) — the bump is the published-CVE patch discipline, not a reported exploit.
+  This patch carries exactly this one fix: the full suite (1345 tests) green on the bump,
+  nothing else changed.
+
 ## [2.1.0] — 2026-11-22
 
 The train's user-facing changes; everything below has landed on the train and ships with
