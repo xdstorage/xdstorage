@@ -175,7 +175,8 @@ public class XdStorageLayout200UpgradeTest {
             final Properties after = readMarker();
             assertEquals("3", after.getProperty("formatVersion"), "the marker rewritten v2 → v3 after the migration");
             assertEquals(before.getProperty("createdAt"), after.getProperty("createdAt"), "createdAt preserved across the upgrade");
-            assertEquals("2.1.0", after.getProperty("libraryVersion"), "libraryVersion refreshed: the last writer is 2.1.0");
+            assertEquals(io.github.xdstorage.XdStorageProvider.getVersion(), after.getProperty("libraryVersion"),
+                    "libraryVersion refreshed: the last writer is the running library");
 
             // ── the content: the journal replay brings the data back through the chain ──
             final IXdStorageTransaction tx = storage.beginTransaction();
