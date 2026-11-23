@@ -135,8 +135,11 @@ public class XdStorageYamlBlockObjectsReader {
         final XdStorageObjectIdField idField = clInfo.getIdField();
         Object finalValue = null;
 
-        if (rawScalarValue != null && !"null".equals(rawScalarValue)) {
-            if (fieldTypeName != null && !"null".equals(fieldTypeName)) {
+        // YAMLSTR (docs/tasks/2.2.0/40): the tokenizer maps an unquoted null/~ to a null token
+        // and a QUOTED 'null' to the four-character string — the check that used to sit here
+        // ("null".equals) turned that string into a null field.
+        if (rawScalarValue != null) {
+            if (fieldTypeName != null) {
                 Class<?> targetType = XdStorageClassMetadataRegistry
                         .resolveOrThrow(normalizePrimitiveName(fieldTypeName));
                 if (targetType == Object.class) targetType = String.class;
@@ -328,7 +331,9 @@ public class XdStorageYamlBlockObjectsReader {
                     }
 
                     Object finalValue = null;
-                    if (rawScalar != null && !"null".equals(rawScalar)) {
+                    // YAMLSTR (docs/tasks/2.2.0/40): the same rule as parseAndSetField — a token
+                    // value equal to "null" is the string "null", never the null marker
+                    if (rawScalar != null) {
                         if (fTypeName != null) {
                             Class<?> targetType = XdStorageClassMetadataRegistry
                                     .resolveOrThrow(normalizePrimitiveName(fTypeName));

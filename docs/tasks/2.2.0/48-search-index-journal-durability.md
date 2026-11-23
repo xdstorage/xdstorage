@@ -49,6 +49,22 @@ itself.
 
 Estimate: ~1 session (the contract) + the implementation per the decision.
 
+## Finding (2026-11-24, from the YAMLSTR work — task 40) — three facts for this task's design
+
+- **The journal is written and never replayed.** `XdStorageSearchIndexJournal.readForReplay`
+  has no caller in `src/main/java`; only `append` is used (`XdStorageSearchIndexResource`).
+  Whatever the reopen does for the index today, it does not go through this journal's reader.
+- **The reader could not replay anyway.** Its private tokenizer returns the sentinel as a
+  token whose `isSentinel` flag is never set, so `readForReplay` commits no pending record and
+  reports every one of them as a torn tail; and `readRecordBody` unquotes each token value a
+  second time (a key that starts and ends with `'` loses both). The existing
+  `XdStorageSearchIndexJournalTest` asserts nothing about a replay, which is how both stayed
+  invisible.
+- **Keys are user data.** They are indexed field values, so they need the line-safe string
+  form; since task 40 the writer stores them through the shared rule
+  (`XdStorageYamlScalar`) and the private tokenizer reads both forms — pinned by
+  `XdStorageSearchIndexJournalScalarFormTest` for the WRITE side and the tokenizer only.
+
 ## References
 
 - The external evaluation 2026-11-23, §3.3.2 (the never-flushed journal)

@@ -146,6 +146,19 @@
   (the R-54 pattern) so honest splitting survives parallel hot-key storms. The two
   duplicate-invariant tests disabled for years because of the overflow («переполнение
   ноды») are re-enabled with their full structural scans green.
+- **A string with a line break no longer corrupts the record, and the text `null` is a string
+  again** ([40](docs/tasks/2.2.0/40-yaml-string-newline-null.md)) — the YAML format is
+  line-based and escaped only the apostrophe: saving any multi-line text wrote a raw line
+  break inside the value, and after the reopen the whole record file was refused as
+  truncated (`… no EOF sentinel … refusing to serve a partial database`); a `char` holding a
+  line break came back as `'`. Separately, the four characters `null` read back as a null
+  field, a null list element, a null map value — and as a map key it dropped the whole entry.
+  A string with a line break is now stored in a line-safe form (double quotes with the
+  escapes `\n`, `\r`, `\"`, `\\`); every other string is written exactly as before, and a
+  folder written by an earlier version reads identically. The commit journal and the
+  search-index journal store their strings through the same rule. Pinned by
+  `XdStorageYamlStringScalarRoundTripTest`, `XdStorageYamlScalarTest`,
+  `XdStorageMultiLineStringReopenTest` and the widened property model.
 
 - **Null map VALUES were silently dropped from persistence** — the unwrap-and-clone
   path dropped the entry before the writer; the YAML writer/reader both encode null

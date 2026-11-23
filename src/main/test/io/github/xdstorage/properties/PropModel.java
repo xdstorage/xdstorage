@@ -19,11 +19,12 @@ import java.util.UUID;
  * field-by-field comparator is the integrity gate (a property that cannot prove it
  * loaded the right data proves nothing — the house rule).
  *
- * <p>The value ranges avoid the known text-format edges ON PURPOSE (disclosed): strings
- * are single-line (the YAML block format is line-based — a newline-in-string round trip
- * is a format-capability question, not an invariant), doubles are finite (NaN/Infinity
- * have no YAML scalar form), map KEYS are non-null (the documented behavior: null map
- * keys are dropped on clone and skipped on read — pinned separately in Этап 2).
+ * <p>The value ranges avoid the known text-format edges ON PURPOSE (disclosed): doubles are
+ * finite (NaN/Infinity have no YAML scalar form), map KEYS are non-null (the documented
+ * behavior: null map keys are dropped on clone and skipped on read — pinned separately in
+ * Этап 2). Strings, on the contrary, deliberately CONTAIN what the format used to lose
+ * (YAMLSTR, docs/tasks/2.2.0/40): line breaks, tabs, backslashes and the four characters
+ * {@code null} — as field values, list elements, map keys and map values.
  */
 public final class PropModel {
 
@@ -75,12 +76,19 @@ public final class PropModel {
         // else: the nested field stays null — the honest-null round trip
     }
 
+    /** Line breaks, a tab and a backslash are part of the alphabet on purpose (YAMLSTR, task 40). */
+    private static final String ALPHABET = "abcXYZ019 _-.,:;!?()[]{}'\"+=%@#$ъЙЖёФЫв \n\r\t\\";
+
     private static String string(final Random rnd, final String prefix) {
-        final String alphabet = "abcXYZ019 _-.,:;!?()[]{}'\"+=%@#$ъЙЖёФЫв ";
+        // YAMLSTR (docs/tasks/2.2.0/40): the literal "null" — it used to read back as a null
+        final int pick = rnd.nextInt(40);
+        if (pick == 0) {
+            return "null";
+        }
         final int len = rnd.nextInt(40);
         final StringBuilder sb = new StringBuilder(len);
         for (int i = 0; i < len; i++) {
-            sb.append(alphabet.charAt(rnd.nextInt(alphabet.length())));
+            sb.append(ALPHABET.charAt(rnd.nextInt(ALPHABET.length())));
         }
         return sb.length() == 0 ? prefix : sb.toString();
     }
@@ -110,6 +118,10 @@ public final class PropModel {
         final Map<String, String> map = new HashMap<>();
         for (int i = 0; i < size; i++) {
             map.put("k" + i + string(rnd, ""), rnd.nextInt(6) == 0 ? null : string(rnd, "v"));
+        }
+        if (size > 0) {
+            // YAMLSTR (docs/tasks/2.2.0/40): the STRING "null" as a key — the entry used to be dropped
+            map.put("null", string(rnd, "v"));
         }
         return map;
     }

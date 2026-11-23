@@ -767,6 +767,13 @@ fixture is a reviewable diff, not a database migration script —
 fixtures by running code, or by editing a closed folder's copy. The full layout:
 [EMBEDDING.md](EMBEDDING.md) § Files and durability.)
 
+Strings are stored single-quoted, an apostrophe doubled (`'it''s'`). The one exception is a
+string with a line break: it takes double quotes and the escapes `\n` / `\r`
+(`"first line\nsecond line"`), so that a value always stays on one physical line — the
+property the tab-indented layout and the EOF sentinel are built on. A folder written by an
+earlier version reads identically; see [EMBEDDING.md](EMBEDDING.md) § On-disk format
+compatibility for the one downgrade rule.
+
 ## Structure updates (schema migration)
 
 When the declared structure of a class changes (for example a search index got new fields), persisted

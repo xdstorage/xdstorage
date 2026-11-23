@@ -354,6 +354,17 @@ The format generation is recorded per storage folder in `.xdstorage.meta`
 | a **newer** library (marker `formatVersion` > 3) | loud `XdStorageRuntimeException` before any engine state is built — upgrade the library |
 | fresh/empty folder | marker `formatVersion=3` written at open |
 
+**Strings with line breaks (2.2.0).** A string that contains a line break is stored in a
+line-safe form — double quotes with the escapes `\n`, `\r`, `\"`, `\\` — instead of the
+single-quoted form every other string keeps. Nothing else changed: a folder written by any
+earlier version opens and reads identically (no earlier version ever wrote a value that
+starts with a double quote). The rule goes one way only: **a 2.1.x library must not open a
+2.2.0 folder that contains such a string** — it returns that one value mangled (the quotes
+and the escapes as literal text), everything else intact. The marker is unchanged
+(`formatVersion=3`), so 2.1.x does not refuse on its own; do not downgrade such a folder, or
+back it up first (§ Backup and restore). Before 2.2.0 a line break inside a string could not
+be stored at all — it corrupted the record.
+
 The folder is single-writer (exclusive lock); a folder may be read concurrently only by the
 owning process. There is no multi-process write access and no down-level writer after a
 format bump — that is what the marker check is for.

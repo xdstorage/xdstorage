@@ -494,8 +494,7 @@ public final class XdStorageYamlCommitJournal {
             emitter.writeKey("op");
             emitter.writeScalar(record.delete ? "DELETE" : "UPSERT");
             emitter.writeKey("id");
-            emitter.writeScalar("'" + XdStorageYamlBlockObjectsWriter.encode(helper.simpleTypeToString(record.id)) +
-                    "'");
+            emitter.writeScalar(XdStorageYamlScalar.token(helper.simpleTypeToString(record.id)));
             if (!record.delete && record.object != null) {
                 emitter.openBlock("object");
                 XdStorageYamlBlockObjectsWriter.writeObjectData(record.object, emitter, services, helper, idGenerator);

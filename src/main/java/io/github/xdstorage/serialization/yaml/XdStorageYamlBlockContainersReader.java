@@ -264,7 +264,10 @@ public class XdStorageYamlBlockContainersReader {
             return null;
         }
 
-        if (rawScalar != null && !"null".equals(rawScalar)) {
+        // YAMLSTR (docs/tasks/2.2.0/40): the null CELLS returned above (their type is 'null'); a
+        // token value equal to "null" below is the four-character string — dropping it here made
+        // a list element and a map value vanish, and a map KEY take its whole entry with it
+        if (rawScalar != null) {
             if (typeName != null) {
                 Class<?> targetType = XdStorageClassMetadataRegistry.resolveOrThrow(normalizePrimitiveName(typeName));
                 if (targetType == Object.class) targetType = String.class;
