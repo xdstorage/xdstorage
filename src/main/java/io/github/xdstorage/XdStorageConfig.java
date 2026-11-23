@@ -23,7 +23,9 @@ import io.github.xdstorage.resource.XdStorageIsolationLevel;
  *       thread exits, so a non-daemon idle pool blocks JVM exit before hooks ever run.</li>
  *   <li>{@code workerPoolSize} — internal worker pool size (default 15, pre-config value).</li>
  *   <li>{@code defaultTransactionTimeoutMillis} — timeout used by the no-arg
- *       {@code beginTransaction()} (default 3000, pre-config value).</li>
+ *       {@code beginTransaction()} (default 15000 since 2.1.2/2.2.0 — the cold-JVM first
+ *       transaction pays the runtime codegen, which exceeded the old 3000 budget;
+ *       previously 3000).</li>
  *   <li>{@code isolationLevel} — MVCC isolation applied to every resource cache of the
  *       storage at open (default SNAPSHOT, pre-config value; previously unreachable via the
  *       public API).</li>
@@ -112,7 +114,7 @@ public final class XdStorageConfig {
 
     /** The default transaction timeout.
      *
-     * @return timeout (ms) used by the no-arg {@code beginTransaction()}. Default 3000 */
+     * @return timeout (ms) used by the no-arg {@code beginTransaction()}. Default 15000 */
     public long getDefaultTransactionTimeoutMillis() {
         return defaultTransactionTimeoutMillis;
     }
@@ -194,7 +196,7 @@ public final class XdStorageConfig {
         private boolean daemonWorkerThreads = false;
         private boolean registerShutdownHook = false;
         private int workerPoolSize = 15;
-        private long defaultTransactionTimeoutMillis = 3 * 1000L;
+        private long defaultTransactionTimeoutMillis = 15 * 1000L;
         private XdStorageIsolationLevel isolationLevel = XdStorageIsolationLevel.SNAPSHOT;
         private boolean journalWrites = true;   // W-3: journal is the default write path
         private boolean indexJournalWrites = true;   // W-4a: index journaling is the default write path (task 32; green soak 808/0, the W-3 flip protocol)
@@ -256,7 +258,7 @@ public final class XdStorageConfig {
             return this;
         }
 
-        /** Timeout (ms) for the no-arg {@code beginTransaction()} (default 3000); must be positive.
+        /** Timeout (ms) for the no-arg {@code beginTransaction()} (default 15000); must be positive.
          *
          * @param value timeout in milliseconds
          * @return this builder, for call chaining

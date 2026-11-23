@@ -1,19 +1,20 @@
-# Changelog
 
-All notable changes to XdStorage are documented in this file. The format follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows
-[SemVer](https://semver.org/). The release procedure itself lives in
-[RELEASE-PLAN.md](docs/RELEASE-PLAN.md).
 
-**On-disk format generations** (recorded per storage folder in `.xdstorage.meta`,
-see `XdStorageFormatMeta`):
+## [2.1.2] — unreleased
 
-- **v1** — the 1.x era: YAML files without an end-of-file sentinel, no commit journal.
-- **v2** — the 2.0 era: YAML EOF sentinel (S-1), optional per-transaction commit journal
-  (W-1, `journalWrites` ON by default since W-3).
-- **v3** — the 2.1.0 era: the `indexes/` subdirectory layout; the marker is stamped at the
-  automatic migration (a 2.1.0 folder cannot be opened by 2.0.0 — see the Breaking entry
-  below).
+### Fixed
+
+- **commons-lang3 CVE-2025-48924** — see [2.1.1].
+
+### Changed
+
+- **The default transaction timeout raised `3000` -> `15000` ms**
+  (`defaultTransactionTimeoutMillis`, the no-arg `beginTransaction()`): the first
+  transaction on a cold JVM pays the runtime wrapper-codegen (a javac invocation),
+  which exceeded the old 3-second budget and produced timeout rollbacks on the very
+  first save. The infra-visibility wait no longer caps at 3 s — it follows the
+  transaction's own timeout. Disclosed config-default change; pass an explicit
+  timeout to keep the old behavior.
 
 ## [2.1.1] — 2026-11-22
 

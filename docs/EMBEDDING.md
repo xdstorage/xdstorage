@@ -266,7 +266,7 @@ so after a clean close a power loss loses nothing even with `durableWrites=false
 `false` = classic full-file rewrite), `journalCheckpointBytes=16MB`, `durableWrites=false`,
 `acceptMissingEofSentinel=false`, `txMaterializedObjectsCap=0` (unlimited),
 `daemonWorkerThreads=false`, `registerShutdownHook=false`,
-`workerPoolSize=15`, `defaultTransactionTimeoutMillis=3000`, `isolationLevel=SNAPSHOT`.
+`workerPoolSize=15`, `defaultTransactionTimeoutMillis=15000`, `isolationLevel=SNAPSHOT`.
 Journal files live in the `journal` SUBDIRECTORY of their resource's directory
 (`data/<Class>/journal/<base>-journal.yaml`, e.g. `data/Order/journal/Order-1-journal.yaml`,
 `data/Order/journal/index-journal.yaml`, `structure/journal/...`) — a class folder holds only
