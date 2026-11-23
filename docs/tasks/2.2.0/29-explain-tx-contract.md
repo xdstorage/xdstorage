@@ -1,7 +1,7 @@
 ---
 title: "[2.2.0][EXPLAINTX] The explain() transaction contract: the only tx-bound facade method that works without a transaction — decide and align"
 labels: [2.2.0-train, P2, engine, docs]
-status: open
+status: done
 ---
 
 ## Summary
@@ -51,3 +51,27 @@ Estimate: ~0.5 session.
 - docs/perf/PROPTEST-FINDINGS.md §5 (the asymmetry)
 - `PropFacadeContractTest.everyTxBoundMethod_RefusesWithoutTransaction` (the sweep)
 - Task 07's facade-audit finding table (the format)
+
+
+---
+
+## RESOLVED (2026-11-23): the ruling — (b) tx-free by design, documented and pinned
+
+**The ruling (the maintainer's call via the completion pass):** option (b) — `explain`
+is tx-free **by design**: the plan is static index metadata (no snapshot is needed; the
+internal probe transaction is rolled back immediately — the task-25 design comment in
+`XdStorage.explain`), while the CRUD/search reads need the snapshot and refuse without
+one.
+
+**The alignment landed:**
+- GUIDE § Query plans: "tx-free **by design** ... pinned by the property estate";
+- EMBEDDING § Transactions: the deliberate exception noted after the CRUD refusal
+  statement;
+- The pin: `PropFacadeContractTest.explain_WorksWithoutTransaction_ByDesign` — the
+  no-tx explain returns the plan + the sibling load(search) refusal for contrast;
+- The no-tx facade sweep excludes `explain` with the decision comment.
+
+**Acceptance:**
+- [x] The decision recorded (this task + the task-07 audit-table format's row).
+- [x] The docs aligned (GUIDE + EMBEDDING).
+- [x] The behavior pinned by the property assertion.
