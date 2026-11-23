@@ -1,7 +1,7 @@
 ---
 title: "[2.2.0][PROPLIFE] The property-harness lifecycle discipline: one driver-owned storage, the explicit reopen re-registration"
 labels: [2.2.0-train, P3, testing]
-status: open
+status: done
 ---
 
 ## Summary
@@ -55,3 +55,28 @@ Estimate: ~0.5 session.
 - docs/perf/PROPTEST-FINDINGS.md §8 (the observed behavior)
 - `PropCoreContractsTest.generatedIds_NeverReissued_AcrossRandomWavesAndReopens` (the pin)
 - EMBEDDING § JVM-wide static state (the provider registry semantics)
+
+
+---
+
+## RESOLVED (2026-11-23): the lifecycle fix landed — the pin un-red
+
+**The root cause of the red pin (the honest one):** the harness itself —
+`reopenAndCollect` opened the fresh storage, ran the extra saves, and **shut it down
+before returning**; the caller then used the shut-down instance ("storage pt-id-reopen-N
+is shut down"). Plus the tx/instance mix-up: `tx = storage.beginTransaction()` on the OLD
+(dead) reference while the save went to the reopened one.
+
+**The fix (the codified pattern):** one driver-owned storage per property — the reopen
+helper RETURNS the live reopened instance, the caller REASSIGNS it immediately, and
+every subsequent op (including the tx objects) goes through the CURRENT reference.
+
+**The results:** the pin un-disabled and GREEN (the never-reissue invariant holds
+across 4 random waves + the reopen burns); the full property suite 13/0f/0e/0 skips;
+the quick-gate ×3 1358/0f/0e/9s.
+
+**Acceptance:**
+- [x] The pattern codified in the helper (returns the live instance; the caller
+      reassigns) — the future properties reuse it.
+- [x] The id never-reissue pin un-red and green (the full property).
+- [x] The quick-gate ×3 green.
