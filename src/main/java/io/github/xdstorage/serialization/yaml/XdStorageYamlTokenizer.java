@@ -147,6 +147,16 @@ public class XdStorageYamlTokenizer {
         if ("null".equals(rawValue) || "~".equals(rawValue)) {
             return null;
         }
+        if (rawValue.charAt(0) == '"') {
+            // YAMLSTR (docs/tasks/2.2.0/40): the line-safe scalar form — only a string WITH a
+            // line break is written double-quoted; no earlier version wrote a value that
+            // starts with a double quote, so the form is recognized by its first character.
+            if (rawValue.length() < 2 || rawValue.charAt(rawValue.length() - 1) != '"') {
+                throw new io.github.xdstorage.exceptions.XdStorageIOException("an unterminated double-quoted scalar "
+                        + "(corrupt or hand-edited value): " + rawValue);
+            }
+            return XdStorageYamlScalar.unescapeDoubleQuoted(rawValue.substring(1, rawValue.length() - 1));
+        }
         // Распаковка одинарных кавычек по твоему алгоритму без прикрас
         if (rawValue.startsWith("'") && rawValue.endsWith("'") && rawValue.length() >= 2) {
             String content = rawValue.substring(1, rawValue.length() - 1);

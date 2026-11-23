@@ -66,7 +66,7 @@ public class XdStorageYamlBlockContainersWriter {
         emitter.writeKey("class");
         emitter.writeScalar("'" + cl.getName() + "'");
         emitter.writeKey("value");
-        emitter.writeScalar("'" + XdStorageYamlBlockObjectsWriter.encode(value.toString()) + "'");
+        emitter.writeScalar(XdStorageYamlScalar.token(value.toString()));
         emitter.closeBlock();
     }
 
@@ -142,8 +142,8 @@ public class XdStorageYamlBlockContainersWriter {
                 // Нарезаем контент строго внутрь узла value:
                 if (simpleTypeHelper.isSimpleType(c, item)) {
                     emitter.writeKey("value");
-                    emitter.writeScalar("'" + XdStorageYamlBlockObjectsWriter.encode(simpleTypeHelper
-                            .simpleTypeToString(item)) + "'");
+                    emitter.writeScalar(XdStorageYamlScalar.token(simpleTypeHelper
+                            .simpleTypeToString(item)));
                 } else if (c.isEnum()) {
                     emitter.openBlock("value");
                     writeEnumInline(c, item, emitter);
@@ -198,8 +198,8 @@ public class XdStorageYamlBlockContainersWriter {
                 emitter.writeScalar("'" + ic.getName() + "'");
                 if (simpleTypeHelper.isSimpleType(ic, item)) {
                     emitter.writeKey("value");
-                    emitter.writeScalar("'" + XdStorageYamlBlockObjectsWriter.encode(simpleTypeHelper
-                            .simpleTypeToString(item)) + "'");
+                    emitter.writeScalar(XdStorageYamlScalar.token(simpleTypeHelper
+                            .simpleTypeToString(item)));
                 } else if (ic.isEnum()) {
                     emitter.openBlock("value");
                     writeEnumInline(ic, item, emitter);
@@ -309,8 +309,8 @@ public class XdStorageYamlBlockContainersWriter {
                 emitter.writeScalar("'" + c.getName() + "'");
                 if (simpleTypeHelper.isSimpleType(c, item)) {
                     emitter.writeKey("value");
-                    emitter.writeScalar("'" + XdStorageYamlBlockObjectsWriter.encode(simpleTypeHelper
-                            .simpleTypeToString(item)) + "'");
+                    emitter.writeScalar(XdStorageYamlScalar.token(simpleTypeHelper
+                            .simpleTypeToString(item)));
                 } else if (c.isEnum()) {
                     emitter.openBlock("value");
                     writeEnumInline(c, item, emitter);
@@ -362,7 +362,7 @@ public class XdStorageYamlBlockContainersWriter {
             emitter.writeKey("class");
             emitter.writeScalar("'" + entityClass.getName() + "'");
             emitter.writeKey("objectId");
-            emitter.writeScalar("'" + targetIdField.get(item).toString() + "'");
+            emitter.writeScalar(XdStorageYamlScalar.token(targetIdField.get(item).toString()));
             emitter.closeBlock();
         }
     }

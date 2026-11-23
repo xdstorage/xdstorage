@@ -12,6 +12,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import io.github.xdstorage.serialization.yaml.XdStorageYamlEmitter;
+import io.github.xdstorage.serialization.yaml.XdStorageYamlScalar;
 
 /**
  * W-4b (docs/tasks/2.1.0/49): reader/writer for the search-index logical-op journal.
@@ -67,13 +68,13 @@ public final class XdStorageSearchIndexJournal {
             emitter.writeKey("serial");
             emitter.writeScalar(String.valueOf(rec.serial));
             emitter.writeKey("treeId");
-            emitter.writeScalar("'" + escapeScalar(rec.treeId) + "'");
+            emitter.writeScalar(XdStorageYamlScalar.token(orEmpty(rec.treeId)));
             emitter.writeKey("op");
             emitter.writeScalar(rec.op);
             emitter.writeKey("key");
-            emitter.writeScalar("'" + escapeScalar(rec.key) + "'");
+            emitter.writeScalar(XdStorageYamlScalar.token(orEmpty(rec.key)));
             emitter.writeKey("objectId");
-            emitter.writeScalar("'" + escapeScalar(rec.objectId) + "'");
+            emitter.writeScalar(XdStorageYamlScalar.token(orEmpty(rec.objectId)));
             emitter.closeBlock();
         }
         emitter.writeEofSentinel();
@@ -100,13 +101,10 @@ public final class XdStorageSearchIndexJournal {
     private static final java.util.concurrent.ConcurrentHashMap<Path, Object> LOCKS
             = new java.util.concurrent.ConcurrentHashMap<>();
 
-    // --- scalar escaping (same convention as XdStorageYamlCommitJournal) ---
+    // --- scalar form: the shared YAML quoting rule (XdStorageYamlScalar.token) ---
 
-    /** Escapes a YAML scalar value (wraps in single quotes; inner single quotes doubled).
-     * Same convention as {@code XdStorageYamlCommitJournal}. */
-    static String escapeScalar(final String value) {
-        if (value == null) return "";
-        return value.replace("'", "''");
+    private static String orEmpty(final String value) {
+        return value == null ? "" : value;
     }
 
     // --- reader ---
@@ -309,6 +307,15 @@ public final class XdStorageSearchIndexJournal {
 
         private String parseValue(final String raw) {
             if ("null".equals(raw) || "~".equals(raw)) return null;
+            // YAMLSTR (docs/tasks/2.2.0/40): the line-safe double-quoted form — the same rule as
+            // XdStorageYamlTokenizer (only a string with a line break is written this way)
+            if (raw.charAt(0) == '"') {
+                if (raw.length() < 2 || raw.charAt(raw.length() - 1) != '"') {
+                    throw new io.github.xdstorage.exceptions.XdStorageIOException(
+                            "an unterminated double-quoted scalar in a search-index journal: " + raw);
+                }
+                return XdStorageYamlScalar.unescapeDoubleQuoted(raw.substring(1, raw.length() - 1));
+            }
             if (raw.startsWith("'") && raw.endsWith("'") && raw.length() >= 2) {
                 return raw.substring(1, raw.length() - 1).replace("''", "'");
             }
