@@ -140,8 +140,8 @@ public class XdStorageClonerCollectionProcessor {
     /**
      * Reverse direction: deep-copies the given map into a plain map of the same runtime
      * class, unwrapping reference-wrapped keys and values back into POJOs (recursing into
-     * nested arrays/collections/maps); entries whose unwrapped key or value is
-     * {@code null} are dropped.
+     * nested arrays/collections/maps); entries with a {@code null} KEY are dropped (the
+     * documented map contract); a null VALUE is a legal stored value and is kept.
      *
      * @param src    the (possibly wrapped) map to unwrap and clone
      * @param cloner the orchestrator used to unwrap entity-typed keys and values
@@ -178,7 +178,12 @@ public class XdStorageClonerCollectionProcessor {
                 value = cloner.internalUnwrapAndCloneAsReference(value);
             }
 
-            if (key != null && value != null) {
+            // PROPTEST (docs/tasks/2.2.0/03): a null VALUE is a legal stored value — the
+            // twin cloneMap (XdStorageCollectionCloner) keeps it, the YAML block writer
+            // encodes it ('null' type) and the reader restores it; dropping the entry here
+            // was a silent data loss across the reopen. Only a null KEY is dropped (the
+            // documented map contract).
+            if (key != null) {
                 clone.put(key, value);
             }
         }

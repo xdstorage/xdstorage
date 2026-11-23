@@ -320,6 +320,24 @@ public class XdStorageYamlBlockContainersWriter {
                                                final XdStorageServicesLocator services,
                                                final IXdStorageSimpleTypeHelper simpleTypeHelper,
                                                final IXdStorageIdGenerator idGenerator) throws IOException, XdStorageException {
+        // PROPTEST (docs/tasks/2.2.0/03): a NESTED CONTAINER as an item is a real shape
+        // (List<List<String>>, List<Map<String,String>>, ...): routing it into the object
+        // branch wrote 'object: class: ArrayList, fields:' — an EMPTY object block, and the
+        // reader restored an empty container (a silent loss of the whole nested content).
+        // The reader's readTypedNode already recurses into nested collection/map/array
+        // blocks — mirror that recursion on the write side.
+        if (item instanceof Collection<?>) {
+            writeCollectionInline(c, (Collection<?>) item, emitter, services, simpleTypeHelper, idGenerator);
+            return;
+        }
+        if (item instanceof Map<?, ?>) {
+            writeMapInline(c, (Map<?, ?>) item, emitter, services, simpleTypeHelper, idGenerator);
+            return;
+        }
+        if (c.isArray()) {
+            writeArrayInline(c, item, emitter, services, simpleTypeHelper, idGenerator);
+            return;
+        }
         final Class<?> entityClass = XdStorageObjectUtils.getEntityClass(c);
         final XdStorageClassInfo targetClInfo = XdStorageObjectUtils.getClassInfo(entityClass);
         final XdStoragePolicy policy = targetClInfo.getPolicy();

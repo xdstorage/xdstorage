@@ -213,7 +213,15 @@ public final class XdStorageClassMetadataRegistry {
             valueClass = fieldClass.getComponentType();
         } else if (Collection.class.isAssignableFrom(fieldClass)) {
             isCollection = true;
-            valueClass = (Class<?>) ((ParameterizedType) getter.getGenericReturnType()).getActualTypeArguments()[0];
+            // PROPTEST (docs/tasks/2.2.0/03): a nested generic element (List<List<String>>,
+            // List<Map<String,String>>) carries a ParameterizedType, not a Class — the raw
+            // (Class) cast threw and the scanner's silent catch DROPPED the whole field from
+            // persistence (a silent data loss; the mirror Map branch below already handled
+            // it correctly).
+            final Object elementArg = ((ParameterizedType) getter.getGenericReturnType()).getActualTypeArguments()[0];
+            valueClass = elementArg instanceof ParameterizedType
+                    ? (Class<?>) ((ParameterizedType) elementArg).getRawType()
+                    : (Class<?>) elementArg;
         } else if (Map.class.isAssignableFrom(fieldClass)) {
             isMap = true;
             Object p = ((ParameterizedType) getter.getGenericReturnType()).getActualTypeArguments()[0];
