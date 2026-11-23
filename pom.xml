@@ -98,6 +98,14 @@
             <version>5.11.4</version>
             <scope>test</scope>
         </dependency>
+        <!-- PROPTEST (docs/tasks/2.2.0/03): property-based testing over the engine invariants;
+             jqwik 1.9.x targets the JUnit Platform 1.x and Java 8+ (the house bytecode is release=8) -->
+        <dependency>
+            <groupId>net.jqwik</groupId>
+            <artifactId>jqwik</artifactId>
+            <version>1.9.2</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
