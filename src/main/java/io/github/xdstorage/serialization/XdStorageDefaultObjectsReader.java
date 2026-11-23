@@ -12,8 +12,10 @@ import io.github.xdstorage.utils.XdStorageObjectField;
 import io.github.xdstorage.utils.XdStorageObjectIdField;
 import io.github.xdstorage.utils.XdStorageObjectUtils;
 
+import javax.xml.XMLConstants;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
+import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
 import java.lang.reflect.Array;
@@ -39,6 +41,11 @@ public class XdStorageDefaultObjectsReader implements IXdStorageObjectsReader {
 
     private static final Logger log = LoggerFactory.getLogger(XdStorageDefaultObjectsReader.class);
 
+    /** The one refusal every DTD-bearing document gets, at each of the four parse sites. */
+    private static final String DOCTYPE_REFUSAL = "a storage file must not carry a DOCTYPE declaration — DTD "
+            + "processing and external entities are disabled in the XML reader (CWE-611); the file was not written "
+            + "by this engine or was tampered with";
+
     private IXdStorageSimpleTypeHelper simpleTypeHelper;
 
     private final Map<Class<?>, Map<String, XdStorageObjectField>> properties = new ConcurrentHashMap<>();
@@ -57,10 +64,10 @@ public class XdStorageDefaultObjectsReader implements IXdStorageObjectsReader {
             XdStorageIOException {
         Collection<Object> result = new ArrayList<Object>();
         try {
-            XMLStreamReader xmlReader = XMLInputFactory.newInstance().createXMLStreamReader(reader);
+            XMLStreamReader xmlReader = newHardenedInputFactory().createXMLStreamReader(reader);
             Object tmp = null;
             while (xmlReader.hasNext()) {
-                switch (xmlReader.next()) {
+                switch (nextEvent(xmlReader)) {
                     case XMLStreamConstants.START_ELEMENT:
                         if (xmlReader.getLocalName().equals("object") || xmlReader.getLocalName().equals("reference")) {
                             tmp = readElement(xmlReader, field);
@@ -73,7 +80,7 @@ public class XdStorageDefaultObjectsReader implements IXdStorageObjectsReader {
                 }
             }
         } catch (final Throwable cause) { // stupid quick solution
-            throw new XdStorageIOException(cause);
+            throw parseFailure(cause);
         }
         return result;
     }
@@ -82,10 +89,10 @@ public class XdStorageDefaultObjectsReader implements IXdStorageObjectsReader {
     public Collection<Object> read(final Reader reader) throws XdStorageIOException {
         Collection<Object> result = new ArrayList<Object>();
         try {
-            XMLStreamReader xmlReader = XMLInputFactory.newInstance().createXMLStreamReader(reader);
+            XMLStreamReader xmlReader = newHardenedInputFactory().createXMLStreamReader(reader);
             Object tmp = null;
             while (xmlReader.hasNext()) {
-                switch (xmlReader.next()) {
+                switch (nextEvent(xmlReader)) {
                     case XMLStreamConstants.START_ELEMENT:
                         if (xmlReader.getLocalName().equals("object") || xmlReader.getLocalName().equals("reference")) {
                             tmp = readElement(xmlReader);
@@ -98,7 +105,7 @@ public class XdStorageDefaultObjectsReader implements IXdStorageObjectsReader {
                 }
             }
         } catch (final Throwable cause) { // stupid quick solution
-            throw new XdStorageIOException(cause);
+            throw parseFailure(cause);
         }
         return result;
     }
@@ -107,10 +114,10 @@ public class XdStorageDefaultObjectsReader implements IXdStorageObjectsReader {
     public Collection<Object> read(final Reader r, final IXdStorageTransaction tx) throws XdStorageIOException {
         Collection<Object> res = new ArrayList<>();
         try {
-            XMLStreamReader xReader = XMLInputFactory.newInstance().createXMLStreamReader(r);
+            XMLStreamReader xReader = newHardenedInputFactory().createXMLStreamReader(r);
             while (xReader.hasNext()) {
-                if (xReader.next() == XMLStreamConstants.START_ELEMENT && (xReader.getLocalName().equals("object") ||
-                        xReader.getLocalName().equals("reference"))) {
+                if (nextEvent(xReader) == XMLStreamConstants.START_ELEMENT && (xReader.getLocalName()
+                        .equals("object") || xReader.getLocalName().equals("reference"))) {
                     final String[] fn = new String[]{null};
                     Object tmp = xReader.getLocalName().equals("object") ? read(fn, xReader) : readReference(fn,
                             xReader);
@@ -120,9 +127,102 @@ public class XdStorageDefaultObjectsReader implements IXdStorageObjectsReader {
         } catch (Throwable cause) {
             if (cause.getMessage() != null && cause.getMessage().contains("Premature end of file."))
                 return Collections.emptyList();
-            throw new XdStorageIOException(cause);
+            throw parseFailure(cause);
         }
         return res;
+    }
+
+    /**
+     * The ONLY place the engine creates an XML parser — hardened against CWE-611 (XXE,
+     * docs/tasks/2.2.0/36). A storage file is DATA: no entity is ever resolved. External
+     * entities are switched off (a property every StAX implementation must honor), the resolver
+     * refuses whatever an implementation would still ask for, and the JAXP access restrictions
+     * close the same door one level lower. The DTD itself is not processed: every parse site
+     * advances through {@link #nextEvent(XMLStreamReader)}, which REFUSES a {@code <!DOCTYPE>}
+     * instead of skipping it — a bare {@code SUPPORT_DTD=false} made the stock parser drop the
+     * declaration silently (and a record referring to an entity with it). The engine's own
+     * writers emit no DTD, so no legitimate document is affected.
+     *
+     * @return a fresh factory for one parse (the factories are never shared between threads)
+     */
+    static XMLInputFactory newHardenedInputFactory() {
+        final XMLInputFactory factory = XMLInputFactory.newInstance();
+        factory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
+        factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
+        factory.setXMLResolver((publicId, systemId, baseUri, namespace) -> {
+            throw new XMLStreamException(DOCTYPE_REFUSAL + " (an entity declared by it was requested: '" + systemId
+                    + "')");
+        });
+        setIfSupported(factory, XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        setIfSupported(factory, XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+        return factory;
+    }
+
+    /**
+     * Applies an optional factory property; an implementation that does not know it keeps its
+     * default (the mandatory properties above already close the entity path).
+     *
+     * @param factory the factory to configure
+     * @param name    the property name
+     * @param value   the property value
+     */
+    private static void setIfSupported(final XMLInputFactory factory, final String name, final Object value) {
+        try {
+            factory.setProperty(name, value);
+        } catch (final IllegalArgumentException unsupported) {
+            log.debug("the XML input factory {} does not support the property {}", factory.getClass().getName(), name);
+        }
+    }
+
+    /**
+     * Advances the parser by one event and refuses a DTD event: a {@code <!DOCTYPE>} is never
+     * skipped — a record referring to an entity would silently change or vanish behind it.
+     *
+     * @param xmlReader the parser to advance
+     * @return the next event
+     * @throws XMLStreamException when the parser fails
+     */
+    private static int nextEvent(final XMLStreamReader xmlReader) throws XMLStreamException {
+        final int event = xmlReader.next();
+        if (event == XMLStreamConstants.DTD) {
+            throw new XdStorageIOException(DOCTYPE_REFUSAL);
+        }
+        return event;
+    }
+
+    /**
+     * Wraps a parse failure for the caller. The DTD refusal is surfaced as is — raised by
+     * {@link #nextEvent(XMLStreamReader)} or by the resolver for an external subset; anything
+     * else keeps its original cause.
+     *
+     * @param cause the failure thrown while parsing
+     * @return the exception to surface
+     */
+    private static XdStorageIOException parseFailure(final Throwable cause) {
+        final XdStorageIOException refusal = dtdRefusalIn(cause);
+        if (refusal != null) {
+            return refusal;
+        }
+        return new XdStorageIOException(cause);
+    }
+
+    /**
+     * Finds the DTD refusal on a failure's cause chain, if it is there.
+     *
+     * @param failure the failure to inspect
+     * @return the refusal, or {@code null} when the chain carries none
+     */
+    private static XdStorageIOException dtdRefusalIn(final Throwable failure) {
+        for (Throwable t = failure; t != null; t = t.getCause()) {
+            if (t instanceof XdStorageIOException && t.getMessage() != null && t.getMessage().startsWith
+                    (DOCTYPE_REFUSAL)) {
+                return (XdStorageIOException) t;
+            }
+            if (t instanceof XMLStreamException && t.getMessage() != null && t.getMessage().contains(DOCTYPE_REFUSAL)) {
+                return new XdStorageIOException(t.getMessage(), t);
+            }
+        }
+        return null;
     }
 
     private Object readElement(final XMLStreamReader xmlReader) throws Exception {
@@ -608,11 +708,11 @@ public class XdStorageDefaultObjectsReader implements IXdStorageObjectsReader {
             throws XdStorageIOException {
         Collection<XdStorageIdentifiableObject> result = new ArrayList<>();
         try {
-            XMLStreamReader xmlReader = XMLInputFactory.newInstance().createXMLStreamReader(reader);
+            XMLStreamReader xmlReader = newHardenedInputFactory().createXMLStreamReader(reader);
             XdStorageIdentifiableObject tmp = null;
             final String[] fieldName = new String[]{null};
             while (xmlReader.hasNext()) {
-                switch (xmlReader.next()) {
+                switch (nextEvent(xmlReader)) {
                     case XMLStreamConstants.START_ELEMENT:
                         if (xmlReader.getLocalName().equals("object")) {
                             tmp = (XdStorageIdentifiableObject) readObjectData(fieldName, xmlReader);
@@ -625,7 +725,7 @@ public class XdStorageDefaultObjectsReader implements IXdStorageObjectsReader {
                     result.add(tmp);
             }
         } catch (final Throwable cause) { // stupid quick solution
-            throw new XdStorageIOException(cause);
+            throw parseFailure(cause);
         }
         return result;
     }

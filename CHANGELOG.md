@@ -106,6 +106,14 @@
   read as bare reference stubs (every field `null`). A null lazy map no longer throws
   either. Pinned by `XdStorageLazyGetterTypeDispatchTest` (the per-element load pins +
   the cold-reopen real-storage pin).
+- **The XML reader no longer processes DTDs — the external-entity hole (XXE, CWE-611) is
+  closed** ([36](docs/tasks/2.2.0/36-xml-reader-xxe-hardening.md)) — all four parse sites
+  created a bare StAX factory. On the stock JDK parser a crafted XML-format folder could make
+  the reader fetch a remote DTD and send a local file back to it (reproduced before the fix:
+  the parser requested `/evil.dtd`, then `/leak?x=<the file's content>`), expand entities into
+  stored values and read external parameter entities from disk. A `<!DOCTYPE>` is now refused
+  with one clear error instead of being obeyed or skipped; files written by the engine contain
+  no DTD and read unchanged. YAML storages are not affected — their reader parses no XML.
 
 - **Null map VALUES were silently dropped from persistence** — the unwrap-and-clone
   path dropped the entry before the writer; the YAML writer/reader both encode null
