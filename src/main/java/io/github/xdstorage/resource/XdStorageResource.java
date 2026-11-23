@@ -127,7 +127,8 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
             this.journalFile = null;
             this.supersededJournals = java.util.Collections.emptyList();
         }
-        this.yamlJournalFactory = journalWrites && factory instanceof io.github.xdstorage.serialization.yaml.XdStorageYamlIOFactory
+        this.yamlJournalFactory = journalWrites && factory instanceof io.github.xdstorage.serialization.yaml
+                .XdStorageYamlIOFactory
                 ? (io.github.xdstorage.serialization.yaml.XdStorageYamlIOFactory) factory
                 : null;
         // W-2: бюджет материализации считают ТОЛЬКО ресурсы данных (id-индексные кэши — служебные)
@@ -191,12 +192,14 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
             if (!acquired) {
                 log.warn("resource {} cannot be locked for commit by transaction {} (waited {} ms; timeout {} ms)",
                         getFileName(), transaction.getTransactionId(), waitedMillis, timeout);
-                throw new XdStorageRuntimeException("resource " + getFileName() + " cannot be locked for commit by transaction "
+                throw new XdStorageRuntimeException("resource " + getFileName() +
+                        " cannot be locked for commit by transaction "
                         + transaction.getTransactionId() + " (Timeout " + timeout + " ms expired)");
             }
         } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new XdStorageRuntimeException("waiting for lock resource " + getFileName() + " has been interrupted", e);
+            throw new XdStorageRuntimeException("waiting for lock resource " + getFileName() + " has been interrupted",
+                    e);
         }
     }
 
@@ -231,7 +234,9 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
         try {
             final File file = new File(getFileName());
             if (file.exists()) {
-                Reader xmlReader = new java.io.BufferedReader(new java.io.InputStreamReader(new java.io.FileInputStream(file), java.nio.charset.StandardCharsets.UTF_8), 1 << 16); // task 51: pinned cross-OS
+                // task 51: pinned cross-OS
+                Reader xmlReader = new java.io.BufferedReader(new java.io.InputStreamReader(new java.io
+                        .FileInputStream(file), java.nio.charset.StandardCharsets.UTF_8), 1 << 16);
                 try {
                     if (isReferences) {
                         objects = reader.readReferences(xmlReader, idField);
@@ -264,7 +269,8 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
         try {
             for (final Object object : objects) {
                 if (object instanceof io.github.xdstorage.serialization.IXdStorageSerializationGuard) {
-                    ((io.github.xdstorage.serialization.IXdStorageSerializationGuard) object).beginConsistentSerialization();
+                    ((io.github.xdstorage.serialization.IXdStorageSerializationGuard) object)
+                            .beginConsistentSerialization();
                     guarded.add(object);
                 }
             }
@@ -284,7 +290,8 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
             services.getMetrics().add(io.github.xdstorage.metrics.XdStorageMetrics.RESOURCE_WRITE_OUT_NANOS,
                     System.nanoTime() - writeStartNanos);
         } catch (final Throwable e) {
-            throw new XdStorageRuntimeException("invalid state of database: error by writing resource " + resourceId, e);
+            throw new XdStorageRuntimeException("invalid state of database: error by writing resource " + resourceId,
+                    e);
         } finally {
             for (final Object object : guarded) {
                 ((io.github.xdstorage.serialization.IXdStorageSerializationGuard) object).endConsistentSerialization();
@@ -292,12 +299,15 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
         }
     }
 
-    public Collection<XdStorageIdentifiableObject> readAsData(final XdStorageTransaction transaction) throws XdStorageException {
+    public Collection<XdStorageIdentifiableObject> readAsData(final XdStorageTransaction transaction) throws
+            XdStorageException {
         Collection<XdStorageIdentifiableObject> objects = null;
         try {
             final File file = new File(getFileName());
             if (file.exists()) {
-                Reader xmlReader = new java.io.BufferedReader(new java.io.InputStreamReader(new java.io.FileInputStream(file), java.nio.charset.StandardCharsets.UTF_8), 1 << 16); // task 51: pinned cross-OS
+                // task 51: pinned cross-OS
+                Reader xmlReader = new java.io.BufferedReader(new java.io.InputStreamReader(new java.io
+                        .FileInputStream(file), java.nio.charset.StandardCharsets.UTF_8), 1 << 16);
                 try {
                     objects = reader.readData(xmlReader, idField);
                 } finally {
@@ -331,7 +341,8 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
             }
 
             Collection<Object> objects = readAsObjects();
-            log.debug("resource {} prepared from disk: {} objects", getFileName(), objects != null ? objects.size() : 0);
+            log.debug("resource {} prepared from disk: {} objects", getFileName(), objects != null ? objects.size() :
+                    0);
             if (objects != null)
                 cache.fillCache(objects);
             if (journalWrites) {
@@ -371,7 +382,8 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
                 cache.applyCommittedJournalDelete(id);
             }
             if (!replay.upserts.isEmpty() || !replay.deletes.isEmpty()) {
-                log.debug("resource {} replayed commit journal: {} upsert(s), {} delete(s), {} discarded tail record(s)",
+                log.debug("resource {} replayed commit journal: {} upsert(s), {} delete(s), {} discarded tail " +
+                        "record(s)",
                         getFileName(), replay.upserts.size(), replay.deletes.size(), replay.discardedTailRecords);
             }
             // W-4c (docs/tasks/2.1.0/48): open-time guard — if the journal is too big after
@@ -383,7 +395,8 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
                     journalFile, supersededJournals, getFileName());
             supersededJournals = java.util.Collections.emptyList();
         } catch (final Throwable e) {
-            throw new XdStorageException("invalid state of database: commit journal of resource " + resourceId + " cannot be replayed", e);
+            throw new XdStorageException("invalid state of database: commit journal of resource " + resourceId +
+                    " cannot be replayed", e);
         }
     }
 
@@ -399,7 +412,8 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
      *                    compensation
      * @throws XdStorageException on a storage-level failure
      */
-    public void performFirstPhaseCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges record) throws XdStorageException {
+    public void performFirstPhaseCommit(final XdStorageTransaction transaction, final
+            XdStorageTransactionResourceChanges record) throws XdStorageException {
         // TREEOVERLAY (task 53): применяем стейдженные операции деревьев ПЕРВЫМ делом
         // фазы-1 ЭТОГО ресурса: node/tree изменения попадают в ЭТОТ же changeset и
         // публикуются его же фазой-2 (применение после фаз infra-ресурса = осиротение
@@ -423,7 +437,8 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
                             transaction.getCommitSerial(), record.getChangesObjects(),
                             services, yamlJournalFactory, services.getStorageConfig().isDurableWrites());
                 } catch (final Throwable e) {
-                    throw new XdStorageRuntimeException("invalid state of database: error by appending commit journal of resource " + resourceId, e);
+                    throw new XdStorageRuntimeException("invalid state of database: error by appending commit " +
+                            "journal of resource " + resourceId, e);
                 }
                 checkpointIfJournalTooBig(transaction);
             } else {
@@ -468,11 +483,13 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
             return;
         }
         log.debug("resource {} open-time guard: journal {} bytes > {} threshold — silent checkpoint",
-                getFileName(), io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.sizeOf(journalFile), threshold);
+                getFileName(), io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.sizeOf(journalFile),
+                        threshold);
         // checkpoint silently (no WARN per task spec)
         try {
             synchronized (io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.lockFor(journalFile)) {
-                if (io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.sizeOf(journalFile) <= threshold) {
+                if (io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.sizeOf(journalFile) <= threshold)
+                        {
                     return;
                 }
                 writeObjects(cache.readCommittedForCheckpoint());
@@ -492,7 +509,8 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
      * @param record      the collector filled by phase 1
      * @throws XdStorageException on a storage-level failure
      */
-    public void performSecondPhaseCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges record) throws XdStorageException {
+    public void performSecondPhaseCommit(final XdStorageTransaction transaction, final
+            XdStorageTransactionResourceChanges record) throws XdStorageException {
         if (cache.hasChanges(transaction)) {
             cache.performCommit(transaction, record);
             cache.commit(transaction);
@@ -518,7 +536,8 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
                 if (io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.sizeOf(journalFile) == 0) {
                     return false;
                 }
-                log.info("resource {} shutdown checkpoint: full committed-state rewrite + journal reset", getFileName());
+                log.info("resource {} shutdown checkpoint: full committed-state rewrite + journal reset",
+                        getFileName());
                 writeObjects(cache.readCommittedForCheckpoint());
                 io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.reset(journalFile);
                 return true;
@@ -541,16 +560,19 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
      * @param changes     the staged changes phase 1 persisted
      * @throws XdStorageException on a storage-level failure
      */
-    public void rollbackPerformingFirstPhaseCommit(final XdStorageTransaction transaction, final Collection<XdStorageObjectChange> changes) throws XdStorageException {
+    public void rollbackPerformingFirstPhaseCommit(final XdStorageTransaction transaction, final
+            Collection<XdStorageObjectChange> changes) throws XdStorageException {
         cache.rollbackFailedCommit(transaction, changes);
         if (journalWrites) {
             // W-1: компенсация — восстановленное (до-транзакционное) состояние каждого измененного id.
-            // Писать в журнал обязательно: без этого обрыв после аппенда redo вернул бы отклоненную транзакцию при реплее.
+            // Писать в журнал обязательно: без этого обрыв после аппенда redo вернул бы отклоненную транзакцию при
+            // реплее.
             try {
                 io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.appendCompensation(journalFile,
                         changes, services, yamlJournalFactory, services.getStorageConfig().isDurableWrites());
             } catch (final Throwable e) {
-                throw new XdStorageRuntimeException("invalid state of database: error by appending commit journal compensation of resource " + resourceId, e);
+                throw new XdStorageRuntimeException("invalid state of database: error by appending commit journal " +
+                        "compensation of resource " + resourceId, e);
             }
         } else {
             writeObjects(cache.readUnsafe(transaction));
@@ -676,9 +698,11 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
      * @param transaction the transaction being rolled back
      * @throws XdStorageException when the committed file exists but cannot be parsed
      */
-    public void reloadInfrastructureFromCommittedFiles(final XdStorageTransaction transaction) throws XdStorageException {
+    public void reloadInfrastructureFromCommittedFiles(final XdStorageTransaction transaction) throws XdStorageException
+            {
         final Class<?> infraClass = cache.entityClass();
-        final io.github.xdstorage.resource.XdStorageCanonicalInstanceRegistry registry = services.getCanonicalInstances();
+        final io.github.xdstorage.resource.XdStorageCanonicalInstanceRegistry registry = services
+                .getCanonicalInstances();
         final Map<Object, XdStorageCacheRecord> records = cache.records();
 
         // Сериализуемся с идущими коммитами этого ресурса (фаза-1 полная перезапись +
@@ -692,7 +716,8 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
             Thread.currentThread().interrupt();
         }
         if (!lockedHere) {
-            log.warn("TREEFILE: infra reload of resource {} proceeds WITHOUT the commit lock (10 s budget expired) — racing-commit window accepted", resourceId);
+            log.warn("TREEFILE: infra reload of resource {} proceeds WITHOUT the commit lock (10 s budget expired) — " +
+                    "racing-commit window accepted", resourceId);
         }
         try {
             final Collection<Object> parsed = readAsObjects(); // null = файла нет
@@ -730,7 +755,8 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
 
     private class XdStorageCacheInternalListener implements IXdStorageCacheInternalListener {
         @Override
-        public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
+        public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject,
+                Object newObject, IXdStorageTransaction transaction) {
             List<IXdStorageInternalListener> listenerList = listeners.get(transaction.getTransactionId());
             if (listenerList != null) {
                 listenerList.forEach(listener -> listener.notify(phase, change, oldObject, newObject, transaction));

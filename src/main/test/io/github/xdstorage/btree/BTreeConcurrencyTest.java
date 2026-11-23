@@ -154,7 +154,8 @@ public class BTreeConcurrencyTest extends AbstractBTreeTest {
                 exceptions.add(e);
             }
         });
-        assertTrue(exceptions.isEmpty(), "Зафиксированы коллизии ребалансировок при лавинном многопоточном сжатии: " + exceptions);
+        assertTrue(exceptions.isEmpty(), "Зафиксированы коллизии ребалансировок при лавинном многопоточном сжатии: " +
+                exceptions);
     }
 
     @Test
@@ -326,7 +327,8 @@ public class BTreeConcurrencyTest extends AbstractBTreeTest {
         for (int i = 1; i <= count; ++i) {
             try {
                 List<Object> result = tree.find(i, storage, txFinal);
-                assertTrue(result.isEmpty(), "Критическая ошибка! Ключ уцелел после тотальной аннигиляции дерева: " + i);
+                assertTrue(result.isEmpty(), "Критическая ошибка! Ключ уцелел после тотальной аннигиляции дерева: " +
+                        i);
             } catch (Throwable t) {
                 fail("Крах навигации find в пустом хаотично схлопнувшемся дереве для ключа: " + i, t);
             }

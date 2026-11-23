@@ -30,7 +30,8 @@ import java.util.Date;
  * <p>Created and driven solely by the structure manager. Engine-internal — not part of the
  * public API.</p>
  */
-public class XdStorageSearchIndexStructureUpdater extends XdStorageAbstractStructureUpdater<XdStorageSearchIndexRecord> {
+public class XdStorageSearchIndexStructureUpdater extends XdStorageAbstractStructureUpdater<XdStorageSearchIndexRecord>
+        {
 
     private final IXdStorageSearchManager searchManager;
 
@@ -45,7 +46,8 @@ public class XdStorageSearchIndexStructureUpdater extends XdStorageAbstractStruc
      * @param cl            the stored class whose index definition changed
      * @param index         the changed search index definition
      */
-    public XdStorageSearchIndexStructureUpdater(final IXdStorageSearchManager searchManager, final Class<?> cl, final XdStorageSearchIndex index) {
+    public XdStorageSearchIndexStructureUpdater(final IXdStorageSearchManager searchManager, final Class<?> cl, final
+            XdStorageSearchIndex index) {
         super(cl.getSimpleName() + "-" + index.getName() + "-" + new Date().getTime());
 
         this.searchManager = searchManager;
@@ -78,7 +80,8 @@ public class XdStorageSearchIndexStructureUpdater extends XdStorageAbstractStruc
      *                                      including any storage error wrapped from below
      */
     @Override
-    public XdStorageUpdateStructureResult execute(final XdStorageAbstractResourcesManager resourcesManager, final XdStorageTransaction transaction) throws XdStorageConnectionException {
+    public XdStorageUpdateStructureResult execute(final XdStorageAbstractResourcesManager resourcesManager, final
+            XdStorageTransaction transaction) throws XdStorageConnectionException {
         try {
             final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
 
@@ -91,22 +94,26 @@ public class XdStorageSearchIndexStructureUpdater extends XdStorageAbstractStruc
                     try {
                         searchManager.update(object, transaction);
                     } catch (final XdStorageException | XdStorageConnectionException e) {
-                        throw new XdStorageRuntimeException("cannot update search index record for object " + idField.get(object) + " of " + cl, e);
+                        throw new XdStorageRuntimeException("cannot update search index record for object " + idField
+                                .get(object) + " of " + cl, e);
                     }
                 }
             };
 
             if (policy == XdStoragePolicy.StoreAsClassObjects) {
-                final IXdStorageIndexDaoResource indexResource = resourcesManager.lockIndexResource(clInfo, transaction);
+                final IXdStorageIndexDaoResource indexResource = resourcesManager.lockIndexResource(clInfo,
+                        transaction);
                 indexResource.watch(transaction, watcher);
             } else if (policy == XdStoragePolicy.StoreAsSingleObject) {
 
-                final IXdStorageDaoResource referencesResource = resourcesManager.lockReferencesResource(clInfo, transaction);
+                final IXdStorageDaoResource referencesResource = resourcesManager.lockReferencesResource(clInfo,
+                        transaction);
                 referencesResource.watch(transaction, new IXdStorageWatcher<Object>() {
                     @Override
                     public void watch(final Object object) {
                         try {
-                            final IXdStorageDaoResource objectResource = resourcesManager.lockObjectResource(object, transaction);
+                            final IXdStorageDaoResource objectResource = resourcesManager.lockObjectResource(object,
+                                    transaction);
                             objectResource.watch(transaction, watcher);
                         } catch (final XdStorageException | XdStorageConnectionException e) {
                             throw new XdStorageRuntimeException(e);

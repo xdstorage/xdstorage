@@ -12,7 +12,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class MyFakeIdGenerator implements IXdStorageIdGenerator {
-    
+
     private final long PART_OF_IDENTIFIERS = 10;
 
     private final Map<Class<?>, Lock> lockers = new ConcurrentHashMap<>();
@@ -22,7 +22,8 @@ public class MyFakeIdGenerator implements IXdStorageIdGenerator {
     private Map<Class<?>, Long> lastIdentifierOfPart = new ConcurrentHashMap<>();
 
     @Override
-    public Object generate(Class<?> cl, IXdStorage storage, IXdStorageTransaction transaction) throws XdStorageException {
+    public Object generate(Class<?> cl, IXdStorage storage, IXdStorageTransaction transaction) throws XdStorageException
+            {
         Lock locker = lockers.get(cl);
         if (locker == null) {
             lockers.putIfAbsent(cl, new ReentrantLock());
@@ -48,7 +49,8 @@ public class MyFakeIdGenerator implements IXdStorageIdGenerator {
         return identifier;
     }
 
-    private void initIdentifiers(final Class<?> cl, final IXdStorage storage, IXdStorageTransaction tx) throws XdStorageException {
+    private void initIdentifiers(final Class<?> cl, final IXdStorage storage, IXdStorageTransaction tx) throws
+            XdStorageException {
 
         final IXdStorageTransaction transaction = storage.beginTransaction(tx);
         try {
@@ -84,7 +86,8 @@ public class MyFakeIdGenerator implements IXdStorageIdGenerator {
         }
     }
 
-    private void takeNextPartOfIdentifiers(final Class<?> cl, final IXdStorage storage, IXdStorageTransaction tx) throws XdStorageException {
+    private void takeNextPartOfIdentifiers(final Class<?> cl, final IXdStorage storage, IXdStorageTransaction tx) throws
+            XdStorageException {
 
         final Long newLastIdentifierOfPart = lastIdentifierOfPart.get(cl) + PART_OF_IDENTIFIERS;
 

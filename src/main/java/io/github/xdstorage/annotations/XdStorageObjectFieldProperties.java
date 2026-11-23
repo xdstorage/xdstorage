@@ -32,7 +32,8 @@ public @interface XdStorageObjectFieldProperties {
     XdStorageIdGeneratorType idGeneratorType() default XdStorageIdGeneratorType.DATABASE_GENERATOR;
 
 /** Names the custom generator class.
-     * @return the custom {@link IXdStorageIdGenerator} for {@code CUSTOM_GENERATOR} (needs a no-arg or services-locator constructor) */
+      * @return the custom {@link IXdStorageIdGenerator} for {@code CUSTOM_GENERATOR} (needs a no-arg or
+      * services-locator constructor) */
     Class<? extends IXdStorageIdGenerator> idGeneratorClass() default XdStorageDummyIdGenerator.class;
 
 }

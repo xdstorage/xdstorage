@@ -86,14 +86,16 @@ public final class XdStorageConfig {
 
     /** Answers whether sentinel-less files open.
      *
-     * @return whether a resource file without the EOF sentinel opens instead of failing loudly. Default {@code false} */
+      * @return whether a resource file without the EOF sentinel opens instead of failing loudly. Default {@code
+      * false} */
     public boolean isAcceptMissingEofSentinel() {
         return acceptMissingEofSentinel;
     }
 
     /** Answers whether workers are daemon threads.
      *
-     * @return whether the worker pool uses daemon threads (a forgotten {@code shutdown()} cannot block JVM exit). Default {@code false} */
+      * @return whether the worker pool uses daemon threads (a forgotten {@code shutdown()} cannot block JVM exit).
+      * Default {@code false} */
     public boolean isDaemonWorkerThreads() {
         return daemonWorkerThreads;
     }
@@ -199,13 +201,16 @@ public final class XdStorageConfig {
         private long defaultTransactionTimeoutMillis = 15 * 1000L;
         private XdStorageIsolationLevel isolationLevel = XdStorageIsolationLevel.SNAPSHOT;
         private boolean journalWrites = true;   // W-3: journal is the default write path
-        private boolean indexJournalWrites = true;   // W-4a: index journaling is the default write path (task 32; green soak 808/0, the W-3 flip protocol)
-        private boolean searchIndexJournalWrites = false;   // W-4b: search-index journal OFF by default — soak → flip (task 49)
+        // W-4a: index journaling is the default write path (task 32; green soak 808/0, the W-3 flip protocol)
+        private boolean indexJournalWrites = true;
+        // W-4b: search-index journal OFF by default — soak → flip (task 49)
+        private boolean searchIndexJournalWrites = false;
         private long journalCheckpointBytes = 16L * 1024 * 1024;
         private long txMaterializedObjectsCap = 0;
         private boolean enableForeignKeys = true;
 
-        /** Fsync the resource file before the atomic rename and the parent directory after it (power-loss safe; measured ~8x write cost).
+        /** Fsync the resource file before the atomic rename and the parent directory after it (power-loss safe;
+         * measured ~8x write cost).
          *
          * @param value {@code true} to enable
          * @return this builder, for call chaining
@@ -215,7 +220,8 @@ public final class XdStorageConfig {
             return this;
         }
 
-        /** Open even when resource files lack the EOF sentinel (legacy/pre-sentinel folders); the first commit rewrites every touched file.
+        /** Open even when resource files lack the EOF sentinel (legacy/pre-sentinel folders); the first commit rewrites
+         * every touched file.
          *
          * @param value {@code true} to enable
          * @return this builder, for call chaining
@@ -284,7 +290,8 @@ public final class XdStorageConfig {
             return this;
         }
 
-        /** Append-only commit journal for data/reference resources (YAML format only; default ON — W-3: the journal is the default write path).
+        /** Append-only commit journal for data/reference resources (YAML format only; default ON — W-3: the journal is
+         * the default write path).
          *
          * @param value {@code true} to enable
          * @return this builder, for call chaining
@@ -315,7 +322,8 @@ public final class XdStorageConfig {
             return this;
         }
 
-        /** Journal size (bytes) above which a checkpoint (full base rewrite + journal reset) runs after a commit (default 16 MB); must be positive.
+        /** Journal size (bytes) above which a checkpoint (full base rewrite + journal reset) runs after a commit
+         * (default 16 MB); must be positive.
          *
          * @param value threshold in bytes
          * @return this builder, for call chaining
@@ -328,7 +336,8 @@ public final class XdStorageConfig {
             return this;
         }
 
-        /** Per-transaction materialization budget (default 0 = unlimited); over the cap a read fails loudly instead of growing the heap. Must be >= 0.
+        /** Per-transaction materialization budget (default 0 = unlimited); over the cap a read fails loudly instead of
+         * growing the heap. Must be >= 0.
          *
          * @param value the cap (0 = unlimited)
          * @return this builder, for call chaining
@@ -341,7 +350,8 @@ public final class XdStorageConfig {
             return this;
         }
 
-        /** Enables or disables the declarative foreign-key subsystem (default ON). When off, relations declared via parent/child annotations are not enforced.
+        /** Enables or disables the declarative foreign-key subsystem (default ON). When off, relations declared via
+         * parent/child annotations are not enforced.
          *
          * @param enableForeignKeys {@code true} to enable foreign keys (the default)
          * @return this builder, for call chaining

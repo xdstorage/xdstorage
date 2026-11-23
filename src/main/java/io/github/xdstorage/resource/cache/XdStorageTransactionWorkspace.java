@@ -147,7 +147,8 @@ public class XdStorageTransactionWorkspace {
      */
     public boolean hasChanges(final String transactionId) {
         final Map<Object, XdStorageCacheRecord> transactionChanges = changes.get(transactionId);
-        final Map<Object, IXdStorageIdObservableWrapper> transactionUnidentifiedObjects = unidentified.get(transactionId);
+        final Map<Object, IXdStorageIdObservableWrapper> transactionUnidentifiedObjects = unidentified
+                .get(transactionId);
         return (transactionChanges != null && !transactionChanges.isEmpty()) ||
                 (transactionUnidentifiedObjects != null && !transactionUnidentifiedObjects.isEmpty());
     }
@@ -180,7 +181,8 @@ public class XdStorageTransactionWorkspace {
         unidentified.remove(transactionId);
         changes.remove(transactionId);
         undoLogs.remove(transactionId);
-        log.debug("transaction contour of {} cleared (write-set, undo journal, unidentified wrappers, read objects)", transactionId);
+        log.debug("transaction contour of {} cleared (write-set, undo journal, unidentified wrappers, read objects)",
+                transactionId);
     }
 
     /** Завершение коммита/отката: транзитные и неидентифицированные объекты больше не нужны.

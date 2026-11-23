@@ -98,8 +98,10 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
         }
     }
 
-    private void processIncomeRelations(XdStorageClassInfo clInfo, Object object, XdStorageForeignKeyObjectChangeType type,
-                                        Collection<XdStorageForeignKeyRelation> incomeRelations, XdStorageTransaction transaction)
+    private void processIncomeRelations(XdStorageClassInfo clInfo, Object object, XdStorageForeignKeyObjectChangeType
+            type,
+                                        Collection<XdStorageForeignKeyRelation> incomeRelations, XdStorageTransaction
+                                                transaction)
             throws XdStorageException, XdStorageConnectionException {
 
         Comparable<?> childObjectId = clInfo.getIdField().get(object);
@@ -111,7 +113,8 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
                                 relation.getClassFrom(), relation.getClassTo(), relation.getField(), transaction
                         );
 
-                        IXdStorageIdObservableWrapper observableObject = XdStorageObserverService.getObservableWrapper(object);
+                        IXdStorageIdObservableWrapper observableObject = XdStorageObserverService
+                                .getObservableWrapper(object);
                         resource.insert((Comparable<?>) null, observableObject, transaction);
                     }
                 }
@@ -130,8 +133,10 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
                         );
                         final Object parentReference = findParentReference(clInfo, object, relation.getClassFrom());
                         if (parentReference != null) {
-                            final Comparable<?> parentObjectId = relation.getClassFrom().getIdField().get(parentReference);
-                            if (parentObjectId != null && !resource.readByChildObjectId(childObjectId, transaction).contains(parentObjectId)) {
+                            final Comparable<?> parentObjectId = relation.getClassFrom().getIdField()
+                                    .get(parentReference);
+                            if (parentObjectId != null && !resource.readByChildObjectId(childObjectId, transaction)
+                                    .contains(parentObjectId)) {
                                 resource.insert(parentObjectId, childObjectId, transaction);
                             } else if (parentObjectId != null) {
                                 // the pair is already registered (a re-save of an existing child)
@@ -203,8 +208,10 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
         }
     }
 
-    private void processOutcomeRelations(XdStorageClassInfo clInfo, Object object, XdStorageForeignKeyObjectChangeType type,
-                                         Collection<XdStorageForeignKeyRelation> outcomeRelations, XdStorageTransaction transaction)
+    private void processOutcomeRelations(XdStorageClassInfo clInfo, Object object, XdStorageForeignKeyObjectChangeType
+            type,
+                                         Collection<XdStorageForeignKeyRelation> outcomeRelations, XdStorageTransaction
+                                                 transaction)
             throws XdStorageException, XdStorageConnectionException {
 
         if (type == XdStorageForeignKeyObjectChangeType.INSERT) {
@@ -214,7 +221,8 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
                     XdStorageObjectField clField = relation.getField();
 
                     Object objectByField = clField.get(object);
-                    processInsertParentObjectWithChildren(clInfo, object, clInfoTo, clField, objectByField, transaction);
+                    processInsertParentObjectWithChildren(clInfo, object, clInfoTo, clField, objectByField,
+                            transaction);
                 }
             }
         } else if (type == XdStorageForeignKeyObjectChangeType.UPDATE) {
@@ -236,7 +244,8 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
 
                     // FNKEY: snapshot child IDs BEFORE processing to avoid FK-tree-modification
                     // during iteration (which triggers B+Tree lock contention / retry budget exhaustion).
-                    Collection<Object> childIds = new java.util.ArrayList<>(resource.readByParentObjectId(parentObjectId, transaction));
+                    Collection<Object> childIds = new java.util.ArrayList<>(resource
+                            .readByParentObjectId(parentObjectId, transaction));
                     for (Object childObjectId : childIds) {
                         // FNKEY: skip children already deleted in this transaction.
                         // The FK-tree snapshot may include ids whose id-index entries were
@@ -248,7 +257,8 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
                             // (DeleteParentAlone for a live referenced child; the purge's gone
                             // children dissolve) — the UPDATE-diff provenance pre-checks of
                             // delete() do not apply here.
-                            resource.armChildDeleteWaiterForParentRemoval(object, parentObjectId, (Comparable<?>) childObjectId, transaction);
+                            resource.armChildDeleteWaiterForParentRemoval(object, parentObjectId, (Comparable<?>)
+                                    childObjectId, transaction);
                         }
                     }
                 }
@@ -268,22 +278,26 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
             Object[] arrObjects = (Object[]) objectByField;
             if (arrObjects == null) return;
             for (Object parentObject : arrObjects) {
-                processInsertParentObjectWithChildObject(clInfo, childObject, clInfoTo, clField, parentObject, transaction);
+                processInsertParentObjectWithChildObject(clInfo, childObject, clInfoTo, clField, parentObject,
+                        transaction);
             }
         } else if (fieldInfo.isCollection()) {
             Collection<?> collectionObjects = (Collection<?>) objectByField;
             if (collectionObjects == null) return;
             for (Object parentObject : collectionObjects) {
-                processInsertParentObjectWithChildObject(clInfo, childObject, clInfoTo, clField, parentObject, transaction);
+                processInsertParentObjectWithChildObject(clInfo, childObject, clInfoTo, clField, parentObject,
+                        transaction);
             }
         } else if (fieldInfo.isMap()) {
             Map<?, Object> mapObjects = (Map<?, Object>) objectByField;
             if (mapObjects == null) return;
             for (Object parentObject : mapObjects.values()) {
-                processInsertParentObjectWithChildObject(clInfo, childObject, clInfoTo, clField, parentObject, transaction);
+                processInsertParentObjectWithChildObject(clInfo, childObject, clInfoTo, clField, parentObject,
+                        transaction);
             }
         } else {
-            processInsertParentObjectWithChildObject(clInfo, childObject, clInfoTo, clField, objectByField, transaction);
+            processInsertParentObjectWithChildObject(clInfo, childObject, clInfoTo, clField, objectByField,
+                    transaction);
         }
     }
 
@@ -301,7 +315,8 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
         Comparable<?> childObjectId = clInfo.getIdField().get(childObject);
         XdStorageObjectIdField idField = clInfoTo.getIdField();
         if (idField == null) {
-            throw new XdStorageException("the class of auto-save fields must have id-field, but " + clInfoTo.getClazz() + " does not");
+            throw new XdStorageException("the class of auto-save fields must have id-field, but " + clInfoTo.getClazz()
+                    + " does not");
         }
         Comparable<?> parentObjectId = idField.get(parentObject);
         if (childObjectId != null) {
@@ -317,15 +332,19 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
                 // isParentPersistedByObject discriminator is a no-op (null id → false), so the
                 // direct registration is semantically identical. A never-saved parent still
                 // honestly vetoes: the pending's id stays null → validatePendingFksViaCache.
-                IXdStorageIdObservableWrapper observableParentObject = XdStorageObserverService.getObservableWrapper(parentObject);
-                resource.registerPendingFkByObjectToCache((XdStorageTransaction) transaction, clInfoTo, observableParentObject, childObjectId);
+                IXdStorageIdObservableWrapper observableParentObject = XdStorageObserverService
+                        .getObservableWrapper(parentObject);
+                resource.registerPendingFkByObjectToCache((XdStorageTransaction) transaction, clInfoTo,
+                        observableParentObject, childObjectId);
             }
         } else {
-            IXdStorageIdObservableWrapper observableParentObject = XdStorageObserverService.getObservableWrapper(childObject);
+            IXdStorageIdObservableWrapper observableParentObject = XdStorageObserverService
+                    .getObservableWrapper(childObject);
             if (parentObjectId != null) {
                 resource.insert(observableParentObject, parentObjectId, transaction);
             } else {
-                IXdStorageIdObservableWrapper observableChildObject = XdStorageObserverService.getObservableWrapper(parentObject);
+                IXdStorageIdObservableWrapper observableChildObject = XdStorageObserverService
+                        .getObservableWrapper(parentObject);
                 resource.insert(observableParentObject, observableChildObject, transaction);
             }
         }
@@ -361,7 +380,8 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
             Object[] arrObjects = clField.get(parentObject);
             if (arrObjects != null) {
                 for (Object childObject : arrObjects) {
-                    processUpdateParentObjectWithChildObject(clInfo, parentObject, clInfoTo, clField, childObject, childIds, resource, transaction);
+                    processUpdateParentObjectWithChildObject(clInfo, parentObject, clInfoTo, clField, childObject,
+                            childIds, resource, transaction);
 
                     Comparable<?> childId = childIdField.get(childObject);
                     if (childId != null) {
@@ -373,7 +393,8 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
             Collection<?> collectionObjects = clField.get(parentObject);
             if (collectionObjects != null) {
                 for (Object childObject : collectionObjects) {
-                    processUpdateParentObjectWithChildObject(clInfo, parentObject, clInfoTo, clField, childObject, childIds, resource, transaction);
+                    processUpdateParentObjectWithChildObject(clInfo, parentObject, clInfoTo, clField, childObject,
+                            childIds, resource, transaction);
 
                     Comparable<?> childId = childIdField.get(childObject);
                     if (childId != null) {
@@ -385,7 +406,8 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
             Map<?, Object> mapObjects = clField.get(parentObject);
             if (mapObjects != null) {
                 for (Object childObject : mapObjects.values()) {
-                    processUpdateParentObjectWithChildObject(clInfo, parentObject, clInfoTo, clField, childObject, childIds, resource, transaction);
+                    processUpdateParentObjectWithChildObject(clInfo, parentObject, clInfoTo, clField, childObject,
+                            childIds, resource, transaction);
 
                     Comparable<?> childId = childIdField.get(childObject);
                     if (childId != null) {
@@ -395,7 +417,8 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
             }
         } else {
             Object childObject = clField.get(parentObject);
-            processUpdateParentObjectWithChildObject(clInfo, parentObject, clInfoTo, clField, childObject, childIds, resource, transaction);
+            processUpdateParentObjectWithChildObject(clInfo, parentObject, clInfoTo, clField, childObject, childIds,
+                    resource, transaction);
 
             if (childObject != null) {
                 Comparable<?> childId = childIdField.get(childObject);
@@ -423,7 +446,8 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
     private void processUpdateParentObjectWithChildObject(XdStorageClassInfo clInfo, Object parentObject,
                                                           XdStorageClassInfo clInfoTo, XdStorageObjectField clField,
                                                           Object childObject, Collection<?> childIds,
-                                                          IXdStorageForeignKeyResource resource, XdStorageTransaction transaction)
+                                                          IXdStorageForeignKeyResource resource, XdStorageTransaction
+                                                                transaction)
             throws XdStorageException, XdStorageConnectionException {
 
         if (childObject == null) return;
@@ -431,9 +455,11 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
         Comparable<?> parentObjectId = clInfo.getIdField().get(parentObject);
         Comparable<?> childObjectId = clInfoTo.getIdField().get(childObject);
         if (childObjectId == null) {
-            IXdStorageIdObservableWrapper observableChildObject = XdStorageObserverService.getObservableWrapper(childObject);
+            IXdStorageIdObservableWrapper observableChildObject = XdStorageObserverService
+                    .getObservableWrapper(childObject);
             if (parentObjectId == null) {
-                IXdStorageIdObservableWrapper observableParentObject = XdStorageObserverService.getObservableWrapper(parentObject);
+                IXdStorageIdObservableWrapper observableParentObject = XdStorageObserverService
+                        .getObservableWrapper(parentObject);
                 resource.insert(observableParentObject, observableChildObject, transaction);
             } else {
                 resource.insert(parentObjectId, observableChildObject, transaction);
@@ -444,7 +470,8 @@ public class XdStorageForeignKeyEngine implements IXdStorageForeignKeyEngine {
             }
             childIds.remove(childObjectId);
         } else {
-            IXdStorageIdObservableWrapper observableParentObject = XdStorageObserverService.getObservableWrapper(parentObject);
+            IXdStorageIdObservableWrapper observableParentObject = XdStorageObserverService
+                    .getObservableWrapper(parentObject);
             resource.insert(observableParentObject, childObjectId, transaction);
             childIds.remove(childObjectId);
         }

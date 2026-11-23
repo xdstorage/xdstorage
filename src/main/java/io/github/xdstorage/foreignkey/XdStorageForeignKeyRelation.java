@@ -89,7 +89,8 @@ public class XdStorageForeignKeyRelation {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         XdStorageForeignKeyRelation that = (XdStorageForeignKeyRelation) o;
-        return reverseRelation == that.reverseRelation && parentAnchored == that.parentAnchored && classFrom.equals(that.classFrom) && classTo.equals(that.classTo) && field.equals(that.field);
+        return reverseRelation == that.reverseRelation && parentAnchored == that.parentAnchored && classFrom.equals(that
+                .classFrom) && classTo.equals(that.classTo) && field.equals(that.field);
     }
 
     @Override

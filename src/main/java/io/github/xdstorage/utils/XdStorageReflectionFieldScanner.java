@@ -59,7 +59,8 @@ public final class XdStorageReflectionFieldScanner {
                                     fieldName, clazz.getName(), name, setterNameFor(name));
                             continue;
                         }
-                        properties.put(fieldName, new XdStorageObjectField(field, setter, getter, XdStorageClassMetadataRegistry.buildFieldInfo(field, getter)));
+                        properties.put(fieldName, new XdStorageObjectField(field, setter, getter,
+                                XdStorageClassMetadataRegistry.buildFieldInfo(field, getter)));
                     } catch (Exception ignored) {}
                 }
             }

@@ -53,7 +53,8 @@ public class XdStorageS4LifecycleTest {
         final Path dir = Files.createTempDirectory("s4_daemon_db");
         try {
             final XdStorageConfig config = XdStorageConfig.builder().daemonWorkerThreads(true).build();
-            final IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage("s4-daemon", dir.toString(), 128, config);
+            final IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage("s4-daemon", dir.toString(), 128,
+                    config);
             try {
                 // форсируем создание воркера через executor сервис-локатора (рефлексия: класс пакето-приватный)
                 final Object services = readField(storage, "services");
@@ -83,7 +84,8 @@ public class XdStorageS4LifecycleTest {
         final Path dir = Files.createTempDirectory("s4_hook_db");
         try {
             final XdStorageConfig config = XdStorageConfig.builder().registerShutdownHook(true).build();
-            final IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage("s4-hook", dir.toString(), 128, config);
+            final IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage("s4-hook", dir.toString(), 128,
+                    config);
             final Object hook = readField(storage, "shutdownHook");
             assertNotNull(hook, "shutdown hook must be registered while the storage is open");
 

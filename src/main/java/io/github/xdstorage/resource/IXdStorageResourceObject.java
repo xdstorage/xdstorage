@@ -74,7 +74,8 @@ public interface IXdStorageResourceObject<DaoInterface> extends IXdStorageListen
      * @throws XdStorageException          on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
-    void rollbackPerformingFirstPhaseCommit(XdStorageTransaction transaction, Collection<XdStorageObjectChange> changes) throws XdStorageException, XdStorageConnectionException;
+    void rollbackPerformingFirstPhaseCommit(XdStorageTransaction transaction, Collection<XdStorageObjectChange> changes)
+            throws XdStorageException, XdStorageConnectionException;
 
     /**
      * Phase 1 of the two-phase commit: durably persists the transaction's changes for this
@@ -88,7 +89,8 @@ public interface IXdStorageResourceObject<DaoInterface> extends IXdStorageListen
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      * @throws XdStorageException           on a storage-level failure
      */
-    void performFirstPhaseCommit(XdStorageTransaction transaction, XdStorageTransactionResourceChanges record) throws XdStorageConnectionException, XdStorageException;
+    void performFirstPhaseCommit(XdStorageTransaction transaction, XdStorageTransactionResourceChanges record) throws
+            XdStorageConnectionException, XdStorageException;
 
     /**
      * Phase 2 of the two-phase commit: publishes the phase-1 persisted changes into the
@@ -100,7 +102,8 @@ public interface IXdStorageResourceObject<DaoInterface> extends IXdStorageListen
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      * @throws XdStorageException           on a storage-level failure
      */
-    void performSecondPhaseCommit(XdStorageTransaction transaction, XdStorageTransactionResourceChanges record) throws XdStorageConnectionException, XdStorageException;
+    void performSecondPhaseCommit(XdStorageTransaction transaction, XdStorageTransactionResourceChanges record) throws
+            XdStorageConnectionException, XdStorageException;
 
     /**
      * Discards the transaction's staged changes in this resource (pre-commit rollback);

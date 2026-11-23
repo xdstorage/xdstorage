@@ -85,7 +85,8 @@ public class XdStorageQueryShapingTest {
         return result;
     }
 
-    private <T> List<String> orderedIds(final Class<T> cl, final String indexName, final XdStorageSearchQuery query) throws Exception {
+    private <T> List<String> orderedIds(final Class<T> cl, final String indexName, final XdStorageSearchQuery query)
+            throws Exception {
         final IXdStorageTransaction tx = storage.beginTransaction(60000L);
         try {
             final List<String> ids = storage.load(cl, indexName, query, tx)
@@ -128,7 +129,8 @@ public class XdStorageQueryShapingTest {
         final List<String> expected = ascendingIds(10, 20);
         assertEquals(expected, orderedIds(RangeOpsEntity.class, "range_idx", between(10, 20).orderByPrimary(false)),
                 "Hash id index: the ordered walk order survives into the result list");
-        assertEquals(expected, orderedIds(RangeOpsBTreeIdEntity.class, "range_bt_idx", between(10, 20).orderByPrimary(false)),
+        assertEquals(expected, orderedIds(RangeOpsBTreeIdEntity.class, "range_bt_idx", between(10, 20)
+                .orderByPrimary(false)),
                 "B+Tree id index: the ordered walk order survives into the result list");
     }
 
@@ -140,7 +142,8 @@ public class XdStorageQueryShapingTest {
         java.util.Collections.reverse(reversed);
         assertEquals(reversed, orderedIds(RangeOpsEntity.class, "range_idx", between(10, 20).orderByPrimary(true)),
                 "Hash id index: DESC is the exact mirror of ASC");
-        assertEquals(reversed, orderedIds(RangeOpsBTreeIdEntity.class, "range_bt_idx", between(10, 20).orderByPrimary(true)),
+        assertEquals(reversed, orderedIds(RangeOpsBTreeIdEntity.class, "range_bt_idx", between(10, 20)
+                .orderByPrimary(true)),
                 "B+Tree id index: DESC is the exact mirror of ASC");
     }
 
@@ -151,11 +154,13 @@ public class XdStorageQueryShapingTest {
                         between(0, 49).orderByPrimary(false).limit(5)),
                 "LIMIT truncates a bounded range to the first page");
         assertEquals(ascendingIds(41, 43), orderedIds(RangeOpsBTreeIdEntity.class, "range_bt_idx",
-                        new XdStorageSearchQuery(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.GT, 40L), null)
+                        new XdStorageSearchQuery(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.GT, 40L),
+                                null)
                                 .orderByPrimary(false).limit(3)),
                 "LIMIT pushes down to a lower-bound-only walk — early termination without an upper bound");
         assertEquals(ascendingIds(7, 7), orderedIds(RangeOpsEntity.class, "range_idx",
-                        new XdStorageSearchQuery(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.IN, Arrays.asList(7L, 15L, 42L)), null)
+                        new XdStorageSearchQuery(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.IN, Arrays
+                                .asList(7L, 15L, 42L)), null)
                                 .orderByPrimary(false).limit(1)),
                 "IN walk + LIMIT returns the first member in key order");
     }
@@ -164,13 +169,16 @@ public class XdStorageQueryShapingTest {
     @DisplayName("OFFSET/LIMIT pagination: page windows, tail pages, offset past the end, DESC pagination")
     public void offsetAndLimitPages() throws Exception {
         final String hashIdx = "range_idx";
-        assertEquals(ascendingIds(10, 14), orderedIds(RangeOpsEntity.class, hashIdx, between(0, 49).orderByPrimary(false).offset(10).limit(5)),
+        assertEquals(ascendingIds(10, 14), orderedIds(RangeOpsEntity.class, hashIdx, between(0, 49)
+                .orderByPrimary(false).offset(10).limit(5)),
                 "page window after the offset");
-        assertEquals(ascendingIds(45, 49), orderedIds(RangeOpsEntity.class, hashIdx, between(0, 49).orderByPrimary(false).offset(45)),
+        assertEquals(ascendingIds(45, 49), orderedIds(RangeOpsEntity.class, hashIdx, between(0, 49)
+                .orderByPrimary(false).offset(45)),
                 "the tail page without a limit");
         assertTrue(orderedIds(RangeOpsEntity.class, hashIdx, between(0, 49).orderByPrimary(false).offset(50)).isEmpty(),
                 "offset at the end yields an empty page");
-        assertTrue(orderedIds(RangeOpsBTreeIdEntity.class, "range_bt_idx", between(0, 49).orderByPrimary(false).offset(500)).isEmpty(),
+        assertTrue(orderedIds(RangeOpsBTreeIdEntity.class, "range_bt_idx", between(0, 49).orderByPrimary(false)
+                .offset(500)).isEmpty(),
                 "offset far past the end yields an empty page");
         assertEquals(Arrays.asList("id-7", "id-6", "id-5"), orderedIds(RangeOpsBTreeIdEntity.class, "range_bt_idx",
                         between(0, 9).orderByPrimary(true).offset(2).limit(3)),
@@ -180,11 +188,14 @@ public class XdStorageQueryShapingTest {
     @Test
     @DisplayName("LIMIT 0 is a legal empty page; empty results stay empty under shaping")
     public void limitZeroAndEmptyResults() throws Exception {
-        assertTrue(orderedIds(RangeOpsEntity.class, "range_idx", between(0, 49).orderByPrimary(false).limit(0)).isEmpty(),
+        assertTrue(orderedIds(RangeOpsEntity.class, "range_idx", between(0, 49).orderByPrimary(false).limit(0))
+                .isEmpty(),
                 "LIMIT 0 is an empty page, not an error");
-        assertTrue(orderedIds(RangeOpsBTreeIdEntity.class, "range_bt_idx", between(100, 200).orderByPrimary(false).limit(5)).isEmpty(),
+        assertTrue(orderedIds(RangeOpsBTreeIdEntity.class, "range_bt_idx", between(100, 200).orderByPrimary(false)
+                .limit(5)).isEmpty(),
                 "a range matching nothing stays empty under shaping");
-        assertTrue(orderedIds(RangeOpsEntity.class, "range_idx", between(100, 200).orderByPrimary(true).offset(3).limit(3)).isEmpty(),
+        assertTrue(orderedIds(RangeOpsEntity.class, "range_idx", between(100, 200).orderByPrimary(true).offset(3)
+                .limit(3)).isEmpty(),
                 "empty result with full shaping");
     }
 
@@ -218,7 +229,8 @@ public class XdStorageQueryShapingTest {
     @DisplayName("union of two ranges: ORDER BY sorts the union, LIMIT pages the sorted order")
     public void unionOfTwoRangesOrderedAndPaged() throws Exception {
         final XdStorageSearchQuery union = between(0, 9).orderByPrimary(false);
-        union.or(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange(40L, 49L)), null);
+        union.or(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange(40L, 49L)),
+                null);
 
         final List<String> expected = ascendingIds(0, 9);
         expected.addAll(ascendingIds(40, 49));
@@ -226,12 +238,14 @@ public class XdStorageQueryShapingTest {
                 "the union of two walks comes out in key order");
 
         final XdStorageSearchQuery paged = between(0, 9).orderByPrimary(false).limit(3);
-        paged.or(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange(40L, 49L)), null);
+        paged.or(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange(40L, 49L)),
+                null);
         assertEquals(Arrays.asList("id-0", "id-1", "id-2"), orderedIds(RangeOpsEntity.class, "range_idx", paged),
                 "LIMIT pages the sorted union");
 
         final XdStorageSearchQuery descTail = between(0, 9).orderByPrimary(true).limit(2);
-        descTail.or(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange(40L, 49L)), null);
+        descTail.or(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange(40L, 49L)),
+                null);
         assertEquals(Arrays.asList("id-49", "id-48"), orderedIds(RangeOpsEntity.class, "range_idx", descTail),
                 "DESC pages the sorted union from the tail");
     }
@@ -269,7 +283,8 @@ public class XdStorageQueryShapingTest {
         final List<String> expected = ascendingIds(10, 20);
         final IXdStorageTransaction readTx = storage.beginTransaction(60000L);
         try {
-            assertEquals(expected, storage.load(RangeOpsEntity.class, "range_idx", between(10, 20).orderByPrimary(false), readTx)
+            assertEquals(expected, storage.load(RangeOpsEntity.class, "range_idx", between(10, 20)
+                    .orderByPrimary(false), readTx)
                     .stream().map(RangeOpsEntity::getId).collect(Collectors.toList()));
 
             final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -301,17 +316,21 @@ public class XdStorageQueryShapingTest {
 
             final List<String> withDeletion = new ArrayList<>(expected);
             withDeletion.remove("id-15");
-            assertEquals(withDeletion, storage.load(RangeOpsEntity.class, "range_idx", between(10, 20).orderByPrimary(false), readTx)
+            assertEquals(withDeletion, storage.load(RangeOpsEntity.class, "range_idx", between(10, 20)
+                    .orderByPrimary(false), readTx)
                             .stream().map(RangeOpsEntity::getId).collect(Collectors.toList()),
-                    "inserts stay invisible in the open tx; the deletion is reflected through the live index — deterministically");
+                    "inserts stay invisible in the open tx; the deletion is reflected through the live index — " +
+                            "deterministically");
             storage.commitTransaction(readTx);
 
-            final List<String> after = orderedIds(RangeOpsEntity.class, "range_idx", between(10, 20).orderByPrimary(false));
+            final List<String> after = orderedIds(RangeOpsEntity.class, "range_idx", between(10, 20)
+                    .orderByPrimary(false));
             final Set<String> afterSet = new HashSet<>(after);
             final Set<String> expectedAfter = new HashSet<>(ascendingIds(10, 20));
             expectedAfter.remove("id-15");
             expectedAfter.add("id-late");
-            assertEquals(expectedAfter, afterSet, "after the read tx ends, the deletion and the insert are both visible");
+            assertEquals(expectedAfter, afterSet,
+                    "after the read tx ends, the deletion and the insert are both visible");
             assertEquals(expectedAfter.size(), after.size(), "no duplicates in the page");
             assertEquals(11L, countOf(RangeOpsEntity.class, "range_idx", between(10, 20)),
                     "the count reflects the new snapshot: id-15 gone, id-late (score 16) in");
@@ -333,11 +352,13 @@ public class XdStorageQueryShapingTest {
                 new XdStorageSearchQuery(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.GT, -1L), null)),
                 "a range operator never counts null values");
         assertEquals(3L, countOf(RangeOpsEntity.class, "range_idx",
-                new XdStorageSearchQuery(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.IS_NULL, null), null)),
+                new XdStorageSearchQuery(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.IS_NULL, null),
+                        null)),
                 "IS_NULL counts the null-score records");
         assertTrue(countOf(RangeOpsBTreeIdEntity.class, "range_bt_idx", between(500, 1000)) == 0L,
                 "an empty match set counts to zero");
-        assertEquals(11L, countOf(RangeOpsEntity.class, "range_idx", between(10, 20).orderByPrimary(false).limit(3).offset(2)),
+        assertEquals(11L, countOf(RangeOpsEntity.class, "range_idx", between(10, 20).orderByPrimary(false).limit(3)
+                .offset(2)),
                 "COUNT ignores the shaping: the page would show 3, the count is 11");
         assertEquals(11L, countOf(RangeOpsBTreeIdEntity.class, "range_bt_idx", between(10, 20)),
                 "same count on the B+Tree id index");

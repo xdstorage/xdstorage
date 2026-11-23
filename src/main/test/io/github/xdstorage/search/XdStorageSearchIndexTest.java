@@ -120,7 +120,8 @@ public class XdStorageSearchIndexTest {
         // до создания карты полей ид потомков возвращается заглушка
         assertSame(XdStorageDummyObjectIdField.Instance, index.getChildIdField(SearchEngineCrewMember.class));
 
-        index.addChildIdField(SearchEngineCrewMember.class, XdStorageClassMetadataRegistry.getClassIdField(SearchEngineCrewMember.class));
+        index.addChildIdField(SearchEngineCrewMember.class, XdStorageClassMetadataRegistry
+                .getClassIdField(SearchEngineCrewMember.class));
 
         assertNotNull(index.getChildIdField(SearchEngineCrewMember.class));
         // после инициализации карты незарегистрированный класс дает null (а не заглушку)

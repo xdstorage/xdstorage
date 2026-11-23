@@ -66,7 +66,8 @@ public abstract class AbstractBTreeIntegrationTest {
             @Override public IXdStorageTransaction beginTransaction() { return null; }
             @Override public IXdStorageTransaction beginTransaction(long timeout) { return null; }
             @Override public IXdStorageTransaction beginTransaction(IXdStorageTransaction tx) { return null; }
-            @Override public IXdStorageTransaction beginTransaction(IXdStorageTransaction tx, long timeout) { return null; }
+            @Override public IXdStorageTransaction beginTransaction(IXdStorageTransaction tx, long timeout) { return
+                    null; }
             @Override public void commitTransaction(IXdStorageTransaction tx) {}
             @Override public void rollbackTransaction(IXdStorageTransaction tx) {}
             @Override public void save(Object o) {}
@@ -97,7 +98,8 @@ public abstract class AbstractBTreeIntegrationTest {
 
             @Override public void delete(Collection<?> r) {}
             @Override public void delete(Collection<?> r, IXdStorageTransaction tx) {}
-            @Override public io.github.xdstorage.transaction.IXdStorageTransactionManager getTransactionManager() { return null; }
+            @Override public io.github.xdstorage.transaction.IXdStorageTransactionManager getTransactionManager() {
+                    return null; }
             @Override public void shutdown() {}
             @Override public void checkpoint() {}
         };

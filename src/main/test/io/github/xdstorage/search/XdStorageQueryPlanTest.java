@@ -74,7 +74,8 @@ class XdStorageQueryPlanTest {
     }
 
     private XdStorageSearchQuery notEqualsQuery(final long value) {
-        return new XdStorageSearchQuery(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.NOT_EQUALS, value), null);
+        return new XdStorageSearchQuery(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.NOT_EQUALS, value),
+                null);
     }
 
     private XdStorageSearchQuery emptyQuery() {
@@ -167,21 +168,25 @@ class XdStorageQueryPlanTest {
             // INDEX_SEEK: ровно одна сущность с score == 7
             final XdStorageQueryPlan seekPlan = storage.explain(RangeOpsEntity.class, "range_idx", equalsQuery(7L), tx);
             assertEquals(XdStorageQueryPlan.Path.INDEX_SEEK, seekPlan.getPath());
-            final Collection<RangeOpsEntity> seekResult = storage.load(RangeOpsEntity.class, "range_idx", equalsQuery(7L), tx);
+            final Collection<RangeOpsEntity> seekResult = storage.load(RangeOpsEntity.class, "range_idx",
+                    equalsQuery(7L), tx);
             assertEquals(1, seekResult.size(), "SEEK: ровно одна запись score == 7");
             assertEquals("pid-7", ((RangeOpsEntity) seekResult.iterator().next()).getId());
 
             // INDEX_RANGE_WALK: все записи score > 25 (5 штук: 26..30)
-            final XdStorageQueryPlan walkPlan = storage.explain(RangeOpsBTreeIdEntity.class, "range_bt_idx", gtQuery(25L), tx);
+            final XdStorageQueryPlan walkPlan = storage.explain(RangeOpsBTreeIdEntity.class, "range_bt_idx",
+                    gtQuery(25L), tx);
             assertEquals(XdStorageQueryPlan.Path.INDEX_RANGE_WALK, walkPlan.getPath());
             final Collection<RangeOpsBTreeIdEntity> walkResult =
                     storage.load(RangeOpsBTreeIdEntity.class, "range_bt_idx", gtQuery(25L), tx);
             assertEquals(5, walkResult.size(), "WALK: ровно пять записей score > 25");
 
             // SCAN: NOT_EQUALS возвращает все, кроме одной
-            final XdStorageQueryPlan scanPlan = storage.explain(RangeOpsEntity.class, "range_idx", notEqualsQuery(7L), tx);
+            final XdStorageQueryPlan scanPlan = storage.explain(RangeOpsEntity.class, "range_idx", notEqualsQuery(7L),
+                    tx);
             assertEquals(XdStorageQueryPlan.Path.SCAN, scanPlan.getPath());
-            final Collection<RangeOpsEntity> scanResult = storage.load(RangeOpsEntity.class, "range_idx", notEqualsQuery(7L), tx);
+            final Collection<RangeOpsEntity> scanResult = storage.load(RangeOpsEntity.class, "range_idx",
+                    notEqualsQuery(7L), tx);
             assertEquals(29, scanResult.size(), "SCAN: все, кроме одной");
         } finally {
             storage.rollbackTransaction(tx);

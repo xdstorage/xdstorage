@@ -91,7 +91,8 @@ public class ForeignKeyCrossTxVisibilityTest extends AbstractForeignKeyEngineInt
     public void testTx0SavesChild_Tx2DeletesParent_Vetoed() throws Exception {
         final String unique = String.valueOf(System.nanoTime());
         final String path = "./target/fk_cross_tx_vis_" + unique;
-        IXdFileStorage realStorage = XdStorageProvider.newOrGetFileStorage("fk_cross_vis_" + unique, path, 128, FilesFormat.YAML);
+        IXdFileStorage realStorage = XdStorageProvider.newOrGetFileStorage("fk_cross_vis_" + unique, path, 128,
+                FilesFormat.YAML);
         try {
             // TX0: save parent + child (wired via @XdStorageAutoSave childRef) -> commit
             IXdStorageTransaction tx0 = realStorage.beginTransaction();

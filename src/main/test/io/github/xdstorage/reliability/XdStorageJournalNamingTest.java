@@ -130,7 +130,8 @@ public class XdStorageJournalNamingTest {
     private static Path legacySpellingOf(final Path journal) {
         final String baseNoExt = journal.getFileName().toString()
                 .replace(XdStorageYamlCommitJournal.JOURNAL_SUFFIX, "");
-        return journal.getParent().getParent().resolve(baseNoExt + ".yaml" + XdStorageYamlCommitJournal.LEGACY_JOURNAL_SUFFIX);
+        return journal.getParent().getParent().resolve(baseNoExt + ".yaml" + XdStorageYamlCommitJournal
+                .LEGACY_JOURNAL_SUFFIX);
     }
 
     /** journal/<base>-journal.yaml → <base>-journal.yaml, in the base's directory */
@@ -141,7 +142,8 @@ public class XdStorageJournalNamingTest {
     }
 
     @Test
-    @DisplayName("JRNLDATA: индексный журнал живёт в data/<class>/journal/ (носитель адресуемости); дев-спеллинг под indexes/ оседает туда же")
+    @DisplayName("JRNLDATA: индексный журнал живёт в data/<class>/journal/ (носитель адресуемости); дев-спеллинг под " +
+            "indexes/ оседает туда же")
     public void indexJournalLivesInDataJournalDir() throws Exception {
         // a) while open: the id-index journal is in data/<Class>/journal/; none under indexes/
         final Path dir = tempDir.resolve("idx-jrnl");
@@ -205,7 +207,8 @@ public class XdStorageJournalNamingTest {
     }
 
     @Test
-    @DisplayName("a 2.0.0-era folder: the stacked-named journal is replayed (commits survive) and migrates into journal/")
+    @DisplayName("a 2.0.0-era folder: the stacked-named journal is replayed (commits survive) and migrates into " +
+            "journal/")
     public void legacyJournalReplayedAndMigrated() throws Exception {
         final Path dir = tempDir.resolve("legacy");
         final IXdFileStorage first = open(dir, "jrnl-legacy-" + System.nanoTime());
@@ -238,7 +241,8 @@ public class XdStorageJournalNamingTest {
             saveSixth(second);
             final IXdStorageTransaction tx = second.beginTransaction(TX_TIMEOUT);
             assertEquals(6, second.load(RangeOpsEntity.class, o -> true, tx).size(),
-                    "the un-checkpointed commits survived the upgrade (replayed from the stacked name) + the new object");
+                    "the un-checkpointed commits survived the upgrade (replayed from the stacked name) + the new " +
+                            "object");
             second.commitTransaction(tx);
 
             assertFalse(Files.exists(dir.resolve("data/RangeOpsEntity/RangeOpsEntity-jr-1.yaml.journal.yaml")),
@@ -297,7 +301,8 @@ public class XdStorageJournalNamingTest {
     }
 
     @Test
-    @DisplayName("both namings present: the journal-directory file wins (the updated body over the twin's), the twin is removed")
+    @DisplayName("both namings present: the journal-directory file wins (the updated body over the twin's), the twin " +
+            "is removed")
     public void bothPresentNewWins() throws Exception {
         final Path dir = tempDir.resolve("both");
         final IXdFileStorage first = open(dir, "jrnl-both-" + System.nanoTime());
@@ -315,8 +320,10 @@ public class XdStorageJournalNamingTest {
         renameJournalsToLegacySpelling(tempDir.resolve("five"));
         copyTree(tempDir.resolve("five"), six);
         Files.write(six.resolve("data/RangeOpsEntity/RangeOpsEntity-jr-1.yaml"), new byte[0]);
-        assertFalse(journals(six, XdStorageYamlCommitJournal.LEGACY_JOURNAL_SUFFIX).isEmpty(), "fixture: legacy twins planted");
-        assertFalse(journals(six, XdStorageYamlCommitJournal.JOURNAL_SUFFIX).isEmpty(), "fixture: journal-directory files present");
+        assertFalse(journals(six, XdStorageYamlCommitJournal.LEGACY_JOURNAL_SUFFIX).isEmpty(),
+                "fixture: legacy twins planted");
+        assertFalse(journals(six, XdStorageYamlCommitJournal.JOURNAL_SUFFIX).isEmpty(),
+                "fixture: journal-directory files present");
 
         // the fixture takes over the original path (absolute paths in the structure metadata)
         Files.move(dir, tempDir.resolve("both-retired"));
@@ -340,7 +347,8 @@ public class XdStorageJournalNamingTest {
         } finally {
             second.shutdown();
         }
-        final List<Path> remainingTwins = journals(dir.resolve("data"), XdStorageYamlCommitJournal.LEGACY_JOURNAL_SUFFIX);
+        final List<Path> remainingTwins = journals(dir.resolve("data"), XdStorageYamlCommitJournal
+                .LEGACY_JOURNAL_SUFFIX);
         assertTrue(remainingTwins.isEmpty(),
                 "the superseded stacked-named twin was removed after the clean replay — remaining: " + remainingTwins);
     }

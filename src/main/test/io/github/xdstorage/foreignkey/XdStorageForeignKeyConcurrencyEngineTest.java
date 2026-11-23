@@ -247,12 +247,15 @@ public class XdStorageForeignKeyConcurrencyEngineTest extends AbstractForeignKey
                     startLatch.await();
                     XdStorageTransaction tx = createTx("t5_" + idx);
                     if (idx % 3 == 0) {
-                        cache.cacheInsert(new XdStorageForeignKeyPair(5L, 5L, parentInfo, childInfo, childRefField, XdStorageForeignKeyObjectChangeType.INSERT), tx);
+                        cache.cacheInsert(new XdStorageForeignKeyPair(5L, 5L, parentInfo, childInfo, childRefField,
+                                XdStorageForeignKeyObjectChangeType.INSERT), tx);
                     } else if (idx % 3 == 1) {
-                        cache.cacheDelete(new XdStorageForeignKeyPair(5L, 5L, parentInfo, childInfo, childRefField, XdStorageForeignKeyObjectChangeType.DELETE), tx);
+                        cache.cacheDelete(new XdStorageForeignKeyPair(5L, 5L, parentInfo, childInfo, childRefField,
+                                XdStorageForeignKeyObjectChangeType.DELETE), tx);
                         cache.release(tx);
                     } else {
-                        cache.cacheInsert(new XdStorageForeignKeyPair(5L, 5L, parentInfo, childInfo, childRefField, XdStorageForeignKeyObjectChangeType.INSERT), tx);
+                        cache.cacheInsert(new XdStorageForeignKeyPair(5L, 5L, parentInfo, childInfo, childRefField,
+                                XdStorageForeignKeyObjectChangeType.INSERT), tx);
                     }
                 } catch (Exception e) {
                     errors.incrementAndGet();
@@ -275,7 +278,8 @@ public class XdStorageForeignKeyConcurrencyEngineTest extends AbstractForeignKey
     @DisplayName("T6: Cross-TX FK visibility: write-set shared across txs")
     void testCrossTransactionFKVisibility() throws Exception {
         XdStorageTransaction tx1 = createTx("tx6_1");
-        cache.cacheInsert(new XdStorageForeignKeyPair(6L, 6L, parentInfo, childInfo, childRefField, XdStorageForeignKeyObjectChangeType.INSERT), tx1);
+        cache.cacheInsert(new XdStorageForeignKeyPair(6L, 6L, parentInfo, childInfo, childRefField,
+                XdStorageForeignKeyObjectChangeType.INSERT), tx1);
         assertEquals(1, cache.pairsForTransaction(tx1).size(), "Tx1's pair registered");
 
         XdStorageTransaction tx2 = createTx("tx6_2");
@@ -305,9 +309,11 @@ public class XdStorageForeignKeyConcurrencyEngineTest extends AbstractForeignKey
                     startLatch.await();
                     XdStorageTransaction tx = createTx("t7_" + idx);
                     if (idx % 2 == 0) {
-                        cache.cacheInsert(new XdStorageForeignKeyPair(7L, 7L, parentInfo, childInfo, childRefField, XdStorageForeignKeyObjectChangeType.INSERT), tx);
+                        cache.cacheInsert(new XdStorageForeignKeyPair(7L, 7L, parentInfo, childInfo, childRefField,
+                                XdStorageForeignKeyObjectChangeType.INSERT), tx);
                     } else {
-                        cache.cacheDelete(new XdStorageForeignKeyPair(7L, 7L, parentInfo, childInfo, childRefField, XdStorageForeignKeyObjectChangeType.DELETE), tx);
+                        cache.cacheDelete(new XdStorageForeignKeyPair(7L, 7L, parentInfo, childInfo, childRefField,
+                                XdStorageForeignKeyObjectChangeType.DELETE), tx);
                     }
                 } catch (Exception e) {
                     errors.incrementAndGet();
@@ -341,7 +347,8 @@ public class XdStorageForeignKeyConcurrencyEngineTest extends AbstractForeignKey
                 try {
                     startLatch.await();
                     XdStorageTransaction tx = createTx("t8_" + idx);
-                    cache.cacheInsert(new XdStorageForeignKeyPair(8L + idx, 8L, parentInfo, childInfo, childRefField, XdStorageForeignKeyObjectChangeType.INSERT), tx);
+                    cache.cacheInsert(new XdStorageForeignKeyPair(8L + idx, 8L, parentInfo, childInfo, childRefField,
+                            XdStorageForeignKeyObjectChangeType.INSERT), tx);
                 } catch (Exception e) {
                     errors.incrementAndGet();
                 } finally {
@@ -364,12 +371,14 @@ public class XdStorageForeignKeyConcurrencyEngineTest extends AbstractForeignKey
     void testDeferredIdResolutionEngine() throws Exception {
         XdStorageTransaction tx = createTx("tx9");
 
-        cache.cacheInsert(new XdStorageForeignKeyPair(null, 9L, parentInfo, childInfo, childRefField, XdStorageForeignKeyObjectChangeType.INSERT), tx);
+        cache.cacheInsert(new XdStorageForeignKeyPair(null, 9L, parentInfo, childInfo, childRefField,
+                XdStorageForeignKeyObjectChangeType.INSERT), tx);
         assertEquals(1, cache.pairsForTransaction(tx).size(), "Unresolved pair registered");
         assertNull(cache.pairsForTransaction(tx).get(0).frontId(), "Parent ID unresolved");
 
         cache.removePairForTransaction(tx, cache.pairsForTransaction(tx).get(0));
-        cache.cacheInsert(new XdStorageForeignKeyPair(99L, 9L, parentInfo, childInfo, childRefField, XdStorageForeignKeyObjectChangeType.INSERT), tx);
+        cache.cacheInsert(new XdStorageForeignKeyPair(99L, 9L, parentInfo, childInfo, childRefField,
+                XdStorageForeignKeyObjectChangeType.INSERT), tx);
         assertEquals(Long.valueOf(99L), cache.pairsForTransaction(tx).get(0).frontId(), "Parent ID resolved to 99L");
     }
 
@@ -434,10 +443,12 @@ public class XdStorageForeignKeyConcurrencyEngineTest extends AbstractForeignKey
     @DisplayName("T12: Later-wins: DELETE after INSERT removes pair")
     void testLaterWinsDeleteWins() throws Exception {
         XdStorageTransaction tx = createTx("tx12");
-        cache.cacheInsert(new XdStorageForeignKeyPair(12L, 12L, parentInfo, childInfo, childRefField, XdStorageForeignKeyObjectChangeType.INSERT), tx);
+        cache.cacheInsert(new XdStorageForeignKeyPair(12L, 12L, parentInfo, childInfo, childRefField,
+                XdStorageForeignKeyObjectChangeType.INSERT), tx);
         assertEquals(1, cache.pairsForTransaction(tx).size(), "INSERT registered");
 
-        cache.cacheDelete(new XdStorageForeignKeyPair(12L, 12L, parentInfo, childInfo, childRefField, XdStorageForeignKeyObjectChangeType.DELETE), tx);
+        cache.cacheDelete(new XdStorageForeignKeyPair(12L, 12L, parentInfo, childInfo, childRefField,
+                XdStorageForeignKeyObjectChangeType.DELETE), tx);
         assertEquals(0, cache.pairsForTransaction(tx).size(), "DELETE removed pair (later-wins)");
     }
 
@@ -448,10 +459,12 @@ public class XdStorageForeignKeyConcurrencyEngineTest extends AbstractForeignKey
     @DisplayName("T13: Later-wins: INSERT after DELETE restores pair")
     void testLaterWinsInsertRestores() throws Exception {
         XdStorageTransaction tx = createTx("tx13");
-        cache.cacheInsert(new XdStorageForeignKeyPair(13L, 13L, parentInfo, childInfo, childRefField, XdStorageForeignKeyObjectChangeType.DELETE), tx);
+        cache.cacheInsert(new XdStorageForeignKeyPair(13L, 13L, parentInfo, childInfo, childRefField,
+                XdStorageForeignKeyObjectChangeType.DELETE), tx);
         assertEquals(1, cache.pairsForTransaction(tx).size(), "DELETE registered");
 
-        cache.cacheInsert(new XdStorageForeignKeyPair(13L, 13L, parentInfo, childInfo, childRefField, XdStorageForeignKeyObjectChangeType.INSERT), tx);
+        cache.cacheInsert(new XdStorageForeignKeyPair(13L, 13L, parentInfo, childInfo, childRefField,
+                XdStorageForeignKeyObjectChangeType.INSERT), tx);
         assertEquals(1, cache.pairsForTransaction(tx).size(), "INSERT restored pair");
         assertEquals(XdStorageForeignKeyObjectChangeType.INSERT, cache.pairsForTransaction(tx).get(0).type());
     }
@@ -467,7 +480,8 @@ public class XdStorageForeignKeyConcurrencyEngineTest extends AbstractForeignKey
         fkResource.insert(14L, 14L, transaction);
         assertEquals(1, fkResource.readByParentObjectId(14L, transaction).size());
 
-        cache.cacheDelete(new XdStorageForeignKeyPair(14L, 14L, parentInfo, childInfo, childRefField, XdStorageForeignKeyObjectChangeType.DELETE), transaction);
+        cache.cacheDelete(new XdStorageForeignKeyPair(14L, 14L, parentInfo, childInfo, childRefField,
+                XdStorageForeignKeyObjectChangeType.DELETE), transaction);
         assertEquals(0, cache.pairsForTransaction(transaction).size(), "Pair dissolved");
     }
 
@@ -481,7 +495,8 @@ public class XdStorageForeignKeyConcurrencyEngineTest extends AbstractForeignKey
                 parentInfo, childInfo, childRefField, transaction);
         fkResource.insert(15L, 15L, transaction);
 
-        cache.cacheDelete(new XdStorageForeignKeyPair(15L, 15L, parentInfo, childInfo, childRefField, XdStorageForeignKeyObjectChangeType.DELETE), transaction);
+        cache.cacheDelete(new XdStorageForeignKeyPair(15L, 15L, parentInfo, childInfo, childRefField,
+                XdStorageForeignKeyObjectChangeType.DELETE), transaction);
         assertEquals(0, cache.pairsForTransaction(transaction).size(), "All pairs dissolved");
     }
 
@@ -505,7 +520,8 @@ public class XdStorageForeignKeyConcurrencyEngineTest extends AbstractForeignKey
     @DisplayName("T17: Unresolved deferred-ID: stays in write-set until phase-1")
     void testUnresolvedDeferredIdRejected() throws Exception {
         XdStorageTransaction tx = createTx("tx17");
-        cache.cacheInsert(new XdStorageForeignKeyPair(null, 17L, parentInfo, childInfo, childRefField, XdStorageForeignKeyObjectChangeType.INSERT), tx);
+        cache.cacheInsert(new XdStorageForeignKeyPair(null, 17L, parentInfo, childInfo, childRefField,
+                XdStorageForeignKeyObjectChangeType.INSERT), tx);
 
         assertEquals(null, cache.pairsForTransaction(tx).get(0).frontId(), "Pair is unresolved");
         assertEquals(1, cache.pairsForTransaction(tx).size(), "Unresolved pair stays in write-set");
@@ -576,8 +592,10 @@ public class XdStorageForeignKeyConcurrencyEngineTest extends AbstractForeignKey
             private final Set<Object> resources = new HashSet<>();
             @Override public void startCriticalSection(boolean r) {}
             @Override public void finishCriticalSection() {}
-            @Override public boolean isResourceRegistered(io.github.xdstorage.resource.IXdStorageResourceObject res) { return resources.contains(res.getResourceId()); }
-            @Override public void registerResource(io.github.xdstorage.resource.IXdStorageResourceObject res, int order) { resources.add(res.getResourceId()); }
+            @Override public boolean isResourceRegistered(io.github.xdstorage.resource.IXdStorageResourceObject res) {
+                    return resources.contains(res.getResourceId()); }
+            @Override public void registerResource(io.github.xdstorage.resource.IXdStorageResourceObject res, int order)
+                    { resources.add(res.getResourceId()); }
         };
     }
 }

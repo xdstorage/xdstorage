@@ -16,7 +16,8 @@ public class XdStorageDummyIdGenerator implements IXdStorageIdGenerator {
 
     /** Always returns {@code null} — this generator never assigns ids. */
     @Override
-    public Object generate(final Class<?> cl, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException {
+    public Object generate(final Class<?> cl, final IXdStorage storage, final IXdStorageTransaction transaction) throws
+            XdStorageException {
         return null;
     }
 }

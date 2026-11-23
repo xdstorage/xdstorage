@@ -81,7 +81,8 @@ public class XdStorageBTreeStructureInvariantTest {
             // Накатываем двухфазный коммит сохранения страниц на диск
             storage.save(bTree, txWrite);
             txWrite.commit();
-            System.out.println(String.format(" -> Успешно вставлено %d элементов в случайном порядке.", ELEMENTS_COUNT));
+            System.out.println(String.format(" -> Успешно вставлено %d элементов в случайном порядке.",
+                    ELEMENTS_COUNT));
         } catch (Throwable e) {
             txWrite.rollback();
             System.err.println("🚨 Крах дерева на фазе массовой вставки/расщепления страниц:");
@@ -98,7 +99,8 @@ public class XdStorageBTreeStructureInvariantTest {
             for (Integer key : keysSequence) {
                 List<Object> results = loadedTree.find(key, storage, txVerify);
                 assertNotNull(results, "Метод find() вернул null для ключа: " + key);
-                assertFalse(results.isEmpty(), "🚨 ПОТEРЯ КЛЮЧА! Навигатор поиска промахнулся мимо листа для ключа: " + key);
+                assertFalse(results.isEmpty(), "🚨 ПОТEРЯ КЛЮЧА! Навигатор поиска промахнулся мимо листа для ключа: " +
+                        key);
             }
             txVerify.commit();
             System.out.println("🎉 ИНВАРИАНТ 1 ВЗЯТ: Структура дерева после сплитов абсолютно консистентна!");
@@ -141,9 +143,12 @@ public class XdStorageBTreeStructureInvariantTest {
                         for (int m = deletedCounter; m < deleteSequence.size(); m++) {
                             Integer remainingKey = deleteSequence.get(m);
                             List<Object> remainingValues = bTree.find(remainingKey, storage, txDelete);
-                            assertNotNull(remainingValues, "Сбой навигации при слиянии! Null для ключа: " + remainingKey);
+                            assertNotNull(remainingValues, "Сбой навигации при слиянии! Null для ключа: " +
+                                    remainingKey);
                             assertFalse(remainingValues.isEmpty(),
-                                    "🚨 СТРУКТУРНЫЙ СБОЙ СЛИЯНИЯ! Дерево потеряло доступ к живому ключу '" + remainingKey + "' после удаления " + deletedCounter + " элементов!");
+                                    "🚨 СТРУКТУРНЫЙ СБОЙ СЛИЯНИЯ! Дерево потеряло доступ "
+                                            + "к живому ключу '" + remainingKey + "' после удаления "
+                                            + deletedCounter + " элементов!");
                         }
                     }
                 }

@@ -119,7 +119,8 @@ public final class XdStorageFormatMeta {
      * @param formatVersion the on-disk format generation to record
      * @throws io.github.xdstorage.exceptions.XdStorageRuntimeException when the file cannot be written
      */
-    public static void write(final File folder, final String storageName, final String format, final int formatVersion) {
+    public static void write(final File folder, final String storageName, final String format, final int formatVersion)
+            {
         final Properties props = new Properties();
         props.setProperty(KEY_FORMAT_VERSION, String.valueOf(formatVersion));
         props.setProperty(KEY_FORMAT, format);
@@ -150,7 +151,8 @@ public final class XdStorageFormatMeta {
      * @return {@code true} when the marker was rewritten
      * @throws io.github.xdstorage.exceptions.XdStorageRuntimeException when the marker cannot be written
      */
-    public static boolean upgradeFormatMarkerToCurrent(final File folder, final String storageName, final String format) {
+    public static boolean upgradeFormatMarkerToCurrent(final File folder, final String storageName, final String format)
+            {
         final Properties meta = read(folder);
         if (meta == null) {
             return false; // the legacy 1.x no-marker contract stays untouched
@@ -164,7 +166,8 @@ public final class XdStorageFormatMeta {
         upgraded.setProperty(KEY_FORMAT, meta.getProperty(KEY_FORMAT, format));
         upgraded.setProperty(KEY_STORAGE, meta.getProperty(KEY_STORAGE, storageName));
         upgraded.setProperty(KEY_LIBRARY_VERSION, XdStorageVersion.getVersion());
-        upgraded.setProperty(KEY_CREATED_AT, meta.getProperty(KEY_CREATED_AT, java.time.OffsetDateTime.now().toString()));
+        upgraded.setProperty(KEY_CREATED_AT, meta.getProperty(KEY_CREATED_AT, java.time.OffsetDateTime.now()
+                .toString()));
         final File metaFile = new File(folder, META_FILE_NAME);
         try (final OutputStream out = new FileOutputStream(metaFile)) {
             // Properties.store(OutputStream) is fixed ISO-8859-1 with unicode escapes by

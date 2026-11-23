@@ -90,7 +90,8 @@ public class XdStorageWrapperJavaBeansContractTest {
 
     private ValueEqualsBean newUnmodifiableWrapper(final ValueEqualsBean inner) throws Exception {
         final Class<?> w = XdStorageProxyCompilationEngine.getClassUnmodifiableWrapper(ValueEqualsBean.class);
-        return (ValueEqualsBean) w.getConstructor(Object.class, ValueEqualsBean.class, IXdStorage.class, IXdStorageTransaction.class)
+        return (ValueEqualsBean) w.getConstructor(Object.class, ValueEqualsBean.class, IXdStorage.class,
+                IXdStorageTransaction.class)
                 .newInstance(null, inner, storage, transaction);
     }
 
@@ -237,7 +238,8 @@ public class XdStorageWrapperJavaBeansContractTest {
         assertEquals(Long.valueOf(1L), w1.getId());
         final IXdStorageSimpleWrapper asWrapper = (IXdStorageSimpleWrapper) w1;
         assertEquals(b1.getId(), asWrapper.getObjectId__());
-        assertEquals("business:delegated", w1.businessMethod(), "non-accessor public methods delegate through the simple wrapper");
+        assertEquals("business:delegated", w1.businessMethod(),
+                "non-accessor public methods delegate through the simple wrapper");
     }
 
     @Test
@@ -322,11 +324,13 @@ public class XdStorageWrapperJavaBeansContractTest {
         assertThrows(XdStorageRuntimeException.class, () -> w1.setActive(true));
         assertThrows(XdStorageRuntimeException.class, () -> w1.setChild(child(9L, "l9")));
         // RBCAUSE: the generated setters mark with the site descriptor (site, null cause)
-        verify(transaction, times(3)).markRollbackOnly(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.isNull());
+        verify(transaction, times(3)).markRollbackOnly(org.mockito.ArgumentMatchers.anyString(), org.mockito
+                .ArgumentMatchers.isNull());
 
         // non-accessor public methods are closed the same way
         assertThrows(XdStorageRuntimeException.class, w1::businessMethod);
-        verify(transaction, times(4)).markRollbackOnly(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.isNull());
+        verify(transaction, times(4)).markRollbackOnly(org.mockito.ArgumentMatchers.anyString(), org.mockito
+                .ArgumentMatchers.isNull());
     }
 
     @Test
@@ -387,7 +391,8 @@ public class XdStorageWrapperJavaBeansContractTest {
         ow.setChild(child(5L, "l5"));
 
         assertEquals("observed", ow.getName());
-        assertEquals("observed", inner.getName(), "observable wrapper setter must not strand state on the wrapper itself");
+        assertEquals("observed", inner.getName(),
+                "observable wrapper setter must not strand state on the wrapper itself");
         assertTrue(inner.isActive());
         assertEquals("l5", ow.getChild().getLabel());
     }
@@ -424,11 +429,13 @@ public class XdStorageWrapperJavaBeansContractTest {
         assertNotNull(simple.getConstructor(Object.class, ValueEqualsBean.class, IXdStorage.class));
         assertFalse((boolean) simple.getMethod("isDummySimpleWrapper").invoke(null));
 
-        final Class<?> unmodifiable = XdStorageProxyCompilationEngine.getClassUnmodifiableWrapper(ValueEqualsBean.class);
+        final Class<?> unmodifiable = XdStorageProxyCompilationEngine.getClassUnmodifiableWrapper(ValueEqualsBean
+                .class);
         assertTrue(Modifier.isPublic(unmodifiable.getModifiers()));
         assertTrue(ValueEqualsBean.class.isAssignableFrom(unmodifiable));
         assertTrue(IXdStorageUnmodifiableWrapper.class.isAssignableFrom(unmodifiable));
-        assertNotNull(unmodifiable.getConstructor(Object.class, ValueEqualsBean.class, IXdStorage.class, IXdStorageTransaction.class));
+        assertNotNull(unmodifiable.getConstructor(Object.class, ValueEqualsBean.class, IXdStorage.class,
+                IXdStorageTransaction.class));
         assertFalse((boolean) unmodifiable.getMethod("isDummyUnmodifiableWrapper").invoke(null));
 
         final Class<?> observable = XdStorageProxyCompilationEngine.getClassObservableWrapper(ValueEqualsBean.class);
@@ -458,7 +465,8 @@ public class XdStorageWrapperJavaBeansContractTest {
 
     @Test
     public void unmodifiableWrapperIsGeneratedForIdentifiableObjectBase() throws Exception {
-        final Map<Class<?>, Class<?>> generated = XdStorageClassGenerator.generateUnmodifiableWrapper(XdStorageIdentifiableObject.class);
+        final Map<Class<?>, Class<?>> generated = XdStorageClassGenerator
+                .generateUnmodifiableWrapper(XdStorageIdentifiableObject.class);
         assertFalse(generated.isEmpty());
         final Class<?> wrapper = generated.get(XdStorageIdentifiableObject.class);
         assertNotNull(wrapper);
@@ -496,7 +504,8 @@ public class XdStorageWrapperJavaBeansContractTest {
 
     @Test
     public void getPublicMethodsReturnsOverriddenMethodExactlyOnce() {
-        final List<Method> methods = Arrays.asList(XdStorageAbstractClassCodeGenerator.getPublicMethods(SubOverrideBean.class));
+        final List<Method> methods = Arrays.asList(XdStorageAbstractClassCodeGenerator.getPublicMethods(SubOverrideBean
+                .class));
         final List<Method> getId = new ArrayList<>();
         for (final Method m : methods) {
             if (m.getName().equals("getId")) getId.add(m);
@@ -507,7 +516,8 @@ public class XdStorageWrapperJavaBeansContractTest {
 
     @Test
     public void getPublicMethodsSkipsStaticAndFinalMethods() {
-        final List<Method> methods = Arrays.asList(XdStorageAbstractClassCodeGenerator.getPublicMethods(StaticFinalBean.class));
+        final List<Method> methods = Arrays.asList(XdStorageAbstractClassCodeGenerator.getPublicMethods(StaticFinalBean
+                .class));
         final List<String> names = new ArrayList<>();
         for (final Method m : methods) names.add(m.getName());
         assertFalse(names.contains("computeId"), "static methods cannot be overridden by the wrapper");

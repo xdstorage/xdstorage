@@ -78,7 +78,8 @@ public class XdStorageBTreeSplitJoinInvariantTest extends AbstractBTreeTest {
         return scan;
     }
 
-    private void descend(final XdStorageBTreeNode node, final int depth, final TreeScan scan, final Set<Object> visited) {
+    private void descend(final XdStorageBTreeNode node, final int depth, final TreeScan scan, final Set<Object> visited)
+            {
         assertTrue(visited.add(System.identityHashCode(node)),
                 "Цикл/дубль в структуре: узел встречен повторно при спуске из корня");
 
@@ -139,11 +140,13 @@ public class XdStorageBTreeSplitJoinInvariantTest extends AbstractBTreeTest {
         }
     }
 
-    private void checkOccupancy(final XdStorageBTreeNode node, final int t, final boolean isRoot, final String context) {
+    private void checkOccupancy(final XdStorageBTreeNode node, final int t, final boolean isRoot, final String context)
+            {
         if (node.getChildren().isEmpty()) {
             if (!isRoot) {
                 assertTrue(node.getKeys().size() >= t - 1,
-                        context + ": недозаполненный лист " + node.getId() + " keys=" + node.getKeys().size() + " < t-1=" + (t - 1));
+                        context + ": недозаполненный лист " + node.getId() + " keys=" + node.getKeys().size() +
+                                " < t-1=" + (t - 1));
             }
             assertTrue(node.getKeys().size() <= 2 * t - 1,
                     context + ": переполненный лист " + node.getId() + " keys=" + node.getKeys().size() + " > 2t-1");
@@ -153,7 +156,8 @@ public class XdStorageBTreeSplitJoinInvariantTest extends AbstractBTreeTest {
             assertTrue(node.getKeys().size() >= t - 1,
                     context + ": недозаполненная внутренняя нода " + node.getId() + " keys=" + node.getKeys().size());
             assertTrue(node.getChildren().size() <= 2 * t,
-                    context + ": переполненная внутренняя нода " + node.getId() + " children=" + node.getChildren().size());
+                    context + ": переполненная внутренняя нода " + node.getId() + " children=" + node.getChildren()
+                            .size());
         }
         for (final XdStorageBTreeNode child : node.getChildren()) {
             checkOccupancy(child, t, false, context);

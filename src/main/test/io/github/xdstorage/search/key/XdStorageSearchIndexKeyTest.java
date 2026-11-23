@@ -8,7 +8,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @DisplayName("XdStorageSearchIndexKey: контракт compareTo ключа Б+Дерева поиска")
 public class XdStorageSearchIndexKeyTest {
 
-    private static XdStorageSearchIndexKey key(final Object value, final Object objectId, final XdStorageSearchIndexOperationType op) {
+    private static XdStorageSearchIndexKey key(final Object value, final Object objectId, final
+            XdStorageSearchIndexOperationType op) {
         return new XdStorageSearchIndexKey(value, objectId, op);
     }
 

@@ -22,7 +22,8 @@ public class XdStorageObjectIdField extends XdStorageObjectField {
      * @param getter the id getter
      * @param fieldInfo the shape descriptor built from the field's declared types
      */
-    public XdStorageObjectIdField(final Field field, final Method setter, final Method getter, final XdStorageObjectFieldInfo fieldInfo) {
+    public XdStorageObjectIdField(final Field field, final Method setter, final Method getter, final
+            XdStorageObjectFieldInfo fieldInfo) {
         super(field, setter, getter, fieldInfo);
     }
 

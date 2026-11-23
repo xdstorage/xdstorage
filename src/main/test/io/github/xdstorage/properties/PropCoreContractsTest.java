@@ -116,8 +116,10 @@ public class PropCoreContractsTest {
                     for (final Path p2 : (Iterable<Path>) walk.filter(java.nio.file.Files::isRegularFile)::iterator) {
                         final String content = new String(java.nio.file.Files.readAllBytes(p2),
                                 java.nio.charset.StandardCharsets.UTF_8);
-                        System.out.println("[PT-FK][file] " + root.toPath().relativize(p2) + " (" + content.length() + "b) head='"
-                                + content.substring(0, Math.min(60, content.length())).replace("\n", "|").replace("\r", "") + "'");
+                        System.out.println("[PT-FK][file] " + root.toPath().relativize(p2) + " (" + content.length() +
+                                "b) head='"
+                                + content.substring(0, Math.min(60, content.length())).replace("\n", "|").replace("\r",
+                                        "") + "'");
                     }
                 }
                 storage.rollbackTransaction(probe);
@@ -215,7 +217,8 @@ public class PropCoreContractsTest {
                 final int count = 5 + rnd.nextInt(20);
                 for (int i = 0; i < count; i++) {
                     final IXdStorageTransaction tx = storage.beginTransaction();
-                    final io.github.xdstorage.properties.PropIdEntity e = new io.github.xdstorage.properties.PropIdEntity();
+                    final io.github.xdstorage.properties.PropIdEntity e = new io.github.xdstorage.properties
+                            .PropIdEntity();
                     e.setPayload("wave" + wave + "-" + i);
                     storage.save(e, tx);
                     storage.commitTransaction(tx);
@@ -250,7 +253,8 @@ public class PropCoreContractsTest {
     }
 
     /** The reopen burns the batch remainder; the extra saves collect their fresh ids; RETURNS the live storage. */
-    private IXdFileStorage reopenAndCollect(final IXdFileStorage storage, final File dir, final int extraSaves) throws Exception {
+    private IXdFileStorage reopenAndCollect(final IXdFileStorage storage, final File dir, final int extraSaves) throws
+            Exception {
         final IXdFileStorage reopened = XdStorageProvider.newOrGetFileStorage(
                 "pt-id-reopen-" + System.nanoTime(), dir.getPath(), 64);
         final Set<Long> ids = new HashSet<>();

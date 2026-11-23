@@ -209,7 +209,8 @@ public class XdStorageReadOnlyCommitPathTest {
                 for (int i = 0; i < perThread; i++) {
                     IXdStorageTransaction readTx = storage.beginTransaction(60000L);
                     try {
-                        assertNotNull(storage.load(B2ReadOnlyEntity.class, "id-" + ((offset + i) % SEED_COUNT), readTx));
+                        assertNotNull(storage.load(B2ReadOnlyEntity.class, "id-" + ((offset + i) % SEED_COUNT),
+                                readTx));
                         storage.commitTransaction(readTx);
                     } catch (final RuntimeException e) {
                         storage.rollbackTransaction(readTx);
@@ -223,7 +224,8 @@ public class XdStorageReadOnlyCommitPathTest {
             f.get(60, TimeUnit.SECONDS);
         }
 
-        assertEquals(committed0 + threads * perThread, storage.getMetrics().get(XdStorageMetrics.TRANSACTIONS_COMMITTED));
+        assertEquals(committed0 + threads * perThread, storage.getMetrics().get(XdStorageMetrics
+                .TRANSACTIONS_COMMITTED));
         assertEquals(writeOuts0, storage.getMetrics().get(XdStorageMetrics.RESOURCE_WRITE_OUTS),
                 "concurrent no-change commits must not write out either");
         assertEquals(0L, storage.getMetrics().get(XdStorageMetrics.ACTIVE_TRANSACTIONS));

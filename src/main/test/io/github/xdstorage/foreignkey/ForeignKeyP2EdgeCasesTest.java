@@ -46,7 +46,8 @@ public class ForeignKeyP2EdgeCasesTest {
         file.delete();
     }
 
-    /** #16: FK resource delete from both trees — delete child should clear both parent->child and child->parent trees. */
+    /** #16: FK resource delete from both trees — delete child should clear both parent->child and child->parent
+     * trees. */
     @Test
     @DisplayName("testDeleteChildClearsBothTrees: delete child -> no parent-child or child-parent pairs")
     public void testDeleteChildClearsBothTrees() throws Exception {

@@ -90,11 +90,15 @@ public class XdStorageXmlSerializationTest {
 
         assertNotNull(outputXml);
         // Верифицируем строгое соответствие канонической XML-разметке СУБД
-        assertTrue(outputXml.contains("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"), "XML обязан содержать заголовок декларации!");
+        assertTrue(outputXml.contains("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"),
+                "XML обязан содержать заголовок декларации!");
         assertTrue(outputXml.contains("<objects>"), "XML должен содержать корневой тег коллекции!");
-        assertTrue(outputXml.contains("<object class=\"" + XmlTestRecord.class.getName() + "\">"), "Тег объекта должен содержать точное имя класса метаданных!");
-        assertTrue(outputXml.contains("<object name=\"id\" class=\"java.lang.Long\" value=\"777\"/>"), "Числовой первичный ключ должен сериализоваться как простой тип!");
-        assertTrue(outputXml.contains("<object name=\"title\" class=\"java.lang.String\" value=\"XML_Test_Payload\"/>"), "Строковое поле должно кодироваться как простой тип!");
+        assertTrue(outputXml.contains("<object class=\"" + XmlTestRecord.class.getName() + "\">"),
+                "Тег объекта должен содержать точное имя класса метаданных!");
+        assertTrue(outputXml.contains("<object name=\"id\" class=\"java.lang.Long\" value=\"777\"/>"),
+                "Числовой первичный ключ должен сериализоваться как простой тип!");
+        assertTrue(outputXml.contains("<object name=\"title\" class=\"java.lang.String\" value=\"XML_Test_Payload\"/>"),
+                "Строковое поле должно кодироваться как простой тип!");
 
         // Шаг 3. Десериализуем XML-строку обратно через StringReader
         StringReader stringReader = new StringReader(outputXml);
@@ -105,7 +109,8 @@ public class XdStorageXmlSerializationTest {
         assertEquals(1, deserializedResult.size(), "Должен быть восстановлен ровно 1 объект");
 
         Object restoredObj = deserializedResult.iterator().next();
-        assertTrue(restoredObj instanceof XmlTestRecord, "Восстановленный объект должен соответствовать типу XmlTestRecord");
+        assertTrue(restoredObj instanceof XmlTestRecord,
+                "Восстановленный объект должен соответствовать типу XmlTestRecord");
 
         XmlTestRecord restoredRecord = (XmlTestRecord) restoredObj;
         assertEquals(777L, restoredRecord.getId().longValue());

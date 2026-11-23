@@ -53,7 +53,8 @@ public class XdStorageResourceCacheReadCommittedTest extends AbstractXdStorageRe
 
     private void writerCommit() throws Exception {
         final XdStorageTransactionResourceChanges collector =
-                new XdStorageTransactionResourceChanges(mock(io.github.xdstorage.resource.IXdStorageResourceObject.class));
+                new XdStorageTransactionResourceChanges(mock(io.github.xdstorage.resource.IXdStorageResourceObject
+                        .class));
         resourceCache.prepareCommit(writer, collector);
         resourceCache.performCommit(writer, collector);
         resourceCache.commit(writer);
@@ -174,11 +175,13 @@ public class XdStorageResourceCacheReadCommittedTest extends AbstractXdStorageRe
     @DisplayName("RC-12: скан переиспользует материализованные копии неизменившихся строк (Phase D-1)")
     public void scanReusesUnchangedMaterializations() throws Exception {
         // первый скан материализует копии
-        final List<Object> firstPass = new ArrayList<>(resourceCache.read(reader, (IXdStoragePredicate<Object>) e -> true));
+        final List<Object> firstPass = new ArrayList<>(resourceCache.read(reader, (IXdStoragePredicate<Object>) e ->
+                true));
         assertEquals(3, firstPass.size(), "База не заполнена");
 
         // второй скан БЕЗ чужих коммитов — экземпляры должны быть ТЕ ЖЕ самые (переиспользование)
-        final List<Object> secondPass = new ArrayList<>(resourceCache.read(reader, (IXdStoragePredicate<Object>) e -> true));
+        final List<Object> secondPass = new ArrayList<>(resourceCache.read(reader, (IXdStoragePredicate<Object>) e ->
+                true));
         assertEquals(firstPass.size(), secondPass.size());
         for (int i = 0; i < firstPass.size(); i++) {
             assertSame(firstPass.get(i), secondPass.get(i),
@@ -188,7 +191,8 @@ public class XdStorageResourceCacheReadCommittedTest extends AbstractXdStorageRe
         // чужой коммит — строка обязана перечитаться (новый инстанс, новое значение)
         resourceCache.update(new TestEntity(1L, "Committed_1"), writer);
         writerCommit();
-        final List<Object> thirdPass = new ArrayList<>(resourceCache.read(reader, (IXdStoragePredicate<Object>) e -> true));
+        final List<Object> thirdPass = new ArrayList<>(resourceCache.read(reader, (IXdStoragePredicate<Object>) e ->
+                true));
         boolean foundUpdated = false;
         for (int i = 0; i < firstPass.size(); i++) {
             final Object fresh = thirdPass.stream()

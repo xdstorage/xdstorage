@@ -105,7 +105,8 @@ public class XdStorageForeignKeyReopenKeyTypeTest {
     }
 
     @Test
-    @DisplayName("Инвариант после реопена: удаление родителя при живом ребенке по-прежнему ветоируется (типизированное чтение FK-дерева)")
+    @DisplayName("Инвариант после реопена: удаление родителя при живом ребенке по-прежнему ветоируется " +
+            "(типизированное чтение FK-дерева)")
     public void testReopenDeleteParentAloneStillThrows() throws Exception {
         reopenStorage();
 
@@ -122,7 +123,8 @@ public class XdStorageForeignKeyReopenKeyTypeTest {
     }
 
     @Test
-    @DisplayName("Сценарий после реопена: совместное каскадное удаление по ручным ID проходит (смешанный diff на восстановленном дереве)")
+    @DisplayName("Сценарий после реопена: совместное каскадное удаление по ручным ID проходит (смешанный diff на " +
+            "восстановленном дереве)")
     public void testReopenDeleteBothSucceeds() throws Exception {
         reopenStorage();
 

@@ -27,7 +27,8 @@ public class XdStorageDefaultIdGenerator implements IXdStorageIdGenerator {
     private static final Logger log = LoggerFactory.getLogger(XdStorageDefaultIdGenerator.class);
     private final XdStorageServicesLocator services;
     private final Map<Class<?>, IXdStorageIdGenerator> generatorsByIdClassName = new HashMap<>();
-    private final Map<Class<? extends IXdStorageIdGenerator>, IXdStorageIdGenerator> generatorsByClassName = new ConcurrentHashMap<>();
+    private final Map<Class<? extends IXdStorageIdGenerator>, IXdStorageIdGenerator> generatorsByClassName = new
+            ConcurrentHashMap<>();
 
     /** Builds the router.
      *
@@ -40,7 +41,8 @@ public class XdStorageDefaultIdGenerator implements IXdStorageIdGenerator {
     }
 
     @Override
-    public Object generate(final Class<?> cl, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException {
+    public Object generate(final Class<?> cl, final IXdStorage storage, final IXdStorageTransaction transaction) throws
+            XdStorageException {
         try {
             final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
             final XdStorageObjectIdField idField = clInfo.getIdField();
@@ -70,7 +72,8 @@ public class XdStorageDefaultIdGenerator implements IXdStorageIdGenerator {
             // СИСТЕМНЫЙ ФОЛБЭК: Если кастомный тестовый генератор не смог выдать ID для
             // служебных структур СУБД (например, для узлов B+ Дерева XdStorageBTreeNode),
             // мы принудительно подставляем стандартный надежный XdStorageLongIdGenerator!
-            if (generator == null || cl.getName().contains("io.github.xdstorage.btree") || cl.getName().contains("BTree")) {
+            if (generator == null || cl.getName().contains("io.github.xdstorage.btree") || cl.getName()
+                    .contains("BTree")) {
                 if (idClass == Long.class) {
                     generator = generatorsByIdClassName.get(Long.class);
                 } else if (idClass == Integer.class) {
@@ -103,7 +106,8 @@ public class XdStorageDefaultIdGenerator implements IXdStorageIdGenerator {
                             idGeneratorClass.getConstructor(XdStorageServicesLocator.class);
                     newInstance = diConstructor.newInstance(this.services);
                 } catch (NoSuchMethodException e) {
-                    // Фолбэк: Если кастомный генератор не требует сервисов СУБД, создаем его через дефолтный пустой конструктор
+                    // Фолбэк: Если кастомный генератор не требует сервисов СУБД, создаем его через дефолтный пустой
+                    // конструктор
                     java.lang.reflect.Constructor<? extends IXdStorageIdGenerator> defaultConstructor =
                             idGeneratorClass.getConstructor();
                     newInstance = defaultConstructor.newInstance();

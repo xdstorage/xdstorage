@@ -147,7 +147,8 @@ public class XdStorageBTreeOverlayTest {
     }
 
     @Test
-    @DisplayName("КОНВОЙ-ПИН: два потока коммитят по двум общим btree-деревьям в противоположных порядках — без таймаутов")
+    @DisplayName("КОНВОЙ-ПИН: два потока коммитят по двум общим btree-деревьям в противоположных порядках — без " +
+            "таймаутов")
     public void concurrentCommits_OppositeResourceOrders_NoDeadlock() throws Exception {
         // Seed two parents (two shared btree id-index trees)
         final IXdStorageTransaction tx0 = storage.beginTransaction();

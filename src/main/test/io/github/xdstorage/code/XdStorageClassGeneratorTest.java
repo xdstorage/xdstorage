@@ -44,7 +44,8 @@ public class XdStorageClassGeneratorTest {
         ConcreteTestCodeGenerator generator = new ConcreteTestCodeGenerator();
 
         // ИСПРАВЛЕНИЕ: Вызываем collectMethodsAndClasses напрямую и получаем изолированный контекст стека!
-        XdStorageAbstractClassCodeGenerator.GenerationContext ctx = generator.collectMethodsAndClasses(TestGeneratedEntity.class);
+        XdStorageAbstractClassCodeGenerator.GenerationContext ctx = generator
+                .collectMethodsAndClasses(TestGeneratedEntity.class);
 
         // Проверяем списки методов внутри полученного контекста ctx
         assertNotNull(ctx, "Контекст генерации не должен быть null");
@@ -55,7 +56,8 @@ public class XdStorageClassGeneratorTest {
     @Test
     public void testGenerateSimpleWrapper_ShouldCompileSuccessfullyOnTheFly() {
         assertDoesNotThrow(() -> {
-            Map<Class<?>, Class<?>> wrappers = XdStorageClassGenerator.generateSimpleWrapper(ComplexEntityForGeneration.class);
+            Map<Class<?>, Class<?>> wrappers = XdStorageClassGenerator.generateSimpleWrapper(ComplexEntityForGeneration
+                    .class);
             assertNotNull(wrappers);
             assertFalse(wrappers.isEmpty(), "Карта сгенерированных прокси-классов не должна быть пустой!");
 
@@ -69,7 +71,8 @@ public class XdStorageClassGeneratorTest {
     @Test
     public void testGenerateUnmodifiableWrapper_ShouldCompileSuccessfully() {
         assertDoesNotThrow(() -> {
-            Map<Class<?>, Class<?>> wrappers = XdStorageClassGenerator.generateUnmodifiableWrapper(ComplexEntityForGeneration.class);
+            Map<Class<?>, Class<?>> wrappers = XdStorageClassGenerator
+                    .generateUnmodifiableWrapper(ComplexEntityForGeneration.class);
             assertNotNull(wrappers);
             assertFalse(wrappers.isEmpty());
 

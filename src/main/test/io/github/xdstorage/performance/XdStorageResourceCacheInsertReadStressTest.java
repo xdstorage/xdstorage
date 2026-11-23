@@ -220,7 +220,8 @@ public class XdStorageResourceCacheInsertReadStressTest {
         exceptions.forEach(e -> e.printStackTrace(System.err));
 
         assertTrue(finishedCleanly, "🚨 ОБНАРУЖЕН DEADLOCK КЭША РЕСУРСОВ ПОД ВЫСОКОЙ НАГРУЗКОЙ!");
-        assertTrue(exceptions.isEmpty(), "🚨 Зафиксированы падения ConcurrentModificationException или ложные гонки блокировок: " + exceptions);
+        assertTrue(exceptions.isEmpty(),
+                "🚨 Зафиксированы падения ConcurrentModificationException или ложные гонки блокировок: " + exceptions);
     }
 
 }

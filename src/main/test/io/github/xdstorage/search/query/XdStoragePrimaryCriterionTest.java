@@ -18,7 +18,8 @@ public class XdStoragePrimaryCriterionTest {
     @Test
     @DisplayName("Хранит оператор и значение")
     public void testExposesOperatorAndValue() {
-        final XdStoragePrimaryCriterion criterion = new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS, "alpha");
+        final XdStoragePrimaryCriterion criterion = new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS,
+                "alpha");
 
         assertSame(IXdStorageCriterionOperator.EQUALS, criterion.getOperator());
         assertEquals("alpha", criterion.getValue());
@@ -27,7 +28,8 @@ public class XdStoragePrimaryCriterionTest {
     @Test
     @DisplayName("passed применяется к primaryIndexValue записи")
     public void testPassedAgainstPrimaryValue() {
-        final XdStoragePrimaryCriterion equals = new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS, "alpha");
+        final XdStoragePrimaryCriterion equals = new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS,
+                "alpha");
 
         assertTrue(equals.passed(recordWithPrimary("alpha")));
         assertFalse(equals.passed(recordWithPrimary("beta")));
@@ -37,7 +39,8 @@ public class XdStoragePrimaryCriterionTest {
     @Test
     @DisplayName("EQUALS с null-значением отбирает записи с null-первичным значением")
     public void testEqualsNullPrimary() {
-        final XdStoragePrimaryCriterion equalsNull = new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS, null);
+        final XdStoragePrimaryCriterion equalsNull = new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS,
+                null);
 
         assertTrue(equalsNull.passed(recordWithPrimary(null)));
         assertFalse(equalsNull.passed(recordWithPrimary("alpha")));
@@ -46,8 +49,10 @@ public class XdStoragePrimaryCriterionTest {
     @Test
     @DisplayName("NOT_EQUALS / IS_NOT_NULL работают по primaryIndexValue")
     public void testOtherOperators() {
-        final XdStoragePrimaryCriterion notEquals = new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.NOT_EQUALS, "alpha");
-        final XdStoragePrimaryCriterion isNotNull = new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.IS_NOT_NULL, null);
+        final XdStoragePrimaryCriterion notEquals = new XdStoragePrimaryCriterion(IXdStorageCriterionOperator
+                .NOT_EQUALS, "alpha");
+        final XdStoragePrimaryCriterion isNotNull = new XdStoragePrimaryCriterion(IXdStorageCriterionOperator
+                .IS_NOT_NULL, null);
 
         assertTrue(notEquals.passed(recordWithPrimary("beta")));
         assertFalse(notEquals.passed(recordWithPrimary("alpha")));

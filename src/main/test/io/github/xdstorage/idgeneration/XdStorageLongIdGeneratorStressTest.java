@@ -93,12 +93,14 @@ public class XdStorageLongIdGeneratorStressTest {
             }
 
             @Override
-            public Collection<XdStorageIdentifiableObject> readAsData(XdStorageTransaction transaction) throws XdStorageException {
+            public Collection<XdStorageIdentifiableObject> readAsData(XdStorageTransaction transaction) throws
+                    XdStorageException {
                 return null;
             }
 
             @Override
-            public boolean hasObject(Object objectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+            public boolean hasObject(Object objectId, XdStorageTransaction transaction) throws XdStorageException,
+                    XdStorageConnectionException {
                 return false;
             }
 
@@ -108,7 +110,8 @@ public class XdStorageLongIdGeneratorStressTest {
             }
 
             @Override
-            public void insertReference(Object reference, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+            public void insertReference(Object reference, XdStorageTransaction transaction) throws XdStorageException,
+                    XdStorageConnectionException {
 
             }
 
@@ -123,22 +126,26 @@ public class XdStorageLongIdGeneratorStressTest {
             }
 
             @Override
-            public <T> Collection<T> read(XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+            public <T> Collection<T> read(XdStorageTransaction transaction) throws XdStorageException,
+                    XdStorageConnectionException {
                 return null;
             }
 
             @Override
-            public <T> Collection<T> read(XdStorageTransaction transaction, IXdStoragePredicate<T> predicate) throws XdStorageException, XdStorageConnectionException {
+            public <T> Collection<T> read(XdStorageTransaction transaction, IXdStoragePredicate<T> predicate) throws
+                    XdStorageException, XdStorageConnectionException {
                 return null;
             }
 
             @Override
-            public <T> void watch(XdStorageTransaction transaction, IXdStorageWatcher<T> watcher) throws XdStorageException, XdStorageConnectionException {
+            public <T> void watch(XdStorageTransaction transaction, IXdStorageWatcher<T> watcher) throws
+                    XdStorageException, XdStorageConnectionException {
 
             }
 
             @Override
-            public void readByReference(Object reference, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+            public void readByReference(Object reference, XdStorageTransaction transaction) throws XdStorageException,
+                    XdStorageConnectionException {
 
             }
 
@@ -217,7 +224,8 @@ public class XdStorageLongIdGeneratorStressTest {
         assertTrue(exceptions.isEmpty(), "🚨 Зафиксированы коллизии генерации, дубликаты или гонки стейтов!");
 
         // Проверяем полноту и плотность диапазона (не потерялись ли идентификаторы при расширении пачек Hi-Lo)
-        assertEquals(expectedTotalIds, generatedIds.size(), "Итоговое количество уникальных ID не совпадает с ожидаемым!");
+        assertEquals(expectedTotalIds, generatedIds.size(),
+                "Итоговое количество уникальных ID не совпадает с ожидаемым!");
 
         // Верифицируем, что диапазон непрерывен: от 1 до expectedTotalIds
         long maxId = generatedIds.stream().max(Long::compare).orElse(0L);

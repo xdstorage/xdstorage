@@ -71,7 +71,8 @@ public class OutcomeRelationsForeignKeyTest extends AbstractForeignKeyEngineInte
         // Проверяем физическую запись B+ дерева во внутреннем In-Memory хранилище
         assertFalse(databaseStorage.isEmpty());
 
-        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta, parentMeta.getFields().get("childRef"), transaction);
+        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta,
+                parentMeta.getFields().get("childRef"), transaction);
         Collection<Object> childIds = fkResource.readByParentObjectId(10L, transaction);
 
         assertEquals(1, childIds.size());
@@ -93,7 +94,8 @@ public class OutcomeRelationsForeignKeyTest extends AbstractForeignKeyEngineInte
 
         engine.process(parent, XdStorageForeignKeyObjectChangeType.INSERT, transaction);
 
-        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta, parentMeta.getFields().get("childrenList"), transaction);
+        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta,
+                parentMeta.getFields().get("childrenList"), transaction);
         Collection<Object> childIds = fkResource.readByParentObjectId(55L, transaction);
 
         assertEquals(2, childIds.size());
@@ -116,7 +118,8 @@ public class OutcomeRelationsForeignKeyTest extends AbstractForeignKeyEngineInte
 
         engine.process(parent, XdStorageForeignKeyObjectChangeType.INSERT, transaction);
 
-        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta, parentMeta.getFields().get("childrenArray"), transaction);
+        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta,
+                parentMeta.getFields().get("childrenArray"), transaction);
         Collection<Object> childIds = fkResource.readByParentObjectId(88L, transaction);
 
         assertEquals(1, childIds.size());
@@ -136,7 +139,8 @@ public class OutcomeRelationsForeignKeyTest extends AbstractForeignKeyEngineInte
         registry.getOutcomeRelations(parentMeta);
         registry.getIncomeRelations(childMeta);
 
-        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta, parentMeta.getFields().get("childRef"), transaction);
+        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta,
+                parentMeta.getFields().get("childRef"), transaction);
         fkResource.insert(99L, 400L, transaction); // Исходная связь в БД
 
         engine.process(parent, XdStorageForeignKeyObjectChangeType.UPDATE, transaction);
@@ -160,7 +164,8 @@ public class OutcomeRelationsForeignKeyTest extends AbstractForeignKeyEngineInte
         registry.getOutcomeRelations(parentMeta);
         registry.getIncomeRelations(childMeta);
 
-        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta, parentMeta.getFields().get("childRef"), transaction);
+        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta,
+                parentMeta.getFields().get("childRef"), transaction);
         fkResource.insert(111L, 700L, transaction);
 
         engine.process(parent, XdStorageForeignKeyObjectChangeType.DELETE, transaction);

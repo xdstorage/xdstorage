@@ -99,7 +99,8 @@ public interface IXdStorageCriterionOperator {
         }
     };
 
-    /** Substring test for String fields: passes when the field value contains the criterion String (both must be Strings). */
+    /** Substring test for String fields: passes when the field value contains the criterion String (both must be
+     * Strings). */
     IXdStorageCriterionOperator CONTAINS = new IXdStorageCriterionOperator() {
         @Override
         public boolean passed(final XdStorageSearchIndexRecord record, final String fieldName, final Object value) {

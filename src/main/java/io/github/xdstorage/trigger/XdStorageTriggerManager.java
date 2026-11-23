@@ -69,7 +69,8 @@ public class XdStorageTriggerManager {
      * @throws NullPointerException when {@code changes} is {@code null} (the canonical failure
      *                              for an invalid call context)
      */
-    public void performTriggers(final XdStorageTransaction transaction, final Collection<XdStorageObjectChange> changes) {
+    public void performTriggers(final XdStorageTransaction transaction, final Collection<XdStorageObjectChange> changes)
+            {
         // АЛГОРИТМИЧЕСКОЕ ВЫРАВНИВАНИЕ КОНТРАКТОВ: Убираем заглушку "if(changes == null) return;".
         // Прямой вызов stream() на коллекции изменений гарантирует естественный и каноничный
         // выброс NullPointerException при передаче некорректного null-контекста, что полностью
@@ -79,7 +80,8 @@ public class XdStorageTriggerManager {
         });
     }
 
-    private <T> void performTriggers(final XdStorageTransaction transaction, final XdStorageObjectOperationType type, final T oldObject, final T newObject) {
+    private <T> void performTriggers(final XdStorageTransaction transaction, final XdStorageObjectOperationType type,
+            final T oldObject, final T newObject) {
         if (type == XdStorageObjectOperationType.Insert || type == XdStorageObjectOperationType.INSERT) {
             performInsertTriggers(transaction, newObject);
         } else if (type == XdStorageObjectOperationType.Update || type == XdStorageObjectOperationType.UPDATE) {
@@ -97,10 +99,12 @@ public class XdStorageTriggerManager {
         // LOCK-FREE ИТЕРИРОВАНИЕ: Никаких synchronized(list) барьеров! Потоки читают Snapshot списка атомарно.
         if (list != null) {
             for (final IXdStorageTrigger<?> trigger : list) {
-                if (trigger.getType() == XdStorageObjectOperationType.Insert || trigger.getType() == XdStorageObjectOperationType.INSERT) {
+                if (trigger.getType() == XdStorageObjectOperationType.Insert || trigger.getType() ==
+                        XdStorageObjectOperationType.INSERT) {
                     try {
                         ((IXdStorageTrigger<T>) trigger)
-                                .perform(null, XdStorageObjectUtils.getWrappedObjectOrSameObject(newObject), transaction);
+                                .perform(null, XdStorageObjectUtils.getWrappedObjectOrSameObject(newObject),
+                                        transaction);
                     } catch (final RuntimeException e) {
                         log.error("Trigger {} failed on INSERT of {} — rethrowing (the transaction will roll back)",
                                 trigger.getClass().getName(), newObject.getClass().getName(), e);
@@ -112,16 +116,19 @@ public class XdStorageTriggerManager {
     }
 
     @SuppressWarnings("unchecked")
-    private <T> void performUpdateTriggers(final XdStorageTransaction transaction, final T oldObject, final T newObject) {
+    private <T> void performUpdateTriggers(final XdStorageTransaction transaction, final T oldObject, final T newObject)
+            {
         if (oldObject == null) return;
         final List<IXdStorageTrigger<?>> list = triggers.get(XdStorageObjectUtils.getEntityClass(oldObject.getClass()));
 
         if (list != null) {
             for (final IXdStorageTrigger<?> trigger : list) {
-                if (trigger.getType() == XdStorageObjectOperationType.Update || trigger.getType() == XdStorageObjectOperationType.UPDATE) {
+                if (trigger.getType() == XdStorageObjectOperationType.Update || trigger.getType() ==
+                        XdStorageObjectOperationType.UPDATE) {
                     try {
                         ((IXdStorageTrigger<T>) trigger)
-                                .perform(XdStorageObjectUtils.getWrappedObjectOrSameObject(oldObject), XdStorageObjectUtils.getWrappedObjectOrSameObject(newObject), transaction);
+                                .perform(XdStorageObjectUtils.getWrappedObjectOrSameObject(oldObject),
+                                        XdStorageObjectUtils.getWrappedObjectOrSameObject(newObject), transaction);
                     } catch (final RuntimeException e) {
                         log.error("Trigger {} failed on UPDATE of {} — rethrowing (the transaction will roll back)",
                                 trigger.getClass().getName(), newObject.getClass().getName(), e);
@@ -139,9 +146,11 @@ public class XdStorageTriggerManager {
 
         if (list != null) {
             for (final IXdStorageTrigger<?> trigger : list) {
-                if (trigger.getType() == XdStorageObjectOperationType.Delete || trigger.getType() == XdStorageObjectOperationType.DELETE) {
+                if (trigger.getType() == XdStorageObjectOperationType.Delete || trigger.getType() ==
+                        XdStorageObjectOperationType.DELETE) {
                     try {
-                        ((IXdStorageTrigger<T>) trigger).perform(XdStorageObjectUtils.getWrappedObjectOrSameObject(oldObject), null, transaction);
+                        ((IXdStorageTrigger<T>) trigger).perform(XdStorageObjectUtils
+                                .getWrappedObjectOrSameObject(oldObject), null, transaction);
                     } catch (final RuntimeException e) {
                         log.error("Trigger {} failed on DELETE of {} — rethrowing (the transaction will roll back)",
                                 trigger.getClass().getName(), oldObject.getClass().getName(), e);

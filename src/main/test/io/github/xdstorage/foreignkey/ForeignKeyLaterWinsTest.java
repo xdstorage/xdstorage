@@ -46,7 +46,8 @@ public class ForeignKeyLaterWinsTest {
         file.delete();
     }
 
-    /** #7: Save parent+child, delete child (remove from collection first), save parent again -> child restored (later-wins). */
+    /** #7: Save parent+child, delete child (remove from collection first), save parent again -> child restored
+     * (later-wins). */
     @Test
     @DisplayName("testDeleteChildReinsertSameParent_ChildRestored: delete child, re-save parent -> child back")
     public void testDeleteChildReinsertSameParent_ChildRestored() throws Exception {

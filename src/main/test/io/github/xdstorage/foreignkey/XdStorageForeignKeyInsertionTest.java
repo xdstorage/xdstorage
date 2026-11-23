@@ -45,7 +45,8 @@ public class XdStorageForeignKeyInsertionTest {
     }
 
     @Test
-    @DisplayName("Инвариант: Сохранение только дочернего объекта с @XdStorageParentObject без родителя должно выбрасывать исключение")
+    @DisplayName("Инвариант: Сохранение только дочернего объекта с @XdStorageParentObject без родителя должно " +
+            "выбрасывать исключение")
     public void testFK_SaveChildAlone_ShouldThrowException() throws Exception {
         IXdStorageTransaction tx = storage.beginTransaction();
 

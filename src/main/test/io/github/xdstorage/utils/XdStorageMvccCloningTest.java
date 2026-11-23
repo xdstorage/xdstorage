@@ -54,7 +54,8 @@ public class XdStorageMvccCloningTest extends AbstractUtilsTest {
         assertNotSame(srcList, clonedList);
 
         Date clonedDate = (Date) clonedList.get(0);
-        assertNotSame(originalDate, clonedDate, "Объекты java.util.Date обязаны глубоко переклонироваться во избежание MVCC-утечек версий!");
+        assertNotSame(originalDate, clonedDate,
+                "Объекты java.util.Date обязаны глубоко переклонироваться во избежание MVCC-утечек версий!");
         assertEquals(originalDate.getTime(), clonedDate.getTime());
     }
 
@@ -74,7 +75,8 @@ public class XdStorageMvccCloningTest extends AbstractUtilsTest {
             CyclicParentEntity clonedParent = XdStorageMvccGraphCloner.cloneObject(parent);
             assertNotNull(clonedParent);
             assertNotSame(parent, clonedParent);
-            assertSame(clonedParent, clonedParent.getChild().getParent(), "Циклический указатель обязан перевязаться на новый клон родителя!");
+            assertSame(clonedParent, clonedParent.getChild().getParent(),
+                    "Циклический указатель обязан перевязаться на новый клон родителя!");
         }, "Критический сбой! Движок клонирования СУБД свалился в StackOverflowError!");
     }
 }

@@ -92,7 +92,8 @@ public final class XdStorageBinaryFormatFeasibilityProbe {
             }
         }
 
-        private static io.github.xdstorage.idgeneration.IXdStorageIdGenerator idGeneratorOf(final IXdStorageIOFactory f) {
+        private static io.github.xdstorage.idgeneration.IXdStorageIdGenerator idGeneratorOf(final IXdStorageIOFactory f)
+                {
             try {
                 final Field f1 = findField(f.getClass(), "idGenerator");
                 return (io.github.xdstorage.idgeneration.IXdStorageIdGenerator) f1.get(f);
@@ -121,7 +122,8 @@ public final class XdStorageBinaryFormatFeasibilityProbe {
 
         @Override
         public Collection<Object> readReferences(final Reader reader, final XdStorageObjectIdField field)
-                throws io.github.xdstorage.exceptions.XdStorageIOException, io.github.xdstorage.exceptions.XdStorageException {
+                throws io.github.xdstorage.exceptions.XdStorageIOException, io.github.xdstorage.exceptions
+                        .XdStorageException {
             final long t0 = System.nanoTime();
             try {
                 return this.delegate.readReferences(reader, field);
@@ -132,7 +134,8 @@ public final class XdStorageBinaryFormatFeasibilityProbe {
 
         @Override
         public Collection<Object> read(final Reader reader)
-                throws io.github.xdstorage.exceptions.XdStorageIOException, io.github.xdstorage.exceptions.XdStorageException {
+                throws io.github.xdstorage.exceptions.XdStorageIOException, io.github.xdstorage.exceptions
+                        .XdStorageException {
             final long t0 = System.nanoTime();
             try {
                 return this.delegate.read(reader);
@@ -153,8 +156,10 @@ public final class XdStorageBinaryFormatFeasibilityProbe {
         }
 
         @Override
-        public Collection<XdStorageIdentifiableObject> readData(final Reader xmlReader, final XdStorageObjectIdField field)
-                throws io.github.xdstorage.exceptions.XdStorageIOException, io.github.xdstorage.exceptions.XdStorageException {
+        public Collection<XdStorageIdentifiableObject> readData(final Reader xmlReader, final XdStorageObjectIdField
+                field)
+                throws io.github.xdstorage.exceptions.XdStorageIOException, io.github.xdstorage.exceptions
+                        .XdStorageException {
             final long t0 = System.nanoTime();
             try {
                 return this.delegate.readData(xmlReader, field);
@@ -173,7 +178,8 @@ public final class XdStorageBinaryFormatFeasibilityProbe {
 
         @Override
         public void writeReferences(final Writer writer, final XdStorageObjectIdField field,
-                                    final Collection<Object> references) throws io.github.xdstorage.exceptions.XdStorageIOException {
+                                    final Collection<Object> references) throws io.github.xdstorage.exceptions
+                                            .XdStorageIOException {
             final long t0 = System.nanoTime();
             try {
                 this.delegate.writeReferences(writer, field, references);
@@ -254,7 +260,8 @@ public final class XdStorageBinaryFormatFeasibilityProbe {
                 gz += bytes.size();
             }
         }
-        System.out.printf(Locale.ROOT, "[BINFEAS] gzip lever: yaml %,d b -> gzip %,d b (ratio %.1f×)%n", raw, gz, (double) raw / Math.max(1, gz));
+        System.out.printf(Locale.ROOT, "[BINFEAS] gzip lever: yaml %,d b -> gzip %,d b (ratio %.1f×)%n", raw, gz,
+                (double) raw / Math.max(1, gz));
         return raw;
     }
 
@@ -283,7 +290,8 @@ public final class XdStorageBinaryFormatFeasibilityProbe {
         System.out.printf(Locale.ROOT, "[BINFEAS] N=%d rounds=%d lookups=%d root=%s%n", n, rounds, lookups, root);
 
         // ── the fill ──
-        IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage("binfeas-" + System.nanoTime(), root.toString(), 64);
+        IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage("binfeas-" + System.nanoTime(), root.toString(),
+                64);
         final long fillStart = System.nanoTime();
         for (int batchStart = 0; batchStart < n; batchStart += 200) {
             final IXdStorageTransaction tx = storage.beginTransaction();
@@ -312,7 +320,8 @@ public final class XdStorageBinaryFormatFeasibilityProbe {
             READER_NANOS.set(0);
             final long t0 = System.nanoTime();
             final IXdStorageTransaction tx = storage.beginTransaction();
-            final int loaded = storage.load(BinFeasEntity.class, (IXdStoragePredicate<BinFeasEntity>) o -> true, tx).size();
+            final int loaded = storage.load(BinFeasEntity.class, (IXdStoragePredicate<BinFeasEntity>) o -> true, tx)
+                    .size();
             storage.commitTransaction(tx);
             final long wall = System.nanoTime() - t0;
             final long reader = READER_NANOS.get();
@@ -347,7 +356,8 @@ public final class XdStorageBinaryFormatFeasibilityProbe {
             avgLookups.add(avgWall);
             storage.commitTransaction(tx);
             storage.shutdown();
-            System.out.printf(Locale.ROOT, "[BINFEAS] lookup round %d: FIRST %,d µs (reader %,d µs), then avg %,d µs/op%n",
+            System.out.printf(Locale.ROOT,
+                    "[BINFEAS] lookup round %d: FIRST %,d µs (reader %,d µs), then avg %,d µs/op%n",
                     r, firstWall / 1_000, firstReader / 1_000, avgWall / 1_000);
         }
 
@@ -356,7 +366,8 @@ public final class XdStorageBinaryFormatFeasibilityProbe {
         for (int r = 0; r < rounds; r++) {
             ioFloors.add(rawReadAll(root));
         }
-        System.out.printf(Locale.ROOT, "[BINFEAS] IO floor (page-cache warm): median %,d ms%n", median(ioFloors) / 1_000_000);
+        System.out.printf(Locale.ROOT, "[BINFEAS] IO floor (page-cache warm): median %,d ms%n", median(ioFloors) /
+                1_000_000);
 
         // ── the gzip bytes lever ──
         gzipDataFiles(root);
@@ -381,7 +392,8 @@ public final class XdStorageBinaryFormatFeasibilityProbe {
         storage.shutdown(); // the checkpoint: the bulk write-out serialization
         final long checkpointWall = System.nanoTime() - cpStart;
         final long checkpointWriter = WRITER_NANOS.get();
-        System.out.printf(Locale.ROOT, "[BINFEAS] write wave: %d saves in %,d ms (journal-serialized %,d ms counted at the factory)%n",
+        System.out.printf(Locale.ROOT,
+                "[BINFEAS] write wave: %d saves in %,d ms (journal-serialized %,d ms counted at the factory)%n",
                 n, writesWall / 1_000_000, writeJournals / 1_000_000);
         System.out.printf(Locale.ROOT, "[BINFEAS] shutdown checkpoint: %,d ms wall, writer %,d ms%n",
                 checkpointWall / 1_000_000, checkpointWriter / 1_000_000);
@@ -394,7 +406,9 @@ public final class XdStorageBinaryFormatFeasibilityProbe {
         final long engineScan = scanWall - scanReader;
         System.out.println();
         System.out.println("=== BINFEAS RESULT (medians) ===");
-        System.out.printf(Locale.ROOT, "scan cold full load:   wall %,d ms | serialization %,d ms (%.1f%%) | IO floor %,d ms (%.1f%%) | engine residual %,d ms (%.1f%%)%n",
+        System.out.printf(Locale.ROOT,
+                "scan cold full load:   wall %,d ms | serialization %,d ms (%.1f%%) | IO floor %,d ms (%.1f%%) | " +
+                "engine residual %,d ms (%.1f%%)%n",
                 scanWall / 1_000_000, scanReader / 1_000_000, 100.0 * scanReader / scanWall,
                 ioFloor / 1_000_000, 100.0 * ioFloor / scanWall,
                 engineScan / 1_000_000, 100.0 * engineScan / scanWall);
@@ -402,7 +416,8 @@ public final class XdStorageBinaryFormatFeasibilityProbe {
         System.out.printf(Locale.ROOT, "cold FIRST lookup:     %,d µs | serialization inside %,d µs (%.1f%%)%n",
                 firstLookup / 1_000, (long) (firstReaderAvg / 1_000),
                 100.0 * firstReaderAvg / firstLookup);
-        System.out.printf(Locale.ROOT, "warm lookups:          avg %,d µs/op (no parse — the record cache)%n", median(avgLookups) / 1_000);
+        System.out.printf(Locale.ROOT, "warm lookups:          avg %,d µs/op (no parse — the record cache)%n",
+                median(avgLookups) / 1_000);
         System.out.printf(Locale.ROOT, "checkpoint write-out:  serialization %.1f%% of the checkpoint wall%n",
                 100.0 * checkpointWriter / Math.max(1, checkpointWall));
         System.out.printf(Locale.ROOT, "storage bytes: %,d in %d files%n", bytesTotal, fileCount);

@@ -51,13 +51,15 @@ public final class XdStorageMvccGraphCloner {
         try {
             final Class<?> cl = XdStorageObjectUtils.getEntityClass(object.getClass());
             if (cl == Date.class) return (TObject) new Date(((Date) object).getTime());
-            if (object instanceof XdStorageIdentifiableObject) return (TObject) XdStorageObjectConverter.convertFrom((XdStorageIdentifiableObject) object);
+            if (object instanceof XdStorageIdentifiableObject) return (TObject) XdStorageObjectConverter
+                    .convertFrom((XdStorageIdentifiableObject) object);
 
             if (object instanceof IXdStorageUnmodifiableWrapper) {
                 final Field field = XdStorageObjectUtils.getUnmodifiableWrapperObjectField(cl);
                 field.setAccessible(true);
                 final Object wrappedObject = field.get(object);
-                if (wrappedObject instanceof XdStorageIdentifiableObject) return (TObject) XdStorageObjectConverter.convertFrom((XdStorageIdentifiableObject) wrappedObject);
+                if (wrappedObject instanceof XdStorageIdentifiableObject) return (TObject) XdStorageObjectConverter
+                        .convertFrom((XdStorageIdentifiableObject) wrappedObject);
                 return cloneObject((TObject) wrappedObject);
             }
 

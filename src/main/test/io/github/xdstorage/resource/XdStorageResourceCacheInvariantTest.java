@@ -141,7 +141,8 @@ public class XdStorageResourceCacheInvariantTest {
     // ИНВАРИАНТ 2: ИЗОЛЯЦИЯ ИДЕНТИЧНОСТИ КЛЮЧЕЙ (IDENTITY REGISTRATION)
     // =========================================================================
     @Test
-    @DisplayName("Инвариант 2: readByReference обязан сохранять объект в readObjects под нормализованным ID, а не прокси")
+    @DisplayName("Инвариант 2: readByReference обязан сохранять объект в readObjects под нормализованным ID, а не " +
+            "прокси")
     public void testInvariant2_ReadByReference_ShouldRegisterWithNormalizedKey() throws Exception {
         XdStorageTransaction tx = createTx("TX-2", System.nanoTime());
         SampleNode node = new SampleNode(200L, "Data_200");
@@ -160,7 +161,8 @@ public class XdStorageResourceCacheInvariantTest {
         // ПРОВЕРКА ИНВАРИАНТА: Теперь плоский метод чтения readInternal(id) ОБЯЗАН мгновенно
         // найти эту запись в транзитной мапе readObjects по сырому Long ID, не промахиваясь мимо кэша!
         Object foundObject = resourceCache.read(200L, tx);
-        assertNotNull(foundObject, "🚨 КРАХ ИНВАРИАНТА ИДЕНТИЧНОСТИ! Плоское чтение по Long ID вернуло null после readByReference!");
+        assertNotNull(foundObject,
+                "🚨 КРАХ ИНВАРИАНТА ИДЕНТИЧНОСТИ! Плоское чтение по Long ID вернуло null после readByReference!");
     }
 
     // =========================================================================
@@ -192,7 +194,8 @@ public class XdStorageResourceCacheInvariantTest {
     // ИНВАРИАНТ 4: СТАБИЛЬНОСТЬ SNAPSHOT-ЧТЕНИЯ ПРИ УДАЛЕНИИ (SOFT DELETE PURGE)
     // =========================================================================
     @Test
-    @DisplayName("Инвариант 4: Метод диапазонного чтения read() обязан возвращать стабильный снимок, даже если объект удален параллельно")
+    @DisplayName("Инвариант 4: Метод диапазонного чтения read() обязан возвращать стабильный снимок, даже если " +
+            "объект удален параллельно")
     public void testInvariant4_PredicateRead_ShouldBeResilientToParallelDeletes() throws Exception {
         XdStorageTransaction txReader = createTx("TX-DIAPASONE-READER", System.nanoTime());
         XdStorageTransaction txDeleter = createTx("TX-DELETER", System.nanoTime() + 500);
@@ -214,7 +217,8 @@ public class XdStorageResourceCacheInvariantTest {
         Collection<SampleNode> scannedCollection = resourceCache.read(txReader, obj -> true);
 
         assertFalse(scannedCollection.isEmpty(),
-                "🚨 КРАХ SNAPSHOT-ИНВАРИАНТА! Диапазонный сканер потерял элемент, который был удален после старта транзакции чтения!");
+                "🚨 КРАХ SNAPSHOT-ИНВАРИАНТА! Диапазонный сканер потерял элемент, который был удален после старта " +
+                        "транзакции чтения!");
         assertEquals(1, scannedCollection.size());
     }
 }

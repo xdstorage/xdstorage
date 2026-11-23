@@ -182,7 +182,8 @@ public interface IXdStorage {
      *                                      object's class has no id field
      * @throws XdStorageConnectionException on a storage-level I/O failure
      */
-    void save(Collection<?> objects, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void save(Collection<?> objects, IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Answers whether an object with the given id exists. Requires an open transaction —
@@ -210,7 +211,8 @@ public interface IXdStorage {
      *                                      has no id field
      * @throws XdStorageConnectionException on a storage-level I/O failure
      */
-    boolean has(Class<?> cl, Object id, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    boolean has(Class<?> cl, Object id, IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Hydrates a reference in place: the passed object (typically an unfilled reference
@@ -238,7 +240,8 @@ public interface IXdStorage {
      *                                      exists for the reference's id
      * @throws XdStorageConnectionException on a storage-level I/O failure
      */
-    void load(Object reference, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void load(Object reference, IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Loads an object by id. Requires an open transaction — see {@link #save(Object)}.
@@ -268,7 +271,8 @@ public interface IXdStorage {
      * @throws XdStorageConnectionException on a storage-level I/O failure
      */
     @SuppressWarnings("unchecked")
-    <T> T load(Class<T> cl, Object id, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    <T> T load(Class<T> cl, Object id, IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Hydrates every reference of the collection in place (per-element semantics of
@@ -292,7 +296,8 @@ public interface IXdStorage {
      *                                      reference dangles
      * @throws XdStorageConnectionException on a storage-level I/O failure
      */
-    void load(Collection<?> references, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void load(Collection<?> references, IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Loads every object of the class. Requires an open transaction — see
@@ -322,7 +327,8 @@ public interface IXdStorage {
      * @throws XdStorageConnectionException on a storage-level I/O failure
      */
     @SuppressWarnings("unchecked")
-    <T> Collection<T> load(Class<T> cl, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    <T> Collection<T> load(Class<T> cl, IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Replaces the stored record of the object (matched by its id) with the object's
@@ -349,7 +355,8 @@ public interface IXdStorage {
      *                                      object's class has no id field
      * @throws XdStorageConnectionException on a storage-level I/O failure
      */
-    void update(Object object, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void update(Object object, IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Updates every object of the collection (per-element semantics of
@@ -372,7 +379,8 @@ public interface IXdStorage {
      *                                      object's class has no id field
      * @throws XdStorageConnectionException on a storage-level I/O failure
      */
-    void update(Collection<?> objects, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void update(Collection<?> objects, IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Deletes the object's record (matched by its id). Requires an open transaction —
@@ -396,7 +404,8 @@ public interface IXdStorage {
      *                                      reference's class has no id field
      * @throws XdStorageConnectionException on a storage-level I/O failure
      */
-    void delete(Object reference, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void delete(Object reference, IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Deletes the record of every object in the collection (per-element semantics of
@@ -416,7 +425,8 @@ public interface IXdStorage {
      * @throws XdStorageException           when the transaction is not alive
      * @throws XdStorageConnectionException on a storage-level I/O failure
      */
-    void delete(Collection<?> references, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void delete(Collection<?> references, IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * The storage's transaction manager — the lower-level handle used by

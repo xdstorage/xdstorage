@@ -156,7 +156,8 @@ public final class XdStorageRollbackOnlyCause {
      *                    (pre-capture marks) — the plain message is returned then
      * @return the exception to throw
      */
-    public static XdStorageRuntimeException buildFailure(final String baseMessage, final XdStorageRollbackOnlyCause recorded) {
+    public static XdStorageRuntimeException buildFailure(final String baseMessage, final XdStorageRollbackOnlyCause
+            recorded) {
         final String message = recorded != null
                 ? baseMessage + " (" + recorded.describe() + ")"
                 : baseMessage;

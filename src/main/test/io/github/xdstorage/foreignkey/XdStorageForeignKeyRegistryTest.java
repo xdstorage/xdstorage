@@ -53,13 +53,15 @@ public class XdStorageForeignKeyRegistryTest {
         // parentAnchored=true (это и есть outcome-связь Parent; для Child она "входящая").
         final XdStorageForeignKeyRelation income = childIncomes.stream()
                 .filter(r -> !r.isReverseRelation()).iterator().next();
-        assertEquals(Parent.class, income.getClassFrom().getClazz(), "Источник канонической income-связи — Parent (AutoSave-сторона)!");
+        assertEquals(Parent.class, income.getClassFrom().getClazz(),
+                "Источник канонической income-связи — Parent (AutoSave-сторона)!");
         assertEquals(Child.class, income.getClassTo().getClazz(), "Цель канонической income-связи — Child!");
         assertTrue(income.isParentAnchored(), "Каноническая связь принадлежит AutoSave-стороне родителя!");
     }
 
     @Test
-    @DisplayName("FNKEY: Child-first регистрация не создает дубликат связи — канонической остается AutoSave-сторона родителя")
+    @DisplayName("FNKEY: Child-first регистрация не создает дубликат связи — канонической остается AutoSave-сторона " +
+            "родителя")
     public void testRegister_WithRealChild_ShouldBuildCorrectHierarchy() {
         registry.registerRelations(childClassInfo);
 

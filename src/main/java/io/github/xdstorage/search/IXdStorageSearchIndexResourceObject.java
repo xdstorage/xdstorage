@@ -10,6 +10,7 @@ import io.github.xdstorage.resource.IXdStorageResourceObject;
  *
  * <p>Engine-internal — not part of the public API. Locking and concurrency are owned by
  * the resources manager that issued the resource. */
-public interface IXdStorageSearchIndexResourceObject extends IXdStorageResourceObject<IXdStorageSearchIndexDaoResource> {
+public interface IXdStorageSearchIndexResourceObject extends IXdStorageResourceObject<IXdStorageSearchIndexDaoResource>
+        {
 
 }

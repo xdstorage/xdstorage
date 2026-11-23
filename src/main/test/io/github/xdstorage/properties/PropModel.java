@@ -155,13 +155,16 @@ public final class PropModel {
             problems.add("nested: expected " + expected.getNested().getTitle() + ", got null");
         } else {
             if (!eq(expected.getNested().getTitle(), actual.getNested().getTitle())) {
-                problems.add("nested.title: " + expected.getNested().getTitle() + " vs " + actual.getNested().getTitle());
+                problems.add("nested.title: " + expected.getNested().getTitle() + " vs " + actual.getNested()
+                        .getTitle());
             }
             if (!eq(expected.getNested().getWeight(), actual.getNested().getWeight())) {
-                problems.add("nested.weight: " + expected.getNested().getWeight() + " vs " + actual.getNested().getWeight());
+                problems.add("nested.weight: " + expected.getNested().getWeight() + " vs " + actual.getNested()
+                        .getWeight());
             }
             if (!eq(expected.getNested().getFlags(), actual.getNested().getFlags())) {
-                problems.add("nested.flags: " + expected.getNested().getFlags() + " vs " + actual.getNested().getFlags());
+                problems.add("nested.flags: " + expected.getNested().getFlags() + " vs " + actual.getNested()
+                        .getFlags());
             }
         }
         if (!problems.isEmpty()) {

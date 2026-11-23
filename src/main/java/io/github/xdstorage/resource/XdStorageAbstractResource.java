@@ -27,7 +27,8 @@ import java.util.Collection;
  *
  * <p>Engine-internal — not part of the public API.</p>
  */
-public abstract class XdStorageAbstractResource implements IXdStorageResourceObject<IXdStorageDaoResource>, IXdStorageDaoResource {
+public abstract class XdStorageAbstractResource implements IXdStorageResourceObject<IXdStorageDaoResource>,
+        IXdStorageDaoResource {
 
     /** Engine services shared with collaborators (storage, config, cloner, transactions manager). */
     protected final XdStorageServicesLocator services;
@@ -185,11 +186,13 @@ public abstract class XdStorageAbstractResource implements IXdStorageResourceObj
         manager.releaseResource(this);
     }
 
-    public Collection<XdStorageIdentifiableObject> readAsData(final XdStorageTransaction transaction) throws XdStorageException {
+    public Collection<XdStorageIdentifiableObject> readAsData(final XdStorageTransaction transaction) throws
+            XdStorageException {
         throw new XdStorageRuntimeException("unsupported operation exception");
     }
 
-    public boolean hasObject(final Object objectId, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public boolean hasObject(final Object objectId, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         return cache.hasObject(objectId);
     }
 
@@ -197,7 +200,8 @@ public abstract class XdStorageAbstractResource implements IXdStorageResourceObj
         return cache.read(transaction);
     }
 
-    public void insertReference(final Object reference, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void insertReference(final Object reference, final XdStorageTransaction transaction) throws
+            XdStorageException, XdStorageConnectionException {
         Object objectId = idField.get(reference);
         if ((idField.getIdGeneratorType() == XdStorageIdGeneratorType.DATABASE_GENERATOR
                 || idField.getIdGeneratorType() == XdStorageIdGeneratorType.CUSTOM_GENERATOR)
@@ -208,7 +212,8 @@ public abstract class XdStorageAbstractResource implements IXdStorageResourceObj
         manager.updateCounterByObjectAdded(clInfo.getClazz(), this);
     }
 
-    public void deleteReference(final Object reference, final XdStorageTransaction transaction) throws XdStorageException {
+    public void deleteReference(final Object reference, final XdStorageTransaction transaction) throws
+            XdStorageException {
         cache.delete(idField.get(reference), transaction);
         manager.updateCounterByObjectRemoved(clInfo.getClazz(), this);
     }
@@ -217,36 +222,44 @@ public abstract class XdStorageAbstractResource implements IXdStorageResourceObj
         return cache.findUnidentified(object, transaction);
     }
 
-    public <T> Collection<T> read(final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public <T> Collection<T> read(final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         return cache.read(transaction);
     }
 
-    public <T> Collection<T> read(final XdStorageTransaction transaction, final IXdStoragePredicate<T> predicate) throws XdStorageException, XdStorageConnectionException {
+    public <T> Collection<T> read(final XdStorageTransaction transaction, final IXdStoragePredicate<T> predicate) throws
+            XdStorageException, XdStorageConnectionException {
         return cache.read(transaction, predicate);
     }
 
-    public <T> void watch(final XdStorageTransaction transaction, final IXdStorageWatcher<T> watcher) throws XdStorageException, XdStorageConnectionException {
+    public <T> void watch(final XdStorageTransaction transaction, final IXdStorageWatcher<T> watcher) throws
+            XdStorageException, XdStorageConnectionException {
         cache.watch(transaction, watcher);
     }
 
-    public void readByReference(final Object reference, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void readByReference(final Object reference, final XdStorageTransaction transaction) throws
+            XdStorageException, XdStorageConnectionException {
         cache.readByReference(reference, transaction);
     }
 
-    public Object read(final Object id, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public Object read(final Object id, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         return cache.read(id, transaction);
     }
 
-    public void insert(final Object object, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void insert(final Object object, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         cache.insert(object, transaction);
         manager.updateCounterByObjectAdded(clInfo.getClazz(), this);
     }
 
-    public void update(final Object object, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void update(final Object object, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         cache.update(object, transaction);
     }
 
-    public void delete(final Object object, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void delete(final Object object, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         cache.delete(idField.get(object), transaction);
         manager.updateCounterByObjectRemoved(clInfo.getClazz(), this);
     }

@@ -58,7 +58,8 @@ public class XdStorageParentObjectTest {
         Employee loadedEmp = storage.load(Employee.class, "emp-77", readTx);
 
         assertNotNull(loadedEmp, "Дочерний объект не найден на диске!");
-        assertNotNull(loadedEmp.getParentCompany(), "🚨 КРАХ КОНТРАКТА СУБД! Поле @XdStorageParentObject осталось null!");
+        assertNotNull(loadedEmp.getParentCompany(),
+                "🚨 КРАХ КОНТРАКТА СУБД! Поле @XdStorageParentObject осталось null!");
         assertEquals("company-42", loadedEmp.getParentCompany().getId(), "Ссылка указывает на некорректного родителя!");
         readTx.commit();
     }

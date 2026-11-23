@@ -52,20 +52,27 @@ public class XdStorageReaderStrictnessTest {
     public void objectElementInReferencesFile_IsRefusedLoudly() {
         // the references reader accepted the start element but only processed
         // `reference` — an `object` element silently yielded nothing (references vanished).
-        final XdStorageDefaultObjectsReader reader = new XdStorageDefaultObjectsReader(new XdStorageDefaultSimpleTypeHelper());
+        final XdStorageDefaultObjectsReader reader = new XdStorageDefaultObjectsReader(new
+                XdStorageDefaultSimpleTypeHelper());
         final Reader xml = new StringReader(
-                "<objects><object class='io.github.xdstorage.serialization.XdStorageReaderStrictnessTest$StrictnessEntity' name='e1'/></objects>");
+                "<objects><object " +
+                        "class='io.github.xdstorage.serialization.XdStorageReaderStrictnessTest$StrictnessEntity' " +
+                        "name='e1'/></objects>");
         assertThrows(XdStorageIOException.class,
-                () -> reader.readReferences(xml, XdStorageObjectUtils.getClassInfo(StrictnessEntity.class).getIdField()),
+                () -> reader.readReferences(xml, XdStorageObjectUtils.getClassInfo(StrictnessEntity.class)
+                        .getIdField()),
                 "an object element in a references file must be refused loudly");
     }
 
     @Test
     public void referenceElementInObjectsFile_IsRefusedLoudly() {
         // the mirror case: the data-object reader silently skipped reference elements.
-        final XdStorageDefaultObjectsReader reader = new XdStorageDefaultObjectsReader(new XdStorageDefaultSimpleTypeHelper());
+        final XdStorageDefaultObjectsReader reader = new XdStorageDefaultObjectsReader(new
+                XdStorageDefaultSimpleTypeHelper());
         final Reader xml = new StringReader(
-                "<objects><reference class='io.github.xdstorage.serialization.XdStorageReaderStrictnessTest$StrictnessEntity' value='1'/></objects>");
+                "<objects><reference " +
+                        "class='io.github.xdstorage.serialization.XdStorageReaderStrictnessTest$StrictnessEntity' " +
+                        "value='1'/></objects>");
         assertThrows(XdStorageIOException.class,
                 () -> reader.read(xml),
                 "a reference element in a data-object file must be refused loudly");

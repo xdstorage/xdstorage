@@ -51,7 +51,8 @@ public class XdStorageS5StartupSweepTest {
         final Path dir = Files.createTempDirectory("s5_durable_db");
         try {
             final XdStorageConfig durable = XdStorageConfig.builder().durableWrites(true).build();
-            final IXdFileStorage writer = XdStorageProvider.newOrGetFileStorage("s5-durable", dir.toString(), 128, durable);
+            final IXdFileStorage writer = XdStorageProvider.newOrGetFileStorage("s5-durable", dir.toString(), 128,
+                    durable);
             try {
                 final IXdStorageTransaction tx = writer.beginTransaction();
                 writer.save(new BenchmarkEntity("d-1", "alpha"), tx);
@@ -61,7 +62,8 @@ public class XdStorageS5StartupSweepTest {
                 writer.shutdown();
             }
 
-            final IXdFileStorage reader = XdStorageProvider.newOrGetFileStorage("s5-durable", dir.toString(), 128, durable);
+            final IXdFileStorage reader = XdStorageProvider.newOrGetFileStorage("s5-durable", dir.toString(), 128,
+                    durable);
             try {
                 final IXdStorageTransaction tx = reader.beginTransaction();
                 final java.util.Collection<BenchmarkEntity> loaded = reader.load(BenchmarkEntity.class, tx);

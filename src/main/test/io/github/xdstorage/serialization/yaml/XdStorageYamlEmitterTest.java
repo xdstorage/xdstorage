@@ -72,7 +72,8 @@ public class XdStorageYamlEmitterTest {
                         "\t\t\t\t\tobject:\r\n" +
                         "\t\t\t\t\t\tclass: 'io.github.xdstorage.entities.XdBlackHole'\r\n";
 
-        assertEquals(expectedYaml, stringWriter.toString(), "🚨 Конечный автомат нарушил контракт отступов новой мета-модели!");
+        assertEquals(expectedYaml, stringWriter.toString(),
+                "🚨 Конечный автомат нарушил контракт отступов новой мета-модели!");
     }
 
     @Test

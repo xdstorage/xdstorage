@@ -193,7 +193,8 @@ public class XdStorageLayoutMigrationTest {
     // ───────────────────────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("LAYOUTMIG не трогает журналы; индексный журнал под indexes/ — дев-спеллинг, оседающий в data/<class>/journal/ при prepare")
+    @DisplayName("LAYOUTMIG не трогает журналы; индексный журнал под indexes/ — дев-спеллинг, оседающий в " +
+            "data/<class>/journal/ при prepare")
     public void testJournalsStayUnderIndexesClassJournal() throws Exception {
         final Path dir = tempDir.resolve("journals-stay-db");
         Files.createDirectories(dir);
@@ -268,7 +269,8 @@ public class XdStorageLayoutMigrationTest {
             final IXdFileStorage storage2 = XdStorageProvider.newOrGetFileStorage("new-layout", dir.toString(), 64);
             try {
                 final IXdStorageTransaction tx2 = storage2.beginTransaction();
-                final List<CollapseForTest> loaded = new java.util.ArrayList<>(storage2.load(CollapseForTest.class, tx2));
+                final List<CollapseForTest> loaded = new java.util.ArrayList<>(storage2.load(CollapseForTest.class,
+                        tx2));
                 assertEquals(2, loaded.size(), "both entities must load after reopen");
                 tx2.commit();
             } finally {
@@ -346,7 +348,8 @@ public class XdStorageLayoutMigrationTest {
     // ───────────────────────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("LAYOUTMIG: сбой миграции (indexes/ заблокирован файлом) = ГРОМКИЙ отказ открытия, не warn-and-continue")
+    @DisplayName("LAYOUTMIG: сбой миграции (indexes/ заблокирован файлом) = ГРОМКИЙ отказ открытия, не " +
+            "warn-and-continue")
     public void testMigrationFailureRefusesOpenLoudly() throws Exception {
         final Path dir = tempDir.resolve("mig-fail-db");
         Files.createDirectories(dir);

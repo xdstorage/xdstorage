@@ -71,7 +71,8 @@ public class ForeignKeyDeleteScenariosTest extends AbstractForeignKeyBaseSpecifi
     }
 
     @Test
-    @DisplayName("4. Чтение родителя и всех детей с последующим их полным удалением (в т.ч. из parent.collection) -> Успешный commit")
+    @DisplayName("4. Чтение родителя и всех детей с последующим их полным удалением (в т.ч. из parent.collection) -> " +
+            "Успешный commit")
     void testLoadAllAndPurgeAllSuccess() throws Exception {
         tx = storage.beginTransaction();
         BTreeIndexParentAutoId parent = storage.load(BTreeIndexParentAutoId.class, parentId);

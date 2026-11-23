@@ -73,7 +73,8 @@ public class BinFeasBinaryIOFactory extends XdStorageYamlIOFactory {
         }
 
         @Override
-        public Collection<XdStorageIdentifiableObject> readData(final Reader xmlReader, final XdStorageObjectIdField field)
+        public Collection<XdStorageIdentifiableObject> readData(final Reader xmlReader, final XdStorageObjectIdField
+                field)
                 throws XdStorageIOException, XdStorageException {
             try {
                 return BinFeasBinaryCodec.readAsRecords(xmlReader, field);

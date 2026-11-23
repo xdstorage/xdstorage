@@ -63,7 +63,8 @@ public class XdStorageResourceCacheBenchmark {
         IXdStorageTransactionManager mockTxManager = new IXdStorageTransactionManager() {
             @Override public IXdStorage getStorage() { return mockStorage; }
             @Override public IXdStorageTransaction beginTransaction(long timeout) { return null; }
-            @Override public IXdStorageTransaction beginTransaction(IXdStorageTransaction tx, long timeout) { return null; }
+            @Override public IXdStorageTransaction beginTransaction(IXdStorageTransaction tx, long timeout) { return
+                    null; }
             @Override public IXdStorageTransaction getTransaction(String txId) { return null; }
             @Override public void commitTransaction(IXdStorageTransaction tx) {}
             @Override public void rollbackTransaction(IXdStorageTransaction tx) {}

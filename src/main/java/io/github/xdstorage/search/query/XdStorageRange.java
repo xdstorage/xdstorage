@@ -25,7 +25,8 @@ public final class XdStorageRange {
      */
     public XdStorageRange(final Object from, final Object to) {
         if (from == null || to == null) {
-            throw new XdStorageRuntimeException("BETWEEN requires non-null bounds — IS_NULL / IS_NOT_NULL are the null tests");
+            throw new XdStorageRuntimeException("BETWEEN requires non-null bounds — IS_NULL / IS_NOT_NULL are the " +
+                    "null tests");
         }
         this.from = from;
         this.to = to;

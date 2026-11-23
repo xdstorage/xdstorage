@@ -78,7 +78,8 @@ public class XdStorageForeignKeyResourcesManager {
      * @param services the storage services locator (naming service, storage access)
      * @param manager  the core storage resources manager the FK resources delegate to
      */
-    public XdStorageForeignKeyResourcesManager(XdStorageServicesLocator services, XdStorageAbstractResourcesManager manager) {
+    public XdStorageForeignKeyResourcesManager(XdStorageServicesLocator services, XdStorageAbstractResourcesManager
+            manager) {
         this.services = services;
         this.manager = manager;
         this.resources = new ConcurrentHashMap<>();
@@ -129,9 +130,13 @@ public class XdStorageForeignKeyResourcesManager {
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      * @throws XdStorageException          on a storage-level failure
      */
-    public IXdStorageForeignKeyResource lockForeignKeyResource(XdStorageClassInfo clParentInfo, XdStorageClassInfo clChildInfo,
-                                                               XdStorageObjectField clParentField, XdStorageTransaction transaction) throws XdStorageConnectionException, XdStorageException {
-        final Object resourceId = services.getNamingService().getForeignKeyResourceId("fk", clParentInfo.getClazz(), clChildInfo.getClazz(), clParentField.getName());
+    public IXdStorageForeignKeyResource lockForeignKeyResource(XdStorageClassInfo clParentInfo, XdStorageClassInfo
+            clChildInfo,
+                                                               XdStorageObjectField clParentField, XdStorageTransaction
+                                                                transaction) throws XdStorageConnectionException,
+                                                                XdStorageException {
+        final Object resourceId = services.getNamingService().getForeignKeyResourceId("fk", clParentInfo.getClazz(),
+                clChildInfo.getClazz(), clParentField.getName());
         return internalLockResource(new IResourceFactory() {
             @Override
             public Object getResourceId() {
@@ -160,8 +165,10 @@ public class XdStorageForeignKeyResourcesManager {
      * @param clParentField the parent's referencing field
      * @return the created FK resource
      */
-    protected IXdStorageForeignKeyResource createFkResource(Object resourceId, XdStorageClassInfo clParentInfo, XdStorageClassInfo clChildInfo, XdStorageObjectField clParentField) {
-        return new XdStorageForeignKeyResource(services, manager, this, resourceId, clParentInfo, clChildInfo, clParentField);
+    protected IXdStorageForeignKeyResource createFkResource(Object resourceId, XdStorageClassInfo clParentInfo,
+            XdStorageClassInfo clChildInfo, XdStorageObjectField clParentField) {
+        return new XdStorageForeignKeyResource(services, manager, this, resourceId, clParentInfo, clChildInfo,
+                clParentField);
     }
 
     /**
@@ -179,7 +186,9 @@ public class XdStorageForeignKeyResourcesManager {
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
     protected final <T extends IXdStorageForeignKeyResource> T internalLockResource(final IResourceFactory factory,
-                                                                                    final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+                                                                                    final XdStorageTransaction
+                                                                transaction) throws XdStorageException,
+                                                                XdStorageConnectionException {
         final Object resourceId = factory.getResourceId();
         IXdStorageForeignKeyResource returnResource = resources.computeIfAbsent(resourceId, k -> factory.create());
         returnResource.prepare(transaction);

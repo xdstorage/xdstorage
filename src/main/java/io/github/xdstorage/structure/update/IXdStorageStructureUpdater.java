@@ -46,7 +46,8 @@ public interface IXdStorageStructureUpdater<T> {
      * @throws XdStorageException           when the migration fails with a storage error
      * @throws XdStorageConnectionException when the storage connection fails
      */
-    XdStorageUpdateStructureResult execute(XdStorageAbstractResourcesManager resourcesManager, XdStorageTransaction tx) throws XdStorageException, XdStorageConnectionException;
+    XdStorageUpdateStructureResult execute(XdStorageAbstractResourcesManager resourcesManager, XdStorageTransaction tx)
+            throws XdStorageException, XdStorageConnectionException;
 
     /**
      * Reports the execution outcome back to the caller (the structure manager).

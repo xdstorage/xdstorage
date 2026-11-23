@@ -65,7 +65,8 @@ public final class SweepFindTxVerify {
         final long outs = storage.getMetrics().get("resourceWriteOuts") - outs0;
         final long nanos = storage.getMetrics().get("resourceWriteOutNanos") - nanos0;
 
-        System.out.printf("%s N=%d: 500 read-only tx in %d ms (%.2f ms/op), misses=%d, writeOuts=%d, writeOutNanos=%d (%.2f ms), avg %.2f ms/file%n",
+        System.out.printf("%s N=%d: 500 read-only tx in %d ms (%.2f ms/op), misses=%d, writeOuts=%d, " +
+                "writeOutNanos=%d (%.2f ms), avg %.2f ms/file%n",
                 btree ? "btree" : "hash", n, elapsedMs, elapsedMs / 500.0, misses, outs, nanos, nanos / 1e6,
                 outs == 0 ? 0 : nanos / 1e6 / outs);
         storage.shutdown();

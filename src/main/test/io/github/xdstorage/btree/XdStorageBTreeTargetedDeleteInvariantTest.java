@@ -84,12 +84,15 @@ public class XdStorageBTreeTargetedDeleteInvariantTest {
         assertEquals(2, remainingValues.size(), "СУБД нарушила состав дубликатов при прецизионном удалении!");
         assertTrue(remainingValues.contains("Child_Value_A"), "Потерян соседний левый дубликат А!");
         assertTrue(remainingValues.contains("Child_Value_C"), "Потерян соседний правый дубликат С!");
-        assertFalse(remainingValues.contains("Child_Value_B"), "🚨 КРАХ ИНВАРИАНТА! Целевое удаленное значение всё еще содержится в индексе!");
+        assertFalse(remainingValues.contains("Child_Value_B"),
+                "🚨 КРАХ ИНВАРИАНТА! Целевое удаленное значение всё еще содержится в индексе!");
 
         // Прогоняем встроенный тотальный валидатор Кнута для проверки связности ярусов
         assertDoesNotThrow(() -> {
-            XdStorageBTreeInvariants.validateLeafChain(verifyTree, storage, (XdStorageTransaction) txVerify, "TargetedDeleteVerification");
-        }, "🚨 СТРУКТУРНОЕ ПОВРЕЖДЕНИЕ! Прецизионное удаление рассинхронизировало пары keys/children или порвало цепь листьев!");
+            XdStorageBTreeInvariants.validateLeafChain(verifyTree, storage, (XdStorageTransaction) txVerify,
+                    "TargetedDeleteVerification");
+        }, "🚨 СТРУКТУРНОЕ ПОВРЕЖДЕНИЕ! Прецизионное удаление рассинхронизировало пары "
+                + "keys/children или порвало цепь листьев!");
 
         txVerify.commit();
     }

@@ -144,7 +144,8 @@ public class XdStorageFacadeStressTest extends AbstractXdStorageTest {
             Collection<ClassPolicyEntity> emptyCheck = realStorage.load(ClassPolicyEntity.class, txCheckEmpty);
 
             // Жесткий ACID ассерт: в базе не должно остаться ни одной фантомной записи
-            assertTrue(emptyCheck.isEmpty(), "Критический дефект ACID! База данных содержит фантомные индексы после пурджа!");
+            assertTrue(emptyCheck.isEmpty(),
+                    "Критический дефект ACID! База данных содержит фантомные индексы после пурджа!");
 
             txCheckEmpty.commit();
             log.info("СУБД абсолютно чиста. Инвариант Б+Дерева и теневых буферов подтвержден на 100%.");

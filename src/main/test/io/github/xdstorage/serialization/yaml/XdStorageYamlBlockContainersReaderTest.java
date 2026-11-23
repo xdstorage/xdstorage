@@ -77,7 +77,8 @@ public class XdStorageYamlBlockContainersReaderTest {
                         "\t\t\t\t\tvalue: 'Sector-7G'\r\n" +
                         "\t\t\t- entry:\r\n" +
                         "\t\t\t\tkey:\r\n" +
-                        "\t\t\t\t\ttype: 'io.github.xdstorage.entities.map.TestEnum'\r\n" + // Специфичный ключ-энум ядра СУБД
+                        // Специфичный ключ-энум ядра СУБД
+                        "\t\t\t\t\ttype: 'io.github.xdstorage.entities.map.TestEnum'\r\n" +
                         "\t\t\t\t\tvalue: 'VALUE1'\r\n" +
                         "\t\t\t\tvalue:\r\n" +
                         "\t\t\t\t\ttype: 'java.lang.Object'\r\n" + // Полноценный полиморфный Object из MapStoringTest
@@ -137,7 +138,8 @@ public class XdStorageYamlBlockContainersReaderTest {
 
         assertNotNull(result);
         assertEquals(1, result.size());
-        assertEquals("Jupiter", result.iterator().next(), "Парсер потерял значение из-за изменения порядка type/value!");
+        assertEquals("Jupiter", result.iterator().next(),
+                "Парсер потерял значение из-за изменения порядка type/value!");
     }
 
     @Test

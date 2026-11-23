@@ -147,7 +147,8 @@ public class XdStorageBTreeTargetedDeleteStressTest {
         System.out.println("=========================================================================");
 
         if (!exceptions.isEmpty()) {
-            System.err.println("🚨 ОБНАРУЖЕНЫ АНОМАЛИИ СТРУКТУРЫ ИЛИ ДЕДЛОКИ БЛОКИРОВОК (" + exceptions.size() + " шт):");
+            System.err.println("🚨 ОБНАРУЖЕНЫ АНОМАЛИИ СТРУКТУРЫ ИЛИ ДЕДЛОКИ БЛОКИРОВОК (" + exceptions.size() +
+                    " шт):");
             exceptions.forEach(e -> {
                 System.err.println("---");
                 e.printStackTrace(System.err);

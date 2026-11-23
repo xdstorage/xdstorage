@@ -68,7 +68,8 @@ public class XdStorageSearchEngineIntegrationTest {
     }
 
     private static Collection<SearchEngineShip> searchShips(final IXdStorageTransaction tx,
-                                                                         final XdStorageSearchQuery query) throws Exception {
+                                                                         final XdStorageSearchQuery query) throws
+                                                                Exception {
         return storage.load(SearchEngineShip.class, "ship_idx", query, tx);
     }
 

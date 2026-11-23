@@ -69,7 +69,8 @@ public class XdStorageYamlObjectsWriter implements IXdStorageObjectsWriter {
     }
 
     @Override
-    public void writeReferences(final Writer writer, final XdStorageObjectIdField field, final Collection<Object> references) throws XdStorageIOException {
+    public void writeReferences(final Writer writer, final XdStorageObjectIdField field, final Collection<Object>
+            references) throws XdStorageIOException {
         try {
             final XdStorageYamlEmitter emitter = new XdStorageYamlEmitter(writer);
 
@@ -80,7 +81,8 @@ public class XdStorageYamlObjectsWriter implements IXdStorageObjectsWriter {
 
                 // Контракт записи чистых транзакционных связей СУБД
                 emitter.openBlock("- reference");
-                XdStorageYamlBlockObjectsWriter.writeReferenceData(ref, field, emitter, services, simpleTypeHelper, idGenerator);
+                XdStorageYamlBlockObjectsWriter.writeReferenceData(ref, field, emitter, services, simpleTypeHelper,
+                        idGenerator);
                 emitter.closeBlock();
             }
 

@@ -10,7 +10,8 @@ import java.util.*;
 public class XxFkDiag {
     public static void main(String[] a) throws Exception {
         String root = "./target/fkdiag-" + System.nanoTime();
-        IXdFileStorage s = XdStorageProvider.newOrGetFileStorage("fkd-" + System.nanoTime(), root, 128, FilesFormat.YAML);
+        IXdFileStorage s = XdStorageProvider.newOrGetFileStorage("fkd-" + System.nanoTime(), root, 128, FilesFormat
+                .YAML);
         Parent parent = new Parent();
         parent.setId("p0");
         Child c1 = new Child();

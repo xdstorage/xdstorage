@@ -37,7 +37,8 @@ public interface IXdStorageDaoResource extends IXdStorageListenableResource {
      * @return the data records of the resource, or {@code null} when the backing file does not exist
      * @throws XdStorageException when the file cannot be read or parsed
      */
-    Collection<XdStorageIdentifiableObject> readAsData(final XdStorageTransaction transaction) throws XdStorageException;
+    Collection<XdStorageIdentifiableObject> readAsData(final XdStorageTransaction transaction) throws
+            XdStorageException;
 
     /**
      * Whether the resource holds an object with the given id in the transaction-visible state.
@@ -48,7 +49,8 @@ public interface IXdStorageDaoResource extends IXdStorageListenableResource {
      * @throws XdStorageException          on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
-    boolean hasObject(final Object objectId, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    boolean hasObject(final Object objectId, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * All reference records held by this resource — for a references resource, the objects
@@ -70,7 +72,8 @@ public interface IXdStorageDaoResource extends IXdStorageListenableResource {
      * @throws XdStorageException          on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
-    void insertReference(final Object reference, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void insertReference(final Object reference, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Removes the reference with the id carried by the passed object. The change is staged in
@@ -104,7 +107,8 @@ public interface IXdStorageDaoResource extends IXdStorageListenableResource {
      * @throws XdStorageException          on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
-    <T> Collection<T> read(final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    <T> Collection<T> read(final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Reads the snapshot-visible objects that pass the predicate — a filtered in-snapshot scan;
@@ -117,7 +121,8 @@ public interface IXdStorageDaoResource extends IXdStorageListenableResource {
      * @throws XdStorageException          on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
-    <T> Collection<T> read(final XdStorageTransaction transaction, final IXdStoragePredicate<T> predicate) throws XdStorageException, XdStorageConnectionException;
+    <T> Collection<T> read(final XdStorageTransaction transaction, final IXdStoragePredicate<T> predicate) throws
+            XdStorageException, XdStorageConnectionException;
 
     /**
      * Streams every object visible in the transaction's snapshot to the watcher without
@@ -129,7 +134,8 @@ public interface IXdStorageDaoResource extends IXdStorageListenableResource {
      * @throws XdStorageException          on a storage-level failure or a callback failure
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
-    <T> void watch(final XdStorageTransaction transaction, final IXdStorageWatcher<T> watcher) throws XdStorageException, XdStorageConnectionException;
+    <T> void watch(final XdStorageTransaction transaction, final IXdStorageWatcher<T> watcher) throws
+            XdStorageException, XdStorageConnectionException;
 
     /**
      * Loads the stored state of the object with the id carried by {@code reference} into
@@ -140,7 +146,8 @@ public interface IXdStorageDaoResource extends IXdStorageListenableResource {
      * @throws XdStorageException          when the referenced object cannot be loaded
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
-    void readByReference(final Object reference, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void readByReference(final Object reference, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * The object with the given id, as visible in the transaction's snapshot.
@@ -152,7 +159,8 @@ public interface IXdStorageDaoResource extends IXdStorageListenableResource {
      * @throws XdStorageException          on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
-    Object read(final Object id, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    Object read(final Object id, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Stages the insert of a new object into the transaction's write set; the object becomes
@@ -163,7 +171,8 @@ public interface IXdStorageDaoResource extends IXdStorageListenableResource {
      * @throws XdStorageException          on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
-    void insert(final Object object, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void insert(final Object object, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Stages the update of an existing object into the transaction's write set; the new state
@@ -174,7 +183,8 @@ public interface IXdStorageDaoResource extends IXdStorageListenableResource {
      * @throws XdStorageException          on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
-    void update(final Object object, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void update(final Object object, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Stages the deletion of the object with the id carried by the passed object; the record
@@ -185,7 +195,8 @@ public interface IXdStorageDaoResource extends IXdStorageListenableResource {
      * @throws XdStorageException          on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
-    void delete(final Object object, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void delete(final Object object, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Whether the record with the given id is currently staged-deleted BY the given

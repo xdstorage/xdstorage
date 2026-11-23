@@ -36,7 +36,8 @@ public class XdStorageSearchIndexRecord {
     private Map<Class<?>, Map<String, List<Object>>> childrenIds;
 
     /**
-     * Map[ child_class, map[ child_object_id, Map[ child_field_name, Map[child_object_class_field_name, child_object_field_value]]]]
+      * Map[ child_class, map[ child_object_id, Map[ child_field_name, Map[child_object_class_field_name,
+      * child_object_field_value]]]]
      */
     private Map<Class<?>, Map<Object, Map<String, Map<String, Object>>>> childrenFieldValues;
 
@@ -180,7 +181,8 @@ public class XdStorageSearchIndexRecord {
      * @param fieldName      the child entity's indexed field name
      * @param value          the child entity's field value (may be {@code null})
      */
-    public void addChildFieldValue(final String childFieldName, final Class<?> cl, final Object objectId, final String fieldName, final Object value) {
+    public void addChildFieldValue(final String childFieldName, final Class<?> cl, final Object objectId, final String
+            fieldName, final Object value) {
         if (childrenFieldValues == null) {
             childrenFieldValues = new HashMap<>();
         }
@@ -228,7 +230,8 @@ public class XdStorageSearchIndexRecord {
      * @param fieldName      the child entity's field name to collect
      * @return the collected values (never {@code null}; empty when the record holds no such children)
      */
-    public Collection<Object> getChildFieldValue(final String childFieldName, final Class<?> cl, final String fieldName) {
+    public Collection<Object> getChildFieldValue(final String childFieldName, final Class<?> cl, final String fieldName)
+            {
         if (childrenFieldValues == null) {
             return Collections.emptyList();
         }
@@ -258,7 +261,8 @@ public class XdStorageSearchIndexRecord {
      *
      * @param childrenFieldValues the new child-class-to-child-state map
      */
-    public void setChildrenFieldValues(final Map<Class<?>, Map<Object, Map<String, Map<String, Object>>>> childrenFieldValues) {
+    public void setChildrenFieldValues(final Map<Class<?>, Map<Object, Map<String, Map<String, Object>>>>
+            childrenFieldValues) {
         this.childrenFieldValues = childrenFieldValues;
     }
 

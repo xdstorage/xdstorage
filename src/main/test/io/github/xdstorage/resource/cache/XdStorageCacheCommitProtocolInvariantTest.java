@@ -143,7 +143,8 @@ class XdStorageCacheCommitProtocolInvariantTest extends CacheInvariantTestSuppor
 
         protocol.performCommit(tx, collector);
 
-        assertEquals(4, collector.getChangesObjects().size(), "фаза 2: вторая подача на запись (обновление коллектора)");
+        assertEquals(4, collector.getChangesObjects().size(),
+                "фаза 2: вторая подача на запись (обновление коллектора)");
 
         // обе фазы установлены — финализация делает записи перманентными
         protocol.commit(tx);

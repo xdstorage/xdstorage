@@ -327,7 +327,8 @@ public class XdStorageTriggerFacadeTest {
     }
 
     /** A second entity type: only used to prove there is no cross-class dispatch. */
-    @io.github.xdstorage.annotations.XdStorageObjectPolicy(policy = io.github.xdstorage.XdStoragePolicy.StoreAsClassObjects)
+    @io.github.xdstorage.annotations.XdStorageObjectPolicy(policy = io.github.xdstorage.XdStoragePolicy
+            .StoreAsClassObjects)
     public static class OtherEntity {
         @io.github.xdstorage.annotations.XdStorageObjectId
         private String id;

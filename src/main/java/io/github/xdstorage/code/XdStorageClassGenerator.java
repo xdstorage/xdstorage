@@ -66,10 +66,12 @@ public class XdStorageClassGenerator {
      *         compiler is available, compilation fails or loading fails
      * @throws IOException propagated from the compilation task
      */
-    public static synchronized Map<Class<?>, Class<?>> generateUnmodifiableWrapper(final Class<?> cl) throws IOException {
+    public static synchronized Map<Class<?>, Class<?>> generateUnmodifiableWrapper(final Class<?> cl) throws IOException
+            {
         final Map<String, String> generatedCode = new HashMap<>();
         if (cl == XdStorageIdentifiableObject.class) {
-            new XdStorageUnmodifiableXdStorageObjectWrapperClassCodeGenerator().generate(CLASSES_PACKAGE, cl, generatedCode);
+            new XdStorageUnmodifiableXdStorageObjectWrapperClassCodeGenerator().generate(CLASSES_PACKAGE, cl,
+                    generatedCode);
         } else {
             new XdStorageUnmodifiableWrapperClassCodeGenerator().generate(CLASSES_PACKAGE, cl, generatedCode);
         }
@@ -106,7 +108,8 @@ public class XdStorageClassGenerator {
         return compileGeneratedClassesCode(cl, generatedCode);
     }
 
-    private static Map<Class<?>, Class<?>> compileGeneratedClassesCode(final Class<?> cl, final Map<String, String> generatedCode) throws IOException {
+    private static Map<Class<?>, Class<?>> compileGeneratedClassesCode(final Class<?> cl, final Map<String, String>
+            generatedCode) throws IOException {
         final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         if (compiler == null) {
             // SILENT-LOSS BARRIER: без компилятора (JRE) сгенерированные обертки не создаются,
@@ -142,7 +145,8 @@ public class XdStorageClassGenerator {
             if (Boolean.getBoolean("xdstorage.dump.gencode")) {
                 generatedCode.forEach((name, source) -> {
                     try {
-                        java.nio.file.Files.write(java.nio.file.Paths.get("/tmp/gencode-dump-" + name.replaceAll("[^A-Za-z0-9.$]", "_") + ".java"),
+                        java.nio.file.Files.write(java.nio.file.Paths.get("/tmp/gencode-dump-" + name
+                                .replaceAll("[^A-Za-z0-9.$]", "_") + ".java"),
                                 source.getBytes());
                     } catch (final Exception dumpError) {
                         log.error("gencode dump failed for {}", name, dumpError);
@@ -216,7 +220,8 @@ public class XdStorageClassGenerator {
          */
         @Override
         protected Class<?> loadClass(final String name, final boolean resolve) throws ClassNotFoundException {
-            final Class<?> registered = io.github.xdstorage.utils.XdStorageClassMetadataRegistry.findLoadedClassByName(name);
+            final Class<?> registered = io.github.xdstorage.utils.XdStorageClassMetadataRegistry
+                    .findLoadedClassByName(name);
             if (registered != null) {
                 if (resolve) {
                     resolveClass(registered);

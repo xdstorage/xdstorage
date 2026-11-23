@@ -25,7 +25,8 @@ public final class XdStorageWrapperFieldLocator {
      */
     public static Field getSimpleWrapperObjectField(final Class<?> clWrapper) {
         return simpleFields.computeIfAbsent(clWrapper, cl -> {
-            try { Field f = cl.getDeclaredField("object"); f.setAccessible(true); return f; } catch (Exception e) { return null; }
+            try { Field f = cl.getDeclaredField("object"); f.setAccessible(true); return f; } catch (Exception e) {
+                    return null; }
         });
     }
 
@@ -37,7 +38,8 @@ public final class XdStorageWrapperFieldLocator {
      */
     public static Field getUnmodifiableWrapperObjectField(final Class<?> clWrapper) {
         return unmodifiableFields.computeIfAbsent(clWrapper, cl -> {
-            try { Field f = cl.getDeclaredField("object"); f.setAccessible(true); return f; } catch (Exception e) { return null; }
+            try { Field f = cl.getDeclaredField("object"); f.setAccessible(true); return f; } catch (Exception e) {
+                    return null; }
         });
     }
 
@@ -49,7 +51,8 @@ public final class XdStorageWrapperFieldLocator {
      */
     public static Field getObservableWrapperObjectField(final Class<?> clWrapper) {
         return observableFields.computeIfAbsent(clWrapper, cl -> {
-            try { Field f = cl.getDeclaredField("object"); f.setAccessible(true); return f; } catch (Exception e) { return null; }
+            try { Field f = cl.getDeclaredField("object"); f.setAccessible(true); return f; } catch (Exception e) {
+                    return null; }
         });
     }
 }

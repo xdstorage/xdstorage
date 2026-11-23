@@ -1,6 +1,7 @@
 package io.github.xdstorage.foreignkey.policies.hash.ParentClassChildSingleObject;
 
-import io.github.xdstorage.entities.foreignkeys.policies.hash.ParentClassChildSingleObject.HashPolicyParentClassChildSingleObject;
+import io.github.xdstorage.entities.foreignkeys.policies.hash.ParentClassChildSingleObject
+        .HashPolicyParentClassChildSingleObject;
 import io.github.xdstorage.entities.foreignkeys.policies.hash.ParentClassChildSingleObject.HashPolicyChildSingleObject;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.foreignkey.index.hash.AbstractForeignKeyBaseSpecificationTest;
@@ -30,8 +31,10 @@ public class PolicyParentClassChildSingleObjectHashTest extends AbstractForeignK
         tx = storage.beginTransaction();
         HashPolicyParentClassChildSingleObject parent = new HashPolicyParentClassChildSingleObject();
         parent.setChildren(new HashSet<>());
-        HashPolicyChildSingleObject child1 = new HashPolicyChildSingleObject(); child1.setParent(parent); parent.addChild(child1);
-        HashPolicyChildSingleObject child2 = new HashPolicyChildSingleObject(); child2.setParent(parent); parent.addChild(child2);
+        HashPolicyChildSingleObject child1 = new HashPolicyChildSingleObject(); child1.setParent(parent); parent
+                .addChild(child1);
+        HashPolicyChildSingleObject child2 = new HashPolicyChildSingleObject(); child2.setParent(parent); parent
+                .addChild(child2);
         storage.save(parent);
         assertDoesNotThrow(() -> storage.commitTransaction(tx));
         assertNotNull(parent.getId());
@@ -43,8 +46,10 @@ public class PolicyParentClassChildSingleObjectHashTest extends AbstractForeignK
         tx = storage.beginTransaction();
         HashPolicyParentClassChildSingleObject parent = new HashPolicyParentClassChildSingleObject();
         parent.setChildren(new HashSet<>());
-        HashPolicyChildSingleObject child1 = new HashPolicyChildSingleObject(); child1.setParent(parent); parent.addChild(child1);
-        HashPolicyChildSingleObject child2 = new HashPolicyChildSingleObject(); child2.setParent(parent); parent.addChild(child2);
+        HashPolicyChildSingleObject child1 = new HashPolicyChildSingleObject(); child1.setParent(parent); parent
+                .addChild(child1);
+        HashPolicyChildSingleObject child2 = new HashPolicyChildSingleObject(); child2.setParent(parent); parent
+                .addChild(child2);
         storage.save(child1);
         storage.save(child2);
         assertThrows(XdStorageRuntimeException.class, () -> storage.commitTransaction(tx));
@@ -104,13 +109,16 @@ public class PolicyParentClassChildSingleObjectHashTest extends AbstractForeignK
         tx = storage.beginTransaction();
         HashPolicyParentClassChildSingleObject parent = new HashPolicyParentClassChildSingleObject();
         parent.setChildren(new HashSet<>());
-        HashPolicyChildSingleObject child1 = new HashPolicyChildSingleObject(); child1.setParent(parent); parent.addChild(child1);
-        HashPolicyChildSingleObject child2 = new HashPolicyChildSingleObject(); child2.setParent(parent); parent.addChild(child2);
+        HashPolicyChildSingleObject child1 = new HashPolicyChildSingleObject(); child1.setParent(parent); parent
+                .addChild(child1);
+        HashPolicyChildSingleObject child2 = new HashPolicyChildSingleObject(); child2.setParent(parent); parent
+                .addChild(child2);
         storage.save(parent);
         storage.commitTransaction(tx);
         Long parentId = parent.getId();
         tx = storage.beginTransaction();
-        HashPolicyParentClassChildSingleObject loaded = storage.load(HashPolicyParentClassChildSingleObject.class, parentId);
+        HashPolicyParentClassChildSingleObject loaded = storage.load(HashPolicyParentClassChildSingleObject.class,
+                parentId);
         storage.delete(loaded);
         assertThrows(XdStorageRuntimeException.class, () -> storage.commitTransaction(tx));
     }
@@ -121,13 +129,16 @@ public class PolicyParentClassChildSingleObjectHashTest extends AbstractForeignK
         tx = storage.beginTransaction();
         HashPolicyParentClassChildSingleObject parent = new HashPolicyParentClassChildSingleObject();
         parent.setChildren(new HashSet<>());
-        HashPolicyChildSingleObject child1 = new HashPolicyChildSingleObject(); child1.setParent(parent); parent.addChild(child1);
-        HashPolicyChildSingleObject child2 = new HashPolicyChildSingleObject(); child2.setParent(parent); parent.addChild(child2);
+        HashPolicyChildSingleObject child1 = new HashPolicyChildSingleObject(); child1.setParent(parent); parent
+                .addChild(child1);
+        HashPolicyChildSingleObject child2 = new HashPolicyChildSingleObject(); child2.setParent(parent); parent
+                .addChild(child2);
         storage.save(parent);
         storage.commitTransaction(tx);
         Long parentId = parent.getId(), child1Id = child1.getId();
         tx = storage.beginTransaction();
-        HashPolicyParentClassChildSingleObject loadedParent = storage.load(HashPolicyParentClassChildSingleObject.class, parentId);
+        HashPolicyParentClassChildSingleObject loadedParent = storage.load(HashPolicyParentClassChildSingleObject.class,
+                parentId);
         HashPolicyChildSingleObject loadedChild1 = storage.load(HashPolicyChildSingleObject.class, child1Id);
         loadedParent.getChildren().remove(loadedChild1);
         storage.update(loadedParent);
@@ -141,8 +152,10 @@ public class PolicyParentClassChildSingleObjectHashTest extends AbstractForeignK
         tx = storage.beginTransaction();
         HashPolicyParentClassChildSingleObject parent = new HashPolicyParentClassChildSingleObject();
         parent.setChildren(new HashSet<>());
-        HashPolicyChildSingleObject child1 = new HashPolicyChildSingleObject(); child1.setParent(parent); parent.addChild(child1);
-        HashPolicyChildSingleObject child2 = new HashPolicyChildSingleObject(); child2.setParent(parent); parent.addChild(child2);
+        HashPolicyChildSingleObject child1 = new HashPolicyChildSingleObject(); child1.setParent(parent); parent
+                .addChild(child1);
+        HashPolicyChildSingleObject child2 = new HashPolicyChildSingleObject(); child2.setParent(parent); parent
+                .addChild(child2);
         storage.save(parent);
         storage.commitTransaction(tx);
         Long child1Id = child1.getId();
@@ -158,13 +171,16 @@ public class PolicyParentClassChildSingleObjectHashTest extends AbstractForeignK
         tx = storage.beginTransaction();
         HashPolicyParentClassChildSingleObject parent = new HashPolicyParentClassChildSingleObject();
         parent.setChildren(new HashSet<>());
-        HashPolicyChildSingleObject child1 = new HashPolicyChildSingleObject(); child1.setParent(parent); parent.addChild(child1);
-        HashPolicyChildSingleObject child2 = new HashPolicyChildSingleObject(); child2.setParent(parent); parent.addChild(child2);
+        HashPolicyChildSingleObject child1 = new HashPolicyChildSingleObject(); child1.setParent(parent); parent
+                .addChild(child1);
+        HashPolicyChildSingleObject child2 = new HashPolicyChildSingleObject(); child2.setParent(parent); parent
+                .addChild(child2);
         storage.save(parent);
         storage.commitTransaction(tx);
         Long parentId = parent.getId(), child1Id = child1.getId();
         tx = storage.beginTransaction();
-        HashPolicyParentClassChildSingleObject loadedParent = storage.load(HashPolicyParentClassChildSingleObject.class, parentId);
+        HashPolicyParentClassChildSingleObject loadedParent = storage.load(HashPolicyParentClassChildSingleObject.class,
+                parentId);
         HashPolicyChildSingleObject loadedChild1 = storage.load(HashPolicyChildSingleObject.class, child1Id);
         loadedParent.getChildren().remove(loadedChild1);
         HashPolicyChildSingleObject child3 = new HashPolicyChildSingleObject(); child3.setParent(loadedParent);
@@ -175,18 +191,22 @@ public class PolicyParentClassChildSingleObjectHashTest extends AbstractForeignK
     }
 
     @Test
-    @DisplayName("4b. Обновление родителя: удалить child1, вставить child3 — Успешно (Rule 4: удаление из коллекции ≠ delete, child survives independently)")
+    @DisplayName("4b. Обновление родителя: удалить child1, вставить child3 — Успешно (Rule 4: удаление из коллекции " +
+            "≠ delete, child survives independently)")
     void testUpdateParentRemoveOneInsertOneNoDeleteSuccess() throws Exception {
         tx = storage.beginTransaction();
         HashPolicyParentClassChildSingleObject parent = new HashPolicyParentClassChildSingleObject();
         parent.setChildren(new HashSet<>());
-        HashPolicyChildSingleObject child1 = new HashPolicyChildSingleObject(); child1.setParent(parent); parent.addChild(child1);
-        HashPolicyChildSingleObject child2 = new HashPolicyChildSingleObject(); child2.setParent(parent); parent.addChild(child2);
+        HashPolicyChildSingleObject child1 = new HashPolicyChildSingleObject(); child1.setParent(parent); parent
+                .addChild(child1);
+        HashPolicyChildSingleObject child2 = new HashPolicyChildSingleObject(); child2.setParent(parent); parent
+                .addChild(child2);
         storage.save(parent);
         storage.commitTransaction(tx);
         Long parentId = parent.getId(), child1Id = child1.getId();
         tx = storage.beginTransaction();
-        HashPolicyParentClassChildSingleObject loadedParent = storage.load(HashPolicyParentClassChildSingleObject.class, parentId);
+        HashPolicyParentClassChildSingleObject loadedParent = storage.load(HashPolicyParentClassChildSingleObject.class,
+                parentId);
         HashPolicyChildSingleObject loadedChild1 = storage.load(HashPolicyChildSingleObject.class, child1Id);
         loadedParent.getChildren().remove(loadedChild1);
         HashPolicyChildSingleObject child3 = new HashPolicyChildSingleObject(); child3.setParent(loadedParent);

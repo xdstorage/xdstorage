@@ -125,7 +125,8 @@ public class XdStorageStructureManager {
      * @throws XdStorageConnectionException when the storage connection failed during the
      *                                       migration
      */
-    public List<IXdStorageStructureUpdater> checkAndUpdateStructureIfNeed(final Class<?> cl, final XdStorageTransaction tx) throws XdStorageException, XdStorageConnectionException {
+    public List<IXdStorageStructureUpdater> checkAndUpdateStructureIfNeed(final Class<?> cl, final XdStorageTransaction
+            tx) throws XdStorageException, XdStorageConnectionException {
         AtomicBoolean state = states.get(cl);
         if (state != null && state.get()) {
             return Collections.emptyList();
@@ -151,7 +152,8 @@ public class XdStorageStructureManager {
             // гарантируя абсолютную пропускную способность под пиковой многопоточной нагрузкой!
             services.getExecutor().submit(() -> {
                 // Создаем абсолютно чистую, автономную транзакцию верхнего уровня для апдейта метаданных
-                final XdStorageTransaction autonomousTx = (XdStorageTransaction) services.getTransactionsManager().beginTransaction(3 * 1000);
+                final XdStorageTransaction autonomousTx = (XdStorageTransaction) services.getTransactionsManager()
+                        .beginTransaction(3 * 1000);
                 try {
                     final XdStorageClassStructure currentStructure = buildStructure(cl);
                     if (!hasStructure(cl, autonomousTx)) {
@@ -162,7 +164,8 @@ public class XdStorageStructureManager {
                         log.debug("Update structure for " + cl + " started");
 
                         // Выполняем миграцию схемы
-                        List<IXdStorageStructureUpdater> updatersList = updateStructure(cl, currentStructure, autonomousTx);
+                        List<IXdStorageStructureUpdater> updatersList = updateStructure(cl, currentStructure,
+                                autonomousTx);
                         if (updatersList != null) {
                             result.addAll(updatersList);
                         }
@@ -184,7 +187,9 @@ public class XdStorageStructureManager {
                     exceptionContainer[0] = e;
                 } catch (final Throwable t) {
                     autonomousTx.rollback();
-                    exceptionContainer[0] = new XdStorageException("Критический сбой автономной миграции структуры класса " + cl.getName(), t);
+                    exceptionContainer[0] = new
+                            XdStorageException("Критический сбой автономной миграции структуры класса " + cl.getName(),
+                            t);
                 }
             }).get(); // Жестко дожидаемся завершения транзакции миграции схемы
 
@@ -231,7 +236,8 @@ public class XdStorageStructureManager {
      * @throws XdStorageException           when the structure resource cannot be accessed
      * @throws XdStorageConnectionException when the storage connection fails
      */
-    public boolean hasStructure(final Class<?> cl, final XdStorageTransaction tx) throws XdStorageException, XdStorageConnectionException {
+    public boolean hasStructure(final Class<?> cl, final XdStorageTransaction tx) throws XdStorageException,
+            XdStorageConnectionException {
         final Class<?> structureCl = XdStorageClassStructure.class;
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(structureCl);
 
@@ -240,7 +246,8 @@ public class XdStorageStructureManager {
     }
 
     private void insertStructure(final Class<?> cl, final XdStorageClassStructure currentStructure,
-                                 final XdStorageTransaction tx) throws XdStorageException, XdStorageConnectionException {
+                                 final XdStorageTransaction tx) throws XdStorageException, XdStorageConnectionException
+                                         {
         final Class<?> structureCl = XdStorageClassStructure.class;
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(structureCl);
 
@@ -249,23 +256,28 @@ public class XdStorageStructureManager {
     }
 
     private boolean isStructureChanged(final Class<?> cl, final XdStorageClassStructure currentStructure,
-                                       final XdStorageTransaction tx) throws XdStorageException, XdStorageConnectionException {
+                                       final XdStorageTransaction tx) throws XdStorageException,
+                                               XdStorageConnectionException {
         final Class<?> structureCl = XdStorageClassStructure.class;
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(structureCl);
 
         final IXdStorageDaoResource resource = services.getResourcesManager().lockStructureResource(clInfo, tx);
-        final XdStorageClassStructure structure = (XdStorageClassStructure) resource.read(cl.getName(), tx); // BUG-B: FQCN identity
+        // BUG-B: FQCN identity
+        final XdStorageClassStructure structure = (XdStorageClassStructure) resource.read(cl.getName(), tx);
 
         return !Objects.equals(structure, currentStructure);
     }
 
-    private void generateAndRegisterSearchIndexUpdaters(final Class<?> cl, final XdStorageClassStructure currentStructure,
-                                                        final XdStorageTransaction tx) throws XdStorageException, XdStorageConnectionException {
+    private void generateAndRegisterSearchIndexUpdaters(final Class<?> cl, final XdStorageClassStructure
+            currentStructure,
+                                                        final XdStorageTransaction tx) throws XdStorageException,
+                                                                XdStorageConnectionException {
         final Class<?> structureCl = XdStorageClassStructure.class;
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(structureCl);
 
         final IXdStorageDaoResource resource = services.getResourcesManager().lockStructureResource(clInfo, tx);
-        final XdStorageClassStructure structure = (XdStorageClassStructure) resource.read(cl.getName(), tx); // BUG-B: FQCN identity
+        // BUG-B: FQCN identity
+        final XdStorageClassStructure structure = (XdStorageClassStructure) resource.read(cl.getName(), tx);
 
         final Map<String, XdStorageClassIndexStructure> oldIndexes = structure.getIndexes();
         if (oldIndexes != null) {
@@ -274,7 +286,8 @@ public class XdStorageStructureManager {
                 final String indexName = indexStructure.getKey();
                 if (newIndexes.containsKey(indexName)
                         && !Objects.equals(indexStructure.getValue(), newIndexes.get(indexName))) {
-                    final XdStorageSearchIndex index = XdStorageObjectUtils.getClassInfo(cl).getIndexes().get(indexName);
+                    final XdStorageSearchIndex index = XdStorageObjectUtils.getClassInfo(cl).getIndexes()
+                            .get(indexName);
                     registerUpdater(new XdStorageSearchIndexStructureUpdater(services.getSearchManager(), cl, index));
                 }
             }
@@ -321,11 +334,13 @@ public class XdStorageStructureManager {
                 final XdStorageObjectFieldInfo fieldInfo = childField.getFieldInfo();
 
                 final Class<?> propertyClass = fieldInfo.getValueClass();
-                final Map<String, XdStorageObjectField> childFieldAccessors = index.getChildFieldAccesors(propertyClass);
+                final Map<String, XdStorageObjectField> childFieldAccessors = index
+                        .getChildFieldAccesors(propertyClass);
 
                 if (childFieldAccessors != null) {
                     for (final Map.Entry<String, XdStorageObjectField> accessor : childFieldAccessors.entrySet()) {
-                        indexStructure.addChildField(propertyClass, accessor.getKey(), accessor.getValue().getFieldInfo().getClazz());
+                        indexStructure.addChildField(propertyClass, accessor.getKey(), accessor.getValue()
+                                .getFieldInfo().getClazz());
                     }
                 }
             }
@@ -334,8 +349,10 @@ public class XdStorageStructureManager {
         return indexStructure;
     }
 
-    private List<IXdStorageStructureUpdater> updateStructure(final Class<?> cl, final XdStorageClassStructure currentStructure,
-                                                             final XdStorageTransaction tx) throws XdStorageException, XdStorageConnectionException {
+    private List<IXdStorageStructureUpdater> updateStructure(final Class<?> cl, final XdStorageClassStructure
+            currentStructure,
+                                                             final XdStorageTransaction tx) throws XdStorageException,
+                                                                XdStorageConnectionException {
         final List<IXdStorageStructureUpdater> result = new ArrayList<>();
 
         // STRUCTFIX (docs/tasks/2.1.0/36): res is the result OF THE LAST EXECUTED SCRIPT,
@@ -352,8 +369,10 @@ public class XdStorageStructureManager {
         if (toExecute != null) {
             for (IXdStorageStructureUpdater updater : toExecute) {
                 try {
-                    final IXdStorageDaoResource resource = services.getResourcesManager().lockStructureResource(clInfo, tx);
-                    XdStorageUpdateStructureRecord record = (XdStorageUpdateStructureRecord) resource.read(updater.getUpdateName(), tx);
+                    final IXdStorageDaoResource resource = services.getResourcesManager().lockStructureResource(clInfo,
+                            tx);
+                    XdStorageUpdateStructureRecord record = (XdStorageUpdateStructureRecord) resource.read(updater
+                            .getUpdateName(), tx);
                     if (record == null || record.getResult() == XdStorageUpdateStructureResult.FAILURE) {
                         log.debug("Execution update script '" + updater.getUpdateName() + "' started");
                         res = updater.execute(services.getResourcesManager(), safeTransaction);
@@ -364,7 +383,8 @@ public class XdStorageStructureManager {
                             break;
                         }
                         log.debug("Execution update script '" + updater.getUpdateName() + "' finished successfully");
-                        updater.setResult(res, "update " + updater.getUpdateName() + " has been executed successfully", null);
+                        updater.setResult(res, "update " + updater.getUpdateName() + " has been executed successfully",
+                                null);
 
                         record = new XdStorageUpdateStructureRecord();
                         record.setName(updater.getUpdateName());
@@ -391,7 +411,8 @@ public class XdStorageStructureManager {
                 final Class<?> structureCl = XdStorageClassStructure.class;
                 final XdStorageClassInfo strClInfo = XdStorageObjectUtils.getClassInfo(structureCl);
 
-                final IXdStorageDaoResource resource = services.getResourcesManager().lockStructureResource(strClInfo, tx);
+                final IXdStorageDaoResource resource = services.getResourcesManager().lockStructureResource(strClInfo,
+                        tx);
                 resource.update(currentStructure, tx);
             }
         }

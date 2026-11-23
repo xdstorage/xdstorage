@@ -98,7 +98,8 @@ public class PropMvccSnapshotTest {
             final XdStorageException conflict = assertThrows(XdStorageException.class,
                     () -> storage.update(reRead, reader),
                     "the stale update must lose loudly (the first-committer-wins)");
-            assertTrue(conflict.getMessage().contains("can not be updated") || conflict.getMessage().contains("CONFLICT")
+            assertTrue(conflict.getMessage().contains("can not be updated") || conflict.getMessage()
+                    .contains("CONFLICT")
                             || conflict.getMessage().contains("revalidation"),
                     "the conflict names its mechanism: " + conflict.getMessage());
             storage.rollbackTransaction(reader);

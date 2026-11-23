@@ -50,7 +50,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * <p>Engine-internal — not part of the public API.</p>
  */
 @XdStorageObjectPolicy(policy = XdStoragePolicy.StoreAsSingleObject)
-public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.serialization.IXdStorageSerializationGuard {
+public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.serialization
+        .IXdStorageSerializationGuard {
 
     private static final Logger log = LoggerFactory.getLogger(XdStorageBTree.class);
 
@@ -165,7 +166,8 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
     // (канал параллельной мутации), и результат валидации обязан быть отброшен/повторен,
     // а не превращен в громкий отказ («рассинхрон структуры»).
     private final AtomicLong structureVersion = new AtomicLong();
-    private final java.util.concurrent.atomic.AtomicInteger activeMutations = new java.util.concurrent.atomic.AtomicInteger();
+    private final java.util.concurrent.atomic.AtomicInteger activeMutations = new java.util.concurrent.atomic
+            .AtomicInteger();
     /** R-56 диагностика: кто именно внутри мутационной секции (поток → описание операции). */
     private final java.util.concurrent.ConcurrentHashMap<Thread, String> activeMutatorThreads =
             new java.util.concurrent.ConcurrentHashMap<>();
@@ -246,9 +248,11 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
         return overlay;
     }
 
-    private void stageInsert(final IXdStorageTransaction transaction, final Comparable key, final Object value, final IXdStorage storage) {
+    private void stageInsert(final IXdStorageTransaction transaction, final Comparable key, final Object value, final
+            IXdStorage storage) {
         TX_OVERLAY_STORAGE.putIfAbsent(transaction.getTransactionId(), storage);
-        final TreeOverlay overlay = overlays.computeIfAbsent(transaction.getTransactionId(), k -> newOverlay(transaction));
+        final TreeOverlay overlay = overlays.computeIfAbsent(transaction.getTransactionId(), k ->
+                newOverlay(transaction));
         overlay.ops.add(new Object[]{"I", key, value});
         // Later-wins: стейдженная вставка отменяет предыдущее стейдженное удаление
         // того же (key, value) — иначе merged-чтение показывает пару, которую apply
@@ -257,12 +261,15 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
         if (pendingDeletes != null) {
             pendingDeletes.remove(value);
         }
-        overlay.stagedInserts.computeIfAbsent(nkey(key), k -> new java.util.concurrent.CopyOnWriteArrayList<>()).add(value);
+        overlay.stagedInserts.computeIfAbsent(nkey(key), k -> new java.util.concurrent.CopyOnWriteArrayList<>())
+                .add(value);
     }
 
-    private void stageDelete(final IXdStorageTransaction transaction, final Comparable key, final Object value, final IXdStorage storage) {
+    private void stageDelete(final IXdStorageTransaction transaction, final Comparable key, final Object value, final
+            IXdStorage storage) {
         TX_OVERLAY_STORAGE.putIfAbsent(transaction.getTransactionId(), storage);
-        final TreeOverlay overlay = overlays.computeIfAbsent(transaction.getTransactionId(), k -> newOverlay(transaction));
+        final TreeOverlay overlay = overlays.computeIfAbsent(transaction.getTransactionId(), k ->
+                newOverlay(transaction));
         overlay.ops.add(new Object[]{"D", key, value});
         // Later-wins: стейдженное удаление отменяет предыдущую стейдженную вставку
         final List<Object> pendingInserts = overlay.stagedInserts.get(nkey(key));
@@ -276,7 +283,8 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      * Merge стейджа TX в физический результат find: стейдженные вставки добавляются,
      * стейдженные удаления исключаются. Чужие overlay невидимы (READ-COMMITTED).
      */
-    private List<Object> mergeOverlay(final List<Object> physical, final Comparable key, final IXdStorageTransaction transaction) {
+    private List<Object> mergeOverlay(final List<Object> physical, final Comparable key, final IXdStorageTransaction
+            transaction) {
         if (transaction == null || !isOverlayMode()) {
             return physical;
         }
@@ -313,7 +321,8 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      * @throws XdStorageException           отказ пакета (после undo-повтора; TX откатывается)
      * @throws XdStorageConnectionException отказ на уровне соединения
      */
-    public void applyOverlays(final IXdStorageTransaction transaction, final IXdStorage storage) throws XdStorageException, XdStorageConnectionException {
+    public void applyOverlays(final IXdStorageTransaction transaction, final IXdStorage storage) throws
+            XdStorageException, XdStorageConnectionException {
         if (transaction == null) {
             return;
         }
@@ -392,7 +401,8 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
         }
     }
 
-    private void undoBatch(final List<Object[]> undo, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    private void undoBatch(final List<Object[]> undo, final IXdStorage storage, final IXdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException {
         for (int i = undo.size() - 1; i >= 0; i--) {
             final Object[] u = undo.get(i);
             try {
@@ -417,7 +427,8 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      * @throws XdStorageException           отказ применения (после undo-повтора)
      * @throws XdStorageConnectionException отказ на уровне соединения
      */
-    public static void applyAllOverlays(final IXdStorageTransaction transaction, final IXdStorage storage) throws XdStorageException, XdStorageConnectionException {
+    public static void applyAllOverlays(final IXdStorageTransaction transaction, final IXdStorage storage) throws
+            XdStorageException, XdStorageConnectionException {
         TX_OVERLAY_STORAGE.putIfAbsent(transaction.getTransactionId(), storage);
         applyAllOverlays(transaction);
     }
@@ -432,7 +443,8 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      * @throws XdStorageException           отказ применения (после undo-повтора)
      * @throws XdStorageConnectionException отказ на уровне соединения
      */
-    public static void applyAllOverlays(final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public static void applyAllOverlays(final IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         if (transaction == null) {
             return;
         }
@@ -843,10 +855,12 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      * @throws XdStorageConnectionException when persisting a node or the tree fails
      */
     public void insert(final Comparable key, final Object object,
-                       final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+                       final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException,
+                               XdStorageConnectionException {
         // ИСПРАВЛЕНИЕ: Fail-fast проверка прерывания потока на входе в СУБД
         if (Thread.currentThread().isInterrupted()) {
-            throw new XdStorageException("interrupted", new InterruptedException("Поток прерван перед вставкой в B+ Дерево"));
+            throw new XdStorageException("interrupted", new
+                    InterruptedException("Поток прерван перед вставкой в B+ Дерево"));
         }
         // TREEOVERLAY: overlay-деревья стейджат операцию (физическое дерево не мутируется
         // до applyOverlays в phase-1 владельца); ноль лока и ноль change-слотов на op-time.
@@ -858,10 +872,12 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
     }
 
     private void doInsert(final Comparable key, final Object object,
-                          final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+                          final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException,
+                                  XdStorageConnectionException {
         // ИСПРАВЛЕНИЕ: Fail-fast проверка прерывания потока на входе в СУБД
         if (Thread.currentThread().isInterrupted()) {
-            throw new XdStorageException("interrupted", new InterruptedException("Поток прерван перед вставкой в B+ Дерево"));
+            throw new XdStorageException("interrupted", new
+                    InterruptedException("Поток прерван перед вставкой в B+ Дерево"));
         }
 
         // RECIDENT/R-36 (docs/tasks/2.1.0/47): the tree-level ENTRY lock is the only clean
@@ -880,7 +896,8 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
             // firstLeaf — тоже: цепочка листьев нужна валидатору и сканам
             root = this.root = XdStorageBTreeNode.materialize(root, storage, transaction, this, null);
             if (firstLeaf != null) {
-                firstLeaf = this.firstLeaf = XdStorageBTreeNode.materialize(firstLeaf, storage, transaction, this, null);
+                firstLeaf = this.firstLeaf = XdStorageBTreeNode.materialize(firstLeaf, storage, transaction, this,
+                        null);
             }
         } finally {
             unlockWrite();
@@ -927,7 +944,8 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
             }
             if (retryInsert.get()) {
                 if (System.nanoTime() - insertDeadlineNanos >= 0) {
-                    log.warn("B+Tree insert retry budget exhausted for key {} in tree {} — sustained rebalance lock contention (operation failed loudly)", key,
+                    log.warn("B+Tree insert retry budget exhausted for key {} in tree {} — sustained rebalance lock " +
+                            "contention (operation failed loudly)", key,
                             id);
                     throw new XdStorageException("retry budget exhausted by insert of idgeneration " + key
                             + " into " + id + ": устойчивая конкуренция за блокировки ребалансировки");
@@ -947,7 +965,8 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
         } while (retryInsert.get());
     }
 
-    private void createRoot(final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    private void createRoot(final IXdStorage storage, final IXdStorageTransaction transaction) throws
+            XdStorageException, XdStorageConnectionException {
         log.debug("B+Tree {} created root (first key stored)", id);
         firstLeaf = root = new XdStorageBTreeNode(this, null);
         this.wasInitialized = true; // Фиксируем факт рождения структуры Б+ Дерева
@@ -969,9 +988,11 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      *                                      present, or the rebalance retry budget is exhausted
      * @throws XdStorageConnectionException when persisting a node or the tree fails
      */
-    public void delete(final Comparable key, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void delete(final Comparable key, final IXdStorage storage, final IXdStorageTransaction transaction) throws
+            XdStorageException, XdStorageConnectionException {
         if (Thread.currentThread().isInterrupted()) {
-            throw new XdStorageException("interrupted", new InterruptedException("Поток прерван перед удалением из B+ Дерева"));
+            throw new XdStorageException("interrupted", new
+                    InterruptedException("Поток прерван перед удалением из B+ Дерева"));
         }
         // TREEOVERLAY: стейджим удаление; значение фиксируем на этапе стейджа — оно нужно
         // для undo(delete) при откате применения пакета. Чужие overlay при чтении невидимы.
@@ -985,7 +1006,8 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
     }
 
     /** TREEOVERLAY: физический путь применения/undo — маршрутизация по типу дерева. */
-    private void doDeleteTyped(final Comparable key, final Comparable value, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    private void doDeleteTyped(final Comparable key, final Comparable value, final IXdStorage storage, final
+            IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
         if (this.multiple) {
             doDeleteMulti(key, value, storage, transaction);
         } else {
@@ -993,9 +1015,11 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
         }
     }
 
-    private void doDelete3(final Comparable key, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    private void doDelete3(final Comparable key, final IXdStorage storage, final IXdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException {
         if (Thread.currentThread().isInterrupted()) {
-            throw new XdStorageException("interrupted", new InterruptedException("Поток прерван перед удалением из B+ Дерева"));
+            throw new XdStorageException("interrupted", new
+                    InterruptedException("Поток прерван перед удалением из B+ Дерева"));
         }
 
         lockWrite(transaction);
@@ -1024,11 +1048,13 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
                 // firstLeaf — тоже (цепочка листьев: валидатор, слияния листьев)
                 root = this.root = XdStorageBTreeNode.materialize(root, storage, transaction, this, null);
                 if (firstLeaf != null) {
-                    firstLeaf = this.firstLeaf = XdStorageBTreeNode.materialize(firstLeaf, storage, transaction, this, null);
+                    firstLeaf = this.firstLeaf = XdStorageBTreeNode.materialize(firstLeaf, storage, transaction, this,
+                            null);
                 }
             } else {
                 if (!wasInitialized && !isReference) {
-                    throw new XdStorageException("object of " + (id != null ? id.getCl().getName() : "Unknown") + " with id " + key + " does not exists");
+                    throw new XdStorageException("object of " + (id != null ? id.getCl().getName() : "Unknown") +
+                            " with id " + key + " does not exists");
                 }
                 return;
             }
@@ -1050,7 +1076,8 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
                 }
             }
             if (++attempts > REBALANCE_RETRY_BUDGET) {
-                log.warn("B+Tree rebalance retry budget exhausted for delete of key {} in tree {} — sustained rebalance lock contention (operation failed loudly)", key,
+                log.warn("B+Tree rebalance retry budget exhausted for delete of key {} in tree {} — sustained " +
+                        "rebalance lock contention (operation failed loudly)", key,
                         id);
                 throw new XdStorageException("retry budget exhausted by delete of idgeneration " + key
                         + " from " + id + ": устойчивая конкуренция за блокировки ребалансировки");
@@ -1105,10 +1132,12 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      * @throws XdStorageException           при превышении бюджета ретраев или отсутствии ключа
      * @throws XdStorageConnectionException при ошибках ввода-вывода
      */
-    public void delete(final Comparable key, final Comparable value, final IXdStorage storage, final IXdStorageTransaction transaction)
+    public void delete(final Comparable key, final Comparable value, final IXdStorage storage, final
+            IXdStorageTransaction transaction)
             throws XdStorageException, XdStorageConnectionException {
         if (Thread.currentThread().isInterrupted()) {
-            throw new XdStorageException("interrupted", new InterruptedException("Поток прерван перед удалением пары из B+ Дерева"));
+            throw new XdStorageException("interrupted", new
+                    InterruptedException("Поток прерван перед удалением пары из B+ Дерева"));
         }
 
         // TREEOVERLAY: стейджим удаление пары (значение известно из вызова)
@@ -1119,10 +1148,12 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
         doDeleteMulti(key, value, storage, transaction);
     }
 
-    private void doDeleteMulti(final Comparable key, final Comparable value, final IXdStorage storage, final IXdStorageTransaction transaction)
+    private void doDeleteMulti(final Comparable key, final Comparable value, final IXdStorage storage, final
+            IXdStorageTransaction transaction)
             throws XdStorageException, XdStorageConnectionException {
         if (Thread.currentThread().isInterrupted()) {
-            throw new XdStorageException("interrupted", new InterruptedException("Поток прерван перед удалением пары из B+ Дерева"));
+            throw new XdStorageException("interrupted", new
+                    InterruptedException("Поток прерван перед удалением пары из B+ Дерева"));
         }
 
         lockWrite(transaction);
@@ -1141,11 +1172,13 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
             if (root != null) {
                 root = this.root = XdStorageBTreeNode.materialize(root, storage, transaction, this, null);
                 if (firstLeaf != null) {
-                    firstLeaf = this.firstLeaf = XdStorageBTreeNode.materialize(firstLeaf, storage, transaction, this, null);
+                    firstLeaf = this.firstLeaf = XdStorageBTreeNode.materialize(firstLeaf, storage, transaction, this,
+                            null);
                 }
             } else {
                 if (!wasInitialized && !isReference) {
-                    throw new XdStorageException("object with key " + key + " and value " + value + " does not exists in " + id);
+                    throw new XdStorageException("object with key " + key + " and value " + value +
+                            " does not exists in " + id);
                 }
                 return;
             }
@@ -1167,7 +1200,8 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
                 }
             }
             if (++attempts > REBALANCE_RETRY_BUDGET) {
-                log.warn("B+Tree rebalance retry budget exhausted for targeted delete of key {} in tree {} (operation failed loudly)", key, id);
+                log.warn("B+Tree rebalance retry budget exhausted for targeted delete of key {} in tree {} " +
+                        "(operation failed loudly)", key, id);
                 throw new XdStorageException("retry budget exhausted by targeted delete of key " + key + " from " + id);
             }
 
@@ -1204,7 +1238,8 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
                     if (multiple) {
                         final XdStorageBTreeNode leafWithPair = locateLeafWithPair(key, value, storage, transaction);
                         if (leafWithPair == null) {
-                            throw new XdStorageException("object of " + id + " with key " + key + " and value " + value + " does not exists");
+                            throw new XdStorageException("object of " + id + " with key " + key + " and value " + value
+                                    + " does not exists");
                         }
                         leafWithPair.delete(this, key, value, storage, transaction, retryDelete);
                     } else {
@@ -1250,7 +1285,8 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
         int steps = 0;
         while (current != null && steps++ < PREWARM_STEP_BUDGET) {
             if (XdStorageObjectUtils.isReference(current)) {
-                final XdStorageBTreeNode canonical = XdStorageBTreeNode.materialize(current, storage, transaction, this, null);
+                final XdStorageBTreeNode canonical = XdStorageBTreeNode.materialize(current, storage, transaction, this,
+                        null);
                 if (previous == null) {
                     this.firstLeaf = canonical;
                 } else {
@@ -1302,9 +1338,11 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      *                                      present, or the rebalance retry budget is exhausted
      * @throws XdStorageConnectionException when persisting the node fails
      */
-    public void update(final Comparable key, final Object value, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void update(final Comparable key, final Object value, final IXdStorage storage, final IXdStorageTransaction
+            transaction) throws XdStorageException, XdStorageConnectionException {
         if (Thread.currentThread().isInterrupted()) {
-            throw new XdStorageException("interrupted", new InterruptedException("Поток прерван перед обновлением в B+ Дереве"));
+            throw new XdStorageException("interrupted", new
+                    InterruptedException("Поток прерван перед обновлением в B+ Дереве"));
         }
 
         lockWrite(transaction);
@@ -1331,7 +1369,8 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
             // firstLeaf — тоже (цепочка листьев: валидатор, сканы)
             root = this.root = XdStorageBTreeNode.materialize(root, storage, transaction, this, null);
             if (firstLeaf != null) {
-                firstLeaf = this.firstLeaf = XdStorageBTreeNode.materialize(firstLeaf, storage, transaction, this, null);
+                firstLeaf = this.firstLeaf = XdStorageBTreeNode.materialize(firstLeaf, storage, transaction, this,
+                        null);
             }
         } finally {
             unlockWrite();
@@ -1351,7 +1390,8 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
                 }
             }
             if (++attempts > REBALANCE_RETRY_BUDGET) {
-                log.warn("B+Tree rebalance retry budget exhausted for update of key {} in tree {} — sustained rebalance lock contention (operation failed loudly)", key,
+                log.warn("B+Tree rebalance retry budget exhausted for update of key {} in tree {} — sustained " +
+                        "rebalance lock contention (operation failed loudly)", key,
                         id);
                 throw new XdStorageException("retry budget exhausted by update of idgeneration " + key
                         + " in " + id + ": устойчивая конкуренция за блокировки ребалансировки");
@@ -1409,13 +1449,15 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      *                                      budget expires under sustained contention
      * @throws XdStorageConnectionException when lazily loading a node fails
      */
-    public List<Object> find(final Comparable key, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public List<Object> find(final Comparable key, final IXdStorage storage, final IXdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException {
         // TREEOVERLAY: физический результат сливается со стейджем TX (свои вставки видимы,
         // свои удаления исключены; чужие overlay невидимы — READ-COMMITTED)
         return mergeOverlay(findPhysical(key, storage, transaction), key, transaction);
     }
 
-    private List<Object> findPhysical(final Comparable key, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    private List<Object> findPhysical(final Comparable key, final IXdStorage storage, final IXdStorageTransaction
+            transaction) throws XdStorageException, XdStorageConnectionException {
         if (root == null && wasInitialized) {
             lockWrite(transaction);
             try {
@@ -1509,8 +1551,10 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
             // ретраев (попытечный бюджет умел ронять УСПЕШНУЮ попытку №201).
             if (retryFind.get()) {
                 if (System.nanoTime() - findDeadlineNanos >= 0) {
-                    io.github.xdstorage.metrics.XdStorageMetrics.engineEvents().increment(io.github.xdstorage.metrics.XdStorageMetrics.FIND_RETRY_BUDGET_EXHAUSTIONS);
-                    log.warn("B+Tree find retry budget exhausted after {} ms for key {} in tree {} — sustained write pressure (operation failed loudly)",
+                    io.github.xdstorage.metrics.XdStorageMetrics.engineEvents().increment(io.github.xdstorage.metrics
+                            .XdStorageMetrics.FIND_RETRY_BUDGET_EXHAUSTIONS);
+                    log.warn("B+Tree find retry budget exhausted after {} ms for key {} in tree {} — sustained write " +
+                            "pressure (operation failed loudly)",
                             findBudgetMs, key, id);
                     throw new XdStorageException("find retry budget exhausted by search of idgeneration " + key
                             + " in " + id + ": устойчивая конкуренция за блокировки ребалансировки");
@@ -1585,7 +1629,8 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      * @throws XdStorageException           when a lock acquisition is interrupted or the walk fails
      * @throws XdStorageConnectionException when lazily loading a leaf-chain stub fails
      */
-    public void read(final IXdStorage storage, final IXdStorageTransaction transaction, final IXdStorageBTreeViewer viewer) throws XdStorageException, XdStorageConnectionException {
+    public void read(final IXdStorage storage, final IXdStorageTransaction transaction, final IXdStorageBTreeViewer
+            viewer) throws XdStorageException, XdStorageConnectionException {
         // R-38: ПРЕДПРОГРЕВ ЦЕПИ ЛИСТЬЕВ. На холодном кэше связный обход под read-локами
         // делал синхронный storage.load каждого стаба-узла (XML-парс с диска) ВНУТРИ
         // удерживаемых блокировок — писатели вымораживались на таймаутах (R-37: детерминированный
@@ -1673,7 +1718,8 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
         try {
             read(storage, transaction, new IXdStorageBTreeViewer() {
                 @Override
-                public void look(final Comparable key, final Object value) throws XdStorageException, XdStorageConnectionException {
+                public void look(final Comparable key, final Object value) throws XdStorageException,
+                        XdStorageConnectionException {
                     if (fromKey != null) {
                         final int cmp = XdStorageBTreeNode.compareMixedKeys(key, fromKey);
                         if (cmp < 0 || (cmp == 0 && !fromInclusive)) {
@@ -1730,7 +1776,8 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      * R-53: стаб разрешается в канонический инстанс по id; слоты firstLeaf/next чинятся
      * на живой канон. Возвращает разрешенное начало цепи (или null, если startLeaf == null).
      */
-    private XdStorageBTreeNode prewarmLeafChain(final XdStorageBTreeNode startLeaf, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    private XdStorageBTreeNode prewarmLeafChain(final XdStorageBTreeNode startLeaf, final IXdStorage storage, final
+            IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
         if (startLeaf == null) {
             return null;
         }
@@ -1780,7 +1827,8 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
                                             previous.setNextTreeNodeOnThisLevel(materialized);
                                             current = materialized;
                                         } else {
-                                            current = previous.getNextTreeNodeOnThisLevel(); // the split rewired — follow the live
+                                            // the split rewired — follow the live
+                                            current = previous.getNextTreeNodeOnThisLevel();
                                         }
                                     } finally {
                                         previous.unlockWrite();
@@ -1800,7 +1848,8 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
             current = current.getNextTreeNodeOnThisLevel();
         }
         if (steps >= PREWARM_STEP_BUDGET) {
-            log.warn("B+Tree leaf chain prewarm hit the step budget {} in tree {} — possible chain cycle", PREWARM_STEP_BUDGET, id);
+            log.warn("B+Tree leaf chain prewarm hit the step budget {} in tree {} — possible chain cycle",
+                    PREWARM_STEP_BUDGET, id);
         }
         return resolvedStart;
     }

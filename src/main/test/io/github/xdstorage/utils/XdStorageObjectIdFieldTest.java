@@ -22,7 +22,8 @@ public class XdStorageObjectIdFieldTest {
     // Класс-заглушка для имитации кастомного генератора ID
     private static class DummyGenerator implements IXdStorageIdGenerator {
         @Override
-        public Object generate(Class<?> cl, IXdStorage storage, IXdStorageTransaction transaction) throws XdStorageException {
+        public Object generate(Class<?> cl, IXdStorage storage, IXdStorageTransaction transaction) throws
+                XdStorageException {
             return null;
         }
     }
@@ -94,7 +95,8 @@ public class XdStorageObjectIdFieldTest {
 
     @Test
     public void testGetIdGeneratorType_WithoutAnnotation_ShouldReturnDefaultCustomGenerator() throws Exception {
-        // Граничное условие: поле помечено как ID, но аннотация свойств @XdStorageObjectFieldProperties на нем отсутствует
+        // Граничное условие: поле помечено как ID, но аннотация свойств @XdStorageObjectFieldProperties на нем
+        // отсутствует
         Field field = AnnotatedEntity.class.getDeclaredField("idWithoutProperties");
         Method getter = AnnotatedEntity.class.getMethod("getIdWithoutProperties");
         Method setter = AnnotatedEntity.class.getMethod("setIdWithoutProperties", String.class);

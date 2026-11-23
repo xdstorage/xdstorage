@@ -23,7 +23,8 @@ public class XdStorageRuntimeException extends RuntimeException {
      * @param enableSuppression  whether suppression is enabled
      * @param writableStackTrace whether the stack trace is writable
      */
-    protected XdStorageRuntimeException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
+    protected XdStorageRuntimeException(String message, Throwable cause, boolean enableSuppression, boolean
+            writableStackTrace) {
         super(message, cause, enableSuppression, writableStackTrace);
     }
 

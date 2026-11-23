@@ -85,7 +85,8 @@ public class XdStorageRangeSearchQueryTest {
     private Set<String> searchIds(final XdStorageSearchQuery query) throws Exception {
         final IXdStorageTransaction tx = storage.beginTransaction(60000L);
         try {
-            final java.util.Collection<RangeOpsEntity> found = storage.load(RangeOpsEntity.class, "range_idx", query, tx);
+            final java.util.Collection<RangeOpsEntity> found = storage.load(RangeOpsEntity.class, "range_idx", query,
+                    tx);
             storage.commitTransaction(tx);
             return found.stream().map(RangeOpsEntity::getId).collect(Collectors.toSet());
         } catch (final RuntimeException e) {
@@ -111,16 +112,20 @@ public class XdStorageRangeSearchQueryTest {
     @DisplayName("BETWEEN: inclusive bounds, single point, degenerate lo>hi is empty, empty results are legal")
     public void betweenSemantics() throws Exception {
         assertEquals(ids(10, 20), searchIds(new XdStorageSearchQuery(
-                new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange(10L, 20L)), null)),
+                new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange(10L, 20L)),
+                        null)),
                 "both bounds inclusive (pinned contract)");
         assertEquals(ids(25, 25), searchIds(new XdStorageSearchQuery(
-                new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange(25L, 25L)), null)),
+                new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange(25L, 25L)),
+                        null)),
                 "degenerate equal bounds match exactly one value");
         assertTrue(searchIds(new XdStorageSearchQuery(
-                new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange(40L, 10L)), null)).isEmpty(),
+                new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange(40L, 10L)), null))
+                        .isEmpty(),
                 "lo > hi matches nothing");
         assertEquals(ids(0, 49), searchIds(new XdStorageSearchQuery(
-                new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange(-5L, 100L)), null)),
+                new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange(-5L, 100L)),
+                        null)),
                 "a range wider than the dataset returns everything with a non-null value");
     }
 
@@ -128,10 +133,12 @@ public class XdStorageRangeSearchQueryTest {
     @DisplayName("IN: duplicates deduplicate, empty list matches nothing, array form works")
     public void inSemantics() throws Exception {
         assertEquals(new HashSet<>(Arrays.asList("id-10", "id-20")), searchIds(new XdStorageSearchQuery(
-                new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.IN, Arrays.asList(10L, 20L, 20L, 10L)), null)),
+                new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.IN, Arrays.asList(10L, 20L, 20L, 10L)),
+                        null)),
                 "duplicated IN values yield one copy per object");
         assertTrue(searchIds(new XdStorageSearchQuery(
-                new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.IN, Collections.emptyList()), null)).isEmpty(),
+                new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.IN, Collections.emptyList()), null))
+                        .isEmpty(),
                 "empty IN matches nothing");
         assertEquals(ids(7, 7), searchIds(new XdStorageSearchQuery(
                 new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.IN, new Long[]{7L}), null)),
@@ -164,13 +171,15 @@ public class XdStorageRangeSearchQueryTest {
     @DisplayName("mixed-type order comparison fails loudly; IN membership simply never matches")
     public void mixedTypeFailsLoudly() {
         assertThrows(XdStorageRuntimeException.class, () -> searchIdsUnchecked(new XdStorageSearchQuery(
-                new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange("10", "20")), null)),
+                new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange("10", "20")),
+                        null)),
                 "String bounds against a Long field must fail loudly, not silently-empty");
         assertThrows(XdStorageRuntimeException.class, () -> searchIdsUnchecked(new XdStorageSearchQuery(
                 new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.GT, "abc"), null)),
                 "a String GT bound against a Long field must fail loudly");
         assertTrue(searchIdsUnchecked(new XdStorageSearchQuery(
-                new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.IN, Arrays.asList("10", "20")), null)).isEmpty(),
+                new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.IN, Arrays.asList("10", "20")), null))
+                        .isEmpty(),
                 "IN is equals-membership: a foreign type simply never matches");
     }
 
@@ -183,9 +192,11 @@ public class XdStorageRangeSearchQueryTest {
                         new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.GTE, 40L),
                         new XdStorageCriterion("label", IXdStorageCriterionOperator.EQUALS, "even"))));
         // range + NOT child (odd scores >= 40)
-        assertEquals(new HashSet<>(Arrays.asList("id-41", "id-43", "id-45", "id-47", "id-49")), searchIds(new XdStorageSearchQuery(
+        assertEquals(new HashSet<>(Arrays.asList("id-41", "id-43", "id-45", "id-47", "id-49")), searchIds(new
+                XdStorageSearchQuery(
                 new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.GTE, 40L),
-                new XdStorageCriterionNot(new XdStorageCriterion("label", IXdStorageCriterionOperator.EQUALS, "even")))));
+                new XdStorageCriterionNot(new XdStorageCriterion("label", IXdStorageCriterionOperator.EQUALS,
+                        "even")))));
         // range + complex AND/OR child on the same field
         assertEquals(ids(42, 46), searchIds(new XdStorageSearchQuery(
                 new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.GTE, 40L),
@@ -196,7 +207,8 @@ public class XdStorageRangeSearchQueryTest {
         // union of two ranges via or()
         final XdStorageSearchQuery union = new XdStorageSearchQuery(
                 new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange(0L, 9L)), null);
-        union.or(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange(40L, 49L)), null);
+        union.or(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange(40L, 49L)),
+                null);
         Set<String> expected = ids(0, 9);
         expected.addAll(ids(40, 49));
         assertEquals(expected, searchIds(union));
@@ -246,7 +258,8 @@ public class XdStorageRangeSearchQueryTest {
     public void scanPathEquivalence() throws Exception {
         // fast path: BETWEEN primary
         final Set<String> viaWalk = searchIds(new XdStorageSearchQuery(
-                new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange(10L, 30L)), null));
+                new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange(10L, 30L)),
+                        null));
         // scan path: NOT_EQUALS primary forces the full scan; the SAME filter is expressed
         // as child criteria GTE/LTE evaluated per record — also exercises the operators
         // as child criteria on the scan path
@@ -272,7 +285,8 @@ public class XdStorageRangeSearchQueryTest {
         }
     }
 
-    private Set<String> searchIdsInTx(final IXdStorageTransaction tx, final XdStorageSearchQuery query) throws Exception {
+    private Set<String> searchIdsInTx(final IXdStorageTransaction tx, final XdStorageSearchQuery query) throws Exception
+            {
         return storage.load(RangeOpsEntity.class, "range_idx", query, tx)
                 .stream().map(RangeOpsEntity::getId).collect(Collectors.toSet());
     }

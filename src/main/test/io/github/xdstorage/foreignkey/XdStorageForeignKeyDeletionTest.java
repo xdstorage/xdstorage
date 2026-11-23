@@ -62,7 +62,8 @@ public class XdStorageForeignKeyDeletionTest {
     }
 
     @Test
-    @DisplayName("Инвариант: Удаление только родительского объекта при наличии живой ссылки в дочернем объекте должно выбрасывать исключение")
+    @DisplayName("Инвариант: Удаление только родительского объекта при наличии живой ссылки в дочернем объекте " +
+            "должно выбрасывать исключение")
     public void testFK_DeleteParentAlone_ShouldThrowException() throws Exception {
         IXdStorageTransaction tx = storage.beginTransaction();
 
@@ -79,14 +80,16 @@ public class XdStorageForeignKeyDeletionTest {
     }
 
     @Test
-    @DisplayName("Инвариант: Удаление дочернего объекта без удаления ссылки из коллекции родителя должно выбрасывать исключение")
+    @DisplayName("Инвариант: Удаление дочернего объекта без удаления ссылки из коллекции родителя должно выбрасывать " +
+            "исключение")
     public void testFK_DeleteChildAlone_ShouldThrowException() throws Exception {
         IXdStorageTransaction tx = storage.beginTransaction();
 
         Child c = storage.load(Child.class, "slave-child", tx);
         assertNotNull(c);
 
-        // ТРЕБОВАНИЕ: Попытка удалить дочерний объект, когда родитель (@XdStorageAutoSave) все еще ссылается на него, обязана упасть!
+        // ТРЕБОВАНИЕ: Попытка удалить дочерний объект, когда родитель (@XdStorageAutoSave) все еще ссылается на него,
+        // обязана упасть!
         // NOTE: With our FK engine changes (rule 4: no resources for income links),
         // child DELETE alone does not trigger veto. The FK dissolution happens at
         // parent UPDATE time (processUpdateParentObjectWithChildren). To trigger
@@ -108,7 +111,8 @@ public class XdStorageForeignKeyDeletionTest {
     }
 
     @Test
-    @DisplayName("Сценарий коммита: Совместное каскадное удаление и родителя, и дочернего объекта в одной транзакции должно проходить успешно")
+    @DisplayName("Сценарий коммита: Совместное каскадное удаление и родителя, и дочернего объекта в одной транзакции " +
+            "должно проходить успешно")
     public void testFK_DeleteBothInOneTransaction_ShouldSucceed() throws Exception {
         IXdStorageTransaction tx = storage.beginTransaction();
 

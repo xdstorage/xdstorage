@@ -60,16 +60,20 @@ public class XdStorageFkContentionBenchmark {
     }
 
     public void runMatrix() throws Exception {
-        System.out.println("=== FKBENCH Шаг 0: конкурентная запись блока, окно " + WINDOW_MS + "ms, дефолтный tx-таймаут 3s ===");
-        System.out.println("config          | tx/s    | p50     | p95     | p99     | max      | stalls>1s | sweeper | gate | other");
-        System.out.println("----------------|---------|---------|---------|---------|----------|-----------|---------|------|------");
+        System.out.println("=== FKBENCH Шаг 0: конкурентная запись блока, окно " + WINDOW_MS +
+                "ms, дефолтный tx-таймаут 3s ===");
+        System.out.println("config          | tx/s    | p50     | p95     | p99     | max      | stalls>1s | sweeper " +
+                "| gate | other");
+        System.out.println("----------------|---------|---------|---------|---------|----------|-----------|---------" +
+                "|------|------");
 
         for (final boolean fk : new boolean[]{false, true}) {
             for (final int threads : new int[]{1, 5, 10}) {
                 runConfig(fk, threads);
             }
         }
-        System.out.println("=== конец матрицы. Чтение: FK-off t=10 ≈ базовый путь (домен WRTPATH); FK-on t=10 vs FK-on t=1 = цена штопора. ===");
+        System.out.println("=== конец матрицы. Чтение: FK-off t=10 ≈ базовый путь (домен WRTPATH); FK-on t=10 vs " +
+                "FK-on t=1 = цена штопора. ===");
     }
 
     private void runConfig(final boolean fkEnabled, final int threads) throws Exception {

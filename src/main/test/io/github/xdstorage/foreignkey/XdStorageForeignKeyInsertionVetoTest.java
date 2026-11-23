@@ -146,7 +146,8 @@ public class XdStorageForeignKeyInsertionVetoTest {
 
     /** Delete child with parent reference → VETO (the parent's persisted collection still references the child). */
     @Test
-    @DisplayName("testDeleteChildWithLiveParentReference_VetoOnCommit: delete child w/ parent ref → VETO (dangling reference)")
+    @DisplayName("testDeleteChildWithLiveParentReference_VetoOnCommit: delete child w/ parent ref → VETO (dangling " +
+            "reference)")
     public void testDeleteChildWithLiveParentReference_VetoOnCommit() throws Exception {
         IXdStorageTransaction tx = storage.beginTransaction();
 

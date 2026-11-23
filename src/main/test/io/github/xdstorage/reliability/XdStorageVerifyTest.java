@@ -216,7 +216,8 @@ public class XdStorageVerifyTest {
         final Path copy = buildWhileOpenCopy("orphan");
 
         final XdStorageVerifyReport report = XdStorageProvider.verify(copy);
-        assertTrue(report.findings.stream().anyMatch(f -> f.contains("ORPHANED JOURNAL") && f.contains("RangeOpsEntity")),
+        assertTrue(report.findings.stream().anyMatch(f -> f.contains("ORPHANED JOURNAL") && f
+                .contains("RangeOpsEntity")),
                 "the base-less journal is named: " + report.findings);
         // and the folder still verifies as tolerable: the open replays the journals
         assertEquals(XdStorageVerifyReport.Verdict.WARNINGS, report.verdict,
@@ -257,8 +258,10 @@ public class XdStorageVerifyTest {
         Files.write(findDataBase(copy), Files.readAllBytes(findDataBase(four)));
 
         final XdStorageVerifyReport report = XdStorageProvider.verify(copy);
-        assertEquals(XdStorageVerifyReport.Verdict.CORRUPT, report.verdict, "a count mismatch is corruption: " + report);
-        assertTrue(report.findings.stream().anyMatch(f -> f.contains("COUNT MISMATCH") && f.contains("4 data object(s) vs 5 id-index")),
+        assertEquals(XdStorageVerifyReport.Verdict.CORRUPT, report.verdict, "a count mismatch is corruption: " +
+                report);
+        assertTrue(report.findings.stream().anyMatch(f -> f.contains("COUNT MISMATCH") && f
+                .contains("4 data object(s) vs 5 id-index")),
                 "the mismatch names the class dir and both numbers: " + report.findings);
     }
 

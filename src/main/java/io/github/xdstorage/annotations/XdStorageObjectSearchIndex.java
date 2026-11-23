@@ -21,7 +21,8 @@ import java.lang.annotation.Target;
 public @interface XdStorageObjectSearchIndex {
 
 /** Names the index.
-     * @return the index's name — the {@code indexName} argument of {@code load(cl, indexName, query)}. Unique per class. */
+      * @return the index's name — the {@code indexName} argument of {@code load(cl, indexName, query)}. Unique per
+      * class. */
     String indexName();
 
 /** Lists the indexed fields.

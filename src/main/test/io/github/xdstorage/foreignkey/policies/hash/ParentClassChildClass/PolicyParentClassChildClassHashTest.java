@@ -175,7 +175,8 @@ public class PolicyParentClassChildClassHashTest extends AbstractForeignKeyBaseS
     }
 
     @Test
-    @DisplayName("4b. Обновление родителя: удалить child1, вставить child3 — Успешно (Rule 4: удаление из коллекции ≠ delete, child survives independently)")
+    @DisplayName("4b. Обновление родителя: удалить child1, вставить child3 — Успешно (Rule 4: удаление из коллекции " +
+            "≠ delete, child survives independently)")
     void testUpdateParentRemoveOneInsertOneNoDeleteSuccess() throws Exception {
         tx = storage.beginTransaction();
         HashPolicyParentClassChildClass parent = new HashPolicyParentClassChildClass();

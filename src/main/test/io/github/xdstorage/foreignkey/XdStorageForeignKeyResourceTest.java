@@ -96,7 +96,8 @@ public class XdStorageForeignKeyResourceTest {
                     }
                 });
 
-        fkResource = new XdStorageForeignKeyResource(mockServices, mockManager, mockFkResourcesManager, "fk_resource_id_01", mockParentInfo, mockChildInfo, mockParentField);
+        fkResource = new XdStorageForeignKeyResource(mockServices, mockManager, mockFkResourcesManager,
+                "fk_resource_id_01", mockParentInfo, mockChildInfo, mockParentField);
     }
 
     @Test
@@ -113,12 +114,15 @@ public class XdStorageForeignKeyResourceTest {
         fkResource.insert(parentObj, childObj, mockTx);
 
         // Верифицируем, что Foreign Key менеджер пробил вставку в ОБОИХ направлениях (двунаправленный индекс)
-        verify(mockParentChildTree, times(1)).insert(eq("PARENT-ID-100"), eq("CHILD-ID-200"), eq(mockStorage), eq(mockTx));
-        verify(mockChildParentTree, times(1)).insert(eq("CHILD-ID-200"), eq("PARENT-ID-100"), eq(mockStorage), eq(mockTx));
+        verify(mockParentChildTree, times(1)).insert(eq("PARENT-ID-100"), eq("CHILD-ID-200"), eq(mockStorage),
+                eq(mockTx));
+        verify(mockChildParentTree, times(1)).insert(eq("CHILD-ID-200"), eq("PARENT-ID-100"), eq(mockStorage),
+                eq(mockTx));
     }
 
     @Test
-    @DisplayName("Инвариант: Отложенная вставка при insert() с пустоклеточными ID должна вешать обсервер и срабатывать по триггеру")
+    @DisplayName("Инвариант: Отложенная вставка при insert() с пустоклеточными ID должна вешать обсервер и " +
+            "срабатывать по триггеру")
     public void testInsert_WithDeferredId_ShouldRegisterObserverAndInsertOnTrigger() throws Exception {
         IXdStorageIdObservableWrapper parentObj = mock(IXdStorageIdObservableWrapper.class);
         MockObservableWrapper childObj = mock(MockObservableWrapper.class); // Ребенок с автогенерацией ID
@@ -137,14 +141,17 @@ public class XdStorageForeignKeyResourceTest {
         fkResource.insert(parentObj, childObj, mockTx);
 
         // Проверяем, что обсервер успешно зарегистрирован и сидит в засаде
-        assertFalse(capturedObservers.isEmpty(), "СУБД не повесила XdStorageAbstractIdObserver на объект с автогенерируемым ID!");
+        assertFalse(capturedObservers.isEmpty(),
+                "СУБД не повесила XdStorageAbstractIdObserver на объект с автогенерируемым ID!");
 
         // Имитируем, что ядро СУБД сгенерировало ID для ребенка и триггернуло обсервер
         capturedObservers.get(0).onNewIdIsSet(childObj, "GENERATED-CHILD-ID-999");
 
         // Верифицируем, что после срабатывания триггера пара мгновенно залетела в B+ Деревья внешних ключей
-        verify(mockParentChildTree, times(1)).insert(eq("PARENT-ID-CORE"), eq("GENERATED-CHILD-ID-999"), eq(mockStorage), eq(mockTx));
-        verify(mockChildParentTree, times(1)).insert(eq("GENERATED-CHILD-ID-999"), eq("PARENT-ID-CORE"), eq(mockStorage), eq(mockTx));
+        verify(mockParentChildTree, times(1)).insert(eq("PARENT-ID-CORE"), eq("GENERATED-CHILD-ID-999"),
+                eq(mockStorage), eq(mockTx));
+        verify(mockChildParentTree, times(1)).insert(eq("GENERATED-CHILD-ID-999"), eq("PARENT-ID-CORE"),
+                eq(mockStorage), eq(mockTx));
     }
 
     @Test
@@ -159,7 +166,9 @@ public class XdStorageForeignKeyResourceTest {
         fkResource.unregisterForeignKey("PARENT-ID-77", "CHILD-ID-88", mockTx);
 
         // Проверяем, что ресурс вызвал точечные методы delete(key, value) для обоих деревьев!
-        verify(mockParentChildTree, times(1)).delete(eq("PARENT-ID-77"), eq("CHILD-ID-88"), eq(mockStorage), eq(mockTx));
-        verify(mockChildParentTree, times(1)).delete(eq("CHILD-ID-88"), eq("PARENT-ID-77"), eq(mockStorage), eq(mockTx));
+        verify(mockParentChildTree, times(1)).delete(eq("PARENT-ID-77"), eq("CHILD-ID-88"), eq(mockStorage),
+                eq(mockTx));
+        verify(mockChildParentTree, times(1)).delete(eq("CHILD-ID-88"), eq("PARENT-ID-77"), eq(mockStorage),
+                eq(mockTx));
     }
 }

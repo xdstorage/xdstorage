@@ -36,7 +36,8 @@ import static org.junit.jupiter.api.Assertions.*;
  *   snapshot-aware — records that became invisible due to a concurrent commit during
  *   the walk are skipped (the tree's versioned entries provide the visibility boundary)."
  *
- * @see <a href="https://github.com/xdstorage/xdstorage/blob/main/docs/tasks/2.1.0/38-index-resource-contracts.md">Task 38</a>
+  * @see <a href="https://github.com/xdstorage/xdstorage/blob/main/docs/tasks/2.1.0/38-index-resource-contracts.md">Task
+  * 38</a>
  */
 @DisplayName("IDXCONTRACT: hash-vs-btree snapshot semantics")
 @TestMethodOrder(org.junit.jupiter.api.MethodOrderer.OrderAnnotation.class)
@@ -105,7 +106,7 @@ public class HashBTreeSnapshotSemanticsTest {
             Collection<SearchEngineShip> alpha = searchShips(checkTx, equalsName("contract-ship-alpha"));
             assertNotNull(alpha);
             assertEquals(1, alpha.size(), "alpha ship should be found");
-            
+
             Collection<SearchEngineShip> beta = searchShips(checkTx, equalsName("contract-ship-beta"));
             assertNotNull(beta);
             assertEquals(1, beta.size(), "beta ship should be found");

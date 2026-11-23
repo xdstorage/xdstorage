@@ -27,7 +27,8 @@ public final class XdStorageCacheObjectChange {
      * @param change        the kind of change this entry materialized from
      * @param readTimestamp the version baseline of the read
      */
-    public XdStorageCacheObjectChange(final Object object, final XdStorageCacheChange change, final long readTimestamp) {
+    public XdStorageCacheObjectChange(final Object object, final XdStorageCacheChange change, final long readTimestamp)
+            {
         this.object = object;
         this.change = change;
         this.readTimestamp = readTimestamp;

@@ -108,7 +108,8 @@ public class XdStorageResourceCacheSomeCasesTest {
 
         // Тх2 делает вычитку кэша
         Collection<Object> tx2Read = resourceCache.read(tx2);
-        assertTrue(tx2Read.isEmpty(), "Параллельная транзакция не имеет права видеть незакоммиченный грязный инвертарь!");
+        assertTrue(tx2Read.isEmpty(),
+                "Параллельная транзакция не имеет права видеть незакоммиченный грязный инвертарь!");
     }
 
     @Test
@@ -151,7 +152,8 @@ public class XdStorageResourceCacheSomeCasesTest {
         // Выполняем откат
         resourceCache.rollback(tx1);
 
-        assertFalse(resourceCache.hasObject(30L), "После роллбэка запись обязана полностью аннигилироваться из ConcurrentHashMap!");
+        assertFalse(resourceCache.hasObject(30L),
+                "После роллбэка запись обязана полностью аннигилироваться из ConcurrentHashMap!");
     }
 
     // =========================================================================

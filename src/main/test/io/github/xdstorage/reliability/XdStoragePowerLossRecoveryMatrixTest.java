@@ -115,7 +115,8 @@ public class XdStoragePowerLossRecoveryMatrixTest {
             return walk.filter(f -> f.getFileName().toString()
                             .endsWith(io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.JOURNAL_SUFFIX))
                     .filter(f -> f.toString().replace(File.separatorChar, '/').contains("/data/XdStorageW2SearchShip"))
-                    .findFirst().orElseThrow(() -> new IllegalStateException("no data journal found under " + storageDir));
+                    .findFirst().orElseThrow(() -> new IllegalStateException("no data journal found under " +
+                            storageDir));
         }
     }
 
@@ -189,7 +190,8 @@ public class XdStoragePowerLossRecoveryMatrixTest {
     }
 
     @Test
-    @DisplayName("data journal torn at 25/60/90%: opens clean (masked by the intact search tree), objects self-consistent")
+    @DisplayName("data journal torn at 25/60/90%: opens clean (masked by the intact search tree), objects " +
+            "self-consistent")
     public void tornDataJournalOpensClean() throws Exception {
         final Path built = buildStorage("dj", false);
         for (final double fraction : new double[]{0.25, 0.6, 0.9}) {
@@ -209,7 +211,8 @@ public class XdStoragePowerLossRecoveryMatrixTest {
     }
 
     @Test
-    @DisplayName("search-tree node torn: open answers; a search into the torn subtree fails LOUDLY (strict), never silently-empty")
+    @DisplayName("search-tree node torn: open answers; a search into the torn subtree fails LOUDLY (strict), never " +
+            "silently-empty")
     public void tornSearchTreeNodeLoudOnSearch() throws Exception {
         final Path built = buildStorage("t1", false);
         final Path cell = copyOf(built, "cell-t1");

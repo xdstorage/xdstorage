@@ -79,7 +79,8 @@ public class XdStorageAutoSaveTest {
 
         IXdStorageTransaction checkTx = storage.beginTransaction();
         assertTrue(storage.load(Order.class, checkTx).isEmpty());
-        assertTrue(storage.load(Item.class, checkTx).isEmpty(), "Дочерний каскадный объект утек на диск после ролбэка!");
+        assertTrue(storage.load(Item.class, checkTx).isEmpty(),
+                "Дочерний каскадный объект утек на диск после ролбэка!");
         checkTx.commit();
     }
 }

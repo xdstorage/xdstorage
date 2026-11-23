@@ -22,7 +22,8 @@ public class XdStorageChildCriterionTest {
     @DisplayName("Хранит все параметры критерия")
     public void testExposesFields() {
         final XdStorageChildCriterion criterion =
-                new XdStorageChildCriterion("crew", CHILD_CLASS, "rank", IXdStorageChildCriterionOperator.CONTAINS, "Captain");
+                new XdStorageChildCriterion("crew", CHILD_CLASS, "rank", IXdStorageChildCriterionOperator.CONTAINS,
+                        "Captain");
 
         assertEquals("crew", criterion.childFieldName);
         assertSame(CHILD_CLASS, criterion.cl);
@@ -35,7 +36,8 @@ public class XdStorageChildCriterionTest {
     @DisplayName("passed делегирует оператору")
     public void testPassedDelegates() {
         final XdStorageChildCriterion criterion =
-                new XdStorageChildCriterion("crew", CHILD_CLASS, "rank", IXdStorageChildCriterionOperator.CONTAINS, "Captain");
+                new XdStorageChildCriterion("crew", CHILD_CLASS, "rank", IXdStorageChildCriterionOperator.CONTAINS,
+                        "Captain");
 
         assertTrue(criterion.passed(recordWithChild("crew", 1L, "rank", "Captain")));
         assertFalse(criterion.passed(recordWithChild("crew", 1L, "rank", "Doctor")));
@@ -73,7 +75,8 @@ public class XdStorageChildCriterionTest {
 
         // дочернее значение null
         final XdStorageSearchIndexRecord nullValue = recordWithChild("crew", 1L, "rank", null);
-        assertFalse(IXdStorageChildCriterionOperator.CONTAINS.passed(nullValue, "crew", CHILD_CLASS, "rank", "Captain"));
+        assertFalse(IXdStorageChildCriterionOperator.CONTAINS.passed(nullValue, "crew", CHILD_CLASS, "rank",
+                "Captain"));
 
         // нестроковое значение потомка
         final XdStorageSearchIndexRecord numeric = recordWithChild("crew", 1L, "rank", 42);

@@ -65,7 +65,8 @@ public abstract class AbstractBTreeIndexResourceTest {
 
         // Обучаем менеджер перехватывать все вариации lockResource и отдавать mockDaoResource
         when(mockDaoResource.getResourceId()).thenReturn("test-resource-id-string");
-        when(mockManager.lockResource(any(XdStorageClassInfo.class), any(Object.class), any())).thenReturn(mockDaoResource);
+        when(mockManager.lockResource(any(XdStorageClassInfo.class), any(Object.class), any()))
+                .thenReturn(mockDaoResource);
         when(mockManager.lockResource(any(Object.class), any(), any())).thenReturn(mockDaoResource);
         when(mockManager.reserveFreeResourceId(any(Class.class), anyLong())).thenReturn("test-resource-id-string");
 

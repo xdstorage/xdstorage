@@ -118,13 +118,16 @@ public final class XdStorageSearchIndexJournal {
      * @return parsed records in file (commit) order
      * @throws IOException when the file exists but cannot be read
      */
-    public static List<io.github.xdstorage.serialization.XdStorageSearchIndexJournalRecord> readForReplay(final Path file)
+    public static List<io.github.xdstorage.serialization.XdStorageSearchIndexJournalRecord> readForReplay(final Path
+            file)
             throws IOException {
         final List<io.github.xdstorage.serialization.XdStorageSearchIndexJournalRecord> records = new ArrayList<>();
         if (!Files.exists(file)) {
             return records;
         }
-        try (BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(new java.io.FileInputStream(file.toFile()), java.nio.charset.StandardCharsets.UTF_8), 1 << 16)) { // task 51: pinned cross-OS
+        // task 51: pinned cross-OS
+        try (BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(new java.io.FileInputStream(file
+                .toFile()), java.nio.charset.StandardCharsets.UTF_8), 1 << 16)) {
             final Tokenizer tokenizer = new Tokenizer(reader);
             final List<JournalRecord> pending = new ArrayList<>();
             boolean tornTail = false;
@@ -149,7 +152,8 @@ public final class XdStorageSearchIndexJournal {
                 tornTail = true;
             }
             if (tornTail) {
-                log.warn("search-index commit journal {} has a TORN TAIL (crash mid-append): discarding {} record(s) after the last EOF sentinel",
+                log.warn("search-index commit journal {} has a TORN TAIL (crash mid-append): discarding {} record(s) " +
+                        "after the last EOF sentinel",
                         file, pending.size());
             }
         }

@@ -51,7 +51,8 @@ import java.util.concurrent.locks.ReentrantLock;
  * is guarded by an internal lock, and the commit lifecycle is inherited from the
  * resource-object contract.</p>
  */
-public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResourceObject, IXdStorageSearchIndexDaoResource, IXdStorageJournalCheckpoint {
+public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResourceObject,
+        IXdStorageSearchIndexDaoResource, IXdStorageJournalCheckpoint {
 
     private static final Logger log = LoggerFactory.getLogger(XdStorageSearchIndexResource.class);
 
@@ -81,7 +82,8 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
     private final long searchIndexJournalCheckpointBytes;
 
     /** Whether this resource has been prepared (loaded from disk and replayed). */
-    private final java.util.concurrent.atomic.AtomicBoolean prepared = new java.util.concurrent.atomic.AtomicBoolean(false);
+    private final java.util.concurrent.atomic.AtomicBoolean prepared = new java.util.concurrent.atomic
+            .AtomicBoolean(false);
 
     /** Reentrant lock guarding prepare/commit against concurrent access. */
     private final java.util.concurrent.locks.Lock journalLock = new java.util.concurrent.locks.ReentrantLock();
@@ -272,7 +274,8 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
 
         try {
             final List<io.github.xdstorage.serialization.XdStorageSearchIndexJournalRecord> records =
-                    io.github.xdstorage.serialization.search.XdStorageSearchIndexJournal.readForReplay(searchIndexJournalFile);
+                    io.github.xdstorage.serialization.search.XdStorageSearchIndexJournal
+                            .readForReplay(searchIndexJournalFile);
 
             int addCount = 0, delCount = 0, treeMissCount = 0;
             for (final io.github.xdstorage.serialization.XdStorageSearchIndexJournalRecord rec : records) {
@@ -316,13 +319,15 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
                     final Path settleTarget = io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal
                             .dataJournalFileFor(getFileName(),
                                     services.getNamingService() == null ? null
-                                            : services.getNamingService().getDataClassJournalDir(objectClInfo.getClazz()));
+                                            : services.getNamingService().getDataClassJournalDir(objectClInfo
+                                                    .getClazz()));
                     final Path settled = settleTarget == null
                             ? io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal
                                     .searchIndexJournalSettleAfterReplay(searchIndexJournalFile,
                                             supersededSearchIndexJournals, getFileName())
                             : io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal
-                                    .settleAfterReplay(searchIndexJournalFile, supersededSearchIndexJournals, settleTarget);
+                                    .settleAfterReplay(searchIndexJournalFile, supersededSearchIndexJournals,
+                                            settleTarget);
                     this.searchIndexJournalFile = settled;
                 } catch (final java.io.IOException e) {
                     log.warn("search-index journal settle-after-replay failed for {}: {} (safe: replay is idempotent)",
@@ -350,12 +355,14 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
         try {
             final long size = java.nio.file.Files.size(searchIndexJournalFile);
             if (size >= searchIndexJournalCheckpointBytes) {
-                log.debug("search-index resource {} open-time guard: journal {} bytes > {} threshold — silent checkpoint",
+                log.debug("search-index resource {} open-time guard: journal {} bytes > {} threshold — silent " +
+                        "checkpoint",
                         getFileName(), size, searchIndexJournalCheckpointBytes);
                 checkpointSearchIndexJournal();
             }
         } catch (final java.io.IOException e) {
-            log.warn("search-index resource {} open-time guard checkpoint failed (safe: journal replays at next open): {}",
+            log.warn("search-index resource {} open-time guard checkpoint failed (safe: journal replays at next " +
+                    "open): {}",
                     getFileName(), e.getMessage());
         }
     }
@@ -415,12 +422,14 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
     }
 
     @Override
-    public void performSecondPhaseCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges record) throws XdStorageException {
+    public void performSecondPhaseCommit(final XdStorageTransaction transaction, final
+            XdStorageTransactionResourceChanges record) throws XdStorageException {
         // do nothing
     }
 
     @Override
-    public void rollbackPerformingFirstPhaseCommit(final XdStorageTransaction transaction, final Collection<XdStorageObjectChange> changes) throws XdStorageException {
+    public void rollbackPerformingFirstPhaseCommit(final XdStorageTransaction transaction, final
+            Collection<XdStorageObjectChange> changes) throws XdStorageException {
         // do nothing
     }
 
@@ -488,7 +497,8 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
     private final Lock createTreeLock = new ReentrantLock();
 
     @Override
-    public void insert(final Object object, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void insert(final Object object, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         final XdStorageSearchIndexRecord record = (XdStorageSearchIndexRecord) object;
         final IXdStorage storage = services.getStorage();
 
@@ -502,7 +512,8 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
         if (tree == null) {
             tree = (XdStorageBTree) services.getCanonicalInstances().get(XdStorageBTree.class, searchBTreeId);
             if (tree != null) {
-                log.warn("search tree {} adopted from the canonical instance registry (cache record lost)", searchBTreeId);
+                log.warn("search tree {} adopted from the canonical instance registry (cache record lost)",
+                        searchBTreeId);
             }
         }
 
@@ -519,10 +530,12 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
                 tree = storage.load(XdStorageBTree.class, searchBTreeId, transaction);
                 if (tree == null) {
                     final XdStorageSearchIndex searchIndex = objectClInfo.getIndexes().get(indexName);
-                    log.info("search trees {} and {} created for class {}", searchBTreeId, keyBTreeId, objectClInfo.getClazz().getName());
+                    log.info("search trees {} and {} created for class {}", searchBTreeId, keyBTreeId, objectClInfo
+                            .getClazz().getName());
 
                     // Создаем и каскадно сохраняем дерево адресации ключей в ТЕКУЩУЮ транзакцию
-                    XdStorageBTree subKeyTree = new XdStorageBTree(keyBTreeId, false, searchIndex.getIndexFillingValue());
+                    XdStorageBTree subKeyTree = new XdStorageBTree(keyBTreeId, false, searchIndex
+                            .getIndexFillingValue());
                     storage.save(subKeyTree, transaction);
 
                     // Создаем и каскадно сохраняем основное дерево поиска в ТЕКУЩУЮ транзакцию
@@ -553,7 +566,8 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
             return;
         }
 
-        final XdStorageSearchKeyIndexRecord hashIndexRecord = new XdStorageSearchKeyIndexRecord(record.getId(), record.getPrimaryIndexValue());
+        final XdStorageSearchKeyIndexRecord hashIndexRecord = new XdStorageSearchKeyIndexRecord(record.getId(), record
+                .getPrimaryIndexValue());
 
         // Атомарно пишем данные в индексы в рамках ЕДИНОЙ транзакции.
         // RECIDENT/R-36 (docs/tasks/2.1.0/47): the entry-lock contention bursts are
@@ -562,7 +576,8 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
         keyTree.insert((Comparable) record.getId(), hashIndexRecord, storage, transaction);
         // R-57: компенсация при откате — keyTree по id записи
         transaction.registerIndexKeyForRollback(keyTree, (Comparable) record.getId());
-        final XdStorageSearchIndexKey searchIndexKey = new XdStorageSearchIndexKey(record.getPrimaryIndexValue(), record.getId(), XdStorageSearchIndexOperationType.Insert);
+        final XdStorageSearchIndexKey searchIndexKey = new XdStorageSearchIndexKey(record.getPrimaryIndexValue(), record
+                .getId(), XdStorageSearchIndexOperationType.Insert);
         tree.insert(searchIndexKey, XdStorageObjectUtils.getWrappedObjectOrSameObject(record), storage, transaction);
         // R-57: и поисковое дерево по составному ключу
         transaction.registerIndexKeyForRollback(tree, searchIndexKey);
@@ -571,7 +586,8 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
                 String.valueOf(record.getPrimaryIndexValue()), String.valueOf(record.getId()));
     }
 
-    public void update(final Object object, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void update(final Object object, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         final XdStorageSearchIndexRecord record = (XdStorageSearchIndexRecord) object;
 
         final IXdStorage storage = services.getStorage();
@@ -592,7 +608,8 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
             // (откат создателя/eviction); граф остается каноническим — восстанавливаем ссылку.
             keyTree = (XdStorageBTree) services.getCanonicalInstances().get(XdStorageBTree.class, keyBTreeId);
             if (keyTree != null) {
-                log.warn("search key tree {} adopted from the canonical instance registry (cache record lost)", keyBTreeId);
+                log.warn("search key tree {} adopted from the canonical instance registry (cache record lost)",
+                        keyBTreeId);
             }
         }
         if (keyTree == null) {
@@ -605,7 +622,8 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
         }
 
         final XdStorageSearchKeyIndexRecord oldHashIndexRecord = (XdStorageSearchKeyIndexRecord) findResult.get(0);
-        final Object oldPrimaryFieldValue = oldHashIndexRecord.getValue(), newPrimaryFieldValue = record.getPrimaryIndexValue();
+        final Object oldPrimaryFieldValue = oldHashIndexRecord.getValue(), newPrimaryFieldValue = record
+                .getPrimaryIndexValue();
 
         final XdStorageBTreeId searchBTreeId = new XdStorageBTreeId(objectClInfo.getClazz(), indexName);
 
@@ -619,7 +637,8 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
             // (откат создателя/eviction); граф остается каноническим — восстанавливаем ссылку.
             tree = (XdStorageBTree) services.getCanonicalInstances().get(XdStorageBTree.class, searchBTreeId);
             if (tree != null) {
-                log.warn("search tree {} adopted from the canonical instance registry (cache record lost)", searchBTreeId);
+                log.warn("search tree {} adopted from the canonical instance registry (cache record lost)",
+                        searchBTreeId);
             }
         }
         if (tree == null) {
@@ -630,21 +649,25 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
 
         if ((oldPrimaryFieldValue == null && newPrimaryFieldValue == null)
                 || (oldPrimaryFieldValue != null && oldPrimaryFieldValue.equals(newPrimaryFieldValue))) {
-            final XdStorageSearchIndexKey searchIndexKey = new XdStorageSearchIndexKey(oldHashIndexRecord.getValue(), oldHashIndexRecord.getObjectId(), XdStorageSearchIndexOperationType.Update);
+            final XdStorageSearchIndexKey searchIndexKey = new XdStorageSearchIndexKey(oldHashIndexRecord.getValue(),
+                    oldHashIndexRecord.getObjectId(), XdStorageSearchIndexOperationType.Update);
             tree.update(searchIndexKey, record, storage, transaction);
         } else {
-            final XdStorageSearchKeyIndexRecord newHashIndexRecord = new XdStorageSearchKeyIndexRecord(record.getId(), record.getPrimaryIndexValue());
+            final XdStorageSearchKeyIndexRecord newHashIndexRecord = new XdStorageSearchKeyIndexRecord(record.getId(),
+                    record.getPrimaryIndexValue());
 
             // КАНОНИЧЕСКОЕ ИСПРАВЛЕНИЕ (покрыто тестами переименования): ключ key-дерева - ид объекта
             // (Comparable), а НЕ XdStorageSearchIndexKey. Прежний каст бросал ClassCastException на
             // КАЖДОМ update со сменой первичного значения (переименование), ломая перенос ключа.
             keyTree.update((Comparable) record.getId(), newHashIndexRecord, storage, transaction);
 
-            final XdStorageSearchIndexKey searchIndexKeyToDelete = new XdStorageSearchIndexKey(oldHashIndexRecord.getValue(), oldHashIndexRecord.getObjectId(), XdStorageSearchIndexOperationType.Delete);
+            final XdStorageSearchIndexKey searchIndexKeyToDelete = new XdStorageSearchIndexKey(oldHashIndexRecord
+                    .getValue(), oldHashIndexRecord.getObjectId(), XdStorageSearchIndexOperationType.Delete);
             // R-57: компенсация при откате — старое search-key (переименование: old key removed)
             transaction.registerIndexKeyForRollback(tree, searchIndexKeyToDelete);
             tree.delete(searchIndexKeyToDelete, storage, transaction);
-            final XdStorageSearchIndexKey searchIndexKeyToInsert = new XdStorageSearchIndexKey(newHashIndexRecord.getValue(), newHashIndexRecord.getObjectId(), XdStorageSearchIndexOperationType.Insert);
+            final XdStorageSearchIndexKey searchIndexKeyToInsert = new XdStorageSearchIndexKey(newHashIndexRecord
+                    .getValue(), newHashIndexRecord.getObjectId(), XdStorageSearchIndexOperationType.Insert);
             // R-57: компенсация при откате — новое search-key (переименование: new key inserted)
             transaction.registerIndexKeyForRollback(tree, searchIndexKeyToInsert);
             tree.insert(searchIndexKeyToInsert, record, storage, transaction);
@@ -657,7 +680,8 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
     }
 
     @Override
-    public void delete(final Object object, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void delete(final Object object, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         final XdStorageSearchIndexRecord record = (XdStorageSearchIndexRecord) object;
 
         final IXdStorage storage = services.getStorage();
@@ -695,7 +719,8 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
         }
         restoreSearchKeyTypesIfNeeded(tree, storage, transaction);
 
-        final XdStorageSearchIndexKey searchIndexKey = new XdStorageSearchIndexKey(oldHashIndexRecord.getValue(), oldHashIndexRecord.getObjectId(), XdStorageSearchIndexOperationType.Insert);
+        final XdStorageSearchIndexKey searchIndexKey = new XdStorageSearchIndexKey(oldHashIndexRecord.getValue(),
+                oldHashIndexRecord.getObjectId(), XdStorageSearchIndexOperationType.Insert);
         // MASSFILL (the purge family): the search tree and the key tree can diverge under
         // torn-fill rollbacks (the R-57 compensations are per-tree). The delete's GOAL is
         // the composite key's absence — "does not exists" means the goal already holds.
@@ -719,7 +744,8 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
                 String.valueOf(oldHashIndexRecord.getValue()), String.valueOf(oldHashIndexRecord.getObjectId()));
     }
 
-    public <T> void watch(final XdStorageTransaction transaction, final IXdStorageWatcher<T> watcher) throws XdStorageException, XdStorageConnectionException {
+    public <T> void watch(final XdStorageTransaction transaction, final IXdStorageWatcher<T> watcher) throws
+            XdStorageException, XdStorageConnectionException {
         final IXdStorage storage = services.getStorage();
 
         final XdStorageBTreeId searchBTreeId = new XdStorageBTreeId(objectClInfo.getClazz(), indexName);
@@ -728,7 +754,8 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
         if (tree != null) {
             tree.read(storage, transaction, new IXdStorageBTreeViewer() {
                 @Override
-                public void look(Comparable comparable, Object value) throws XdStorageException, XdStorageConnectionException {
+                public void look(Comparable comparable, Object value) throws XdStorageException,
+                        XdStorageConnectionException {
                     watcher.watch((T) value);
                 }
             });
@@ -748,7 +775,8 @@ public class XdStorageSearchIndexResource implements IXdStorageSearchIndexResour
         }
         try {
             if (!journalLock.tryLock(10, java.util.concurrent.TimeUnit.SECONDS)) {
-                log.warn("search-index resource {} journal append timed out (live commit in progress), skipping journal",
+                log.warn("search-index resource {} journal append timed out (live commit in progress), skipping " +
+                        "journal",
                         getFileName());
                 return;
             }

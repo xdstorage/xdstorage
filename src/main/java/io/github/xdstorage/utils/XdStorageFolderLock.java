@@ -167,7 +167,8 @@ public final class XdStorageFolderLock implements AutoCloseable {
         }
     }
 
-    /** Thrown (unchecked) when the storage folder is already locked — the provider API cannot add checked exceptions without breaking compat. */
+    /** Thrown (unchecked) when the storage folder is already locked — the provider API cannot add checked exceptions
+     * without breaking compat. */
     public static final class XdStorageInUseException extends RuntimeException {
         private static final long serialVersionUID = 1L;
 

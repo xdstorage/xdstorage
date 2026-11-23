@@ -40,7 +40,8 @@ public class XdStorageResourcesManager
     protected IXdStorageIndexResourceObject createIndexResource(final Object resourceId, final String indexName,
                                                                 final XdStorageClassInfo clInfo) {
         if (clInfo.getIndexType() == XdStorageIndexType.Hash) {
-            return new XdStorageHashIndexResource(services, this, resourceId, indexName, clInfo, services.getIoFactory(), services.getIdGenerator(), fragmentSize);
+            return new XdStorageHashIndexResource(services, this, resourceId, indexName, clInfo, services
+                    .getIoFactory(), services.getIdGenerator(), fragmentSize);
         } else {
             return new XdStorageBTreeIndexResource(services, this, resourceId, indexName, clInfo, fragmentSize);
         }
@@ -54,12 +55,15 @@ public class XdStorageResourcesManager
 
     @Override
     protected IXdStorageResourceObject<IXdStorageDaoResource> createReferencesResource(final Object resourceId,
-                                                                                       final XdStorageClassInfo clInfo) {
-        return new XdStorageResource(services, this, resourceId, clInfo, services.getIdGenerator(), true, services.getIoFactory());
+                                                                                       final XdStorageClassInfo clInfo)
+                                                                {
+        return new XdStorageResource(services, this, resourceId, clInfo, services.getIdGenerator(), true, services
+                .getIoFactory());
     }
 
     @Override
-    protected IXdStorageSearchIndexResourceObject createSearchIndexResource(final Object resourceId, final String indexName,
+    protected IXdStorageSearchIndexResourceObject createSearchIndexResource(final Object resourceId, final String
+            indexName,
                                                                             final XdStorageClassInfo clInfo) {
         return new XdStorageSearchIndexResource(services, this, indexName, resourceId, clInfo, services.getIoFactory());
     }

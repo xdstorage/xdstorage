@@ -54,7 +54,8 @@ public interface IXdFileStorage extends IXdStorage {
      *                                      class has no id field, or an updater fails
      * @throws XdStorageConnectionException on a storage-level I/O failure
      */
-    List<IXdStorageStructureUpdater> executeStructureUpdate(Class<?> cl) throws XdStorageException, XdStorageConnectionException;
+    List<IXdStorageStructureUpdater> executeStructureUpdate(Class<?> cl) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Loads every object of the class that passes the predicate — an in-snapshot scan
@@ -69,7 +70,8 @@ public interface IXdFileStorage extends IXdStorage {
      *                                      the class has no id field
      * @throws XdStorageConnectionException on a storage-level I/O failure
      */
-    <T> Collection<T> load(Class<T> cl, IXdStoragePredicate<T> predicate) throws XdStorageException, XdStorageConnectionException;
+    <T> Collection<T> load(Class<T> cl, IXdStoragePredicate<T> predicate) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Loads every object of the class that passes the predicate, inside the given
@@ -85,7 +87,8 @@ public interface IXdFileStorage extends IXdStorage {
      * @throws XdStorageConnectionException on a storage-level I/O failure
      */
     @SuppressWarnings("unchecked")
-    <T> Collection<T> load(Class<T> cl, IXdStoragePredicate<T> predicate, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    <T> Collection<T> load(Class<T> cl, IXdStoragePredicate<T> predicate, IXdStorageTransaction transaction) throws
+            XdStorageException, XdStorageConnectionException;
 
     /**
      * Loads objects through a declared search index
@@ -107,7 +110,8 @@ public interface IXdFileStorage extends IXdStorage {
      *                                      comparison — mixed types fail loudly)
      * @throws XdStorageConnectionException on a storage-level I/O failure
      */
-    <T> Collection<T> load(Class<T> cl, String indexName, XdStorageSearchQuery query) throws XdStorageException, XdStorageConnectionException;
+    <T> Collection<T> load(Class<T> cl, String indexName, XdStorageSearchQuery query) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Loads objects through a declared search index inside the given transaction — see
@@ -140,7 +144,8 @@ public interface IXdFileStorage extends IXdStorage {
      *                                      the class/index pair is unknown
      * @throws XdStorageConnectionException on a storage-level I/O failure
      */
-    long count(Class<?> cl, String indexName, XdStorageSearchQuery query) throws XdStorageException, XdStorageConnectionException;
+    long count(Class<?> cl, String indexName, XdStorageSearchQuery query) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * EXPLAIN (docs/tasks/2.1.0/25): the read-only query plan — which path the engine would
@@ -221,5 +226,6 @@ public interface IXdFileStorage extends IXdStorage {
      * @throws XdStorageConnectionException on a storage-level I/O failure
      */
     @SuppressWarnings("unchecked")
-    <T> void watch(Class<T> cl, IXdStorageWatcher<T> watcher, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    <T> void watch(Class<T> cl, IXdStorageWatcher<T> watcher, IXdStorageTransaction transaction) throws
+            XdStorageException, XdStorageConnectionException;
 }

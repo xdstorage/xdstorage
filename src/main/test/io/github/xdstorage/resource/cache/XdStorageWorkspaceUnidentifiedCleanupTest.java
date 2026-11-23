@@ -42,7 +42,8 @@ class XdStorageWorkspaceUnidentifiedCleanupTest extends CacheInvariantTestSuppor
         final Object entity = new HashIndexChildAutoId();
         final IXdStorageIdObservableWrapper wrapper = XdStorageObserverService.getObservableWrapper(entity);
         mutator.insertInternal(wrapper, tx);
-        assertTrue(context.workspace.hasChanges(tx.getTransactionId()), "неидентифицированная обертка — изменение транзакции");
+        assertTrue(context.workspace.hasChanges(tx.getTransactionId()),
+                "неидентифицированная обертка — изменение транзакции");
 
         protocol.rollback(tx);
 
@@ -70,6 +71,7 @@ class XdStorageWorkspaceUnidentifiedCleanupTest extends CacheInvariantTestSuppor
     }
 
     private XdStorageTransactionResourceChanges newCollector() {
-        return new XdStorageTransactionResourceChanges(mock(io.github.xdstorage.resource.IXdStorageResourceObject.class));
+        return new XdStorageTransactionResourceChanges(mock(io.github.xdstorage.resource.IXdStorageResourceObject
+                .class));
     }
 }

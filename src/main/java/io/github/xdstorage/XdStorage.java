@@ -79,12 +79,14 @@ class XdStorage implements IXdFileStorage {
         this(name, folder, fragmentSize, format, XdStorageConfig.defaults());
     }
 
-    XdStorage(final String name, final String folder, final int fragmentSize, final FilesFormat format, final XdStorageConfig config) {
+    XdStorage(final String name, final String folder, final int fragmentSize, final FilesFormat format, final
+            XdStorageConfig config) {
         this.name = name;
         this.config = config == null ? XdStorageConfig.defaults() : config;
         if (this.config.isJournalWrites() && format != FilesFormat.YAML) {
             // W-1: журнал коммитов реализован для YAML-формата; остальное — громкий отказ при открытии
-            throw new XdStorageRuntimeException("journalWrites is supported for the YAML format only (got " + format + ")");
+            throw new XdStorageRuntimeException("journalWrites is supported for the YAML format only (got " + format +
+                    ")");
         }
         services = new XdStorageServicesLocator();
         services.initFileConfiguration(this, folder, fragmentSize, format, this.config);
@@ -112,7 +114,8 @@ class XdStorage implements IXdFileStorage {
     /** S-4: громкий отказ после shutdown() вместо сырых RejectedExecutionException в недрах. */
     private void ensureOpen() {
         if (closed) {
-            throw new XdStorageRuntimeException("storage '" + name + "' is shut down — open a new instance via XdStorageProvider");
+            throw new XdStorageRuntimeException("storage '" + name +
+                    "' is shut down — open a new instance via XdStorageProvider");
         }
     }
 
@@ -235,7 +238,8 @@ class XdStorage implements IXdFileStorage {
      * @throws XdStorageException
      */
     @Override
-    public List<IXdStorageStructureUpdater> executeStructureUpdate(final Class<?> cl) throws XdStorageException, XdStorageConnectionException {
+    public List<IXdStorageStructureUpdater> executeStructureUpdate(final Class<?> cl) throws XdStorageException,
+            XdStorageConnectionException {
         ensureOpen();
         if (!checkIsInTransaction())
             throw new XdStorageException("method must be executed in transaction");
@@ -243,7 +247,8 @@ class XdStorage implements IXdFileStorage {
         if (!checkHasObjectIdField(cl))
             throw new XdStorageException("the class " + cl + " must have identifier field @XdStorageObjectId");
 
-        return services.getStructureManager().checkAndUpdateStructureIfNeed(cl, (XdStorageTransaction) services.getTransactionsManager().getCurrentTransaction());
+        return services.getStructureManager().checkAndUpdateStructureIfNeed(cl, (XdStorageTransaction) services
+                .getTransactionsManager().getCurrentTransaction());
     }
 
     /**
@@ -266,7 +271,8 @@ class XdStorage implements IXdFileStorage {
     }
 
     @Override
-    public void save(final Object object, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void save(final Object object, final IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         ensureOpen();
         if (object == null)
             throw new XdStorageException("object cannot be null");
@@ -309,7 +315,8 @@ class XdStorage implements IXdFileStorage {
                     searchManager.insert(object, tx);
                 }
             } else {
-                throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy.StoreAsClassObjects + " or "
+                throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy
+                        .StoreAsClassObjects + " or "
                         + XdStoragePolicy.StoreAsSingleObject);
             }
 
@@ -343,7 +350,8 @@ class XdStorage implements IXdFileStorage {
     }
 
     @Override
-    public void save(final Collection<?> objects, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void save(final Collection<?> objects, final IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         ensureOpen();
         if (objects == null)
             throw new XdStorageException("objects collection cannot be null");
@@ -377,7 +385,8 @@ class XdStorage implements IXdFileStorage {
                     final Class<?> cl = XdStorageObjectUtils.getEntityClass(object.getClass());
 
                     if (!checkHasObjectIdField(cl)) {
-                        throw new XdStorageException("the class " + cl + " must have  identifier field @XdStorageObjectId");
+                        throw new XdStorageException("the class " + cl +
+                                " must have  identifier field @XdStorageObjectId");
                     }
 
                     final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
@@ -391,7 +400,8 @@ class XdStorage implements IXdFileStorage {
                             searchManager.insert(object, tx);
                         }
                     } else if (policy == XdStoragePolicy.StoreAsSingleObject) {
-                        final IXdStorageDaoResource referencesResource = resourcesManager.lockReferencesResource(clInfo, tx);
+                        final IXdStorageDaoResource referencesResource = resourcesManager.lockReferencesResource(clInfo,
+                                tx);
                         referencesResource.insertReference(object, tx);
 
                         final IXdStorageDaoResource resource = resourcesManager.lockObjectResource(object, tx);
@@ -401,7 +411,8 @@ class XdStorage implements IXdFileStorage {
                             searchManager.insert(object, tx);
                         }
                     } else {
-                        throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy.StoreAsClassObjects + " or "
+                        throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy
+                                .StoreAsClassObjects + " or "
                                 + XdStoragePolicy.StoreAsSingleObject);
                     }
 
@@ -431,7 +442,8 @@ class XdStorage implements IXdFileStorage {
             if (conExceptions[0] != null)
                 throw conExceptions[0];
 
-            log.debug("saved collection of {} ({} objects) by tx {}", objects.iterator().hasNext() ? objects.iterator().next().getClass().getSimpleName() : "?", objects.size(), transaction.getTransactionId());
+            log.debug("saved collection of {} ({} objects) by tx {}", objects.iterator().hasNext() ? objects.iterator()
+                    .next().getClass().getSimpleName() : "?", objects.size(), transaction.getTransactionId());
         } finally {
             txManager.decrementActiveThreads(transaction.getTransactionId());
         }
@@ -456,7 +468,8 @@ class XdStorage implements IXdFileStorage {
     }
 
     @Override
-    public boolean has(final Class<?> cl, final Object id, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public boolean has(final Class<?> cl, final Object id, final IXdStorageTransaction transaction) throws
+            XdStorageException, XdStorageConnectionException {
         ensureOpen();
         if (cl == null)
             throw new XdStorageException("class cannot be null");
@@ -485,7 +498,8 @@ class XdStorage implements IXdFileStorage {
             final IXdStorageDaoResource resource = resourcesManager.lockObjectResource(clInfo, id, tx);
             return resource.read(id, tx) != null;
         } else {
-            throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy.StoreAsClassObjects + " or "
+            throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy
+                    .StoreAsClassObjects + " or "
                     + XdStoragePolicy.StoreAsSingleObject);
         }
     }
@@ -509,7 +523,8 @@ class XdStorage implements IXdFileStorage {
     }
 
     @Override
-    public void load(final Object reference, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void load(final Object reference, final IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         ensureOpen();
         if (reference == null)
             throw new XdStorageException("reference cannot be null");
@@ -540,7 +555,8 @@ class XdStorage implements IXdFileStorage {
                 final IXdStorageDaoResource resource = resourcesManager.lockObjectResource(reference, tx);
                 resource.readByReference(reference, tx);
             } else {
-                throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy.StoreAsClassObjects + " or "
+                throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy
+                        .StoreAsClassObjects + " or "
                         + XdStoragePolicy.StoreAsSingleObject);
             }
         } finally {
@@ -569,7 +585,8 @@ class XdStorage implements IXdFileStorage {
 
     @Override
     @SuppressWarnings("unchecked")
-    public <T> T load(final Class<T> cl, final Object id, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public <T> T load(final Class<T> cl, final Object id, final IXdStorageTransaction transaction) throws
+            XdStorageException, XdStorageConnectionException {
         ensureOpen();
         if (cl == null)
             throw new XdStorageException("class cannot be null");
@@ -602,7 +619,8 @@ class XdStorage implements IXdFileStorage {
                 final IXdStorageDaoResource resource = resourcesManager.lockObjectResource(clInfo, id, tx);
                 result = (T) resource.read(id, tx);
             } else {
-                throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy.StoreAsClassObjects + " or "
+                throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy
+                        .StoreAsClassObjects + " or "
                         + XdStoragePolicy.StoreAsSingleObject);
             }
             return result;
@@ -631,7 +649,8 @@ class XdStorage implements IXdFileStorage {
     }
 
     @Override
-    public void load(final Collection<?> references, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void load(final Collection<?> references, final IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         ensureOpen();
         if (references == null)
             throw new XdStorageException("references collection cannot be null");
@@ -664,7 +683,8 @@ class XdStorage implements IXdFileStorage {
                     final Class<?> cl = XdStorageObjectUtils.getEntityClass(reference.getClass());
 
                     if (!checkHasObjectIdField(cl)) {
-                        throw new XdStorageException("the class " + cl + " must have  identifier field @XdStorageObjectId");
+                        throw new XdStorageException("the class " + cl +
+                                " must have  identifier field @XdStorageObjectId");
                     }
 
                     final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
@@ -677,7 +697,8 @@ class XdStorage implements IXdFileStorage {
                         final IXdStorageDaoResource resource = resourcesManager.lockObjectResource(reference, tx);
                         resource.readByReference(reference, tx);
                     } else {
-                        throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy.StoreAsClassObjects + " or "
+                        throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy
+                                .StoreAsClassObjects + " or "
                                 + XdStoragePolicy.StoreAsSingleObject);
                     }
                 } catch (final XdStorageConnectionException e) {
@@ -729,7 +750,8 @@ class XdStorage implements IXdFileStorage {
 
     @Override
     @SuppressWarnings("unchecked")
-    public <T> Collection<T> load(final Class<T> cl, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public <T> Collection<T> load(final Class<T> cl, final IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         ensureOpen();
         if (cl == null)
             throw new XdStorageException("class cannot be null");
@@ -794,7 +816,8 @@ class XdStorage implements IXdFileStorage {
 
                 return (Collection<T>) references;
             } else {
-                throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy.StoreAsClassObjects + " or "
+                throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy
+                        .StoreAsClassObjects + " or "
                         + XdStoragePolicy.StoreAsSingleObject);
             }
         } finally {
@@ -811,7 +834,8 @@ class XdStorage implements IXdFileStorage {
      * @throws XdStorageException This exception will throw if error arises in loading process.
      */
     @Override
-    public <T> Collection<T> load(final Class<T> cl, final IXdStoragePredicate<T> predicate) throws XdStorageException, XdStorageConnectionException {
+    public <T> Collection<T> load(final Class<T> cl, final IXdStoragePredicate<T> predicate) throws XdStorageException,
+            XdStorageConnectionException {
         ensureOpen();
         if (!checkIsInTransaction())
             throw new XdStorageException("method must be executed in transaction");
@@ -823,7 +847,8 @@ class XdStorage implements IXdFileStorage {
 
     @Override
     @SuppressWarnings("unchecked")
-    public <T> Collection<T> load(final Class<T> cl, final IXdStoragePredicate<T> predicate, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public <T> Collection<T> load(final Class<T> cl, final IXdStoragePredicate<T> predicate, final IXdStorageTransaction
+            transaction) throws XdStorageException, XdStorageConnectionException {
         ensureOpen();
         if (cl == null)
             throw new XdStorageException("class cannot be null");
@@ -890,13 +915,15 @@ class XdStorage implements IXdFileStorage {
 
             return result;
         } else {
-            throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy.StoreAsClassObjects + " or "
+            throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy
+                    .StoreAsClassObjects + " or "
                     + XdStoragePolicy.StoreAsSingleObject);
         }
     }
 
     @Override
-    public <T> Collection<T> load(final Class<T> cl, final String indexName, final XdStorageSearchQuery query) throws XdStorageException, XdStorageConnectionException {
+    public <T> Collection<T> load(final Class<T> cl, final String indexName, final XdStorageSearchQuery query) throws
+            XdStorageException, XdStorageConnectionException {
         ensureOpen();
         if (!checkIsInTransaction())
             throw new XdStorageException("method must be executed in transaction");
@@ -908,7 +935,8 @@ class XdStorage implements IXdFileStorage {
 
     @Override
     public <T> Collection<T> load(final Class<T> cl, final String indexName, final XdStorageSearchQuery query,
-                                  final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+                                  final IXdStorageTransaction transaction) throws XdStorageException,
+                                          XdStorageConnectionException {
         ensureOpen();
         if (cl == null)
             throw new XdStorageException("class cannot be null");
@@ -932,7 +960,8 @@ class XdStorage implements IXdFileStorage {
 
             final XdStoragePolicy policy = clInfo.getPolicy();
             if (policy == XdStoragePolicy.StoreWithParentObject) {
-                throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy.StoreAsClassObjects + " or "
+                throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy
+                        .StoreAsClassObjects + " or "
                         + XdStoragePolicy.StoreAsSingleObject);
             }
 
@@ -983,7 +1012,8 @@ class XdStorage implements IXdFileStorage {
     }
 
     @Override
-    public long count(final Class<?> cl, final String indexName, final XdStorageSearchQuery query) throws XdStorageException, XdStorageConnectionException {
+    public long count(final Class<?> cl, final String indexName, final XdStorageSearchQuery query) throws
+            XdStorageException, XdStorageConnectionException {
         ensureOpen();
         if (!checkIsInTransaction())
             throw new XdStorageException("method must be executed in transaction");
@@ -1019,7 +1049,8 @@ class XdStorage implements IXdFileStorage {
 
             final XdStoragePolicy policy = clInfo.getPolicy();
             if (policy == XdStoragePolicy.StoreWithParentObject) {
-                throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy.StoreAsClassObjects + " or "
+                throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy
+                        .StoreAsClassObjects + " or "
                         + XdStoragePolicy.StoreAsSingleObject);
             }
 
@@ -1038,7 +1069,8 @@ class XdStorage implements IXdFileStorage {
      * @throws XdStorageException This exception will throw if error arises in loading process.
      */
     @Override
-    public <T> void watch(final Class<T> cl, final IXdStorageWatcher<T> watcher) throws XdStorageException, XdStorageConnectionException {
+    public <T> void watch(final Class<T> cl, final IXdStorageWatcher<T> watcher) throws XdStorageException,
+            XdStorageConnectionException {
         ensureOpen();
         if (!checkIsInTransaction())
             throw new XdStorageException("method must be executed in transaction");
@@ -1050,7 +1082,8 @@ class XdStorage implements IXdFileStorage {
 
     @Override
     @SuppressWarnings("unchecked")
-    public <T> void watch(final Class<T> cl, final IXdStorageWatcher<T> watcher, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public <T> void watch(final Class<T> cl, final IXdStorageWatcher<T> watcher, final IXdStorageTransaction
+            transaction) throws XdStorageException, XdStorageConnectionException {
         ensureOpen();
         if (cl == null)
             throw new XdStorageException("class cannot be null");
@@ -1115,7 +1148,8 @@ class XdStorage implements IXdFileStorage {
                 if (conExceptions[0] != null)
                     throw conExceptions[0];
             } else {
-                throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy.StoreAsClassObjects + " or "
+                throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy
+                        .StoreAsClassObjects + " or "
                         + XdStoragePolicy.StoreAsSingleObject);
             }
         } finally {
@@ -1142,7 +1176,8 @@ class XdStorage implements IXdFileStorage {
     }
 
     @Override
-    public void update(final Object object, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void update(final Object object, final IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         ensureOpen();
         if (object == null)
             throw new XdStorageException("object cannot be null");
@@ -1182,7 +1217,8 @@ class XdStorage implements IXdFileStorage {
                     searchManager.update(object, tx);
                 }
             } else {
-                throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy.StoreAsClassObjects + " or "
+                throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy
+                        .StoreAsClassObjects + " or "
                         + XdStoragePolicy.StoreAsSingleObject);
             }
 
@@ -1216,7 +1252,8 @@ class XdStorage implements IXdFileStorage {
     }
 
     @Override
-    public void update(final Collection<?> objects, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void update(final Collection<?> objects, final IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         ensureOpen();
         if (objects == null)
             throw new XdStorageException("objects cannot be null");
@@ -1249,7 +1286,8 @@ class XdStorage implements IXdFileStorage {
                 try {
                     final Class<?> cl = XdStorageObjectUtils.getEntityClass(object.getClass());
                     if (!checkHasObjectIdField(cl)) {
-                        throw new XdStorageException("the class " + cl + " must have  identifier field @XdStorageObjectId");
+                        throw new XdStorageException("the class " + cl +
+                                " must have  identifier field @XdStorageObjectId");
                     }
 
                     final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
@@ -1270,7 +1308,8 @@ class XdStorage implements IXdFileStorage {
                             searchManager.update(object, tx);
                         }
                     } else {
-                        throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy.StoreAsClassObjects + " or "
+                        throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy
+                                .StoreAsClassObjects + " or "
                                 + XdStoragePolicy.StoreAsSingleObject);
                     }
 
@@ -1325,7 +1364,8 @@ class XdStorage implements IXdFileStorage {
     }
 
     @Override
-    public void delete(final Object reference, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void delete(final Object reference, final IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         ensureOpen();
         if (reference == null)
             throw new XdStorageException("reference cannot be null");
@@ -1368,7 +1408,8 @@ class XdStorage implements IXdFileStorage {
                 referencesResource.deleteReference(reference, tx);
                 resource.delete(reference, tx);
             } else {
-                throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy.StoreAsClassObjects + " or "
+                throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy
+                        .StoreAsClassObjects + " or "
                         + XdStoragePolicy.StoreAsSingleObject);
             }
 
@@ -1399,7 +1440,8 @@ class XdStorage implements IXdFileStorage {
     }
 
     @Override
-    public void delete(final Collection<?> references, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void delete(final Collection<?> references, final IXdStorageTransaction transaction) throws
+            XdStorageException, XdStorageConnectionException {
         ensureOpen();
         if (references == null)
             throw new XdStorageException("references collection cannot be null");
@@ -1432,7 +1474,8 @@ class XdStorage implements IXdFileStorage {
                 try {
                     final Class<?> cl = XdStorageObjectUtils.getEntityClass(reference.getClass());
                     if (!checkHasObjectIdField(cl)) {
-                        throw new XdStorageException("the class " + cl + " must have  identifier field @XdStorageObjectId");
+                        throw new XdStorageException("the class " + cl +
+                                " must have  identifier field @XdStorageObjectId");
                     }
 
                     final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
@@ -1450,12 +1493,14 @@ class XdStorage implements IXdFileStorage {
                             searchManager.delete(reference, tx);
                         }
 
-                        final IXdStorageDaoResource referencesResource = resourcesManager.lockReferencesResource(clInfo, tx);
+                        final IXdStorageDaoResource referencesResource = resourcesManager.lockReferencesResource(clInfo,
+                                tx);
                         final IXdStorageDaoResource resource = resourcesManager.lockObjectResource(reference, tx);
                         referencesResource.deleteReference(reference, tx);
                         resource.delete(reference, tx);
                     } else {
-                        throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy.StoreAsClassObjects + " or "
+                        throw new XdStorageException("class " + cl.getName() + " must have policy " + XdStoragePolicy
+                                .StoreAsClassObjects + " or "
                                 + XdStoragePolicy.StoreAsSingleObject);
                     }
 
@@ -1705,7 +1750,8 @@ class XdStorage implements IXdFileStorage {
     }
 
     /** NIO move with the ATOMIC_MOVE preference and the loud failure contract. */
-    private static void moveLoudly(final java.nio.file.Path source, final java.nio.file.Path target, final String what) {
+    private static void moveLoudly(final java.nio.file.Path source, final java.nio.file.Path target, final String what)
+            {
         try {
             try {
                 java.nio.file.Files.move(source, target, java.nio.file.StandardCopyOption.ATOMIC_MOVE);

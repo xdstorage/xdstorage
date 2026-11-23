@@ -22,7 +22,8 @@ import java.lang.annotation.Target;
 public @interface XdStorageObjectIdIndexType {
 
 /** Selects the id-index structure.
-     * @return {@code Hash} (default) for equality-only point lookups; {@code BTree} for ordered keys and range queries on the id index */
+      * @return {@code Hash} (default) for equality-only point lookups; {@code BTree} for ordered keys and range
+      * queries on the id index */
     XdStorageIndexType indexType() default XdStorageIndexType.Hash;
 
     /**

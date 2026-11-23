@@ -48,7 +48,8 @@ public class XdStorageYamlBlockObjectsReader {
      * @throws Exception when the class cannot be resolved or instantiated, or a field value
      *         cannot be materialized
      */
-    public static Object readObject(final XdStorageYamlTokenizer tokenizer, final int parentLevel, final IXdStorageSimpleTypeHelper simpleTypeHelper) throws Exception {
+    public static Object readObject(final XdStorageYamlTokenizer tokenizer, final int parentLevel, final
+            IXdStorageSimpleTypeHelper simpleTypeHelper) throws Exception {
         YamlLineToken token = tokenizer.peekToken();
         if (token == null || !"class".equals(token.key)) {
             return null;
@@ -86,7 +87,8 @@ public class XdStorageYamlBlockObjectsReader {
         return result;
     }
 
-    private static void parseAndSetField(final XdStorageYamlTokenizer tokenizer, final int fieldLevel, final Object result,
+    private static void parseAndSetField(final XdStorageYamlTokenizer tokenizer, final int fieldLevel, final Object
+            result,
                                          final Map<String, XdStorageObjectField> props, final XdStorageClassInfo clInfo,
                                          final IXdStorageSimpleTypeHelper simpleTypeHelper) throws Exception {
         String fieldName = null;
@@ -136,7 +138,8 @@ public class XdStorageYamlBlockObjectsReader {
 
         if (rawScalarValue != null && !"null".equals(rawScalarValue)) {
             if (fieldTypeName != null && !"null".equals(fieldTypeName)) {
-                Class<?> targetType = XdStorageClassMetadataRegistry.resolveOrThrow(normalizePrimitiveName(fieldTypeName));
+                Class<?> targetType = XdStorageClassMetadataRegistry
+                        .resolveOrThrow(normalizePrimitiveName(fieldTypeName));
                 if (targetType == Object.class) targetType = String.class;
                 finalValue = simpleTypeHelper.simpleTypeFromString(targetType, rawScalarValue);
             } else {
@@ -158,7 +161,8 @@ public class XdStorageYamlBlockObjectsReader {
                 finalValue = readReference(tokenizer, complexBlockToken.level, null, simpleTypeHelper);
             } else if ("array".equals(complexBlockToken.key)) {
                 tokenizer.nextToken(); // Честно потребляем 'array:' перед входом
-                finalValue = XdStorageYamlBlockContainersReader.readArray(tokenizer, complexBlockToken.level, simpleTypeHelper);
+                finalValue = XdStorageYamlBlockContainersReader.readArray(tokenizer, complexBlockToken.level,
+                        simpleTypeHelper);
             } else if ("object".equals(complexBlockToken.key)) {
                 tokenizer.nextToken();
                 finalValue = readObject(tokenizer, complexBlockToken.level, simpleTypeHelper);
@@ -198,7 +202,8 @@ public class XdStorageYamlBlockObjectsReader {
      * @throws Exception when the entity class cannot be resolved or instantiated, or the id
      *         value cannot be materialized
      */
-    public static Object readReference(final XdStorageYamlTokenizer tokenizer, final int parentLevel, final XdStorageObjectIdField knownField, final IXdStorageSimpleTypeHelper simpleTypeHelper) throws Exception {
+    public static Object readReference(final XdStorageYamlTokenizer tokenizer, final int parentLevel, final
+            XdStorageObjectIdField knownField, final IXdStorageSimpleTypeHelper simpleTypeHelper) throws Exception {
         String className = null;
         String idValue = null;
         Object idObject = null;
@@ -225,7 +230,8 @@ public class XdStorageYamlBlockObjectsReader {
 
         // YAMLREAD: a reference block without a class is corruption, not "no reference".
         if (className == null) {
-            throw new io.github.xdstorage.exceptions.XdStorageIOException("a reference block without a class key cannot be resolved (corrupt block)");
+            throw new io.github.xdstorage.exceptions
+                    .XdStorageIOException("a reference block without a class key cannot be resolved (corrupt block)");
         }
 
         final Class<?> entityClass = XdStorageClassMetadataRegistry.resolveOrThrow(className);
@@ -241,7 +247,9 @@ public class XdStorageYamlBlockObjectsReader {
             // YAMLREAD: a reference block whose id value is absent is corruption —
             // returning null made it indistinguishable from "no reference".
             if (idValue == null) {
-                throw new io.github.xdstorage.exceptions.XdStorageIOException("a reference block without an id value cannot be resolved (corrupt block)");
+                throw new io.github.xdstorage.exceptions
+                        .XdStorageIOException("a reference block without an id value cannot be resolved (corrupt " +
+                        "block)");
             }
             Class<?> idClass = idField.getFieldInfo().getClazz();
             if (idClass == String.class) {
@@ -268,7 +276,8 @@ public class XdStorageYamlBlockObjectsReader {
      * @throws Exception when the class cannot be resolved, or a field value cannot be
      *         materialized
      */
-    public static Object readObjectData(final XdStorageYamlTokenizer tokenizer, final int parentLevel, final IXdStorageSimpleTypeHelper simpleTypeHelper) throws Exception {
+    public static Object readObjectData(final XdStorageYamlTokenizer tokenizer, final int parentLevel, final
+            IXdStorageSimpleTypeHelper simpleTypeHelper) throws Exception {
         YamlLineToken token = tokenizer.nextToken();
         final Class<?> cl = XdStorageClassMetadataRegistry.resolveOrThrow(token.value);
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
@@ -322,7 +331,8 @@ public class XdStorageYamlBlockObjectsReader {
                     Object finalValue = null;
                     if (rawScalar != null && !"null".equals(rawScalar)) {
                         if (fTypeName != null) {
-                            Class<?> targetType = XdStorageClassMetadataRegistry.resolveOrThrow(normalizePrimitiveName(fTypeName));
+                            Class<?> targetType = XdStorageClassMetadataRegistry
+                                    .resolveOrThrow(normalizePrimitiveName(fTypeName));
                             if (targetType == Object.class) targetType = String.class;
                             finalValue = simpleTypeHelper.simpleTypeFromString(targetType, rawScalar);
                         } else {
@@ -334,17 +344,20 @@ public class XdStorageYamlBlockObjectsReader {
                             finalValue = XdStorageYamlBlockContainersReader.readEnum(tokenizer);
                         } else if ("collection".equals(complexBlock.key)) {
                             tokenizer.nextToken();
-                            finalValue = XdStorageYamlBlockContainersReader.readCollection(tokenizer, token.level, simpleTypeHelper);
+                            finalValue = XdStorageYamlBlockContainersReader.readCollection(tokenizer, token.level,
+                                    simpleTypeHelper);
                         } else if ("map".equals(complexBlock.key)) {
                             tokenizer.nextToken();
 // ФИКС СИГНАТУРЫ МЕТАДАННЫХ: Убран лишний параметр simpleTypeHelper!
-                            finalValue = XdStorageYamlBlockContainersReader.readMap(tokenizer, simpleTypeHelper, token.level);
+                            finalValue = XdStorageYamlBlockContainersReader.readMap(tokenizer, simpleTypeHelper, token
+                                    .level);
                         } else if ("reference".equals(complexBlock.key)) {
                             tokenizer.nextToken(); // Честно потребляем 'reference:' перед входом
                             finalValue = readReference(tokenizer, complexBlock.level, null, simpleTypeHelper);
                         } else if ("array".equals(complexBlock.key)) {
                             tokenizer.nextToken(); // Честно потребляем 'array:' перед входом
-                            finalValue = XdStorageYamlBlockContainersReader.readArray(tokenizer, complexBlock.level, simpleTypeHelper);
+                            finalValue = XdStorageYamlBlockContainersReader.readArray(tokenizer, complexBlock.level,
+                                    simpleTypeHelper);
                         } else if ("object".equals(complexBlock.key)) {
                             tokenizer.nextToken();
                             finalValue = readObject(tokenizer, complexBlock.level, simpleTypeHelper);
@@ -377,8 +390,10 @@ public class XdStorageYamlBlockObjectsReader {
      * @throws Exception when the entity class cannot be resolved or the id value cannot be
      *         materialized
      */
-    public static Object readObjectDataReference(final XdStorageYamlTokenizer tokenizer, final int parentLevel) throws Exception {
-        return readReference(tokenizer, parentLevel, null, new io.github.xdstorage.helpers.XdStorageDefaultSimpleTypeHelper());
+    public static Object readObjectDataReference(final XdStorageYamlTokenizer tokenizer, final int parentLevel) throws
+            Exception {
+        return readReference(tokenizer, parentLevel, null, new io.github.xdstorage.helpers
+                .XdStorageDefaultSimpleTypeHelper());
     }
 
     private static String normalizePrimitiveName(String name) {

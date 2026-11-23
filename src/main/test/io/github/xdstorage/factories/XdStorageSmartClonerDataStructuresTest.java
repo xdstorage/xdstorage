@@ -42,7 +42,8 @@ public class XdStorageSmartClonerDataStructuresTest extends AbstractClonerTest {
     public void testCollectionProcessor_List_ShouldCloneDeeply() throws Exception {
         List<String> srcList = new ArrayList<>(Arrays.asList("Galaxy", "Universe"));
 
-        Object result = XdStorageClonerCollectionProcessor.cloneAndWrapCollection(srcList, mockStorage, mockTx, smartCloner);
+        Object result = XdStorageClonerCollectionProcessor.cloneAndWrapCollection(srcList, mockStorage, mockTx,
+                smartCloner);
 
         assertTrue(result instanceof List);
         List<?> clonedList = (List<?>) result;

@@ -44,7 +44,8 @@ public class XdStorageDefaultIOFactory implements IXdStorageIOFactory {
      * @param simpleTypeHelper the simple-type SPI used by the produced readers/writers
      * @param idGenerator      the engine id generator applied when marshalling id fields
      */
-    public XdStorageDefaultIOFactory(final XdStorageServicesLocator services, final IXdStorageSimpleTypeHelper simpleTypeHelper,
+    public XdStorageDefaultIOFactory(final XdStorageServicesLocator services, final IXdStorageSimpleTypeHelper
+            simpleTypeHelper,
                                      final IXdStorageIdGenerator idGenerator) {
         this.services = services;
         this.simpleTypeHelper = simpleTypeHelper;

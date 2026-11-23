@@ -33,7 +33,8 @@ public class XdStorageResourceCacheStressTest {
     }
 
     @Test
-    @DisplayName("Стресс-кейс 1: Гонка диапазонных сканирований (Range Scans) против параллельных каскадных сплитов (Heavy Splits)")
+    @DisplayName("Стресс-кейс 1: Гонка диапазонных сканирований (Range Scans) против параллельных каскадных сплитов " +
+            "(Heavy Splits)")
     public void testCache_ParallelRangeScans_AgainstHeavySplits_ShouldBeNPEProof() throws Exception {
         ExecutorService threadPool = Executors.newFixedThreadPool(PARALLEL_THREADS);
         final ConcurrentHashMap<Long, Object> mockStorage = new ConcurrentHashMap<>();
@@ -140,11 +141,13 @@ public class XdStorageResourceCacheStressTest {
 
         // Главный многопоточный ассерт СУБД: счетчик NPE обязан быть строго равен нулю!
         assertEquals(0, npeCounter.get(),
-                "🚨 КАТАСТРОФА: Кэш ресурсов не обеспечивает MVCC-изоляцию снимков! Зафиксированы NPE фантомных ссылок!");
+                "🚨 КАТАСТРОФА: Кэш ресурсов не обеспечивает MVCC-изоляцию снимков! Зафиксированы NPE фантомных " +
+                        "ссылок!");
     }
 
     @Test
-    @DisplayName("Стресс-кейс 2: Каскадные удаления графов (Cascading Deletes) против параллельного сканирования вторичных индексов")
+    @DisplayName("Стресс-кейс 2: Каскадные удаления графов (Cascading Deletes) против параллельного сканирования " +
+            "вторичных индексов")
     public void testCache_ParallelCascadingDeletes_AgainstIndexScans_ShouldBeDeadlockFree() throws Exception {
         ExecutorService threadPool = Executors.newFixedThreadPool(PARALLEL_THREADS);
 
@@ -296,6 +299,7 @@ public class XdStorageResourceCacheStressTest {
 
         // Главный многопоточный инвариант СУБД: счетчик нарушений ОБЯЗАН быть равен нулю!
         assertEquals(0, deadlockOrNpeCounter.get(),
-                "🚨 КАТАСТРОФА! Нарушен контракт MVCC Snapshot Isolation! Читающие потоки видят фантомные разрушенные графы!");
+                "🚨 КАТАСТРОФА! Нарушен контракт MVCC Snapshot Isolation! "
+                        + "Читающие потоки видят фантомные разрушенные графы!");
     }
 }

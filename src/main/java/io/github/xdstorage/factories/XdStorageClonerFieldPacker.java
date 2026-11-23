@@ -45,16 +45,19 @@ public class XdStorageClonerFieldPacker {
             final Object value = field.get(src);
             final Class<?> clValue = value != null ? value.getClass() : null;
 
-            if (value == null || clValue.isPrimitive() || clValue.isEnum() || XdStorageObjectUtils.isSimpleType(clValue, value)) {
+            if (value == null || clValue.isPrimitive() || clValue.isEnum() || XdStorageObjectUtils.isSimpleType(clValue,
+                    value)) {
                 field.set(target, value);
             } else if (clValue == Date.class) {
                 field.set(target, new Date(((Date) value).getTime()));
             } else if (clValue.isArray()) {
                 field.set(target, XdStorageClonerArrayProcessor.cloneAndWrapArray(value, storage, transaction, cloner));
             } else if (value instanceof Collection<?>) {
-                field.set(target, XdStorageClonerCollectionProcessor.cloneAndWrapCollection((Collection<?>) value, storage, transaction, cloner));
+                field.set(target, XdStorageClonerCollectionProcessor.cloneAndWrapCollection((Collection<?>) value,
+                        storage, transaction, cloner));
             } else if (value instanceof Map<?, ?>) {
-                field.set(target, XdStorageClonerCollectionProcessor.cloneAndWrapMap((Map<?, ?>) value, storage, transaction, cloner));
+                field.set(target, XdStorageClonerCollectionProcessor.cloneAndWrapMap((Map<?, ?>) value, storage,
+                        transaction, cloner));
             } else {
                 field.set(target, cloner.internalCloneAsReferenceAndWrapObject(value, storage, transaction));
             }

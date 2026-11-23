@@ -16,7 +16,8 @@ import static org.junit.jupiter.api.Assertions.*;
 public class MassDuplicatesOrderingBTreeStressTest extends AbstractBTreeIntegrationTest {
 
     @Test
-    @DisplayName("Стресс-тест: Вставка 100 дубликатов в случайном порядке, проверка глобальной сортировки и каскадное удаление")
+    @DisplayName("Стресс-тест: Вставка 100 дубликатов в случайном порядке, проверка глобальной сортировки и " +
+            "каскадное удаление")
     void testMassDuplicatesOrderingAndPurge() throws Exception {
         final String targetKey = "mass_duplicate_hot_key";
         final int totalDuplicates = 100;
@@ -51,7 +52,8 @@ public class MassDuplicatesOrderingBTreeStressTest extends AbstractBTreeIntegrat
         // 5. ПРОВЕРКА ИНВАРИАНТА 1: Все 100 элементов обязаны вернуться из СУБД
         assertEquals(totalDuplicates, extractedValues.size(), "Часть дубликатов потерялась при каскадных сплитах нод!");
 
-        // 6. ПРОВЕРКА ИНВАРИАНТА 2: Глобальная монотонность по значению (должно быть строго value_000, value_001 ... value_099)
+        // 6. ПРОВЕРКА ИНВАРИАНТА 2: Глобальная монотонность по значению (должно быть строго value_000, value_001 ...
+        // value_099)
         for (int i = 0; i < totalDuplicates; i++) {
             assertEquals(valuesToSend.get(i), extractedValues.get(i),
                     String.format("Нарушен глобальный порядок дубликатов в цепочке листьев на позиции %d", i));
@@ -64,7 +66,8 @@ public class MassDuplicatesOrderingBTreeStressTest extends AbstractBTreeIntegrat
             final String valueToDelete = valuesToSend.get(i);
             assertDoesNotThrow(() -> {
                 btree.delete(targetKey, valueToDelete, storageFacade, transaction);
-            }, String.format("Навигатор удаления промахнулся или сломался на элементе %s при каскадном сжатии", valueToDelete));
+            }, String.format("Навигатор удаления промахнулся или сломался на элементе %s при каскадном сжатии",
+                    valueToDelete));
         }
 
         // 8. ПРОВЕРКА ИНВАРИАНТА 3: Полная зачистка графа

@@ -41,7 +41,8 @@ public class XdStorageLongIdGenerator implements IXdStorageIdGenerator {
     }
 
     @Override
-    public Object generate(final Class<?> cl, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException {
+    public Object generate(final Class<?> cl, final IXdStorage storage, final IXdStorageTransaction transaction) throws
+            XdStorageException {
         Lock locker = lockers.get(cl);
         if (locker == null) {
             lockers.putIfAbsent(cl, new ReentrantLock());
@@ -69,8 +70,10 @@ public class XdStorageLongIdGenerator implements IXdStorageIdGenerator {
             identifier = counter.incrementAndGet();
 
             if (identifier > lastIdentifierOfPart.get(cl)) {
-                log.warn("Hi-Lo buffer exhausted for {}: generated id {} escaped its batch — refetch race suspected", cl.getName(), identifier);
-                throw new XdStorageException("Критический сбой Hi-Lo буфера Long: сгенерированный ID вышел за пределы пачки!");
+                log.warn("Hi-Lo buffer exhausted for {}: generated id {} escaped its batch — refetch race suspected", cl
+                        .getName(), identifier);
+                throw new XdStorageException("Критический сбой Hi-Lo буфера Long: сгенерированный ID вышел за " +
+                        "пределы пачки!");
             }
 
         } finally {
@@ -89,9 +92,11 @@ public class XdStorageLongIdGenerator implements IXdStorageIdGenerator {
             final IXdStorageTransaction transaction = transactionsManager.beginTransaction(3 * 1000);
             try {
                 final XdStorageClassInfo clRecordInfo = XdStorageObjectUtils.getClassInfo(clRecord);
-                final IXdStorageDaoResource resource = resourcesManager.lockStructureResource(clRecordInfo, (XdStorageTransaction) transaction);
+                final IXdStorageDaoResource resource = resourcesManager.lockStructureResource(clRecordInfo,
+                        (XdStorageTransaction) transaction);
 
-                XdStorageLongIdCounterRecord record = (XdStorageLongIdCounterRecord) resource.read(cl, (XdStorageTransaction) transaction);
+                XdStorageLongIdCounterRecord record = (XdStorageLongIdCounterRecord) resource.read(cl,
+                        (XdStorageTransaction) transaction);
                 if (record == null) {
                     newLastIdentifierOfPart[0] = PART_OF_IDENTIFIERS;
                     record = new XdStorageLongIdCounterRecord();
@@ -123,7 +128,8 @@ public class XdStorageLongIdGenerator implements IXdStorageIdGenerator {
             // ИСПРАВЛЕНИЕ КОНТРАКТА ТИПОВ: Если исходной причиной является легитимный Exception СУБД,
             // мы КАТЕГОРИЧЕСКИ запрещаем оборачивать его, пробрасывая в оригинальном виде!
             if (cause instanceof XdStorageException) throw (XdStorageException) cause;
-            if (cause instanceof io.github.xdstorage.exceptions.XdStorageRuntimeException) throw (io.github.xdstorage.exceptions.XdStorageRuntimeException) cause;
+            if (cause instanceof io.github.xdstorage.exceptions.XdStorageRuntimeException) throw (io.github.xdstorage
+                    .exceptions.XdStorageRuntimeException) cause;
             if (cause instanceof RuntimeException) throw (RuntimeException) cause;
             throw new XdStorageException("Критический сбой инициализации Hi-Lo буфера Long", cause);
         }
@@ -132,7 +138,8 @@ public class XdStorageLongIdGenerator implements IXdStorageIdGenerator {
         lastIdentifierOfPart.put(cl, newLastIdentifierOfPart[0]);
     }
 
-    private void takeNextPartOfIdentifiers(final Class<?> cl, final IXdStorageTransaction tx) throws XdStorageException {
+    private void takeNextPartOfIdentifiers(final Class<?> cl, final IXdStorageTransaction tx) throws XdStorageException
+            {
         final Class<?> clRecord = XdStorageLongIdCounterRecord.class;
         final long newLastIdentifierOfPart = lastIdentifierOfPart.get(cl) + PART_OF_IDENTIFIERS;
 
@@ -142,9 +149,11 @@ public class XdStorageLongIdGenerator implements IXdStorageIdGenerator {
             final IXdStorageTransaction transaction = transactionsManager.beginTransaction(3 * 1000);
             try {
                 final XdStorageClassInfo clRecordInfo = XdStorageObjectUtils.getClassInfo(clRecord);
-                final IXdStorageDaoResource resource = resourcesManager.lockStructureResource(clRecordInfo, (XdStorageTransaction) transaction);
+                final IXdStorageDaoResource resource = resourcesManager.lockStructureResource(clRecordInfo,
+                        (XdStorageTransaction) transaction);
 
-                final XdStorageLongIdCounterRecord record = (XdStorageLongIdCounterRecord) resource.read(cl, (XdStorageTransaction) transaction);
+                final XdStorageLongIdCounterRecord record = (XdStorageLongIdCounterRecord) resource.read(cl,
+                        (XdStorageTransaction) transaction);
                 if (record != null) {
                     record.setCounter(newLastIdentifierOfPart);
                     resource.update(record, (XdStorageTransaction) transaction);
@@ -166,7 +175,8 @@ public class XdStorageLongIdGenerator implements IXdStorageIdGenerator {
         } catch (Exception e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
             if (cause instanceof XdStorageException) throw (XdStorageException) cause;
-            if (cause instanceof io.github.xdstorage.exceptions.XdStorageRuntimeException) throw (io.github.xdstorage.exceptions.XdStorageRuntimeException) cause;
+            if (cause instanceof io.github.xdstorage.exceptions.XdStorageRuntimeException) throw (io.github.xdstorage
+                    .exceptions.XdStorageRuntimeException) cause;
             if (cause instanceof RuntimeException) throw (RuntimeException) cause;
             throw new XdStorageException("Критический сбой расширения пачки Hi-Lo Long", cause);
         }

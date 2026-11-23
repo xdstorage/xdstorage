@@ -48,7 +48,8 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  * <p>Engine-internal — not part of the public API.</p>
  */
-public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResource implements IXdStorageJournalCheckpoint {
+public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResource implements
+        IXdStorageJournalCheckpoint {
 
     /** MASSFILL: the ids this transaction already indexed (the same-tx save idempotency). */
     private final Map<String, Set<Object>> transactionSavedIds = new ConcurrentHashMap<>();
@@ -144,7 +145,8 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
     public XdStorageHashIndexResource(final XdStorageServicesLocator services,
                                       final XdStorageAbstractResourcesManager manager,
                                       final Object resourceId, final String indexName, final XdStorageClassInfo clInfo,
-                                      final IXdStorageIOFactory factory, final IXdStorageIdGenerator idGenerator, final int fragmentSize) {
+                                      final IXdStorageIOFactory factory, final IXdStorageIdGenerator idGenerator, final
+                                              int fragmentSize) {
         super(services, manager, resourceId, indexName, clInfo, idGenerator, fragmentSize);
         this.reader = factory.newInstanceReader();
         this.writer = factory.newInstanceWriter();
@@ -193,12 +195,14 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
         try {
             boolean acquired = lock.tryLock(timeout, java.util.concurrent.TimeUnit.MILLISECONDS);
             if (!acquired) {
-                throw new XdStorageRuntimeException("Hash Index Resource " + getFileName() + " cannot be locked for commit by transaction "
+                throw new XdStorageRuntimeException("Hash Index Resource " + getFileName() +
+                        " cannot be locked for commit by transaction "
                         + transaction.getTransactionId() + " (Timeout " + timeout + " ms expired)");
             }
         } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new XdStorageRuntimeException("waiting for lock hash index resource " + getFileName() + " has been interrupted", e);
+            throw new XdStorageRuntimeException("waiting for lock hash index resource " + getFileName() +
+                    " has been interrupted", e);
         }
     }
 
@@ -232,7 +236,9 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
         try {
             final File file = new File(getFileName());
             if (file.exists()) {
-                Reader xmlReader = new java.io.BufferedReader(new java.io.InputStreamReader(new java.io.FileInputStream(file), java.nio.charset.StandardCharsets.UTF_8), 1 << 16); // task 51: pinned cross-OS
+                // task 51: pinned cross-OS
+                Reader xmlReader = new java.io.BufferedReader(new java.io.InputStreamReader(new java.io
+                        .FileInputStream(file), java.nio.charset.StandardCharsets.UTF_8), 1 << 16);
                 try {
                     if (isReferences) {
                         objects = reader.readReferences(xmlReader, idField);
@@ -248,9 +254,11 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
         } catch (final IOException e) {
             throw new XdStorageRuntimeException("I/O error reading resource " + resourceId, e);
         } catch (final XdStorageException e) {
-            throw new XdStorageRuntimeException("invalid state of database: error by reading resource " + resourceId, e);
+            throw new XdStorageRuntimeException("invalid state of database: error by reading resource " + resourceId,
+                    e);
         } catch (final RuntimeException e) {
-            throw new XdStorageRuntimeException("invalid state of database: error by reading resource " + resourceId, e);
+            throw new XdStorageRuntimeException("invalid state of database: error by reading resource " + resourceId,
+                    e);
         }
         return objects;
     }
@@ -275,7 +283,8 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
                 }
             });
         } catch (final Throwable e) {
-            throw new XdStorageRuntimeException("invalid state of database: error by writing resource " + resourceId, e);
+            throw new XdStorageRuntimeException("invalid state of database: error by writing resource " + resourceId,
+                    e);
         }
     }
 
@@ -291,12 +300,15 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
      *         as an invalid database state
      * @throws XdStorageConnectionException on an I/O error reading the backing file (a retry may help)
      */
-    public Collection<XdStorageIdentifiableObject> readAsData(XdStorageTransaction transaction) throws XdStorageConnectionException {
+    public Collection<XdStorageIdentifiableObject> readAsData(XdStorageTransaction transaction) throws
+            XdStorageConnectionException {
         Collection<XdStorageIdentifiableObject> objects = null;
         try {
             final File file = new File(getFileName());
             if (file.exists()) {
-                Reader xmlReader = new java.io.BufferedReader(new java.io.InputStreamReader(new java.io.FileInputStream(file), java.nio.charset.StandardCharsets.UTF_8), 1 << 16); // task 51: pinned cross-OS
+                // task 51: pinned cross-OS
+                Reader xmlReader = new java.io.BufferedReader(new java.io.InputStreamReader(new java.io
+                        .FileInputStream(file), java.nio.charset.StandardCharsets.UTF_8), 1 << 16);
                 try {
                     objects = reader.readData(xmlReader, idField);
                 } finally {
@@ -308,9 +320,11 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
         } catch (final IOException e) {
             throw new XdStorageConnectionException("I/O error reading resource " + resourceId, e);
         } catch (final XdStorageException e) {
-            throw new XdStorageRuntimeException("invalid state of database: error by reading resource " + resourceId, e);
+            throw new XdStorageRuntimeException("invalid state of database: error by reading resource " + resourceId,
+                    e);
         } catch (final RuntimeException e) {
-            throw new XdStorageRuntimeException("invalid state of database: error by reading resource " + resourceId, e);
+            throw new XdStorageRuntimeException("invalid state of database: error by reading resource " + resourceId,
+                    e);
         }
         return objects;
     }
@@ -392,7 +406,8 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
      * @throws XdStorageRuntimeException when the journal append fails — treated as an
      *         invalid database state
      */
-    public void performFirstPhaseCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges record) throws XdStorageException, XdStorageConnectionException {
+    public void performFirstPhaseCommit(final XdStorageTransaction transaction, final
+            XdStorageTransactionResourceChanges record) throws XdStorageException, XdStorageConnectionException {
         if (cache.hasChanges(transaction)) {
             if (indexJournal && yamlJournalFactory != null) {
                 // W-4a: O(delta) journal append instead of the O(N) full-file rewrite — the
@@ -403,7 +418,8 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
                             transaction.getCommitSerial(), record.getChangesObjects(),
                             services, yamlJournalFactory, services.getStorageConfig().isDurableWrites());
                 } catch (final Throwable e) {
-                    throw new XdStorageConnectionException("I/O error appending commit journal of index resource " + resourceId, e);
+                    throw new XdStorageConnectionException("I/O error appending commit journal of index resource " +
+                            resourceId, e);
                 }
                 checkpointIndexJournalIfTooBig(transaction);
             } else {
@@ -422,7 +438,8 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
      * @param record      the collector filled by phase 1
      * @throws XdStorageException on a storage-level failure
      */
-    public void performSecondPhaseCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges record) throws XdStorageException {
+    public void performSecondPhaseCommit(final XdStorageTransaction transaction, final
+            XdStorageTransactionResourceChanges record) throws XdStorageException {
         if (cache.hasChanges(transaction)) {
             cache.performCommit(transaction, record);
             cache.commit(transaction);
@@ -443,7 +460,8 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
      * @throws XdStorageRuntimeException when the journal compensation append fails —
      *         treated as an invalid database state
      */
-    public void rollbackPerformingFirstPhaseCommit(final XdStorageTransaction transaction, final Collection<XdStorageObjectChange> changes) throws XdStorageException, XdStorageConnectionException {
+    public void rollbackPerformingFirstPhaseCommit(final XdStorageTransaction transaction, final
+            Collection<XdStorageObjectChange> changes) throws XdStorageException, XdStorageConnectionException {
         cache.rollbackFailedCommit(transaction, changes);
         if (indexJournal && yamlJournalFactory != null) {
             // W-4a: compensation — the restored (pre-tx committed) state per changed id, so a
@@ -452,7 +470,8 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
                 io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.appendCompensation(indexJournalFile,
                         changes, services, yamlJournalFactory, services.getStorageConfig().isDurableWrites());
             } catch (final Throwable e) {
-                throw new XdStorageConnectionException("I/O error appending index journal compensation of resource " + resourceId, e);
+                throw new XdStorageConnectionException("I/O error appending index journal compensation of resource " +
+                        resourceId, e);
             }
         } else {
             writeObjects(cache.readUnsafe(transaction));
@@ -488,7 +507,8 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
                 cache.applyCommittedJournalDelete(id);
             }
             if (!replay.upserts.isEmpty() || !replay.deletes.isEmpty()) {
-                log.debug("index resource {} replayed commit journal: {} upsert(s), {} delete(s), {} discarded tail record(s)",
+                log.debug("index resource {} replayed commit journal: {} upsert(s), {} delete(s), {} discarded tail " +
+                        "record(s)",
                         getFileName(), replay.upserts.size(), replay.deletes.size(), replay.discardedTailRecords);
             }
             // W-4c (docs/tasks/2.1.0/48): open-time guard for index journals — silently
@@ -506,7 +526,8 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
                             indexJournalFile, supersededIndexJournals, settleTarget);
             supersededIndexJournals = java.util.Collections.emptyList();
         } catch (final Throwable e) {
-            throw new XdStorageException("invalid state of database: commit journal of index resource " + resourceId + " cannot be replayed", e);
+            throw new XdStorageException("invalid state of database: commit journal of index resource " + resourceId +
+                    " cannot be replayed", e);
         }
     }
 
@@ -516,7 +537,8 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
         if (io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.sizeOf(indexJournalFile) <= threshold) {
             return;
         }
-        log.info("index resource {} commit journal exceeded {} bytes — checkpointing (full index rewrite + journal reset)",
+        log.info("index resource {} commit journal exceeded {} bytes — checkpointing (full index rewrite + journal " +
+                "reset)",
                 getFileName(), threshold);
         writeObjects(cache.readUnsafe(transaction));
         try {
@@ -540,7 +562,8 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
             return;
         }
         log.debug("index resource {} open-time guard: journal {} bytes > {} threshold — silent checkpoint",
-                getFileName(), io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.sizeOf(indexJournalFile), threshold);
+                getFileName(), io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal
+                        .sizeOf(indexJournalFile), threshold);
         try {
             boolean locked = false;
             try {
@@ -553,8 +576,10 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
                 return;
             }
             try {
-                synchronized (io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.lockFor(indexJournalFile)) {
-                    if (io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.sizeOf(indexJournalFile) <= threshold) {
+                synchronized (io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal
+                        .lockFor(indexJournalFile)) {
+                    if (io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.sizeOf(indexJournalFile) <=
+                            threshold) {
                         return;
                     }
                     writeObjects(cache.readCommittedForCheckpoint());
@@ -647,7 +672,8 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
     @Override
-    public void insert(final Object object, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void insert(final Object object, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         Object objectId = objectIdField.get(object);
         // BUG-D (docs/tasks/2.1.0/14): UUID_GENERATOR generates here too — the mux
         // dispatches by id type and validates UUID_GENERATOR to String id fields.
@@ -656,7 +682,8 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
                         || objectIdField.getIdGeneratorType() == XdStorageIdGeneratorType.UUID_GENERATOR
                         || objectIdField.getIdGeneratorType() == XdStorageIdGeneratorType.CUSTOM_GENERATOR)
                 && idGenerator != null) {
-            objectIdField.set(XdStorageObserverService.getObservableWrapper(object), objectId = idGenerator.generate(object.getClass(), services.getStorage(), transaction));
+            objectIdField.set(XdStorageObserverService.getObservableWrapper(object), objectId = idGenerator
+                    .generate(object.getClass(), services.getStorage(), transaction));
         }
         final Object resourceId = index.getResourceId(objectId);
         if (resourceId != null) {
@@ -673,10 +700,12 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
                 }
                 savedByTx.add(objectId);
             }
-            throw new XdStorageException("object of class " + object.getClass() + " with id " + objectId + " is exists");
+            throw new XdStorageException("object of class " + object.getClass() + " with id " + objectId +
+                    " is exists");
         }
         if (transaction != null) {
-            transactionSavedIds.computeIfAbsent(transaction.getTransactionId(), tId -> ConcurrentHashMap.newKeySet()).add(objectId);
+            transactionSavedIds.computeIfAbsent(transaction.getTransactionId(), tId -> ConcurrentHashMap.newKeySet())
+                    .add(objectId);
         }
         super.insert(object, transaction);
     }

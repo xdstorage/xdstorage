@@ -16,7 +16,8 @@ public interface IXdStorageChildCriterionOperator {
      */
     IXdStorageChildCriterionOperator CONTAINS = new IXdStorageChildCriterionOperator() {
         @Override
-        public boolean passed(final XdStorageSearchIndexRecord record, final String childFieldName, final Class<?> cl, final String fieldName, final Object value) {
+        public boolean passed(final XdStorageSearchIndexRecord record, final String childFieldName, final Class<?> cl,
+                final String fieldName, final Object value) {
             boolean result = false;
 
             final Collection<Object> indexValue = record.getChildFieldValue(childFieldName, cl, fieldName);
@@ -46,5 +47,6 @@ public interface IXdStorageChildCriterionOperator {
      * @param value          the criterion value
      * @return {@code true} when at least one child satisfies the operator
      */
-    boolean passed(XdStorageSearchIndexRecord record, final String childFieldName, Class<?> cl, String fieldName, Object value);
+    boolean passed(XdStorageSearchIndexRecord record, final String childFieldName, Class<?> cl, String fieldName, Object
+            value);
 }

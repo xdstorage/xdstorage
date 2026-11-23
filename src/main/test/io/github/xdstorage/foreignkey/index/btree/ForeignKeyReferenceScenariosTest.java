@@ -33,7 +33,8 @@ public class ForeignKeyReferenceScenariosTest extends AbstractForeignKeyBaseSpec
     }
 
     @Test
-    @DisplayName("Сценарий со ссылками: Удаление ребенка из коллекции родителя + Сброс parent в null + Апдейт обоих -> Успешный commit")
+    @DisplayName("Сценарий со ссылками: Удаление ребенка из коллекции родителя + Сброс parent в null + Апдейт обоих " +
+            "-> Успешный commit")
     void testClearLinkAndNullifyParentBackReferenceSuccess() throws Exception {
         tx = storage.beginTransaction();
 

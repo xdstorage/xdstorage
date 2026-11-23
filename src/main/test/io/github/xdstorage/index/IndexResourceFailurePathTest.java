@@ -108,7 +108,7 @@ public class IndexResourceFailurePathTest {
     // Issue 2: readAsData/prepare must not mask IOException as RuntimeException
     // The fix ensures:
     // 1. XdStorageIOException -> XdStorageConnectionException
-    // 2. IOException -> XdStorageConnectionException  
+    // 2. IOException -> XdStorageConnectionException
     // 3. XdStorageException -> XdStorageRuntimeException
     // 4. RuntimeException -> XdStorageRuntimeException
     // No catch (Throwable) remains — the specific catches above are exhaustive.

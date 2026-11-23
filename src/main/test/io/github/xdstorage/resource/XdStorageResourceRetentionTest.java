@@ -145,7 +145,8 @@ public class XdStorageResourceRetentionTest {
                 return entry.getKey();
             }
         }
-        throw new IllegalStateException("Ресурс " + RetainedEntity.class.getSimpleName() + " не найден в карте ресурсов");
+        throw new IllegalStateException("Ресурс " + RetainedEntity.class.getSimpleName() +
+                " не найден в карте ресурсов");
     }
 
     private static Object recordCacheOf(final IXdStorageResourceObject<?> resource) throws Exception {

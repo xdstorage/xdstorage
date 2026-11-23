@@ -24,7 +24,8 @@ public class XdStorageForeignKeyViolationException extends XdStorageRuntimeExcep
      * @param relation      the violated relation name (parent class + field + child class)
      * @param message       the detailed violation message (offending identifiers included)
      */
-    public XdStorageForeignKeyViolationException(final String transactionId, final String relation, final String message) {
+    public XdStorageForeignKeyViolationException(final String transactionId, final String relation, final String
+            message) {
         super(message);
         this.transactionId = transactionId;
         this.relation = relation;

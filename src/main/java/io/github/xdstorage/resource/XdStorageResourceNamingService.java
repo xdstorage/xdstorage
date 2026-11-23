@@ -37,7 +37,8 @@ public class XdStorageResourceNamingService implements IXdStorageResourceNamingS
     }
 
     @Override
-    public <T> Object getResourceId(final XdStoragePolicy policy, final Class<?> cl, final T object, final Object objectId) {
+    public <T> Object getResourceId(final XdStoragePolicy policy, final Class<?> cl, final T object, final Object
+            objectId) {
         Object resourceName = null;
 
         final XdStorageObjectIdField idField = XdStorageObjectUtils.getClassInfo(cl).getIdField();
@@ -45,7 +46,8 @@ public class XdStorageResourceNamingService implements IXdStorageResourceNamingS
         if (object == null) {
             resourceName = getObjectResourceName(policy, cl, null, castObjectIdToString(objectId));
         } else if (idField != null) {
-            resourceName = getObjectResourceName(policy, cl, castObjectIdToString(idField.get(object)), castObjectIdToString(objectId));
+            resourceName = getObjectResourceName(policy, cl, castObjectIdToString(idField.get(object)),
+                    castObjectIdToString(objectId));
         }
 
         return resourceName;
@@ -62,9 +64,11 @@ public class XdStorageResourceNamingService implements IXdStorageResourceNamingS
     }
 
     @Override
-    public Object getForeignKeyResourceId(String suffix, Class<?> parentClass, Class<?> childClass, String parentClassField) {
+    public Object getForeignKeyResourceId(String suffix, Class<?> parentClass, Class<?> childClass, String
+            parentClassField) {
         String foreignKeyName = parentClass.getSimpleName() + "-" + childClass.getSimpleName() + "-" + parentClassField;
-        return folder + "/" + INDEX_DIR + "/" + parentClass.getSimpleName() + "/" + foreignKeyName + "-fk" + "." + fileSuffix;
+        return folder + "/" + INDEX_DIR + "/" + parentClass.getSimpleName() + "/" + foreignKeyName + "-fk" + "." +
+                fileSuffix;
     }
 
     @Override
@@ -72,26 +76,33 @@ public class XdStorageResourceNamingService implements IXdStorageResourceNamingS
         return folder + "/" + STRUCTURE_DIR + "/" + cl.getSimpleName() + "." + fileSuffix;
     }
 
-    private Object getObjectResourceName(final XdStoragePolicy policy, final Class<?> cl, final String objectId, final String fragmentId) {
+    private Object getObjectResourceName(final XdStoragePolicy policy, final Class<?> cl, final String objectId, final
+            String fragmentId) {
         Object resourceName = null;
 
         if (cl == XdStorageBTree.class || cl == XdStorageBTreeNode.class) {
             if (XdStorageStringUtils.isBlank(objectId)) {
-                resourceName = folder + "/" + INDEX_DIR + "/" + cl.getSimpleName() + "/" + cl.getSimpleName() + "-" + fragmentId + "." + fileSuffix;
+                resourceName = folder + "/" + INDEX_DIR + "/" + cl.getSimpleName() + "/" + cl.getSimpleName() + "-" +
+                        fragmentId + "." + fileSuffix;
             } else {
-                resourceName = folder + "/" + INDEX_DIR + "/" + cl.getSimpleName() + "/" + cl.getSimpleName() + "-" + objectId + "." + fileSuffix;
+                resourceName = folder + "/" + INDEX_DIR + "/" + cl.getSimpleName() + "/" + cl.getSimpleName() + "-" +
+                        objectId + "." + fileSuffix;
             }
         } else if (policy == XdStoragePolicy.StoreAsClassObjects) {
             if (XdStorageStringUtils.isBlank(fragmentId)) {
-                resourceName = folder + "/" + DATA_DIR + "/" + cl.getSimpleName() + "/" + cl.getSimpleName() + "." + fileSuffix;
+                resourceName = folder + "/" + DATA_DIR + "/" + cl.getSimpleName() + "/" + cl.getSimpleName() + "." +
+                        fileSuffix;
             } else {
-                resourceName = folder + "/" + DATA_DIR + "/" + cl.getSimpleName() + "/" + cl.getSimpleName() + "-" + fragmentId + "." + fileSuffix;
+                resourceName = folder + "/" + DATA_DIR + "/" + cl.getSimpleName() + "/" + cl.getSimpleName() + "-" +
+                        fragmentId + "." + fileSuffix;
             }
         } else if (policy == XdStoragePolicy.StoreAsSingleObject) {
             if (XdStorageStringUtils.isBlank(objectId)) {
-                resourceName = folder + "/" + DATA_DIR + "/" + cl.getSimpleName() + "/" + cl.getSimpleName() + "-" + fragmentId + "." + fileSuffix;
+                resourceName = folder + "/" + DATA_DIR + "/" + cl.getSimpleName() + "/" + cl.getSimpleName() + "-" +
+                        fragmentId + "." + fileSuffix;
             } else {
-                resourceName = folder + "/" + DATA_DIR + "/" + cl.getSimpleName() + "/" + cl.getSimpleName() + "-" + objectId + "." + fileSuffix;
+                resourceName = folder + "/" + DATA_DIR + "/" + cl.getSimpleName() + "/" + cl.getSimpleName() + "-" +
+                        objectId + "." + fileSuffix;
             }
         }
 
@@ -99,6 +110,7 @@ public class XdStorageResourceNamingService implements IXdStorageResourceNamingS
     }
 
     private String castObjectIdToString(final Object objectId) {
-        return objectId == null ? "" : objectId instanceof Class ? ((Class)objectId).getSimpleName() : objectId.toString();
+        return objectId == null ? "" : objectId instanceof Class ? ((Class)objectId).getSimpleName() : objectId
+                .toString();
     }
 }

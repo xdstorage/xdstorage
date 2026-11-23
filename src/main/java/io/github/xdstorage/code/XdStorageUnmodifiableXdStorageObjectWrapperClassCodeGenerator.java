@@ -32,7 +32,8 @@ public class XdStorageUnmodifiableXdStorageObjectWrapperClassCodeGenerator exten
      * @return the same accumulator map with the generated source added
      */
     @Override
-    public Map<String, String> generate(final String classesPackage, final Class<?> cl, final Map<String, String> code) {
+    public Map<String, String> generate(final String classesPackage, final Class<?> cl, final Map<String, String> code)
+            {
         // 1. Собираем методы во внутренний изолированный GenerationContext нити
         final GenerationContext ctx = collectMethodsAndClasses(cl);
 
@@ -77,7 +78,9 @@ public class XdStorageUnmodifiableXdStorageObjectWrapperClassCodeGenerator exten
             final String name = getter.getName();
 
             builder.append("\r\n\t@Override\r\n\t");
-            builder.append(buildMethodDefinition(modifiers, name, typeParameters, returnType, genReturnType, getter.getParameterTypes(), getter.getGenericParameterTypes(), getter.getExceptionTypes())).append(" {\r\n");
+            builder.append(buildMethodDefinition(modifiers, name, typeParameters, returnType, genReturnType, getter
+                    .getParameterTypes(), getter.getGenericParameterTypes(), getter.getExceptionTypes()))
+                    .append(" {\r\n");
             if (getter == ctx.parentGetter) {
                 builder.append("\t\tif(parent != null) {\r\n\t\t\treturn (");
                 buildReturnType(builder, genReturnType, returnType);
@@ -86,7 +89,8 @@ public class XdStorageUnmodifiableXdStorageObjectWrapperClassCodeGenerator exten
                 // обертка инфраструктурного объекта не несет storage/transaction — прямая
                 // делегация вместо wrapAsUnmodifiableObject (литерал getProperty("id") читал
                 // не то хранилище и возвращал null)
-                builder.append(")object.").append(buildMethodCalling(name, getter.getParameterTypes())).append(";\r\n\t\t}\r\n");
+                builder.append(")object.").append(buildMethodCalling(name, getter.getParameterTypes()))
+                        .append(";\r\n\t\t}\r\n");
             } else {
                 builder.append("\t\treturn (");
                 buildReturnType(builder, genReturnType, returnType);
@@ -105,8 +109,11 @@ public class XdStorageUnmodifiableXdStorageObjectWrapperClassCodeGenerator exten
             final String name = getter.getName();
 
             builder.append("\r\n\t@Override\r\n\t");
-            builder.append(buildMethodDefinition(modifiers, name, typeParameters, returnType, genReturnType, getter.getParameterTypes(), getter.getGenericParameterTypes(), getter.getExceptionTypes())).append(" {\r\n");
-            builder.append("\t\treturn object.").append(buildMethodCalling(name, getter.getParameterTypes())).append(";\r\n");
+            builder.append(buildMethodDefinition(modifiers, name, typeParameters, returnType, genReturnType, getter
+                    .getParameterTypes(), getter.getGenericParameterTypes(), getter.getExceptionTypes()))
+                    .append(" {\r\n");
+            builder.append("\t\treturn object.").append(buildMethodCalling(name, getter.getParameterTypes()))
+                    .append(";\r\n");
             builder.append("\t}\r\n");
         }
     }
@@ -114,8 +121,11 @@ public class XdStorageUnmodifiableXdStorageObjectWrapperClassCodeGenerator exten
     private void generateSettersMethods(final StringBuilder builder, final GenerationContext ctx) {
         for (Method method : ctx.setters) {
             builder.append("\r\n\t@Override\r\n\t");
-            builder.append(buildMethodDefinition(method.getModifiers(), method.getName(), method.getTypeParameters(), method.getReturnType(), method.getGenericReturnType(), method.getParameterTypes(), method.getGenericParameterTypes(), method.getExceptionTypes())).append(" {\r\n");
-            builder.append("\t\tthrow new ").append(XdStorageRuntimeException.class.getName()).append("(\"modification of viewable object is not allowed\");\r\n");
+            builder.append(buildMethodDefinition(method.getModifiers(), method.getName(), method.getTypeParameters(),
+                    method.getReturnType(), method.getGenericReturnType(), method.getParameterTypes(), method
+                    .getGenericParameterTypes(), method.getExceptionTypes())).append(" {\r\n");
+            builder.append("\t\tthrow new ").append(XdStorageRuntimeException.class.getName())
+                    .append("(\"modification of viewable object is not allowed\");\r\n");
             builder.append("\t}\r\n");
         }
     }
@@ -123,8 +133,11 @@ public class XdStorageUnmodifiableXdStorageObjectWrapperClassCodeGenerator exten
     private void generateClosedMethods(final StringBuilder builder, final GenerationContext ctx) {
         for (Method method : ctx.toCloseMethods) {
             builder.append("\r\n\t@Override\r\n\t");
-            builder.append(buildMethodDefinition(method.getModifiers(), method.getName(), method.getTypeParameters(), method.getReturnType(), method.getGenericReturnType(), method.getParameterTypes(), method.getGenericParameterTypes(), method.getExceptionTypes())).append(" {\r\n");
-            builder.append("\t\tthrow new ").append(XdStorageRuntimeException.class.getName()).append("(\"modification of viewable object is not allowed\");\r\n");
+            builder.append(buildMethodDefinition(method.getModifiers(), method.getName(), method.getTypeParameters(),
+                    method.getReturnType(), method.getGenericReturnType(), method.getParameterTypes(), method
+                    .getGenericParameterTypes(), method.getExceptionTypes())).append(" {\r\n");
+            builder.append("\t\tthrow new ").append(XdStorageRuntimeException.class.getName())
+                    .append("(\"modification of viewable object is not allowed\");\r\n");
             builder.append("\t}\r\n");
         }
     }
@@ -139,8 +152,10 @@ public class XdStorageUnmodifiableXdStorageObjectWrapperClassCodeGenerator exten
         builder.append("\r\n\t@Override\r\n\tpublic boolean equals(Object obj) {\r\n");
         builder.append("\t\tif (this == obj) return true;\r\n");
         builder.append("\t\tif (obj == null) return false;\r\n");
-        builder.append("\t\tif (obj instanceof ").append(IXdStorageUnmodifiableWrapper.class.getName()).append(") {\r\n");
-        builder.append("\t\t\treturn this.object.equals(((").append(IXdStorageUnmodifiableWrapper.class.getName()).append(") obj).getWrappedObject__());\r\n");
+        builder.append("\t\tif (obj instanceof ").append(IXdStorageUnmodifiableWrapper.class.getName())
+                .append(") {\r\n");
+        builder.append("\t\t\treturn this.object.equals(((").append(IXdStorageUnmodifiableWrapper.class.getName())
+                .append(") obj).getWrappedObject__());\r\n");
         builder.append("\t\t}\r\n");
         builder.append("\t\treturn false;\r\n");
         builder.append("\t}\r\n");
@@ -149,7 +164,8 @@ public class XdStorageUnmodifiableXdStorageObjectWrapperClassCodeGenerator exten
     }
 
     private void buildReturnType(StringBuilder builder, Type genReturnType, Class<?> returnType) {
-        if (genReturnType != null && (genReturnType instanceof ParameterizedType || genReturnType instanceof TypeVariable)) {
+        if (genReturnType != null && (genReturnType instanceof ParameterizedType || genReturnType instanceof
+                TypeVariable)) {
             builder.append(genReturnType.toString());
         } else {
             builder.append(getSourceTypeName(returnType));

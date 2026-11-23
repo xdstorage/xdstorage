@@ -22,7 +22,8 @@ public interface IXdStorageForeignKeyEngine {
      * @throws XdStorageException          on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure
      */
-    void process(Object object, XdStorageForeignKeyObjectChangeType type, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void process(Object object, XdStorageForeignKeyObjectChangeType type, XdStorageTransaction transaction) throws
+            XdStorageException, XdStorageConnectionException;
 
     /**
      * Commit all cached FK pairs to the B+tree. Called from the 2PC commit protocol.

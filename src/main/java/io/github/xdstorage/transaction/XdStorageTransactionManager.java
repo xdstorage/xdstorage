@@ -240,7 +240,8 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
      * @return the created transaction
      */
     protected XdStorageTransaction createTransaction(final XdStorageTransactionManager manager, final String threadId,
-                                                     final XdStorageTransaction globalTransaction, final long timeout, final String transactionId) {
+                                                     final XdStorageTransaction globalTransaction, final long timeout,
+                                                             final String transactionId) {
         return new XdStorageTransaction(manager, threadId, globalTransaction, timeout, transactionId);
     }
 
@@ -253,7 +254,8 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
 
         final XdStorageTransaction globalTransactionToCheck = transaction.getGlobalTransaction();
         if (globalTransactionToCheck != null && globalTransactionToCheck.isRollbackOnly()) {
-            transaction.markRollbackOnly("commit refused: global transaction " + globalTransactionToCheck.getTransactionId()
+            transaction.markRollbackOnly("commit refused: global transaction " + globalTransactionToCheck
+                    .getTransactionId()
                     + " already rollback-only", null);
             throw XdStorageRollbackOnlyCause.buildFailure(
                     "transaction should be rolled back because global transaction is marked as rollback only",
@@ -326,7 +328,8 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
         final String globalTransactionId = transaction.getGlobalTransactionId();
         if (globalTransactionId != null) {
             final XdStorageTransaction globalTransaction = transactionsById.get(globalTransactionId);
-            if (globalTransaction != null && globalTransaction.getTransactionThreadId().equalsIgnoreCase(currentThreadId)) {
+            if (globalTransaction != null && globalTransaction.getTransactionThreadId()
+                    .equalsIgnoreCase(currentThreadId)) {
                 threadsByTransactionId.put(globalTransactionId, currentThreadId);
                 transactionsByThreadId.put(currentThreadId, globalTransaction);
             }
@@ -349,7 +352,8 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
      * @param firstPhaseCommittedResources the per-resource change records of the finished commit
      * @param transaction                  the committed transaction, handed to every trigger
      */
-    protected void fireChanges(final Map<Object, XdStorageTransactionResourceChanges> firstPhaseCommittedResources, final XdStorageTransaction transaction) {
+    protected void fireChanges(final Map<Object, XdStorageTransactionResourceChanges> firstPhaseCommittedResources,
+            final XdStorageTransaction transaction) {
         final Callable<Boolean> task = () -> {
             firstPhaseCommittedResources.entrySet().stream().forEach(entry -> {
                 entry.getValue().performTriggers(transaction, services.getTriggersManager());
@@ -366,7 +370,8 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
 
     public void rollbackTransaction(final XdStorageTransaction transaction) {
         if (transaction.isRollbackOnly()) {
-            log.warn("transaction " + transaction.getTransactionId() + " will be rolled back automatically by mark rollback only");
+            log.warn("transaction " + transaction.getTransactionId() +
+                    " will be rolled back automatically by mark rollback only");
             return;
         }
 
@@ -375,7 +380,8 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
             // R-41: ИЗОЛИРОВАННЫЙ откат вложенной транзакции — родитель выживает.
             // Прежний transaction.markRollbackOnly() делегировал наверх и ядовил parent:
             // сценарий "nested rollback" ронял следующий commit родителя даже в один поток.
-            transaction.markSelfAndChildrenRollbackOnly("explicit rollback() of nested transaction " + transaction.getTransactionId(), null);
+            transaction.markSelfAndChildrenRollbackOnly("explicit rollback() of nested transaction " + transaction
+                    .getTransactionId(), null);
             return;
         }
 
@@ -442,7 +448,8 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
                     // сама (таймаут/конфликт) и откатывается уборщиком — все ее изменения теряются.
                     metrics().increment(XdStorageMetrics.ROLLBACK_ONLY_MARKS);
                     metrics().increment(XdStorageMetrics.TIMEOUT_SWEPT_ROLLBACKS);
-                    log.warn("Rollback-only sweep: transaction {} is being rolled back by the timeout sweeper (its changes are discarded)",
+                    log.warn("Rollback-only sweep: transaction {} is being rolled back by the timeout sweeper (its " +
+                            "changes are discarded)",
                             transaction.getTransactionId());
                     // БАРЬЕР ЗАЩИТЫ ПОТОКОВ: Фоновый уборщик выполнит откат ресурсов, но жестко ждет,
 // пока активные ForkJoin-потоки параллельного стрима полностью не выйдут из методов СУБД!
@@ -457,7 +464,9 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
                         // утечка памяти и мертвые блокировки для всех последующих транзакций.
                         services.getExecutor().submit(() -> {
                             try {
-                                Thread.sleep(25); // RBCOMMIT: быстрая проверка барьера — удержанные мертвые локи мешают живым конкурентам (их бюджет 100 мс)
+                                // RBCOMMIT: быстрая проверка барьера — удержанные мертвые локи мешают живым конкурентам
+                                // (их бюджет 100 мс)
+                                Thread.sleep(25);
                             } catch (final InterruptedException ie) {
                                 Thread.currentThread().interrupt();
                             }
@@ -486,7 +495,8 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
                     final String globalTransactionId = transaction.getGlobalTransactionId();
                     if (globalTransactionId != null) {
                         final XdStorageTransaction globalTransaction = transactionsById.get(globalTransactionId);
-                        if (globalTransaction != null && globalTransaction.getTransactionThreadId().equalsIgnoreCase(currentThreadId)) {
+                        if (globalTransaction != null && globalTransaction.getTransactionThreadId()
+                                .equalsIgnoreCase(currentThreadId)) {
                             threadsByTransactionId.put(globalTransactionId, currentThreadId);
                             transactionsByThreadId.put(currentThreadId, globalTransaction);
                         }

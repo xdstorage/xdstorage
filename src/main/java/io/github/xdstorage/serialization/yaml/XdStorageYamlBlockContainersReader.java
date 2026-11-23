@@ -73,7 +73,8 @@ public class XdStorageYamlBlockContainersReader {
      *         item value cannot be materialized
      */
     @SuppressWarnings("unchecked")
-    public static Object readCollection(final XdStorageYamlTokenizer tokenizer, final int parentLevel, final IXdStorageSimpleTypeHelper simpleTypeHelper) throws Exception {
+    public static Object readCollection(final XdStorageYamlTokenizer tokenizer, final int parentLevel, final
+            IXdStorageSimpleTypeHelper simpleTypeHelper) throws Exception {
         YamlLineToken classToken = tokenizer.nextToken();
         if (classToken == null || !"class".equals(classToken.key)) {
             return null;
@@ -282,7 +283,8 @@ public class XdStorageYamlBlockContainersReader {
             } else if ("reference".equals(complexBlock.key)) {
                 tokenizer.nextToken(); // Честно потребляем 'reference:' перед входом — иначе
                 // readReference видит блок-токен с level == parentLevel и мгновенно выходит с null!
-                return XdStorageYamlBlockObjectsReader.readReference(tokenizer, complexBlock.level, null, simpleTypeHelper);
+                return XdStorageYamlBlockObjectsReader.readReference(tokenizer, complexBlock.level, null,
+                        simpleTypeHelper);
             } else if ("array".equals(complexBlock.key)) {
                 tokenizer.nextToken(); // Честно потребляем 'array:' перед входом
                 return readArray(tokenizer, complexBlock.level, simpleTypeHelper);
@@ -314,7 +316,8 @@ public class XdStorageYamlBlockContainersReader {
      *         item value cannot be materialized
      */
     @SuppressWarnings("unchecked")
-    public static Object readObjectDataCollection(final XdStorageYamlTokenizer tokenizer, final int parentLevel, final IXdStorageSimpleTypeHelper simpleTypeHelper) throws Exception {
+    public static Object readObjectDataCollection(final XdStorageYamlTokenizer tokenizer, final int parentLevel, final
+            IXdStorageSimpleTypeHelper simpleTypeHelper) throws Exception {
         return readCollection(tokenizer, parentLevel, simpleTypeHelper);
     }
 
@@ -330,7 +333,8 @@ public class XdStorageYamlBlockContainersReader {
      *         key/value cannot be materialized
      */
     @SuppressWarnings("unchecked")
-    public static Object readObjectDataMap(final XdStorageYamlTokenizer tokenizer, IXdStorageSimpleTypeHelper simpleTypeHelper,
+    public static Object readObjectDataMap(final XdStorageYamlTokenizer tokenizer, IXdStorageSimpleTypeHelper
+            simpleTypeHelper,
                                            final int parentLevel) throws Exception {
         return readMap(tokenizer, simpleTypeHelper, parentLevel);
     }

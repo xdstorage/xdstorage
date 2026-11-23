@@ -45,7 +45,8 @@ public class XdStorageForeignKeyAutoIdInsertionTest {
     }
 
     @Test
-    @DisplayName("Сценарий: Каскадная вставка графа с null-идентификаторами должна успешно проходить валидацию FK после генерации ID")
+    @DisplayName("Сценарий: Каскадная вставка графа с null-идентификаторами должна успешно проходить валидацию FK " +
+            "после генерации ID")
     public void testFK_AutoId_CascadeInsert_ShouldSucceed() throws Exception {
         IXdStorageTransaction tx = storage.beginTransaction();
 
@@ -68,7 +69,8 @@ public class XdStorageForeignKeyAutoIdInsertionTest {
     }
 
     @Test
-    @DisplayName("Инвариант: Сохранение изолированного дочернего объекта с неинициализированным родителем должно падать")
+    @DisplayName("Инвариант: Сохранение изолированного дочернего объекта с неинициализированным родителем должно " +
+            "падать")
     public void testFK_AutoId_SaveIsolatedChild_ShouldThrowException() throws Exception {
         IXdStorageTransaction tx = storage.beginTransaction();
 

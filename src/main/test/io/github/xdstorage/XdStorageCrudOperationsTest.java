@@ -26,7 +26,8 @@ public class XdStorageCrudOperationsTest extends AbstractXdStorageTest {
     }
 
     @Test
-    @DisplayName("Fail-fast защита: вставка объекта без аннотации @XdStorageObjectId обязана бросать XdStorageException")
+    @DisplayName("Fail-fast защита: вставка объекта без аннотации @XdStorageObjectId обязана бросать " +
+            "XdStorageException")
     public void testSave_InvalidEntityWithoutIdField_ShouldThrowException() {
         assertThrows(XdStorageException.class, () -> storage.save(new AbstractXdStorageTest.InvalidEntity(), mockTx));
     }

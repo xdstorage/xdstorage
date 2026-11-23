@@ -47,7 +47,8 @@ public class XdStorageTransactionTest extends AbstractXdStorageTest {
     @Test
     @DisplayName("Метод registerTrigger() обязан бесшовно прокидывать триггеры в менеджер")
     public void testTriggers_Registration_ShouldForwardToTriggersManager() {
-        io.github.xdstorage.trigger.IXdStorageTrigger<Object> mockTrigger = mock(io.github.xdstorage.trigger.IXdStorageTrigger.class);
+        io.github.xdstorage.trigger.IXdStorageTrigger<Object> mockTrigger = mock(io.github.xdstorage.trigger
+                .IXdStorageTrigger.class);
         storage.registerTrigger(mockTrigger);
         verify(mockTriggersManager, times(1)).registerTrigger(mockTrigger);
     }

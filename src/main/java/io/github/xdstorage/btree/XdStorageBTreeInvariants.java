@@ -187,13 +187,15 @@ public final class XdStorageBTreeInvariants {
         // R-56: сэмпл между обходами — версия сменилась = корневой обход видел другой каркас
         final long versionBetween = tree.currentStructureVersion();
         if (versionBetween != versionBefore) {
-            throw new ConcurrentStructureChangeSignal(context + ": structureVersion изменился во время корневого обхода ("
+            throw new ConcurrentStructureChangeSignal(context +
+                    ": structureVersion изменился во время корневого обхода ("
                     + versionBefore + " -> " + versionBetween + ")");
         }
 
         if (tree.getFirstLeaf() == null) {
             if (!leavesViaRoot.isEmpty()) {
-                throw new XdStorageException(context + ": firstLeaf пуст, но из корня достижимо листьев: " + leavesViaRoot.size());
+                throw new XdStorageException(context + ": firstLeaf пуст, но из корня достижимо листьев: " +
+                        leavesViaRoot.size());
             }
             return;
         }
@@ -218,7 +220,8 @@ public final class XdStorageBTreeInvariants {
                 throw new XdStorageException(context + ": лист " + current.getId() + " замкнут сам на себя");
             }
             if (!leavesViaChain.add(current.getId())) {
-                throw new XdStorageException(context + ": цикл в цепочке листьев — лист " + current.getId() + " встречается повторно");
+                throw new XdStorageException(context + ": цикл в цепочке листьев — лист " + current.getId() +
+                        " встречается повторно");
             }
             // R-56: parity и обход ключей — под монитором коллекций (дисциплина R-43),
             // чтобы даже гипотетический параллельный мутатор не дал валидатору рваный срез
@@ -240,7 +243,8 @@ public final class XdStorageBTreeInvariants {
                     throw new XdStorageException(context + ": лист " + current.getId() + " содержит null-ключ");
                 }
                 if (previousKey[0] != null && XdStorageBTreeNode.compareMixedKeys(previousKey[0], key) > 0) {
-                    throw new XdStorageException(context + ": нарушение сортировки в цепочке листьев: " + previousKey[0] + " > " + key
+                    throw new XdStorageException(context + ": нарушение сортировки в цепочке листьев: " + previousKey[0]
+                            + " > " + key
                             + " (лист " + current.getId() + ") — некорректный split/merge");
                 }
                 previousKey[0] = key;
@@ -250,7 +254,8 @@ public final class XdStorageBTreeInvariants {
             if (next != null && XdStorageObjectUtils.isReference(next)) {
                 // R-53: стаб следующего листа разрешается в канонический инстанс (слот чинится:
                 // валидация идет под write-локом дерева, мутаций не видно)
-                final XdStorageBTreeNode resolved = XdStorageBTreeNode.materialize(next, storage, transaction, tree, null);
+                final XdStorageBTreeNode resolved = XdStorageBTreeNode.materialize(next, storage, transaction, tree,
+                        null);
                 if (resolved != next) {
                     current.setNextTreeNodeOnThisLevel(resolved);
                 }
@@ -269,7 +274,8 @@ public final class XdStorageBTreeInvariants {
         final int activeAfter = tree.activeMutationCount();
         if (versionAfter != versionBefore || activeAfter != 0) {
             throw new ConcurrentStructureChangeSignal(context + ": структура изменилась во время валидации (version "
-                    + versionBefore + " -> " + versionAfter + ", activeMutations " + activeBefore + " -> " + activeAfter + ")");
+                    + versionBefore + " -> " + versionAfter + ", activeMutations " + activeBefore + " -> " + activeAfter
+                            + ")");
         }
 
         // ИНВАРИАНТ 3: множество листьев из корня == множество листьев цепочки
@@ -331,7 +337,8 @@ public final class XdStorageBTreeInvariants {
             return;
         }
         if (!visited.add(node.getId())) {
-            throw new XdStorageException(context + ": цикл/дубль в descend-обходе — нода " + node.getId() + " встречена повторно");
+            throw new XdStorageException(context + ": цикл/дубль в descend-обходе — нода " + node.getId() +
+                    " встречена повторно");
         }
 
         if (node.getChildren().isEmpty()) {
@@ -355,13 +362,15 @@ public final class XdStorageBTreeInvariants {
         for (int i = 1; i < nodeKeys.size(); ++i) {
             final int cmp = XdStorageBTreeNode.compareMixedKeys(nodeKeys.get(i - 1), nodeKeys.get(i));
             if (cmp > 0 || (cmp == 0 && !allowEqualSeparators)) {
-                throw new XdStorageException(context + ": нарушение монотонности разделителей внутренней ноды " + node.getId()
+                throw new XdStorageException(context + ": нарушение монотонности разделителей внутренней ноды " + node
+                        .getId()
                         + ": keys[" + (i - 1) + "]=" + nodeKeys.get(i - 1) + " >= keys[" + i + "]=" + nodeKeys.get(i)
                         + " (сдвиг пары keys/children в join/borrow)");
             }
         }
         if (childrenSnapshot.size() != nodeKeys.size() + 1) {
-            throw new XdStorageException(context + ": внутренняя нода " + node.getId() + " имеет children=" + childrenSnapshot.size()
+            throw new XdStorageException(context + ": внутренняя нода " + node.getId() + " имеет children=" +
+                    childrenSnapshot.size()
                     + " при keys=" + nodeKeys.size() + " (ожидалось children == keys + 1)");
         }
 
@@ -376,7 +385,8 @@ public final class XdStorageBTreeInvariants {
                     resolved = XdStorageBTreeNode.materialize(child, storage, transaction, null, node);
                 } catch (final Throwable t) {
                     throw new XdStorageException(context + ": ВИСЯЧАЯ ССЫЛКА — внутренняя нода " + node.getId()
-                            + " ссылается на ребенка " + child.getId() + ", который не разрешается: " + t.getMessage(), t);
+                            + " ссылается на ребенка " + child.getId() + ", который не разрешается: " + t.getMessage(),
+                                    t);
                 }
             }
             descendCollectingLeaves(resolved, storage, transaction, leaves, context, visited, allowEqualSeparators);
@@ -416,7 +426,8 @@ public final class XdStorageBTreeInvariants {
         final long foreignCommit = record.getCommitTimeNano();
         if (myReadTs != 0 && foreignCommit != 0 && foreignCommit > myReadTs) {
             throw new XdStorageException("COMMIT-TIME CONFLICT (first-committer-wins): record " + record.getId()
-                    + " was committed by another transaction after this transaction's read — the staged write is stale; retry with a fresh read");
+                    + " was committed by another transaction after this transaction's read — the staged write is " +
+                            "stale; retry with a fresh read");
         }
     }
 }

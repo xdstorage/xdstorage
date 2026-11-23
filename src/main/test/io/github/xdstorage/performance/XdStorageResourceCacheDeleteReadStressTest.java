@@ -236,7 +236,9 @@ public class XdStorageResourceCacheDeleteReadStressTest {
         exceptions.forEach(e -> e.printStackTrace(System.err));
 
         assertTrue(finishedCleanly, "🚨 ОБНАРУЖЕН DEADLOCK КЭША РЕСУРСОВ ПРИ УДАЛЕНИИ/ЧТЕНИИ!");
-        assertTrue(exceptions.isEmpty(), "🚨 Зафиксированы падения NullPointerException или грязные снимки: " + exceptions);
-        System.out.println("🎉 УСПЕХ! Тест на удаление и чтение прошел чисто. Выполнено чтений по предикату: " + activeReadsCount.get());
+        assertTrue(exceptions.isEmpty(), "🚨 Зафиксированы падения NullPointerException или грязные снимки: " +
+                exceptions);
+        System.out.println("🎉 УСПЕХ! Тест на удаление и чтение прошел чисто. Выполнено чтений по предикату: " +
+                activeReadsCount.get());
     }
 }

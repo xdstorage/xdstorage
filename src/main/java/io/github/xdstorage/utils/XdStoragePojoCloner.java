@@ -30,7 +30,8 @@ public final class XdStoragePojoCloner {
      * @return the clone (a new instance or a shared simple value)
      * @throws Exception when reflective instantiation or field access fails
      */
-    public static Object clonePojo(final Object parent, final Object src, final Map<Object, Object> visited) throws Exception {
+    public static Object clonePojo(final Object parent, final Object src, final Map<Object, Object> visited) throws
+            Exception {
         return clonePojo(parent, src, visited, false);
     }
 
@@ -51,7 +52,8 @@ public final class XdStoragePojoCloner {
      *         id-less independent-resource entity)
      * @throws Exception when reflective instantiation or field access fails
      */
-    public static Object clonePojo(final Object parent, final Object src, final Map<Object, Object> visited, boolean isRootClone) throws Exception {
+    public static Object clonePojo(final Object parent, final Object src, final Map<Object, Object> visited, boolean
+            isRootClone) throws Exception {
         if (src == null || src instanceof Class<?>) {
             return src;
         }

@@ -121,7 +121,8 @@ public abstract class XdStorageAbstractStructureUpdater<T> implements IXdStorage
      */
     @Override
     public XdStorageUpdateStructureResult execute(final XdStorageAbstractResourcesManager resourcesManager,
-                                                  final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+                                                  final XdStorageTransaction transaction) throws XdStorageException,
+                                                          XdStorageConnectionException {
         final Class<?> cl = getDataClass();
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
         final XdStoragePolicy policy = clInfo.getPolicy();
@@ -166,7 +167,8 @@ public abstract class XdStorageAbstractStructureUpdater<T> implements IXdStorage
                 });
             }
         } else if (policy == XdStoragePolicy.StoreAsSingleObject) {
-            final IXdStorageDaoResource referencesResource = resourcesManager.lockReferencesResource(clInfo, transaction);
+            final IXdStorageDaoResource referencesResource = resourcesManager.lockReferencesResource(clInfo,
+                    transaction);
             referencesResource.readAsData(transaction).stream().forEach(referenceData -> {
                 if (!success.get()) {
                     return;
@@ -175,7 +177,8 @@ public abstract class XdStorageAbstractStructureUpdater<T> implements IXdStorage
                 final Object id = referenceData.getId();
 
                 try {
-                    final IXdStorageDaoResource objectResource = resourcesManager.lockObjectResource(clInfo, id, transaction);
+                    final IXdStorageDaoResource objectResource = resourcesManager.lockObjectResource(clInfo, id,
+                            transaction);
                     objectResource.readAsData(transaction).stream().forEach(data -> {
                         final T convertedObject = transform(data);
                         try {
@@ -192,7 +195,8 @@ public abstract class XdStorageAbstractStructureUpdater<T> implements IXdStorage
             });
         } else {
             success.set(false);
-            message = "Cannot update objects of " + cl + ". Storage policy cannot be " + XdStoragePolicy.StoreWithParentObject + ".";
+            message = "Cannot update objects of " + cl + ". Storage policy cannot be " + XdStoragePolicy
+                    .StoreWithParentObject + ".";
         }
 
         return success.get() ? XdStorageUpdateStructureResult.SUCCESSFULLY : XdStorageUpdateStructureResult.FAILURE;
@@ -213,6 +217,7 @@ public abstract class XdStorageAbstractStructureUpdater<T> implements IXdStorage
      */
     protected T transform(final XdStorageIdentifiableObject oldStateOfObject) {
         throw new UnsupportedOperationException(
-                getClass().getName() + " uses the record-by-record migration machinery but does not override transform()");
+                getClass().getName() +
+                        " uses the record-by-record migration machinery but does not override transform()");
     }
 }

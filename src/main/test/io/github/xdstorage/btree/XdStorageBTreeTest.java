@@ -493,7 +493,8 @@ public class XdStorageBTreeTest {
         // Проверяем через find, что старое значение стерто, а новое успешно зафиксировано
         List<Object> result = bTree.find(20, mockStorage, mockTx);
         assertFalse(result.isEmpty(), "Обновленный объект обязан вычитываться навигатором find!");
-        assertEquals("Updated_Planet_B_New", result.get(0), "Значение в листе не соответствует обновленному состоянию!");
+        assertEquals("Updated_Planet_B_New", result.get(0),
+                "Значение в листе не соответствует обновленному состоянию!");
 
         // Верифицируем, что СУБД зафиксировала мутацию страницы на диске
         verify(mockStorage, atLeastOnce()).update(any(XdStorageBTreeNode.class), any());
@@ -726,8 +727,10 @@ public class XdStorageBTreeTest {
         boolean finishedCleanly = finishLatch.await(10, TimeUnit.SECONDS);
         executor.shutdownNow();
 
-        assertTrue(finishedCleanly, "🚨 ОБНАРУЖЕН DEADLOCK! Потоки заблокировали друг друга на фазе ребалансировки ярусов!");
-        assertTrue(exceptions.isEmpty(), "🚨 В многопоточном режиме вылетели непредвиденные исключения (NPE/IndexOutOfBounds): " + exceptions);
+        assertTrue(finishedCleanly,
+                "🚨 ОБНАРУЖЕН DEADLOCK! Потоки заблокировали друг друга на фазе ребалансировки ярусов!");
+        assertTrue(exceptions.isEmpty(),
+                "🚨 В многопоточном режиме вылетели непредвиденные исключения (NPE/IndexOutOfBounds): " + exceptions);
     }
 
     /**
@@ -739,9 +742,11 @@ public class XdStorageBTreeTest {
     public void testConcurrent_RangeScanUnderMutation_ShouldReturnConsistentCounts() throws Exception {
         // Каноничный легковесный Stub-объект дискового хранилища
         IXdStorage stubStorage = new IXdStorage() {
-            @Override public io.github.xdstorage.metrics.XdStorageMetrics getMetrics() { return new io.github.xdstorage.metrics.XdStorageMetrics(); }
+            @Override public io.github.xdstorage.metrics.XdStorageMetrics getMetrics() { return new io.github.xdstorage
+                    .metrics.XdStorageMetrics(); }
 
-            @Override public <T> T load(Class<T> cl, Object id, IXdStorageTransaction tx) throws XdStorageException { return null; }
+            @Override public <T> T load(Class<T> cl, Object id, IXdStorageTransaction tx) throws XdStorageException {
+                    return null; }
 
             @Override
             public void load(Collection<?> references) throws XdStorageException, XdStorageConnectionException {
@@ -749,7 +754,8 @@ public class XdStorageBTreeTest {
             }
 
             @Override
-            public void load(Collection<?> references, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+            public void load(Collection<?> references, IXdStorageTransaction transaction) throws XdStorageException,
+                    XdStorageConnectionException {
 
             }
 
@@ -765,7 +771,8 @@ public class XdStorageBTreeTest {
                 return null;
             }
 
-            @Override public <T> Collection<T> load(Class<T> cl, IXdStorageTransaction transaction) throws XdStorageException { return Collections.emptyList(); }
+            @Override public <T> Collection<T> load(Class<T> cl, IXdStorageTransaction transaction) throws
+                    XdStorageException { return Collections.emptyList(); }
 
             @Override
             public void update(Object object) throws XdStorageException, XdStorageConnectionException {
@@ -779,7 +786,8 @@ public class XdStorageBTreeTest {
 
             }
 
-            @Override public void save(Collection<?> objects, IXdStorageTransaction transaction) throws XdStorageException {}
+            @Override public void save(Collection<?> objects, IXdStorageTransaction transaction) throws
+                    XdStorageException {}
 
             @Override
             public boolean has(Class<?> cl, Object id) throws XdStorageException, XdStorageConnectionException {
@@ -787,7 +795,8 @@ public class XdStorageBTreeTest {
             }
 
             @Override
-            public boolean has(Class<?> cl, Object id, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+            public boolean has(Class<?> cl, Object id, IXdStorageTransaction transaction) throws XdStorageException,
+                    XdStorageConnectionException {
                 return false;
             }
 
@@ -803,7 +812,8 @@ public class XdStorageBTreeTest {
 
             }
 
-            @Override public void update(Collection<?> objects, IXdStorageTransaction transaction) throws XdStorageException {}
+            @Override public void update(Collection<?> objects, IXdStorageTransaction transaction) throws
+                    XdStorageException {}
 
             @Override
             public void delete(Object reference) throws XdStorageException, XdStorageConnectionException {
@@ -817,7 +827,8 @@ public class XdStorageBTreeTest {
 
             }
 
-            @Override public void delete(Collection<?> objects, IXdStorageTransaction transaction) throws XdStorageException {}
+            @Override public void delete(Collection<?> objects, IXdStorageTransaction transaction) throws
+                    XdStorageException {}
             @Override public IXdStorageTransaction beginTransaction() { return null; }
 
             @Override
@@ -926,7 +937,9 @@ public class XdStorageBTreeTest {
                         totalReadsExecuted.incrementAndGet();
 
                         assertNotNull(res);
-                        assertTrue(currentSize >= initialCount, "🚨 Поток-читатель зафиксировал потерю дубликатов во время сплита листа! Найдено элементов: " + currentSize);
+                        assertTrue(currentSize >= initialCount,
+                                "🚨 Поток-читатель зафиксировал потерю дубликатов во время сплита листа! Найдено " +
+                                "элементов: " + currentSize);
                         Thread.yield();
                     }
                 } catch (Throwable e) {
@@ -1000,11 +1013,13 @@ public class XdStorageBTreeTest {
 
         // === ФАЗА 3: ВЕРИФИКАЦИЯ КОНЕЧНОГО ИНВАРИАНТА ===
         // После удаления абсолютно всех ключей дерево обязано полностью очистить рантайм-указатели
-        assertNull(bTree.getRoot(), "После полного удаления ключей корень размашистого дерева обязан схлопнуться в null!");
+        assertNull(bTree.getRoot(),
+                "После полного удаления ключей корень размашистого дерева обязан схлопнуться в null!");
         assertNull(bTree.getFirstLeaf(), "Указатель на первый лист дерева обязан обнулиться!");
 
         // Любой повторный поиск в пустом дереве должен возвращать пустой список без IndexOutOfBoundsException и NPE
-        assertTrue(bTree.find(20, mockStorage, mockTx).isEmpty(), "Поиск в пустом схлопнувшемся дереве обязан возвращать пустой список!");
+        assertTrue(bTree.find(20, mockStorage, mockTx).isEmpty(),
+                "Поиск в пустом схлопнувшемся дереве обязан возвращать пустой список!");
     }
 
     // === 10. АЛГОРИТМИЧЕСКИЕ ТЕСТЫ НАПРАВЛЕННОГО ПОСЛЕДОВАТЕЛЬНОГО ПУРДЖА ===
@@ -1026,7 +1041,8 @@ public class XdStorageBTreeTest {
         IXdStorageTransaction mockTx = mock(IXdStorageTransaction.class);
         when(mockTx.getTimeout()).thenReturn(100L);
 
-        XdStorageBTree localTree = new XdStorageBTree(new XdStorageBTreeId(String.class, "tree_seq_left_right"), false, 2);
+        XdStorageBTree localTree = new XdStorageBTree(new XdStorageBTreeId(String.class, "tree_seq_left_right"), false,
+                2);
 
         int totalKeys = 30;
 
@@ -1063,7 +1079,8 @@ public class XdStorageBTreeTest {
         IXdStorageTransaction mockTx = mock(IXdStorageTransaction.class);
         when(mockTx.getTimeout()).thenReturn(100L);
 
-        XdStorageBTree localTree = new XdStorageBTree(new XdStorageBTreeId(String.class, "tree_seq_right_left"), false, 2);
+        XdStorageBTree localTree = new XdStorageBTree(new XdStorageBTreeId(String.class, "tree_seq_right_left"), false,
+                2);
 
         int totalKeys = 30;
 
@@ -1117,7 +1134,8 @@ public class XdStorageBTreeTest {
     @Test
     @DisplayName("Транзакционный тест: Роллбэк обязана полностью аннигилировать грязные изменения на диске и в кэше")
     public void testTransactional_RollbackIntegrity_ShouldWipeDirtyChangesEntirely() throws Exception {
-        IXdStorage fileStorage = XdStorageProvider.newOrGetFileStorage("test_rollback_acid", "./target/test_rollback_acid", 200);
+        IXdStorage fileStorage = XdStorageProvider.newOrGetFileStorage("test_rollback_acid",
+                "./target/test_rollback_acid", 200);
 
         try {
             // 1. Фиксируем базовое стабильное состояние
@@ -1140,7 +1158,8 @@ public class XdStorageBTreeTest {
             // 3. Проверяем стабильность: объект ОБЯЗАН ожить и успешно существовать в базе данных
             IXdStorageTransaction txVerify = fileStorage.beginTransaction();
             XdUniverse aliveUniverse = fileStorage.load(XdUniverse.class, universeId, txVerify);
-            assertNotNull(aliveUniverse, "Критический баг роллбэка! Объект исчез из кэша/диска после отката транзакции удаления!");
+            assertNotNull(aliveUniverse,
+                    "Критический баг роллбэка! Объект исчез из кэша/диска после отката транзакции удаления!");
             fileStorage.commitTransaction(txVerify);
         } finally {
             fileStorage.shutdown();

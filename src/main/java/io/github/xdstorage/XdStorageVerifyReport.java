@@ -76,7 +76,8 @@ public final class XdStorageVerifyReport {
          * @param notes        non-fatal qualifications; copied, never {@code null}
          */
         public FileReport(final String path, final String kind, final State state, final long entries,
-                          final long bytes, final boolean legacyNaming, final List<String> notes) {            this.path = path;
+                          final long bytes, final boolean legacyNaming, final List<String> notes) {            this.path
+                                  = path;
             this.kind = kind;
             this.state = state;
             this.entries = entries;

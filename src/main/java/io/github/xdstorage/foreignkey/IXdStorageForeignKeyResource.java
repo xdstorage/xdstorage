@@ -31,7 +31,8 @@ public interface IXdStorageForeignKeyResource extends IXdStorageResourceObject {
      * @throws XdStorageException          on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure
      */
-    Collection<Object> readByParentObjectId(Comparable<?> objectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    Collection<Object> readByParentObjectId(Comparable<?> objectId, XdStorageTransaction transaction) throws
+            XdStorageException, XdStorageConnectionException;
 
     /**
      * Raw FK tree read WITHOUT overlay (MVCC snapshot only). Used for orphan detection
@@ -43,7 +44,8 @@ public interface IXdStorageForeignKeyResource extends IXdStorageResourceObject {
      * @throws XdStorageException          on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure
      */
-    Collection<Object> readByParentObjectIdRaw(Comparable<?> objectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    Collection<Object> readByParentObjectIdRaw(Comparable<?> objectId, XdStorageTransaction transaction) throws
+            XdStorageException, XdStorageConnectionException;
 
     /**
      * Reads all parent ids registered for the child — the reverse-tree mirror of
@@ -55,7 +57,8 @@ public interface IXdStorageForeignKeyResource extends IXdStorageResourceObject {
      * @throws XdStorageException          on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure
      */
-    Collection<Object> readByChildObjectId(Comparable<?> objectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    Collection<Object> readByChildObjectId(Comparable<?> objectId, XdStorageTransaction transaction) throws
+            XdStorageException, XdStorageConnectionException;
 
     /**
      * Registers the FK pair (parent→child) in both trees with both ids resolved.
@@ -68,7 +71,8 @@ public interface IXdStorageForeignKeyResource extends IXdStorageResourceObject {
      * @throws XdStorageException          on a storage-level failure (including the duplicate-pair rejection)
      * @throws XdStorageConnectionException on a connection-level failure
      */
-    void insert(Comparable<?> parentObjectId, Comparable<?> childObjectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void insert(Comparable<?> parentObjectId, Comparable<?> childObjectId, XdStorageTransaction transaction) throws
+            XdStorageException, XdStorageConnectionException;
 
     /**
      * Registers the FK pair with the PARENT unresolved (an auto-id parent not yet saved):
@@ -81,7 +85,8 @@ public interface IXdStorageForeignKeyResource extends IXdStorageResourceObject {
      * @throws XdStorageException          on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure
      */
-    void insert(IXdStorageIdObservableWrapper parentObject, Comparable<?> childId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void insert(IXdStorageIdObservableWrapper parentObject, Comparable<?> childId, XdStorageTransaction transaction)
+            throws XdStorageException, XdStorageConnectionException;
 
     /**
      * Registers the FK pair with the CHILD unresolved (an auto-id child not yet saved):
@@ -93,7 +98,8 @@ public interface IXdStorageForeignKeyResource extends IXdStorageResourceObject {
      * @throws XdStorageException          on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure
      */
-    void insert(Comparable<?> parentObjectId, IXdStorageIdObservableWrapper childObject, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void insert(Comparable<?> parentObjectId, IXdStorageIdObservableWrapper childObject, XdStorageTransaction
+            transaction) throws XdStorageException, XdStorageConnectionException;
 
     /**
      * Registers the FK pair with BOTH sides unresolved (both auto-id objects not yet
@@ -105,7 +111,8 @@ public interface IXdStorageForeignKeyResource extends IXdStorageResourceObject {
      * @throws XdStorageException          on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure
      */
-    void insert(IXdStorageIdObservableWrapper parentObject, IXdStorageIdObservableWrapper childObject, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void insert(IXdStorageIdObservableWrapper parentObject, IXdStorageIdObservableWrapper childObject,
+            XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
 
     /**
      * Parent-update bookkeeping: re-arms the pair's waiter/provenance pre-checks for the
@@ -119,7 +126,8 @@ public interface IXdStorageForeignKeyResource extends IXdStorageResourceObject {
      * @throws XdStorageException          on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure
      */
-    void update(Object parentObject, Comparable<?> parentObjectId, Object childObject, Comparable<?> childObjectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void update(Object parentObject, Comparable<?> parentObjectId, Object childObject, Comparable<?> childObjectId,
+            XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
 
     /**
      * Pair dissolution for the engine's delete paths: arms the delete waiters (the veto
@@ -134,7 +142,8 @@ public interface IXdStorageForeignKeyResource extends IXdStorageResourceObject {
      * @throws XdStorageException          on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure
      */
-    void delete(Object parentObject, Comparable<?> parentObjectId, Object childObject, Comparable<?> childObjectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void delete(Object parentObject, Comparable<?> parentObjectId, Object childObject, Comparable<?> childObjectId,
+            XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
 
     /**
      * Idempotent: unregisters the FK pair (parentId→childId) from both trees.

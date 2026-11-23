@@ -1,6 +1,7 @@
 package io.github.xdstorage.foreignkey.policies.hash.ParentSingleObjectChildClass;
 
-import io.github.xdstorage.entities.foreignkeys.policies.hash.ParentSingleObjectChildClass.HashPolicyParentSingleObjectChildClass;
+import io.github.xdstorage.entities.foreignkeys.policies.hash.ParentSingleObjectChildClass
+        .HashPolicyParentSingleObjectChildClass;
 import io.github.xdstorage.entities.foreignkeys.policies.hash.ParentSingleObjectChildClass.HashPolicyChildClass;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.foreignkey.index.hash.AbstractForeignKeyBaseSpecificationTest;
@@ -110,7 +111,8 @@ public class PolicyParentSingleObjectChildClassHashTest extends AbstractForeignK
         storage.commitTransaction(tx);
         Long parentId = parent.getId();
         tx = storage.beginTransaction();
-        HashPolicyParentSingleObjectChildClass loaded = storage.load(HashPolicyParentSingleObjectChildClass.class, parentId);
+        HashPolicyParentSingleObjectChildClass loaded = storage.load(HashPolicyParentSingleObjectChildClass.class,
+                parentId);
         storage.delete(loaded);
         assertThrows(XdStorageRuntimeException.class, () -> storage.commitTransaction(tx));
     }
@@ -127,7 +129,8 @@ public class PolicyParentSingleObjectChildClassHashTest extends AbstractForeignK
         storage.commitTransaction(tx);
         Long parentId = parent.getId(), child1Id = child1.getId();
         tx = storage.beginTransaction();
-        HashPolicyParentSingleObjectChildClass loadedParent = storage.load(HashPolicyParentSingleObjectChildClass.class, parentId);
+        HashPolicyParentSingleObjectChildClass loadedParent = storage.load(HashPolicyParentSingleObjectChildClass.class,
+                parentId);
         HashPolicyChildClass loadedChild1 = storage.load(HashPolicyChildClass.class, child1Id);
         loadedParent.getChildren().remove(loadedChild1);
         storage.update(loadedParent);
@@ -164,7 +167,8 @@ public class PolicyParentSingleObjectChildClassHashTest extends AbstractForeignK
         storage.commitTransaction(tx);
         Long parentId = parent.getId(), child1Id = child1.getId();
         tx = storage.beginTransaction();
-        HashPolicyParentSingleObjectChildClass loadedParent = storage.load(HashPolicyParentSingleObjectChildClass.class, parentId);
+        HashPolicyParentSingleObjectChildClass loadedParent = storage.load(HashPolicyParentSingleObjectChildClass.class,
+                parentId);
         HashPolicyChildClass loadedChild1 = storage.load(HashPolicyChildClass.class, child1Id);
         loadedParent.getChildren().remove(loadedChild1);
         HashPolicyChildClass child3 = new HashPolicyChildClass(); child3.setParent(loadedParent);
@@ -175,7 +179,8 @@ public class PolicyParentSingleObjectChildClassHashTest extends AbstractForeignK
     }
 
     @Test
-    @DisplayName("4b. Обновление родителя: удалить child1, вставить child3 — Успешно (Rule 4: удаление из коллекции ≠ delete, child survives independently)")
+    @DisplayName("4b. Обновление родителя: удалить child1, вставить child3 — Успешно (Rule 4: удаление из коллекции " +
+            "≠ delete, child survives independently)")
     void testUpdateParentRemoveOneInsertOneNoDeleteSuccess() throws Exception {
         tx = storage.beginTransaction();
         HashPolicyParentSingleObjectChildClass parent = new HashPolicyParentSingleObjectChildClass();
@@ -186,7 +191,8 @@ public class PolicyParentSingleObjectChildClassHashTest extends AbstractForeignK
         storage.commitTransaction(tx);
         Long parentId = parent.getId(), child1Id = child1.getId();
         tx = storage.beginTransaction();
-        HashPolicyParentSingleObjectChildClass loadedParent = storage.load(HashPolicyParentSingleObjectChildClass.class, parentId);
+        HashPolicyParentSingleObjectChildClass loadedParent = storage.load(HashPolicyParentSingleObjectChildClass.class,
+                parentId);
         HashPolicyChildClass loadedChild1 = storage.load(HashPolicyChildClass.class, child1Id);
         loadedParent.getChildren().remove(loadedChild1);
         HashPolicyChildClass child3 = new HashPolicyChildClass(); child3.setParent(loadedParent);

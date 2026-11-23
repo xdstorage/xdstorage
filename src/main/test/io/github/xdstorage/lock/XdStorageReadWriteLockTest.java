@@ -169,14 +169,17 @@ public class XdStorageReadWriteLockTest {
         latch.await(2, TimeUnit.SECONDS);
         executor.shutdownNow();
 
-        assertFalse(secondThreadReadStatus.get(), "Параллельный поток не имел права взять Read-лок при живом писателе!");
-        assertFalse(secondThreadWriteStatus.get(), "Параллельный поток не имел права взять Write-лок при живом писателе!");
+        assertFalse(secondThreadReadStatus.get(),
+                "Параллельный поток не имел права взять Read-лок при живом писателе!");
+        assertFalse(secondThreadWriteStatus.get(),
+                "Параллельный поток не имел права взять Write-лок при живом писателе!");
 
         assertDoesNotThrow(() -> rwLock.unlockWrite());
     }
 
     @Test
-    @DisplayName("Совместимость читателей (Shared Read): 10 параллельных потоков должны беспрепятственно читать одновременно")
+    @DisplayName("Совместимость читателей (Shared Read): 10 параллельных потоков должны беспрепятственно читать " +
+            "одновременно")
     public void testConcurrent_SharedRead_ShouldAllowParallelReading() throws Exception {
         int threadCount = 10;
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
@@ -208,11 +211,13 @@ public class XdStorageReadWriteLockTest {
 
         assertTrue(finishedCleanly, "Потоки заклинило при совместном чтении!");
         assertTrue(exceptions.isEmpty(), "Вылетели непредвиденные исключения: " + exceptions);
-        assertEquals(threadCount, successfulLocks.get(), "Не все параллельные потоки смогли взять разделяемый Read-лок!");
+        assertEquals(threadCount, successfulLocks.get(),
+                "Не все параллельные потоки смогли взять разделяемый Read-лок!");
     }
 
     @Test
-    @DisplayName("Отвал по Таймауту: конкурирующий поток обязан выбросить XdStorageRuntimeException при превышении лимита ожидания лока")
+    @DisplayName("Отвал по Таймауту: конкурирующий поток обязан выбросить XdStorageRuntimeException при превышении " +
+            "лимита ожидания лока")
     public void testConcurrent_LockTimeoutEnforcement_ShouldThrowOnTimeout() throws Exception {
         assertTrue(rwLock.tryLockWrite()); // Главный поток занял запись
 
@@ -234,8 +239,10 @@ public class XdStorageReadWriteLockTest {
         executor.shutdownNow();
 
         assertNotNull(caughtException, "Поток жертвы заснул навсегда вместо контролируемого отвала по таймауту!");
-        assertTrue(caughtException instanceof XdStorageRuntimeException, "Тип исключения должен быть XdStorageRuntimeException!");
-        assertTrue(caughtException.getMessage().contains("Превышен таймаут ожидания"), "Текст ошибки не соответствует контракту!");
+        assertTrue(caughtException instanceof XdStorageRuntimeException,
+                "Тип исключения должен быть XdStorageRuntimeException!");
+        assertTrue(caughtException.getMessage().contains("Превышен таймаут ожидания"),
+                "Текст ошибки не соответствует контракту!");
 
         assertDoesNotThrow(() -> rwLock.unlockWrite());
     }

@@ -21,7 +21,8 @@ public final class XdStorageProxyCompilationEngine {
     private static final Map<Class<?>, Method> checkingWrappableMethod = new ConcurrentHashMap<>();
 
     private static final ReentrantLock COMPILATION_LOCK = new ReentrantLock();
-    private static final ThreadLocal<Set<Class<?>>> currentThreadCompilationStack = ThreadLocal.withInitial(HashSet::new);
+    private static final ThreadLocal<Set<Class<?>>> currentThreadCompilationStack = ThreadLocal
+            .withInitial(HashSet::new);
 
     private XdStorageProxyCompilationEngine() {}
 
@@ -91,7 +92,8 @@ public final class XdStorageProxyCompilationEngine {
                 }
             } finally { currentThreadCompilationStack.get().remove(cl); }
             return classesUnmodifiableWrappers.get(cl);
-        } catch (IOException e) { classesUnmodifiableWrappers.remove(cl); throw e; } finally { COMPILATION_LOCK.unlock(); }
+        } catch (IOException e) { classesUnmodifiableWrappers.remove(cl); throw e; } finally { COMPILATION_LOCK
+                .unlock(); }
     }
 
     /**

@@ -22,7 +22,8 @@ public class XdStorageSearchQueryTest {
     @Test
     @DisplayName("Конструктор с парой критериев добавляет единственную пару")
     public void testConstructorAddsSinglePair() {
-        final XdStoragePrimaryCriterion primary = new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS, "alpha");
+        final XdStoragePrimaryCriterion primary = new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS,
+                "alpha");
         final XdStorageCriterion criterion = new XdStorageCriterion("tonnage", IXdStorageCriterionOperator.EQUALS, 100);
 
         final XdStorageSearchQuery query = new XdStorageSearchQuery(primary, criterion);
@@ -36,9 +37,12 @@ public class XdStorageSearchQueryTest {
     @Test
     @DisplayName("or() накапливает пары в порядке добавления")
     public void testOrAccumulatesPairsInOrder() {
-        final XdStoragePrimaryCriterion first = new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS, "alpha");
-        final XdStoragePrimaryCriterion second = new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS, "beta");
-        final XdStoragePrimaryCriterion third = new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.NOT_EQUALS, "gamma");
+        final XdStoragePrimaryCriterion first = new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS,
+                "alpha");
+        final XdStoragePrimaryCriterion second = new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS,
+                "beta");
+        final XdStoragePrimaryCriterion third = new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.NOT_EQUALS,
+                "gamma");
 
         final XdStorageSearchQuery query = new XdStorageSearchQuery(first, null);
         query.or(second, null);

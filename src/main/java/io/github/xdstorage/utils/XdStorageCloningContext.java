@@ -11,7 +11,8 @@ import java.util.Map;
  * graph. Engine-internal — not part of the public API.
  */
 public final class XdStorageCloningContext {
-    private static final ThreadLocal<Map<Object, Object>> cloningContext = ThreadLocal.withInitial(IdentityHashMap::new);
+    private static final ThreadLocal<Map<Object, Object>> cloningContext = ThreadLocal
+            .withInitial(IdentityHashMap::new);
 
     private XdStorageCloningContext() {}
 

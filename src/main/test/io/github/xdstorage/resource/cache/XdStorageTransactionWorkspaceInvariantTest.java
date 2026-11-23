@@ -26,8 +26,10 @@ class XdStorageTransactionWorkspaceInvariantTest extends CacheInvariantTestSuppo
     @Test
     void undoJournalRecordsFirstMutationOfEachRecordExactlyOnce() {
         XdStorageTransactionWorkspace ws = new XdStorageTransactionWorkspace();
-        XdStorageCacheRecord first = XdStorageCacheRecord.newReadRecord(context(), context().idField(), entity(1L, "v1"));
-        XdStorageCacheRecord second = XdStorageCacheRecord.newReadRecord(context(), context().idField(), entity(1L, "v1-rebound"));
+        XdStorageCacheRecord first = XdStorageCacheRecord.newReadRecord(context(), context().idField(), entity(1L,
+                "v1"));
+        XdStorageCacheRecord second = XdStorageCacheRecord.newReadRecord(context(), context().idField(), entity(1L,
+                "v1-rebound"));
 
         ws.registerMutation("t1", 1L, first);
         ws.registerMutation("t1", 1L, second); // повторная мутация той же записи
@@ -89,7 +91,8 @@ class XdStorageTransactionWorkspaceInvariantTest extends CacheInvariantTestSuppo
     void finishTransactionKeepsWriteSetUntilExplicitRemoval() {
         XdStorageTransactionWorkspace ws = new XdStorageTransactionWorkspace();
         ws.registerMutation("t1", 1L, recordOf(1L));
-        ws.readObjectsOf(transaction("t1")).put(1L, new XdStorageCacheObjectChange(new Object(), XdStorageCacheChange.read, 1L));
+        ws.readObjectsOf(transaction("t1")).put(1L, new XdStorageCacheObjectChange(new Object(), XdStorageCacheChange
+                .read, 1L));
         ws.unidentifiedOf("t1");
 
         ws.finishTransaction("t1");

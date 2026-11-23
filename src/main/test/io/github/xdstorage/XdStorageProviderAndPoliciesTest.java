@@ -21,16 +21,19 @@ public class XdStorageProviderAndPoliciesTest extends AbstractXdStorageTest {
     @DisplayName("Верификация предикатов XdStoragePolicy: независимые ресурсы и встроенные типы")
     public void testPolicies_PredicatesContract() {
         // Проверяем политику StoreAsSingleObject
-        assertTrue(XdStoragePolicy.StoreAsSingleObject.isIndependentResource(), "Политика обязана требовать выделенного дискового ресурса DAO!");
+        assertTrue(XdStoragePolicy.StoreAsSingleObject.isIndependentResource(),
+                "Политика обязана требовать выделенного дискового ресурса DAO!");
         assertFalse(XdStoragePolicy.StoreAsSingleObject.isEmbedded());
 
         // Проверяем политику StoreWithParentObject
         assertFalse(XdStoragePolicy.StoreWithParentObject.isIndependentResource());
-        assertTrue(XdStoragePolicy.StoreWithParentObject.isEmbedded(), "Политика обязана идентифицироваться как встроенный тип!");
+        assertTrue(XdStoragePolicy.StoreWithParentObject.isEmbedded(),
+                "Политика обязана идентифицироваться как встроенный тип!");
     }
 
     @Test
-    @DisplayName("Проверка XdStorageProvider: потокобезопасный синглтон-пул обязан возвращать один и тот же инстанс хранилища")
+    @DisplayName("Проверка XdStorageProvider: потокобезопасный синглтон-пул обязан возвращать один и тот же инстанс " +
+            "хранилища")
     public void testProvider_SingletonPool_ShouldBeIdempotent() {
         String storageName = "unique-file-db";
         String folderPath = "./target/provider_test_db";
@@ -39,7 +42,9 @@ public class XdStorageProviderAndPoliciesTest extends AbstractXdStorageTest {
         IXdFileStorage storage2 = XdStorageProvider.newOrGetFileStorage(storageName, folderPath, 128);
 
         assertNotNull(storage1);
-        assertSame(storage1, storage2, "Фабрика XdStorageProvider нарушила паттерн Singleton и расплодила дубликаты хранилищ в ConcurrentHashMap!");
+        assertSame(storage1, storage2,
+                "Фабрика XdStorageProvider нарушила паттерн Singleton и расплодила дубликаты хранилищ в " +
+                "ConcurrentHashMap!");
 
         // Корректно закрываем и разрегистрируем тестовое хранилище
         storage1.shutdown();

@@ -1,7 +1,9 @@
 package io.github.xdstorage.foreignkey.policies.btree.ParentSingleObjectChildSingleObject;
 
-import io.github.xdstorage.entities.foreignkeys.policies.btree.ParentSingleObjectChildSingleObject.PolicyParentSingleObjectChildSingleObject;
-import io.github.xdstorage.entities.foreignkeys.policies.btree.ParentSingleObjectChildSingleObject.PolicyChildSingleObject;
+import io.github.xdstorage.entities.foreignkeys.policies.btree.ParentSingleObjectChildSingleObject
+        .PolicyParentSingleObjectChildSingleObject;
+import io.github.xdstorage.entities.foreignkeys.policies.btree.ParentSingleObjectChildSingleObject
+        .PolicyChildSingleObject;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.foreignkey.index.btree.AbstractForeignKeyBaseSpecificationTest;
 import org.junit.jupiter.api.DisplayName;
@@ -30,8 +32,10 @@ public class PolicyParentSingleObjectChildSingleObjectBTreeTest extends Abstract
         tx = storage.beginTransaction();
         PolicyParentSingleObjectChildSingleObject parent = new PolicyParentSingleObjectChildSingleObject();
         parent.setChildren(new HashSet<>());
-        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent.addChild(child1);
-        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent.addChild(child2);
+        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent
+                .addChild(child1);
+        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent
+                .addChild(child2);
         storage.save(parent);
         assertDoesNotThrow(() -> storage.commitTransaction(tx));
         assertNotNull(parent.getId());
@@ -43,8 +47,10 @@ public class PolicyParentSingleObjectChildSingleObjectBTreeTest extends Abstract
         tx = storage.beginTransaction();
         PolicyParentSingleObjectChildSingleObject parent = new PolicyParentSingleObjectChildSingleObject();
         parent.setChildren(new HashSet<>());
-        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent.addChild(child1);
-        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent.addChild(child2);
+        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent
+                .addChild(child1);
+        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent
+                .addChild(child2);
         storage.save(child1);
         storage.save(child2);
         assertThrows(XdStorageRuntimeException.class, () -> storage.commitTransaction(tx));
@@ -104,13 +110,16 @@ public class PolicyParentSingleObjectChildSingleObjectBTreeTest extends Abstract
         tx = storage.beginTransaction();
         PolicyParentSingleObjectChildSingleObject parent = new PolicyParentSingleObjectChildSingleObject();
         parent.setChildren(new HashSet<>());
-        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent.addChild(child1);
-        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent.addChild(child2);
+        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent
+                .addChild(child1);
+        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent
+                .addChild(child2);
         storage.save(parent);
         storage.commitTransaction(tx);
         Long parentId = parent.getId();
         tx = storage.beginTransaction();
-        PolicyParentSingleObjectChildSingleObject loaded = storage.load(PolicyParentSingleObjectChildSingleObject.class, parentId);
+        PolicyParentSingleObjectChildSingleObject loaded = storage.load(PolicyParentSingleObjectChildSingleObject.class,
+                parentId);
         storage.delete(loaded);
         assertThrows(XdStorageRuntimeException.class, () -> storage.commitTransaction(tx));
     }
@@ -121,13 +130,16 @@ public class PolicyParentSingleObjectChildSingleObjectBTreeTest extends Abstract
         tx = storage.beginTransaction();
         PolicyParentSingleObjectChildSingleObject parent = new PolicyParentSingleObjectChildSingleObject();
         parent.setChildren(new HashSet<>());
-        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent.addChild(child1);
-        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent.addChild(child2);
+        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent
+                .addChild(child1);
+        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent
+                .addChild(child2);
         storage.save(parent);
         storage.commitTransaction(tx);
         Long parentId = parent.getId(), child1Id = child1.getId();
         tx = storage.beginTransaction();
-        PolicyParentSingleObjectChildSingleObject loadedParent = storage.load(PolicyParentSingleObjectChildSingleObject.class, parentId);
+        PolicyParentSingleObjectChildSingleObject loadedParent = storage.load(PolicyParentSingleObjectChildSingleObject
+                .class, parentId);
         PolicyChildSingleObject loadedChild1 = storage.load(PolicyChildSingleObject.class, child1Id);
         loadedParent.getChildren().remove(loadedChild1);
         storage.update(loadedParent);
@@ -141,8 +153,10 @@ public class PolicyParentSingleObjectChildSingleObjectBTreeTest extends Abstract
         tx = storage.beginTransaction();
         PolicyParentSingleObjectChildSingleObject parent = new PolicyParentSingleObjectChildSingleObject();
         parent.setChildren(new HashSet<>());
-        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent.addChild(child1);
-        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent.addChild(child2);
+        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent
+                .addChild(child1);
+        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent
+                .addChild(child2);
         storage.save(parent);
         storage.commitTransaction(tx);
         Long child1Id = child1.getId();
@@ -158,13 +172,16 @@ public class PolicyParentSingleObjectChildSingleObjectBTreeTest extends Abstract
         tx = storage.beginTransaction();
         PolicyParentSingleObjectChildSingleObject parent = new PolicyParentSingleObjectChildSingleObject();
         parent.setChildren(new HashSet<>());
-        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent.addChild(child1);
-        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent.addChild(child2);
+        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent
+                .addChild(child1);
+        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent
+                .addChild(child2);
         storage.save(parent);
         storage.commitTransaction(tx);
         Long parentId = parent.getId(), child1Id = child1.getId();
         tx = storage.beginTransaction();
-        PolicyParentSingleObjectChildSingleObject loadedParent = storage.load(PolicyParentSingleObjectChildSingleObject.class, parentId);
+        PolicyParentSingleObjectChildSingleObject loadedParent = storage.load(PolicyParentSingleObjectChildSingleObject
+                .class, parentId);
         PolicyChildSingleObject loadedChild1 = storage.load(PolicyChildSingleObject.class, child1Id);
         loadedParent.getChildren().remove(loadedChild1);
         PolicyChildSingleObject child3 = new PolicyChildSingleObject(); child3.setParent(loadedParent);
@@ -175,18 +192,22 @@ public class PolicyParentSingleObjectChildSingleObjectBTreeTest extends Abstract
     }
 
     @Test
-    @DisplayName("4b. Обновление родителя: удалить child1, вставить child3 — Успешно (Rule 4: удаление из коллекции ≠ delete, child survives independently)")
+    @DisplayName("4b. Обновление родителя: удалить child1, вставить child3 — Успешно (Rule 4: удаление из коллекции " +
+            "≠ delete, child survives independently)")
     void testUpdateParentRemoveOneInsertOneNoDeleteSuccess() throws Exception {
         tx = storage.beginTransaction();
         PolicyParentSingleObjectChildSingleObject parent = new PolicyParentSingleObjectChildSingleObject();
         parent.setChildren(new HashSet<>());
-        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent.addChild(child1);
-        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent.addChild(child2);
+        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent
+                .addChild(child1);
+        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent
+                .addChild(child2);
         storage.save(parent);
         storage.commitTransaction(tx);
         Long parentId = parent.getId(), child1Id = child1.getId();
         tx = storage.beginTransaction();
-        PolicyParentSingleObjectChildSingleObject loadedParent = storage.load(PolicyParentSingleObjectChildSingleObject.class, parentId);
+        PolicyParentSingleObjectChildSingleObject loadedParent = storage.load(PolicyParentSingleObjectChildSingleObject
+                .class, parentId);
         PolicyChildSingleObject loadedChild1 = storage.load(PolicyChildSingleObject.class, child1Id);
         loadedParent.getChildren().remove(loadedChild1);
         PolicyChildSingleObject child3 = new PolicyChildSingleObject(); child3.setParent(loadedParent);

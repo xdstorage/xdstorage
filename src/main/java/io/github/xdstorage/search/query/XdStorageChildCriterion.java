@@ -30,7 +30,8 @@ public class XdStorageChildCriterion implements IXdStorageCriterion {
      * @param fieldName      the child's field to compare
      * @param operator       the child operator
      */
-    public XdStorageChildCriterion(final String childFieldName, final Class<?> cl, final String fieldName, final IXdStorageChildCriterionOperator operator) {
+    public XdStorageChildCriterion(final String childFieldName, final Class<?> cl, final String fieldName, final
+            IXdStorageChildCriterionOperator operator) {
         this(childFieldName, cl, fieldName, operator, null);
     }
 
@@ -43,7 +44,8 @@ public class XdStorageChildCriterion implements IXdStorageCriterion {
      * @param operator       the child operator
      * @param value          the criterion value
      */
-    public XdStorageChildCriterion(final String childFieldName, final Class<?> cl, final String fieldName, final IXdStorageChildCriterionOperator operator, final Object value) {
+    public XdStorageChildCriterion(final String childFieldName, final Class<?> cl, final String fieldName, final
+            IXdStorageChildCriterionOperator operator, final Object value) {
         this.childFieldName = childFieldName;
         this.cl = cl;
         this.fieldName = fieldName;

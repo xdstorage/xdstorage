@@ -153,7 +153,8 @@ public class XdStorageResourceCacheMethodCoverageTest extends AbstractXdStorageR
         resourceCache.insert(new TestEntity(9L, "Ins_9"), tx);
 
         final XdStorageTransactionResourceChanges collector =
-                new XdStorageTransactionResourceChanges(mock(io.github.xdstorage.resource.IXdStorageResourceObject.class));
+                new XdStorageTransactionResourceChanges(mock(io.github.xdstorage.resource.IXdStorageResourceObject
+                        .class));
         resourceCache.prepareCommit(tx, collector);
 
         resourceCache.rollbackFailedCommit(tx, collector.getChangesObjects());
@@ -169,7 +170,8 @@ public class XdStorageResourceCacheMethodCoverageTest extends AbstractXdStorageR
         resourceCache.update(new TestEntity(1L, "Updated_1"), tx);
 
         final XdStorageTransactionResourceChanges collector =
-                new XdStorageTransactionResourceChanges(mock(io.github.xdstorage.resource.IXdStorageResourceObject.class));
+                new XdStorageTransactionResourceChanges(mock(io.github.xdstorage.resource.IXdStorageResourceObject
+                        .class));
         resourceCache.prepareCommit(tx, collector);
 
         resourceCache.rollbackFailedCommit(tx, collector.getChangesObjects());
@@ -186,7 +188,8 @@ public class XdStorageResourceCacheMethodCoverageTest extends AbstractXdStorageR
         resourceCache.delete(2L, tx);
 
         final XdStorageTransactionResourceChanges collector =
-                new XdStorageTransactionResourceChanges(mock(io.github.xdstorage.resource.IXdStorageResourceObject.class));
+                new XdStorageTransactionResourceChanges(mock(io.github.xdstorage.resource.IXdStorageResourceObject
+                        .class));
         resourceCache.prepareCommit(tx, collector);
 
         resourceCache.rollbackFailedCommit(tx, collector.getChangesObjects());
@@ -216,7 +219,8 @@ public class XdStorageResourceCacheMethodCoverageTest extends AbstractXdStorageR
         final Collection<TestEntity> second = new ArrayList<>();
         resourceCache.fillAndCloneCacheOnlyIfNotExists(source, second, tx);
         assertEquals(2, second.size(), "Повторное наполнение вернуло не все записи");
-        assertEquals(new ArrayList<>(first).get(0), new ArrayList<>(second).get(0), "Клон не переиспользован из транзитной карты");
+        assertEquals(new ArrayList<>(first).get(0), new ArrayList<>(second).get(0),
+                "Клон не переиспользован из транзитной карты");
         assertTrue(resourceCache.hasObject(11L) && resourceCache.hasObject(12L));
     }
 

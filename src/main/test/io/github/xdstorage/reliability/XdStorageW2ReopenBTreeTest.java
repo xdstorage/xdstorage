@@ -50,7 +50,8 @@ public class XdStorageW2ReopenBTreeTest {
                 }
                 tx.commit();
                 final IXdStorageTransaction warmTx = storage.beginTransaction();
-                assertNotNull(storage.load(XdStorageW2BTreeRecord.class, "r-0", warmTx), "warm read must work before shutdown");
+                assertNotNull(storage.load(XdStorageW2BTreeRecord.class, "r-0", warmTx),
+                        "warm read must work before shutdown");
                 warmTx.commit();
             } finally {
                 storage.shutdown();
@@ -87,7 +88,8 @@ public class XdStorageW2ReopenBTreeTest {
         deleteQuietly(dir);
         try {
             XdStorageConfig config = new XdStorageConfig.Builder().journalWrites(true).build();
-            IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage(name, dir.toString(), 128, FilesFormat.YAML, config);
+            IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage(name, dir.toString(), 128, FilesFormat.YAML,
+                    config);
             try {
                 final IXdStorageTransaction tx = storage.beginTransaction();
                 for (int i = 0; i < RECORDS; i++) {
@@ -127,7 +129,8 @@ public class XdStorageW2ReopenBTreeTest {
                     assertEquals("updated-" + i, loaded.getPayload(), "post-reopen update must survive");
                 }
                 for (int i = 100; i < 110; i++) {
-                    assertNull(storage.load(XdStorageW2BTreeRecord.class, "r-" + i, tx), "post-reopen delete must remove r-" + i);
+                    assertNull(storage.load(XdStorageW2BTreeRecord.class, "r-" + i, tx),
+                            "post-reopen delete must remove r-" + i);
                 }
                 for (int i = RECORDS; i < RECORDS + 50; i++) {
                     final XdStorageW2BTreeRecord loaded = storage.load(XdStorageW2BTreeRecord.class, "r-" + i, tx);
@@ -165,12 +168,14 @@ public class XdStorageW2ReopenBTreeTest {
             storage = XdStorageProvider.newOrGetFileStorage(name, dir.toString(), 128);
             try {
                 final IXdStorageTransaction tx = storage.beginTransaction();
-                assertNotNull(storage.load(XdStorageW2SearchShip.class, 3L, tx), "by-id load through reopened BTree id index");
+                assertNotNull(storage.load(XdStorageW2SearchShip.class, 3L, tx),
+                        "by-id load through reopened BTree id index");
                 assertEquals(1, count(storage, tx, searchByName("Ship-3")), "EQUALS through reopened search index");
                 assertEquals(20, count(storage, tx, searchScan()), "full scan through reopened search index");
                 tx.commit();
 
-                // записи в переоткрытые поисковые деревья: удаление чистит crew-индекс (B+Tree), вставка строит новые узлы
+                // записи в переоткрытые поисковые деревья: удаление чистит crew-индекс (B+Tree), вставка строит новые
+                // узлы
                 final IXdStorageTransaction writeTx = storage.beginTransaction();
                 storage.delete(newShip(3), writeTx);
                 storage.save(newShip(99), writeTx);
@@ -210,11 +215,13 @@ public class XdStorageW2ReopenBTreeTest {
     }
 
     private static XdStorageSearchQuery searchScan() {
-        return new XdStorageSearchQuery(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.NOT_EQUALS, "@@none@@"), null);
+        return new XdStorageSearchQuery(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.NOT_EQUALS,
+                "@@none@@"), null);
     }
 
     @SuppressWarnings("unchecked")
-    private static int count(final IXdFileStorage storage, final IXdStorageTransaction tx, final XdStorageSearchQuery query) throws Exception {
+    private static int count(final IXdFileStorage storage, final IXdStorageTransaction tx, final XdStorageSearchQuery
+            query) throws Exception {
         final Object result = storage.load(XdStorageW2SearchShip.class, "w2_ship_idx", query, tx);
         return ((Collection<Object>) result).size();
     }

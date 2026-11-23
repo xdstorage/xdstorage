@@ -137,7 +137,8 @@ public class XdStorageRollbackOnlyCauseTest {
                 "the historical message must stay: " + failure.getMessage());
         assertTrue(failure.getMessage().contains("lazy-load of field 'crew' on Ship"),
                 "the commit failure must name the marking site: " + failure.getMessage());
-        assertTrue(failure.getMessage().contains("tx-age"), "the commit failure must state the tx age: " + failure.getMessage());
+        assertTrue(failure.getMessage().contains("tx-age"), "the commit failure must state the tx age: " + failure
+                .getMessage());
         assertTrue(failure.getMessage().contains("the original lazy-load failure"),
                 "the commit failure must carry the root message: " + failure.getMessage());
         assertSame(rootFailure, failure.getCause(), "getCause() must hand back the original exception");
@@ -230,7 +231,8 @@ public class XdStorageRollbackOnlyCauseTest {
         final XdStorageRollbackOnlyCause cause = parent.getRollbackOnlyCause();
         assertTrue(cause.getSite().startsWith("parent force-sweep of expired internal tx"),
                 "the sweep site must be named: " + cause.getSite());
-        assertTrue(cause.getSite().contains("age 9"), "the sweep site must carry the expiry evidence: " + cause.getSite());
+        assertTrue(cause.getSite().contains("age 9"), "the sweep site must carry the expiry evidence: " + cause
+                .getSite());
         assertEquals(internal.getTransactionId(), cause.getCascadedFrom());
 
         ((XdStorageTransaction) parent).waitForFinish();
@@ -263,9 +265,11 @@ public class XdStorageRollbackOnlyCauseTest {
     @Test
     public void generatedWrapperSource_ContainsSiteDescriptors() {
         final Map<String, String> unmodifiableCode = new HashMap<>();
-        new XdStorageUnmodifiableWrapperClassCodeGenerator().generate("xdstorage.rbcause.gentest", RbEntity.class, unmodifiableCode);
+        new XdStorageUnmodifiableWrapperClassCodeGenerator().generate("xdstorage.rbcause.gentest", RbEntity.class,
+                unmodifiableCode);
         final String unmodifiableSource = String.join("\n", unmodifiableCode.values());
-        assertTrue(unmodifiableSource.contains("markRollbackOnly(\"modification of viewable object: setter 'setName' on RbEntity\", null)"),
+        assertTrue(unmodifiableSource
+                .contains("markRollbackOnly(\"modification of viewable object: setter 'setName' on RbEntity\", null)"),
                 "the generated setter must emit the site descriptor");
 
         final Map<String, String> simpleCode = new HashMap<>();
@@ -296,7 +300,8 @@ public class XdStorageRollbackOnlyCauseTest {
         final List<Path> fragments = findFragmentFiles();
         assertFalse(fragments.isEmpty(), "the entity fragment files must exist under the storage dir");
         for (final Path fragment : fragments) {
-            Files.write(fragment, "objects:\n\t- object:\n\t\tclass: 'not a parseable graph'".getBytes(StandardCharsets.UTF_8));
+            Files.write(fragment, "objects:\n\t- object:\n\t\tclass: 'not a parseable graph'".getBytes(StandardCharsets
+                    .UTF_8));
         }
 
         // ...and reopen: the search-read materialization fails and must mark with a named site
@@ -353,7 +358,8 @@ public class XdStorageRollbackOnlyCauseTest {
             long markWarns = 0;
             for (final LogEvent event : capture.events) {
                 if (event.getMessage() != null
-                        && String.valueOf(event.getMessage().getFormattedMessage()).contains("marked as rollback only by")) {
+                        && String.valueOf(event.getMessage().getFormattedMessage())
+                                .contains("marked as rollback only by")) {
                     ++markWarns;
                 }
             }

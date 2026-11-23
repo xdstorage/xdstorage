@@ -11,7 +11,8 @@ import io.github.xdstorage.index.XdStorageIndexType;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Sweep ship: id index BTree t=64 (fixed); search index t=64 (the swept variable). Top-level class (wrapper codegen requirement). */
+/** Sweep ship: id index BTree t=64 (fixed); search index t=64 (the swept variable). Top-level class (wrapper codegen
+ * requirement). */
 @XdStorageObjectPolicy(policy = XdStoragePolicy.StoreAsClassObjects)
 @XdStorageObjectIdIndexType(indexType = XdStorageIndexType.BTree, t = 64)
 @XdStorageObjectSearchIndex(indexName = "sweep_idx", indexFieldNames = {"name", "tonnage"}, t = 64, childrenIndexes = {

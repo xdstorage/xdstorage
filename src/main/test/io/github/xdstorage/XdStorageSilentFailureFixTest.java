@@ -57,7 +57,8 @@ public class XdStorageSilentFailureFixTest {
                 "package " + pkg + ";\n"
                 + "public class SilentFailMultiWrapperA extends "
                 + XdStorageSilentFailMultiEntity.class.getName() + " {\n"
-                + "    public SilentFailMultiWrapperA(" + XdStorageSilentFailMultiEntity.class.getName() + " o) { super(o); }\n"
+                + "    public SilentFailMultiWrapperA(" + XdStorageSilentFailMultiEntity.class.getName() +
+                        " o) { super(o); }\n"
                 + "}\n");
         generatedCode.put(pkg + ".SilentFailMultiWrapperB",
                 "package " + pkg + ";\n"
@@ -174,7 +175,8 @@ public class XdStorageSilentFailureFixTest {
 
     @Test
     public void unmodifiableList_ClonesIntoRandomAccessList() {
-        final List<String> source = java.util.Collections.unmodifiableList(new java.util.ArrayList<>(java.util.Arrays.asList("a", "b")));
+        final List<String> source = java.util.Collections.unmodifiableList(new java.util.ArrayList<>(java.util.Arrays
+                .asList("a", "b")));
         final Object clone = XdStorageCollectionCloner.cloneCollection(null, source, new java.util.HashMap<>());
         assertTrue(clone instanceof List, "the clone stays a List");
         assertEquals(source, clone, "contents and order preserved");
@@ -183,15 +185,18 @@ public class XdStorageSilentFailureFixTest {
 
     @Test
     public void unmodifiableSet_ClonesIntoASet_NotAList() {
-        final java.util.Set<String> source = java.util.Collections.unmodifiableSet(new java.util.HashSet<>(java.util.Arrays.asList("x", "y")));
+        final java.util.Set<String> source = java.util.Collections.unmodifiableSet(new java.util.HashSet<>(java.util
+                .Arrays.asList("x", "y")));
         final Object clone = XdStorageCollectionCloner.cloneCollection(null, source, new java.util.HashMap<>());
-        assertTrue(clone instanceof java.util.Set, "set semantics must survive (a List fallback would admit duplicates)");
+        assertTrue(clone instanceof java.util.Set,
+                "set semantics must survive (a List fallback would admit duplicates)");
         assertEquals(source, clone);
     }
 
     @Test
     public void unmodifiableSortedSet_ClonesWithOrderingPreserved() {
-        final java.util.SortedSet<String> source = java.util.Collections.unmodifiableSortedSet(new java.util.TreeSet<>(java.util.Arrays.asList("c", "a", "b")));
+        final java.util.SortedSet<String> source = java.util.Collections.unmodifiableSortedSet(new java.util
+                .TreeSet<>(java.util.Arrays.asList("c", "a", "b")));
         final Object clone = XdStorageCollectionCloner.cloneCollection(null, source, new java.util.HashMap<>());
         assertTrue(clone instanceof java.util.SortedSet, "sorted-set ordering must survive the fallback");
         assertEquals(source.first(), ((java.util.SortedSet<?>) clone).first());

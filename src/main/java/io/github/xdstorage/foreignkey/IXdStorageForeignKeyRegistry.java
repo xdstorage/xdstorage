@@ -39,12 +39,14 @@ public interface IXdStorageForeignKeyRegistry {
      * of docs/analysis/FOREIGN_KEYS.md); the {@code isChildInParentIndex} discriminator
      * resolves the real roles.
      *
-     * @param parentObjectId the first positional id (the parent id on the income path; the child id on the outcome path)
+      * @param parentObjectId the first positional id (the parent id on the income path; the child id on the outcome
+      * path)
      * @param childObjectId  the second positional id (the mirror of the above)
      * @param transaction    the owning transaction
      * @throws XdStorageException on a storage-level failure (including the duplicate-pair rejection)
      */
-    void registerForeignKey(Comparable<?> parentObjectId, Comparable<?> childObjectId, IXdStorageTransaction transaction) throws XdStorageException;
+    void registerForeignKey(Comparable<?> parentObjectId, Comparable<?> childObjectId, IXdStorageTransaction
+            transaction) throws XdStorageException;
 
     /**
      * Unregisters the FK pair (parent→child) from the dual B+trees.

@@ -56,7 +56,8 @@ public class XdStorageDefaultObjectsWriter implements IXdStorageObjectsWriter {
      * @param simpleTypeHelper the simple-type SPI used to render scalar attribute values
      * @param idGenerator      the engine id generator applied to engine-managed id fields
      */
-    public XdStorageDefaultObjectsWriter(final XdStorageServicesLocator services, final IXdStorageSimpleTypeHelper simpleTypeHelper, final IXdStorageIdGenerator idGenerator) {
+    public XdStorageDefaultObjectsWriter(final XdStorageServicesLocator services, final IXdStorageSimpleTypeHelper
+            simpleTypeHelper, final IXdStorageIdGenerator idGenerator) {
         this.services = services;
         this.simpleTypeHelper = simpleTypeHelper;
         this.idGenerator = idGenerator;
@@ -73,7 +74,8 @@ public class XdStorageDefaultObjectsWriter implements IXdStorageObjectsWriter {
     }
 
     @Override
-    public void writeReferences(final Writer writer, final XdStorageObjectIdField field, final Collection<Object> references) throws XdStorageIOException {
+    public void writeReferences(final Writer writer, final XdStorageObjectIdField field, final Collection<Object>
+            references) throws XdStorageIOException {
         try {
             writer.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
             writeNewLevelAndTabulations(writer, 0);
@@ -111,7 +113,8 @@ public class XdStorageDefaultObjectsWriter implements IXdStorageObjectsWriter {
         writeObject(cl, policy, object, writer, level);
     }
 
-    private void writeReference(final Object object, final Writer writer, final XdStorageObjectIdField field, final int level) throws IOException {
+    private void writeReference(final Object object, final Writer writer, final XdStorageObjectIdField field, final int
+            level) throws IOException {
         writeNewLevelAndTabulations(writer, level);
         writer.append("<reference class=\"");
         writer.append(XdStorageObjectUtils.getEntityClass(object.getClass()).getName());
@@ -136,7 +139,8 @@ public class XdStorageDefaultObjectsWriter implements IXdStorageObjectsWriter {
     }
 
     @SuppressWarnings("unchecked")
-    private void writeObject(final Class<?> cl, final XdStoragePolicy policy, final Object object, final Writer writer, int level) throws IOException {
+    private void writeObject(final Class<?> cl, final XdStoragePolicy policy, final Object object, final Writer writer,
+            int level) throws IOException {
         Collection<XdStorageObjectField> props = properties.get(cl);
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
         if (props == null) {
@@ -192,9 +196,11 @@ public class XdStorageDefaultObjectsWriter implements IXdStorageObjectsWriter {
     }
 
     @SuppressWarnings("unchecked")
-    private void writeArray(final String name, final Class<?> cl, final Object array, final Writer writer, int level) throws IOException {
+    private void writeArray(final String name, final Class<?> cl, final Object array, final Writer writer, int level)
+            throws IOException {
         writeNewLevelAndTabulations(writer, level);
-        writer.append("<array name=\"").append(name).append("\" class=\"").append(cl.getComponentType().getName()).append("\" length=\"")
+        writer.append("<array name=\"").append(name).append("\" class=\"").append(cl.getComponentType().getName())
+                .append("\" length=\"")
                 .append(String.valueOf(Array.getLength(array))).append("\">");
 
         final int length = Array.getLength(array);
@@ -226,7 +232,8 @@ public class XdStorageDefaultObjectsWriter implements IXdStorageObjectsWriter {
     @SuppressWarnings("unchecked")
     private void writeArray(final Class<?> cl, final Object array, final Writer writer, int level) throws IOException {
         writeNewLevelAndTabulations(writer, level);
-        writer.append("<array class=\"").append(cl.getComponentType().getName()).append("\" length=\"").append(String.valueOf(Array.getLength(array))).append("\">");
+        writer.append("<array class=\"").append(cl.getComponentType().getName()).append("\" length=\"").append(String
+                .valueOf(Array.getLength(array))).append("\">");
 
         final int length = Array.getLength(array);
         for (int i = 0; i < length; ++i) {
@@ -254,30 +261,37 @@ public class XdStorageDefaultObjectsWriter implements IXdStorageObjectsWriter {
         writer.append("</array>");
     }
 
-    private void writeSimpleType(final String name, final Class<?> cl, final Object object, final Writer writer, int level) throws IOException {
+    private void writeSimpleType(final String name, final Class<?> cl, final Object object, final Writer writer, int
+            level) throws IOException {
         writeNewLevelAndTabulations(writer, level);
         writer.append("<object name=\"").append(name).append("\" class=\"").append(cl.getName()).append("\" value=\"")
                 .append(encode(simpleTypeHelper.simpleTypeToString(object))).append("\"/>");
     }
 
-    private void writeSimpleType(final Class<?> cl, final Object object, final Writer writer, int level) throws IOException {
+    private void writeSimpleType(final Class<?> cl, final Object object, final Writer writer, int level) throws
+            IOException {
         writeNewLevelAndTabulations(writer, level);
         writer.append("<object class=\"").append(cl.getName()).append("\" value=\"")
                 .append(encode(simpleTypeHelper.simpleTypeToString(object))).append("\"/>");
     }
 
-    private void writeEnumValue(final String name, final Class<?> cl, final Object object, final Writer writer, int level) throws IOException {
+    private void writeEnumValue(final String name, final Class<?> cl, final Object object, final Writer writer, int
+            level) throws IOException {
         writeNewLevelAndTabulations(writer, level);
-        writer.append("<enum name=\"").append(name).append("\" class=\"").append(cl.getName()).append("\" value=\"").append(encode(object.toString())).append("\"/>");
+        writer.append("<enum name=\"").append(name).append("\" class=\"").append(cl.getName()).append("\" value=\"")
+                .append(encode(object.toString())).append("\"/>");
     }
 
-    private void writeEnumValue(final Class<?> cl, final Object object, final Writer writer, int level) throws IOException {
+    private void writeEnumValue(final Class<?> cl, final Object object, final Writer writer, int level) throws
+            IOException {
         writeNewLevelAndTabulations(writer, level);
-        writer.append("<enum class=\"").append(cl.getName()).append("\" value=\"").append(encode(object.toString())).append("\"/>");
+        writer.append("<enum class=\"").append(cl.getName()).append("\" value=\"").append(encode(object.toString()))
+                .append("\"/>");
     }
 
     @SuppressWarnings("unchecked")
-    private void writeCollection(final String name, final Class<?> cl, final Collection<?> collection, final Writer writer, int level) throws IOException {
+    private void writeCollection(final String name, final Class<?> cl, final Collection<?> collection, final Writer
+            writer, int level) throws IOException {
         writeNewLevelAndTabulations(writer, level);
         writer.append("<collection name=\"").append(name).append("\" class=\"").append(cl.getName()).append("\">");
         // R-43: снимок под монитором коллекции — итерация по живой LinkedList/ArrayList
@@ -311,7 +325,8 @@ public class XdStorageDefaultObjectsWriter implements IXdStorageObjectsWriter {
     }
 
     @SuppressWarnings("unchecked")
-    private void writeCollection(final Class<?> cl, final Collection<?> collection, final Writer writer, int level) throws IOException {
+    private void writeCollection(final Class<?> cl, final Collection<?> collection, final Writer writer, int level)
+            throws IOException {
         writeNewLevelAndTabulations(writer, level);
         writer.append("<collection class=\"").append(cl.getName()).append("\">");
         // R-43: снимок под монитором коллекции (см. writeCollection с именем).
@@ -344,7 +359,8 @@ public class XdStorageDefaultObjectsWriter implements IXdStorageObjectsWriter {
     }
 
     @SuppressWarnings("unchecked")
-    private void writeMap(final String name, final Class<?> cl, final Map<?, ?> map, final Writer writer, int level) throws IOException {
+    private void writeMap(final String name, final Class<?> cl, final Map<?, ?> map, final Writer writer, int level)
+            throws IOException {
         writeNewLevelAndTabulations(writer, level);
         writer.append("<map name=\"").append(name).append("\" class=\"").append(cl.getName()).append("\">");
         // R-43: снимок под монитором карты — защита от ConcurrentModificationException
@@ -460,7 +476,8 @@ public class XdStorageDefaultObjectsWriter implements IXdStorageObjectsWriter {
         writer.append("</map>");
     }
 
-    private void writeObject(final String name, final Class<?> cl, final Object object, final Writer writer, int level) throws IOException {
+    private void writeObject(final String name, final Class<?> cl, final Object object, final Writer writer, int level)
+            throws IOException {
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
         final XdStoragePolicy policy = clInfo.getPolicy();
         if (policy == null || policy == XdStoragePolicy.StoreWithParentObject) {
@@ -470,7 +487,8 @@ public class XdStorageDefaultObjectsWriter implements IXdStorageObjectsWriter {
         }
     }
 
-    private void writeObject(final Class<?> cl, final Object object, final Writer writer, int level) throws IOException {
+    private void writeObject(final Class<?> cl, final Object object, final Writer writer, int level) throws IOException
+            {
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
         final XdStoragePolicy policy = clInfo.getPolicy();
         if (policy == null || policy == XdStoragePolicy.StoreWithParentObject) {
@@ -481,7 +499,8 @@ public class XdStorageDefaultObjectsWriter implements IXdStorageObjectsWriter {
     }
 
     @SuppressWarnings("unchecked")
-    private void writeObjectData(final String name, final Class<?> cl, final Object object, final Writer writer, int level) throws IOException {
+    private void writeObjectData(final String name, final Class<?> cl, final Object object, final Writer writer, int
+            level) throws IOException {
         Collection<XdStorageObjectField> props = properties.get(cl);
         if (props == null) {
             properties.put(cl, props = XdStorageObjectUtils.getClassInfo(cl).getFields().values());
@@ -521,7 +540,8 @@ public class XdStorageDefaultObjectsWriter implements IXdStorageObjectsWriter {
     }
 
     @SuppressWarnings("unchecked")
-    private void writeObjectData(final Class<?> cl, final Object object, final Writer writer, int level) throws IOException {
+    private void writeObjectData(final Class<?> cl, final Object object, final Writer writer, int level) throws
+            IOException {
         Collection<XdStorageObjectField> props = properties.get(cl);
         if (props == null) {
             properties.put(cl, props = XdStorageObjectUtils.getClassInfo(cl).getFields().values());
@@ -560,7 +580,8 @@ public class XdStorageDefaultObjectsWriter implements IXdStorageObjectsWriter {
         writer.append("</object>");
     }
 
-    private void writeReference(final String name, final Object object, final Writer writer, int level) throws IOException {
+    private void writeReference(final String name, final Object object, final Writer writer, int level) throws
+            IOException {
         final XdStorageObjectIdField field = XdStorageObjectUtils.getClassInfo(object.getClass()).getIdField();
         writeNewLevelAndTabulations(writer, level);
         writer.append("<reference name=\"").append(name).append("\" class=\"");
@@ -637,7 +658,8 @@ public class XdStorageDefaultObjectsWriter implements IXdStorageObjectsWriter {
                 || generatorType == XdStorageIdGeneratorType.CUSTOM_GENERATOR;
         if (engineGenerates && idField.get(object) == null) {
             try {
-                idField.set(XdStorageObserverService.getObservableWrapper(object), idGenerator.generate(cl, services.getStorage(), null));
+                idField.set(XdStorageObserverService.getObservableWrapper(object), idGenerator.generate(cl, services
+                        .getStorage(), null));
             } catch (final XdStorageException e) {
                 throw new XdStorageIOException(e);
             }

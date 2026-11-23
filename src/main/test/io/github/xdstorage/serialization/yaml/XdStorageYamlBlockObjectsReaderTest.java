@@ -80,7 +80,8 @@ public class XdStorageYamlBlockObjectsReaderTest {
 
         assertNotNull(result);
         XdPlanet planet = (XdPlanet) result;
-        assertEquals("Venus", planet.getName(), "Адаптивный цикл чтения пропустил мета-поля из-за измененного порядка!");
+        assertEquals("Venus", planet.getName(),
+                "Адаптивный цикл чтения пропустил мета-поля из-за измененного порядка!");
     }
 
     @Test

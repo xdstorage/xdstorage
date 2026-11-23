@@ -140,9 +140,11 @@ public class XdStorageForeignKeyDeleteReinsertDiagTest {
     @Test
     @DisplayName("(f) КОНТРАКТ-ПИН: veto на зелёной паре эстейта (не свойство моих сущностей)")
     public void estateEntityPairDelete() throws Exception {
-        final io.github.xdstorage.entities.foreignkeys.Parent parent = new io.github.xdstorage.entities.foreignkeys.Parent();
+        final io.github.xdstorage.entities.foreignkeys.Parent parent = new io.github.xdstorage.entities.foreignkeys
+                .Parent();
         parent.setId("ep0");
-        final io.github.xdstorage.entities.foreignkeys.Child child = new io.github.xdstorage.entities.foreignkeys.Child();
+        final io.github.xdstorage.entities.foreignkeys.Child child = new io.github.xdstorage.entities.foreignkeys
+                .Child();
         child.setId("ep0-c0");
         child.setParent(parent);
         final IXdStorageTransaction tx = storage.beginTransaction();

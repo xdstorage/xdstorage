@@ -114,12 +114,14 @@ public class XdStorageYamlObjectsReader implements IXdStorageObjectsReader {
     }
 
     @Override
-    public Collection<Object> read(final Reader reader, final IXdStorageTransaction transaction) throws XdStorageIOException {
+    public Collection<Object> read(final Reader reader, final IXdStorageTransaction transaction) throws
+            XdStorageIOException {
         return readObjects(reader);
     }
 
     @Override
-    public Collection<Object> readReferences(final Reader reader, final XdStorageObjectIdField field) throws XdStorageIOException {
+    public Collection<Object> readReferences(final Reader reader, final XdStorageObjectIdField field) throws
+            XdStorageIOException {
         Collection<Object> result = new ArrayList<>();
         try {
             XdStorageYamlTokenizer tokenizer = new XdStorageYamlTokenizer(reader);
@@ -141,7 +143,8 @@ public class XdStorageYamlObjectsReader implements IXdStorageObjectsReader {
 
                 token = tokenizer.nextToken();
                 if (token.level == 1 && token.isListItem && "reference".equals(token.key)) {
-                    Object tmp = XdStorageYamlBlockObjectsReader.readReference(tokenizer, token.level, field, simpleTypeHelper);
+                    Object tmp = XdStorageYamlBlockObjectsReader.readReference(tokenizer, token.level, field,
+                            simpleTypeHelper);
                     if (tmp != null) {
                         result.add(tmp);
                     }
@@ -155,7 +158,8 @@ public class XdStorageYamlObjectsReader implements IXdStorageObjectsReader {
     }
 
     @Override
-    public Collection<XdStorageIdentifiableObject> readData(final Reader reader, final XdStorageObjectIdField field) throws XdStorageIOException, XdStorageException {
+    public Collection<XdStorageIdentifiableObject> readData(final Reader reader, final XdStorageObjectIdField field)
+            throws XdStorageIOException, XdStorageException {
         Collection<XdStorageIdentifiableObject> result = new ArrayList<>();
         try {
             XdStorageYamlTokenizer tokenizer = new XdStorageYamlTokenizer(reader);
@@ -169,9 +173,11 @@ public class XdStorageYamlObjectsReader implements IXdStorageObjectsReader {
                 }
                 if (token.level == 1) {
                     if ("object".equals(token.key)) {
-                        result.add((XdStorageIdentifiableObject) XdStorageYamlBlockObjectsReader.readObjectData(tokenizer, token.level, simpleTypeHelper));
+                        result.add((XdStorageIdentifiableObject) XdStorageYamlBlockObjectsReader
+                                .readObjectData(tokenizer, token.level, simpleTypeHelper));
                     } else if ("reference".equals(token.key)) {
-                        result.add((XdStorageIdentifiableObject) XdStorageYamlBlockObjectsReader.readObjectDataReference(tokenizer, token.level));
+                        result.add((XdStorageIdentifiableObject) XdStorageYamlBlockObjectsReader
+                                .readObjectDataReference(tokenizer, token.level));
                     }
                 }
             }
@@ -180,7 +186,8 @@ public class XdStorageYamlObjectsReader implements IXdStorageObjectsReader {
                 if (strictEof) {
                     throw new XdStorageIOException(truncationMessage(result.size(), "data"));
                 }
-                log.warn("resource file has no EOF sentinel after {} data record(s) — legacy file, accepted as complete "
+                log.warn("resource file has no EOF sentinel after {} data record(s) — legacy file, accepted as " +
+                        "complete "
                         + "(enable strictness by rewriting the storage with a current engine version)", result.size());
             }
         } catch (final Throwable cause) {
@@ -202,7 +209,8 @@ public class XdStorageYamlObjectsReader implements IXdStorageObjectsReader {
                 throw new XdStorageIOException(truncationMessage(objectsRead, root)
                         + (trailing != null ? " (unexpected trailing token: " + trailing + ")" : ""));
             }
-            log.warn("resource file has no EOF sentinel after {} object(s) in '{}' block — legacy file, accepted as complete",
+            log.warn("resource file has no EOF sentinel after {} object(s) in '{}' block — legacy file, accepted as " +
+                    "complete",
                     objectsRead, root);
         }
     }

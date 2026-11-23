@@ -30,7 +30,8 @@ public class XdStorageProvider {
 
     private static final Logger log = LoggerFactory.getLogger(XdStorageProvider.class);
 
-    /** Static factory/registry only — not instantiated (the implicit constructor stays public for source compatibility). */
+    /** Static factory/registry only — not instantiated (the implicit constructor stays public for source
+     * compatibility). */
     public XdStorageProvider() {
     }
 
@@ -147,7 +148,8 @@ public class XdStorageProvider {
      *         cannot be locked, the format is unsupported, or the config is illegal for
      *         the format (e.g. {@code journalWrites(true)} with a non-YAML format)
      */
-    public static IXdFileStorage newOrGetFileStorage(final String name, final String folder, final XdStorageConfig config) {
+    public static IXdFileStorage newOrGetFileStorage(final String name, final String folder, final XdStorageConfig
+            config) {
         return newOrGetFileStorage(name, folder, DEFAULT_FRAGMENT_SIZE, FilesFormat.YAML, config);
     }
 
@@ -182,7 +184,8 @@ public class XdStorageProvider {
      *         cannot be locked, the format is unsupported, or journaling was requested
      *         for a non-YAML format
      */
-    public static IXdFileStorage newOrGetFileStorage(final String name, final String folder, final int fragmentSize, FilesFormat format) {
+    public static IXdFileStorage newOrGetFileStorage(final String name, final String folder, final int fragmentSize,
+            FilesFormat format) {
         return newOrGetFileStorage(name, folder, fragmentSize, format, XdStorageConfig.defaults());
     }
 
@@ -199,7 +202,8 @@ public class XdStorageProvider {
      * @throws io.github.xdstorage.exceptions.XdStorageRuntimeException when the folder
      *         cannot be locked or the format/config combination is illegal
      */
-    public static IXdFileStorage newOrGetFileStorage(final String name, final String folder, final int fragmentSize, final XdStorageConfig config) {
+    public static IXdFileStorage newOrGetFileStorage(final String name, final String folder, final int fragmentSize,
+            final XdStorageConfig config) {
         return newOrGetFileStorage(name, folder, fragmentSize, FilesFormat.YAML, config);
     }
 
@@ -258,7 +262,8 @@ public class XdStorageProvider {
                     // счетчики неизвестны до ленивой prepare — считаем файлы)
                     final File root = new File(folder);
                     final int swept = XdStorageAtomicFile.sweepStaleTempFiles(root);
-                    log.info("storage '{}' ready: {} structure file(s), {} data file(s), {} stale .tmp swept; config {}",
+                    log.info("storage '{}' ready: {} structure file(s), {} data file(s), {} stale .tmp swept; config " +
+                            "{}",
                             name, countFiles(new File(root, "structure"), false),
                             countFiles(new File(root, "data"), true), swept, cfg);
                     return storage;
@@ -270,7 +275,8 @@ public class XdStorageProvider {
         // GOTCHA для тестов и встраивания: реестр держит инстанс по ИМЕНИ до shutdown() —
         // повторный вызов с тем же именем вернет СТАРЫЙ инстанс (с его кэшами и файлами),
         // даже если каталог удалили и пересоздали. Без этого WARN такие сюрпризы не видны.
-        log.warn("storage '{}' requested again — returning the EXISTING instance (registry holds it until shutdown())", name);
+        log.warn("storage '{}' requested again — returning the EXISTING instance (registry holds it until shutdown())",
+                name);
         return storage;
     }
 

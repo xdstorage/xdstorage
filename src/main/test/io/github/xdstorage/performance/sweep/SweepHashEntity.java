@@ -4,7 +4,8 @@ import io.github.xdstorage.XdStoragePolicy;
 import io.github.xdstorage.annotations.XdStorageObjectId;
 import io.github.xdstorage.annotations.XdStorageObjectPolicy;
 
-/** Sweep entity: default Hash id index (fragmented data files, YAML) — fragment-size sweep + hash/btree comparison baseline. */
+/** Sweep entity: default Hash id index (fragmented data files, YAML) — fragment-size sweep + hash/btree comparison
+ * baseline. */
 @XdStorageObjectPolicy(policy = XdStoragePolicy.StoreAsClassObjects)
 public class SweepHashEntity {
     @XdStorageObjectId

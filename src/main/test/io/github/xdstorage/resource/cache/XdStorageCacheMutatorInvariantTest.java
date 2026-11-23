@@ -113,7 +113,8 @@ class XdStorageCacheMutatorInvariantTest extends CacheInvariantTestSupport {
         mutator.update(entity(1L, "b"), tx);
 
         XdStorageCacheRecord record = context.records.get(1L);
-        assertNotSame(newObjectAfterInsert, record.getNewObject(), "быстрый путь обязан подменить контент новой материализацией");
+        assertNotSame(newObjectAfterInsert, record.getNewObject(),
+                "быстрый путь обязан подменить контент новой материализацией");
         assertEquals("b", ((TestEntity) record.getNewObject()).getValue());
         assertTrue(record.isInsertChange(), "быстрый путь не двигает тип мутации (вставка остается вставкой)");
 
@@ -194,7 +195,8 @@ class XdStorageCacheMutatorInvariantTest extends CacheInvariantTestSupport {
 
         mutator.update(entity(42L, "structural-ghost"), tx);
 
-        assertFalse(context.insertDelegations.isEmpty(), "R-40: инфраструктурная запись восстанавливается через публичную вставку");
+        assertFalse(context.insertDelegations.isEmpty(),
+                "R-40: инфраструктурная запись восстанавливается через публичную вставку");
         assertNotNull(context.records.get(42L), "после самозарвки запись обслуживается");
     }
 

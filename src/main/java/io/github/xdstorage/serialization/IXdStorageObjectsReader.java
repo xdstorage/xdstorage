@@ -33,7 +33,8 @@ public interface IXdStorageObjectsReader {
      *         materialized
      * @throws XdStorageException when the resource violates engine-level contracts
      */
-    Collection<Object> readReferences(Reader reader, XdStorageObjectIdField field) throws XdStorageIOException, XdStorageException;
+    Collection<Object> readReferences(Reader reader, XdStorageObjectIdField field) throws XdStorageIOException,
+            XdStorageException;
 
     /**
      * Reads a full resource: restores each stored object as a live instance of its class,
@@ -75,5 +76,6 @@ public interface IXdStorageObjectsReader {
      *         materialized
      * @throws XdStorageException when the resource violates engine-level contracts
      */
-    Collection<XdStorageIdentifiableObject> readData(Reader xmlReader, XdStorageObjectIdField field) throws XdStorageIOException, XdStorageException;
+    Collection<XdStorageIdentifiableObject> readData(Reader xmlReader, XdStorageObjectIdField field) throws
+            XdStorageIOException, XdStorageException;
 }

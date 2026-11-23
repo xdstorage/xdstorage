@@ -30,22 +30,26 @@ public class XdStorageClonerArrayProcessor {
      * @return the cloned array of the same component type and length
      * @throws Exception if reflective access to the array elements fails
      */
-    public static Object cloneAndWrapArray(final Object src, final IXdStorage storage, final IXdStorageTransaction transaction, final XdStorageSmartCloner cloner) throws Exception {
+    public static Object cloneAndWrapArray(final Object src, final IXdStorage storage, final IXdStorageTransaction
+            transaction, final XdStorageSmartCloner cloner) throws Exception {
         final int length = Array.getLength(src);
         final Object clone = Array.newInstance(src.getClass().getComponentType(), length);
         for (int i = 0; i < length; ++i) {
             Object value = Array.get(src, i);
             final Class<?> clValue = value != null ? XdStorageObjectUtils.getEntityClass(value.getClass()) : null;
-            if (value == null || clValue.isPrimitive() || clValue.isEnum() || XdStorageObjectUtils.isSimpleType(clValue, value)) {
+            if (value == null || clValue.isPrimitive() || clValue.isEnum() || XdStorageObjectUtils.isSimpleType(clValue,
+                    value)) {
                 // Ничего не делаем для простых типов
             } else if (clValue == Date.class) {
                 value = new Date(((Date) value).getTime());
             } else if (clValue.isArray()) {
                 value = cloneAndWrapArray(value, storage, transaction, cloner);
             } else if (value instanceof Collection<?>) {
-                value = XdStorageClonerCollectionProcessor.cloneAndWrapCollection((Collection<?>) value, storage, transaction, cloner);
+                value = XdStorageClonerCollectionProcessor.cloneAndWrapCollection((Collection<?>) value, storage,
+                        transaction, cloner);
             } else if (value instanceof Map<?, ?>) {
-                value = XdStorageClonerCollectionProcessor.cloneAndWrapMap((Map<?, ?>) value, storage, transaction, cloner);
+                value = XdStorageClonerCollectionProcessor.cloneAndWrapMap((Map<?, ?>) value, storage, transaction,
+                        cloner);
             } else {
                 value = cloner.internalCloneAsReferenceAndWrapObject(value, storage, transaction);
             }
@@ -70,7 +74,8 @@ public class XdStorageClonerArrayProcessor {
         for (int i = 0; i < length; ++i) {
             Object value = Array.get(src, i);
             final Class<?> clValue = value != null ? XdStorageObjectUtils.getEntityClass(value.getClass()) : null;
-            if (value == null || clValue.isPrimitive() || clValue.isEnum() || XdStorageObjectUtils.isSimpleType(clValue, value)) {
+            if (value == null || clValue.isPrimitive() || clValue.isEnum() || XdStorageObjectUtils.isSimpleType(clValue,
+                    value)) {
                 // Ничего не делаем
             } else if (clValue == Date.class) {
                 value = new Date(((Date) value).getTime());

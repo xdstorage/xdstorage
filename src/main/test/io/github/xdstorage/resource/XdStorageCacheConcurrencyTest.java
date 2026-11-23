@@ -96,7 +96,8 @@ public class XdStorageCacheConcurrencyTest extends AbstractCacheResourceTest {
     }
 
     /**
-     * ТЕСТ: Верификация принудительного отвала блокировок СУБД по таймауту транзакции (Lock Contention Timeout Barrier).
+      * ТЕСТ: Верификация принудительного отвала блокировок СУБД по таймауту транзакции (Lock Contention Timeout
+      * Barrier).
      * Тест проверяет критически важный fail-safe барьер ядра: если параллельная транзакция монопольно
      * удерживает блокировку над записью CacheRecord (State.locked), то прилетающий конкурирующий поток
      * с жестким коротким таймаутом (timeout = 100ms) обязан штатно выбросить XdStorageException с требованием
@@ -148,10 +149,12 @@ public class XdStorageCacheConcurrencyTest extends AbstractCacheResourceTest {
         executor.shutdownNow();
 
         // === ВЕРИФИКАЦИЯ ФАТАЛЬНОГО ТРАНЗАКЦИОННОГО ИНВАРИАНТА ===
-        assertNotNull(caughtException, "🚨 СУБД проглотила таймаут! Конкурирующий поток ушел в вечное заклинивание вместо fail-fast падения!");
+        assertNotNull(caughtException,
+                "🚨 СУБД проглотила таймаут! Конкурирующий поток ушел в вечное заклинивание вместо fail-fast падения!");
 
         // Проверяем тип исключения и каноничный текст контракта xdstorage
-        assertTrue(caughtException instanceof XdStorageRuntimeException, "Исключение таймаута обязано быть экземпляром XdStorageException!");
+        assertTrue(caughtException instanceof XdStorageRuntimeException,
+                "Исключение таймаута обязано быть экземпляром XdStorageException!");
 
         String exceptionMessage = caughtException.getMessage();
         caughtException.printStackTrace(System.err);

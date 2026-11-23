@@ -55,7 +55,8 @@ public class XdStorageIdGenerationContractTest {
             final AutoIdEntity.LongId e = new AutoIdEntity.LongId();
             e.setLabel("e" + i);
             s.save(e, tx);
-            assertEquals((long) (i + 1), e.getId(), "the generated sequence starts at 1 and is gapless in a fresh batch");
+            assertEquals((long) (i + 1), e.getId(),
+                    "the generated sequence starts at 1 and is gapless in a fresh batch");
         }
         final AutoIdEntity.LongId explicit = new AutoIdEntity.LongId();
         explicit.setId(777L);
@@ -232,7 +233,8 @@ public class XdStorageIdGenerationContractTest {
         first.commitTransaction(tx);
         first.shutdown();
 
-        final IXdFileStorage second = XdStorageProvider.newOrGetFileStorage("idgen-explicit-reopen-" + System.nanoTime(),
+        final IXdFileStorage second = XdStorageProvider.newOrGetFileStorage("idgen-explicit-reopen-" + System
+                .nanoTime(),
                 tempDir.resolve(lastName).toString(), 512);
         try {
             final IXdStorageTransaction readTx = second.beginTransaction(60000L);

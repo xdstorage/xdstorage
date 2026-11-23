@@ -39,7 +39,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <p>Engine-internal — not part of the public API.</p>
  */
 @XdStorageObjectPolicy(policy = XdStoragePolicy.StoreAsSingleObject)
-public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstorage.serialization.IXdStorageSerializationGuard,
+public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstorage.serialization
+        .IXdStorageSerializationGuard,
         io.github.xdstorage.code.IXdStorageReferenceMarked {
 
     private static final Logger log = LoggerFactory.getLogger(XdStorageBTreeNode.class);
@@ -293,14 +294,16 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         }
         final XdStorageBTreeNode canonical = storage.load(XdStorageBTreeNode.class, stub.getId(), transaction);
         if (canonical == null) {
-            throw new XdStorageException("B+Tree node " + stub.getId() + " is referenced but missing in storage (broken structure?)");
+            throw new XdStorageException("B+Tree node " + stub.getId() +
+                    " is referenced but missing in storage (broken structure?)");
         }
         canonical.setReference(false);
         if (liveTree != null) {
             canonical.setTree(liveTree);
             storage.update(canonical, transaction);
         }
-        if (liveParent != null && (canonical.getParent() == null || XdStorageObjectUtils.isReference(canonical.getParent()))) {
+        if (liveParent != null && (canonical.getParent() == null || XdStorageObjectUtils.isReference(canonical
+                .getParent()))) {
             canonical.setParent(liveParent);
             storage.update(canonical, transaction);
         }
@@ -318,7 +321,7 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
     }
 
     private final XdStorageReadWriteLock lock = new XdStorageReadWriteLock();
-    
+
     private List<IXdStorageBTreeNode> lockedNodes = new LinkedList<>();
 
     /**
@@ -356,13 +359,15 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
      * happened, so the double delete is skipped loudly instead of failing the worker.
      */
     private void deleteNodeRecordIdempotent(final XdStorageBTreeNode node, final IXdStorage storage,
-                                            final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+                                            final IXdStorageTransaction transaction) throws XdStorageException,
+                                                    XdStorageConnectionException {
         try {
             storage.delete(node, transaction);
         } catch (final XdStorageException alreadyGone) {
             final String message = alreadyGone.getMessage() != null ? alreadyGone.getMessage() : "";
             if (message.contains("was deleted this transaction") || message.contains("trying to double delete")) {
-                log.warn("node record {} merge cleanup skipped — already tombstoned by this transaction (stale-descent merge)", node.getId());
+                log.warn("node record {} merge cleanup skipped — already tombstoned by this transaction " +
+                        "(stale-descent merge)", node.getId());
                 return;
             }
             throw alreadyGone;
@@ -562,7 +567,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         return true;
     }
 
-    private boolean tryLockAndAddToDeepLock(final XdStorageBTreeNode deepLockedNode, final IXdStorageTransaction transaction) throws XdStorageException {
+    private boolean tryLockAndAddToDeepLock(final XdStorageBTreeNode deepLockedNode, final IXdStorageTransaction
+            transaction) throws XdStorageException {
         if (deepLockedNode != null && tryLockWrite(transaction)) {
             deepLockedNode.lockedNodes.add(this);
             return true;
@@ -570,7 +576,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         return false;
     }
 
-    private void lockAndAddToDeepLock(final XdStorageBTreeNode deepLockedNode, final IXdStorageTransaction transaction) throws XdStorageException {
+    private void lockAndAddToDeepLock(final XdStorageBTreeNode deepLockedNode, final IXdStorageTransaction transaction)
+            throws XdStorageException {
         if (deepLockedNode != null) {
             lockWrite(transaction);
             deepLockedNode.lockedNodes.add(this);
@@ -585,7 +592,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         });
     }
 
-    private XdStorageBTreeNode loadThisNode(final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    private XdStorageBTreeNode loadThisNode(final IXdStorage storage, final IXdStorageTransaction transaction) throws
+            XdStorageException, XdStorageConnectionException {
         lockRead(transaction);
         try {
             final XdStorageBTreeNode nextTreeNode = getNextTreeNodeOnThisLevel();
@@ -612,7 +620,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         }
     }
 
-    private XdStorageBTreeNode loadChildOfThisNode(int index, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    private XdStorageBTreeNode loadChildOfThisNode(int index, final IXdStorage storage, final IXdStorageTransaction
+            transaction) throws XdStorageException, XdStorageConnectionException {
         lockRead(transaction);
         try {
             XdStorageBTreeNode child;
@@ -646,7 +655,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                             try {
                                 materialized = materialize(stub, storage, transaction, getTree(), this);
                             } catch (final XdStorageException missing) {
-                                if (missing.getMessage() == null || !missing.getMessage().contains("is referenced but missing in storage")) {
+                                if (missing.getMessage() == null || !missing.getMessage()
+                                        .contains("is referenced but missing in storage")) {
                                     throw missing;
                                 }
                                 // САМОЛЕЧЕНИЕ СПУСКА (разрушенное дерево после сбоя/гонки записи):
@@ -656,7 +666,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                                 // «дерево разорвано → навигация самовосстанавливается, записи за
                                 // разрывом теряются»); точечные операции получают чистый промах
                                 // вместо каскадного отравления транзакций.
-                                log.warn("B+Tree self-heal: node {} referenced by node {} is missing in storage — replacing lost subtree with an empty leaf (id preserved)",
+                                log.warn("B+Tree self-heal: node {} referenced by node {} is missing in storage — " +
+                                        "replacing lost subtree with an empty leaf (id preserved)",
                                         stub.getId(), getId());
                                 final XdStorageBTreeNode healed = new XdStorageBTreeNode(getTree(), this);
                                 healed.setId(stub.getId());
@@ -723,7 +734,9 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
      *                                      lock acquisition is interrupted
      * @throws XdStorageConnectionException when persisting a node fails
      */
-    public void insert(final IXdStorageBTreeNode toUnlock, final Comparable key, final Object object, final IXdStorage storage, final IXdStorageTransaction transaction, final AtomicBoolean retryInsert) throws XdStorageException, XdStorageConnectionException {
+    public void insert(final IXdStorageBTreeNode toUnlock, final Comparable key, final Object object, final IXdStorage
+            storage, final IXdStorageTransaction transaction, final AtomicBoolean retryInsert) throws
+            XdStorageException, XdStorageConnectionException {
         loadThisNode(storage, transaction);
         if (this.getChildren().isEmpty()) {
             try {
@@ -753,7 +766,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                 // Re-descend from the root instead of failing the worker: the merge
                 // unlinked the node from the in-memory graph, so the fresh descent lands
                 // in the live sibling.
-                if (staleDescent.getMessage() != null && staleDescent.getMessage().contains("was deleted this transaction")) {
+                if (staleDescent.getMessage() != null && staleDescent.getMessage()
+                        .contains("was deleted this transaction")) {
                     retryInsert.set(true);
                     return;
                 }
@@ -766,7 +780,9 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         }
     }
 
-    private void findChildAndInsert(final IXdStorageBTreeNode toUnlock, final Comparable key, final Object object, final IXdStorage storage, final IXdStorageTransaction transaction, final AtomicBoolean retryInsert) throws XdStorageException, XdStorageConnectionException {
+    private void findChildAndInsert(final IXdStorageBTreeNode toUnlock, final Comparable key, final Object object, final
+            IXdStorage storage, final IXdStorageTransaction transaction, final AtomicBoolean retryInsert) throws
+            XdStorageException, XdStorageConnectionException {
         XdStorageBTreeNode current = this, child = null;
         try {
             current.lockWrite(transaction);
@@ -791,7 +807,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                             child = current.loadChildOfThisNode(i, storage, transaction);
                         } else {
                             // МАТЕМАТИЧЕСКИЙ КАНOН Б+ ДЕРЕВА: Если ключ равен внутреннему разделителю этажа,
-                            // при вставке мы обязаны направить поток в ПРАВОЕ поддерево этого разделителя (индекс i + 1)!
+                            // при вставке мы обязаны направить поток в ПРАВОЕ поддерево этого разделителя (индекс i +
+                            // 1)!
                             // Выполняем fail-safe проверку границ коллекции детей.
                             int targetIdx = (i + 1) < currentChildren.size() ? (i + 1) : (currentChildren.size() - 1);
                             child = current.loadChildOfThisNode(targetIdx, storage, transaction);
@@ -865,7 +882,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         return parentId != null && currentId != null && parentId.equals(currentId);
     }
 
-    private void splitAndInsertIntoParent(final XdStorageBTreeNode deepLockedNode, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    private void splitAndInsertIntoParent(final XdStorageBTreeNode deepLockedNode, final IXdStorage storage, final
+            IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
         final int t = getTree().getT();
         final boolean isLeaf = this.getChildren().isEmpty();
         final Comparable midKey = this.getKeys().get(t - 1);
@@ -876,7 +894,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         int splitIndex = isLeaf ? (t - 1) : t;
 
         final ListIterator<Comparable> keyListIterator = getKeys().listIterator(splitIndex);
-        final ListIterator<Object> objectListIterator = getObjects().isEmpty() ? null : getObjects().listIterator(splitIndex);
+        final ListIterator<Object> objectListIterator = getObjects().isEmpty() ? null : getObjects()
+                .listIterator(splitIndex);
         int childrenListIndex = isLeaf ? -1 : t;
 
         while (keyListIterator.hasNext()) {
@@ -968,11 +987,13 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                     .append(" parentChildren=[");
             for (int i = 0; i < childrenOfParent.size(); ++i) {
                 final XdStorageBTreeNode c = childrenOfParent.get(i);
-                dump.append(c.getId()).append('@').append(System.identityHashCode(c)).append(i < childrenOfParent.size() - 1 ? "," : "");
+                dump.append(c.getId()).append('@').append(System.identityHashCode(c)).append(i < childrenOfParent.size()
+                        - 1 ? "," : "");
             }
             dump.append("] tree=").append(getTree().getId());
             throw new XdStorageException("split of node " + this.getId() + " cannot find itself in its parent "
-                    + this.getParent().getId() + " (children=" + childrenOfParent.size() + ") — parent pointer desynchronized");
+                    + this.getParent().getId() + " (children=" + childrenOfParent.size() +
+                            ") — parent pointer desynchronized");
         }
 
         storage.update(this.getParent(), transaction);
@@ -992,7 +1013,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         }
     }
 
-    private void splitAndCreateNewRoot(final XdStorageBTreeNode deepLockedNode, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    private void splitAndCreateNewRoot(final XdStorageBTreeNode deepLockedNode, final IXdStorage storage, final
+            IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
         final int t = getTree().getT();
         final boolean isLeaf = this.getChildren().isEmpty();
         final Comparable midKey = this.getKeys().get(t - 1);
@@ -1014,7 +1036,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         int splitIndex = isLeaf ? (t - 1) : t;
 
         final ListIterator<Comparable> keyListIterator = getKeys().listIterator(splitIndex);
-        final ListIterator<Object> objectListIterator = getObjects().isEmpty() ? null : getObjects().listIterator(splitIndex);
+        final ListIterator<Object> objectListIterator = getObjects().isEmpty() ? null : getObjects()
+                .listIterator(splitIndex);
         int childrenListIndex = isLeaf ? -1 : t;
 
         while (keyListIterator.hasNext()) {
@@ -1071,7 +1094,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
     }
 
     private boolean insertIntoThisNode(final Comparable key, final Object object, final IXdStorage storage,
-                                       final IXdStorageTransaction transaction, AtomicBoolean retryInsert) throws XdStorageException, XdStorageConnectionException {
+                                       final IXdStorageTransaction transaction, AtomicBoolean retryInsert) throws
+                                               XdStorageException, XdStorageConnectionException {
         boolean isInserted = false;
         int i;
         // RECIDENT (the BTreeStress family): the leaf's key list may be concurrently
@@ -1085,7 +1109,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
             if (compareResult == 0) {
                 // ИНВАРИАНТ УНИКАЛЬНОСТИ: Если дерево уникальное — двойная вставка запрещена
                 if (!getTree().isMultiple()) {
-                    throw new XdStorageException("trying to double insert one object of " + getTree().getId() + " with id " + key);
+                    throw new XdStorageException("trying to double insert one object of " + getTree().getId() +
+                            " with id " + key);
                 }
 
                 // =========================================================================
@@ -1168,14 +1193,17 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         }
     }
 
-    private Comparable findLeftKey(final XdStorageBTreeNode deepLockedNode, final XdStorageBTreeNode node, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    private Comparable findLeftKey(final XdStorageBTreeNode deepLockedNode, final XdStorageBTreeNode node, final
+            IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         node.lockAndAddToDeepLock(deepLockedNode, transaction);
         // ГВАРДЬЯН ПУСТОГО РАЗДЕЛИТЕЛЯ: транзитно пустая нода не имеет левого ключа —
         // возвращаем null, вызывающие стороны обязаны пропустить добавление разделителя
         if (node.getKeys().isEmpty()) {
             return null;
         }
-        return node.getChildren().isEmpty() ? node.getKeys().get(0) : findLeftKey(deepLockedNode, node.loadChildOfThisNode(0, storage, transaction), storage, transaction);
+        return node.getChildren().isEmpty() ? node.getKeys().get(0) : findLeftKey(deepLockedNode, node
+                .loadChildOfThisNode(0, storage, transaction), storage, transaction);
     }
 
     /**
@@ -1197,7 +1225,9 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
      *                                      (loud miss) or a lock acquisition is interrupted
      * @throws XdStorageConnectionException when persisting or deleting a node fails
      */
-    public void delete(final IXdStorageBTreeNode toUnlock, final Comparable key, final IXdStorage storage, final IXdStorageTransaction transaction, final AtomicBoolean retryDelete) throws XdStorageException, XdStorageConnectionException {
+    public void delete(final IXdStorageBTreeNode toUnlock, final Comparable key, final IXdStorage storage, final
+            IXdStorageTransaction transaction, final AtomicBoolean retryDelete) throws XdStorageException,
+            XdStorageConnectionException {
         loadThisNode(storage, transaction);
         if (this.getChildren().isEmpty()) {
             try {
@@ -1244,7 +1274,9 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         }
     }
 
-    private void findChildAndDelete(final IXdStorageBTreeNode toUnlock, final Comparable key, final IXdStorage storage, final IXdStorageTransaction transaction, final AtomicBoolean retryDelete) throws XdStorageException, XdStorageConnectionException {
+    private void findChildAndDelete(final IXdStorageBTreeNode toUnlock, final Comparable key, final IXdStorage storage,
+            final IXdStorageTransaction transaction, final AtomicBoolean retryDelete) throws XdStorageException,
+            XdStorageConnectionException {
         XdStorageBTreeNode current = this, child = null;
         try {
             current.lockWrite(transaction);
@@ -1314,7 +1346,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         }
     }
 
-    private void joinWithNeightbor(final XdStorageBTreeNode deepLockedNode, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    private void joinWithNeightbor(final XdStorageBTreeNode deepLockedNode, final IXdStorage storage, final
+            IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
         final List<XdStorageBTreeNode> parentChildren = this.getParent().getChildren();
         final int countChildren = parentChildren.size();
         for (int i = 0; i < countChildren; ++i) {
@@ -1380,7 +1413,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
     // с fallback-ом на инстансную идентичность для узлов без ID (свежесозданные ноды
     // до первого save, тестовые in-memory сценарии с мок-хранилищем).
     // =========================================================================
-    private static void removeChildById(final XdStorageBTreeNode parent, final Object childId, final XdStorageBTreeNode instance) {
+    private static void removeChildById(final XdStorageBTreeNode parent, final Object childId, final XdStorageBTreeNode
+            instance) {
         if (parent == null) {
             return;
         }
@@ -1401,8 +1435,11 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         }
     }
 
-    private void joinWithRightNeightbor(final XdStorageBTreeNode deepLockedNode, final int currentNodeIndex, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
-        final XdStorageBTreeNode right = this.getParent().loadChildOfThisNode(currentNodeIndex + 1, storage, transaction);
+    private void joinWithRightNeightbor(final XdStorageBTreeNode deepLockedNode, final int currentNodeIndex, final
+            IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
+        final XdStorageBTreeNode right = this.getParent().loadChildOfThisNode(currentNodeIndex + 1, storage,
+                transaction);
         // ГВАРДЬЯН САМОСЛИЯНИЯ: clamp индекса в loadChildOfThisNode может вернуть нас самих
         if (right == this) {
             return;
@@ -1485,8 +1522,11 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         XdStorageBTreeInvariants.checkStructuralAlignment(this, "joinWithRight.this");
     }
 
-    private void joinWithLeftNeightbor(final XdStorageBTreeNode deepLockedNode, final int currentNodeIndex, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
-        final XdStorageBTreeNode left = this.getParent().loadChildOfThisNode(currentNodeIndex - 1, storage, transaction);
+    private void joinWithLeftNeightbor(final XdStorageBTreeNode deepLockedNode, final int currentNodeIndex, final
+            IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
+        final XdStorageBTreeNode left = this.getParent().loadChildOfThisNode(currentNodeIndex - 1, storage,
+                transaction);
         // ГВАРДЬЯН САМОСЛИЯНИЯ: clamp индекса в loadChildOfThisNode может вернуть нас самих
         if (left == this) {
             return;
@@ -1563,7 +1603,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         }
     }
 
-    private boolean tryToMoveKeyFromNeightbor(final XdStorageBTreeNode deepLockedNode, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    private boolean tryToMoveKeyFromNeightbor(final XdStorageBTreeNode deepLockedNode, final IXdStorage storage, final
+            IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
         boolean isMoved = false;
 
         final List<XdStorageBTreeNode> parentChildren = this.getParent().getChildren();
@@ -1598,8 +1639,11 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         return isMoved;
     }
 
-    private boolean tryToMoveKeyFromRightNeightbor(final XdStorageBTreeNode deepLockedNode, final int currentNodeIndex, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
-        final XdStorageBTreeNode right = this.getParent().loadChildOfThisNode(currentNodeIndex + 1, storage, transaction);
+    private boolean tryToMoveKeyFromRightNeightbor(final XdStorageBTreeNode deepLockedNode, final int currentNodeIndex,
+            final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
+        final XdStorageBTreeNode right = this.getParent().loadChildOfThisNode(currentNodeIndex + 1, storage,
+                transaction);
         // ГВАРДЬЯН САМОЗАИМСТВОВАНИЯ: clamp индекса может вернуть нас самих
         if (right == this) {
             return false;
@@ -1661,8 +1705,11 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         return false;
     }
 
-    private boolean tryToMoveKeyFromLeftNeightbor(final XdStorageBTreeNode deepLockedNode, final int currentNodeIndex, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
-        final XdStorageBTreeNode left = this.getParent().loadChildOfThisNode(currentNodeIndex - 1, storage, transaction);
+    private boolean tryToMoveKeyFromLeftNeightbor(final XdStorageBTreeNode deepLockedNode, final int currentNodeIndex,
+            final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
+        final XdStorageBTreeNode left = this.getParent().loadChildOfThisNode(currentNodeIndex - 1, storage,
+                transaction);
         // ГВАРДЬЯН САМОЗАИМСТВОВАНИЯ: clamp индекса может вернуть нас самих
         if (left == this) {
             return false;
@@ -1714,7 +1761,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         return false;
     }
 
-    private void deleteFromThisNode(final Comparable key, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    private void deleteFromThisNode(final Comparable key, final IXdStorage storage, final IXdStorageTransaction
+            transaction) throws XdStorageException, XdStorageConnectionException {
         final ListIterator<Comparable> keyIterator = getKeys().listIterator();
         final ListIterator<Object> objectIterator = getObjects().listIterator();
         boolean deleted = false;
@@ -1751,7 +1799,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
      * @throws XdStorageConnectionException отказ на уровне соединения
      */
     public void delete(final XdStorageBTree tree, final Comparable key, final Comparable value,
-                       final IXdStorage storage, final IXdStorageTransaction transaction, final AtomicBoolean retryDelete)
+                       final IXdStorage storage, final IXdStorageTransaction transaction, final AtomicBoolean
+                               retryDelete)
             throws XdStorageException, XdStorageConnectionException {
         loadThisNode(storage, transaction);
         if (this.getChildren().isEmpty()) {
@@ -1774,7 +1823,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                 try {
                     deletePairFromThisNode(key, value, storage, transaction, retryDelete);
                 } catch (final XdStorageException staleDescent) {
-                    if (staleDescent.getMessage() != null && staleDescent.getMessage().contains("was deleted this transaction")) {
+                    if (staleDescent.getMessage() != null && staleDescent.getMessage()
+                            .contains("was deleted this transaction")) {
                         retryDelete.set(true);
                         return;
                     }
@@ -1796,7 +1846,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                         }
                     }
                 } catch (final XdStorageException staleRebalance) {
-                    if (staleRebalance.getMessage() != null && staleRebalance.getMessage().contains("was deleted this transaction")) {
+                    if (staleRebalance.getMessage() != null && staleRebalance.getMessage()
+                            .contains("was deleted this transaction")) {
                         retryDelete.set(true);
                         return;
                     }
@@ -1824,8 +1875,10 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
     /**
      * Каскадный спуск hand-over-hand по не-листовым нодам с lock-coupling для удаления пары.
      */
-    private void findChildAndDeletePair(final IXdStorageBTreeNode toUnlock, final Comparable key, final Comparable value,
-                                        final IXdStorage storage, final IXdStorageTransaction transaction, final AtomicBoolean retryDelete)
+    private void findChildAndDeletePair(final IXdStorageBTreeNode toUnlock, final Comparable key, final Comparable
+            value,
+                                        final IXdStorage storage, final IXdStorageTransaction transaction, final
+                                                AtomicBoolean retryDelete)
             throws XdStorageException, XdStorageConnectionException {
         XdStorageBTreeNode current = this, child = null;
         try {
@@ -1902,7 +1955,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
     /**
      * Исполнитель точечной мутации листа: удаляет элемент только при совпадении И ключа, И значения.
      */
-    private void deletePairFromThisNode(final Comparable key, final Comparable value, final IXdStorage storage, final IXdStorageTransaction transaction, final AtomicBoolean retryDelete)
+    private void deletePairFromThisNode(final Comparable key, final Comparable value, final IXdStorage storage, final
+            IXdStorageTransaction transaction, final AtomicBoolean retryDelete)
             throws XdStorageException, XdStorageConnectionException {
         final ListIterator<Comparable> keyIterator = getKeys().listIterator();
         final ListIterator<Object> objectIterator = getObjects().listIterator();
@@ -1950,7 +2004,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                             retryDelete.set(true);
                             return;
                         }
-                        throw new XdStorageException("object of " + tree.getId() + " with key " + key + " and value " + value + " does not exists");
+                        throw new XdStorageException("object of " + tree.getId() + " with key " + key + " and value " +
+                                value + " does not exists");
                     }
                     try {
                         nextLeaf.deletePairFromThisNode(key, value, storage, transaction, retryDelete);
@@ -1963,7 +2018,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                         } catch (final XdStorageException staleRebalance) {
                             // RECIDENT: the mirror of the caller's catch — the borrow/join peer
                             // was tombstoned by this transaction's own earlier mutation
-                            if (staleRebalance.getMessage() != null && staleRebalance.getMessage().contains("was deleted this transaction")) {
+                            if (staleRebalance.getMessage() != null && staleRebalance.getMessage()
+                                    .contains("was deleted this transaction")) {
                                 retryDelete.set(true);
                                 return;
                             }
@@ -1985,7 +2041,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                 retryDelete.set(true);
                 return;
             }
-            throw new XdStorageException("object of " + tree.getId() + " with key " + key + " and value " + value + " does not exists");
+            throw new XdStorageException("object of " + tree.getId() + " with key " + key + " and value " + value +
+                    " does not exists");
         }
 
         storage.update(this, transaction);
@@ -2008,7 +2065,9 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
      * @throws XdStorageException           when the key is not present in the reached leaf
      * @throws XdStorageConnectionException when persisting the leaf fails
      */
-    public void update(final IXdStorageBTreeNode toUnlock, final Comparable key, final Object value, final IXdStorage storage, final IXdStorageTransaction transaction, final AtomicBoolean retryUpdate) throws XdStorageException, XdStorageConnectionException {
+    public void update(final IXdStorageBTreeNode toUnlock, final Comparable key, final Object value, final IXdStorage
+            storage, final IXdStorageTransaction transaction, final AtomicBoolean retryUpdate) throws
+            XdStorageException, XdStorageConnectionException {
         XdStorageBTreeNode current = this, child = null;
         try {
             if (!current.tryLockWrite(transaction)) {
@@ -2056,7 +2115,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                 }
             }
             if (!isUpdated) {
-                throw new XdStorageException("search index couldn't be updated because object with id " + key + " doesn't exist");
+                throw new XdStorageException("search index couldn't be updated because object with id " + key +
+                        " doesn't exist");
             }
         } finally {
             current.unlockWrite();
@@ -2082,7 +2142,9 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
      * @throws XdStorageException           when a lock acquisition is interrupted
      * @throws XdStorageConnectionException when lazily loading a child node fails
      */
-    public List<Object> find(final IXdStorageBTreeNode toUnlock, final Comparable key, final IXdStorage storage, final IXdStorageTransaction transaction, final AtomicBoolean retryFind) throws XdStorageException, XdStorageConnectionException {
+    public List<Object> find(final IXdStorageBTreeNode toUnlock, final Comparable key, final IXdStorage storage, final
+            IXdStorageTransaction transaction, final AtomicBoolean retryFind) throws XdStorageException,
+            XdStorageConnectionException {
         XdStorageBTreeNode current = this, child = null;
         try {
             if (!current.tryLockRead(transaction)) {
@@ -2314,7 +2376,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
      *                                      lock acquisition is interrupted
      * @throws XdStorageConnectionException when lazily loading a next-leaf stub fails
      */
-    public void read(final IXdStorageBTreeNode toUnlock, final IXdStorage storage, final IXdStorageTransaction transaction, final IXdStorageBTreeViewer viewer) throws XdStorageException, XdStorageConnectionException {
+    public void read(final IXdStorageBTreeNode toUnlock, final IXdStorage storage, final IXdStorageTransaction
+            transaction, final IXdStorageBTreeViewer viewer) throws XdStorageException, XdStorageConnectionException {
         // R-59: обход цепочки листьев ИТЕРАЦИОНЕН (см. зеркальный комментарий в find):
         // рекурсия по next давала кадр стека на каждый лист и падала
         // StackOverflowError на длинных цепях multiple-деревьев.
@@ -2389,7 +2452,8 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
      * tree became unusable. The tolerant compare keeps the scan alive: the unconvertible
      * pairs compare by the string form (the stable order, no CCE).
      */
-    /** Package-private: the tree-level compare sites (the viewer find, the range walk) reuse the same tolerant policy. */
+    /** Package-private: the tree-level compare sites (the viewer find, the range walk) reuse the same tolerant
+     * policy. */
     static int compareMixedKeys(final Comparable a, final Comparable b) {
         // the fast path: the same types
         try {

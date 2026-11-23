@@ -67,11 +67,15 @@ public class XdStorageSchemaEvolutionTest {
                           version.equals("v2")
                           ? "    private String label;\n    private String extra;\n"
                           : "    private String label;\n")
-                .replace("    public String getLabel() { return label; }\n    public void setLabel(String label) { this.label = label; }\n",
+                .replace("    public String getLabel() { return label; }\n    public void setLabel(String label) { " +
+                        "this.label = label; }\n",
                           version.equals("v2")
-                          ? "    public String getLabel() { return label; }\n    public void setLabel(String label) { this.label = label; }\n"
-                            + "    public String getExtra() { return extra; }\n    public void setExtra(String extra) { this.extra = extra; }\n"
-                          : "    public String getLabel() { return label; }\n    public void setLabel(String label) { this.label = label; }\n");
+                          ? "    public String getLabel() { return label; }\n    public void setLabel(String label) " +
+                                  "{ this.label = label; }\n"
+                            + "    public String getExtra() { return extra; }\n    public void setExtra(String " +
+                                    "extra) { this.extra = extra; }\n"
+                          : "    public String getLabel() { return label; }\n    public void setLabel(String label) " +
+                                  "{ this.label = label; }\n");
     }
 
     private static final String V1_SOURCE = "package evolution;\n"
@@ -86,17 +90,22 @@ public class XdStorageSchemaEvolutionTest {
             + "    private Long score;\n"
             + "    private String label;\n"
             + "    public String getId() { return id; }\n    public void setId(String id) { this.id = id; }\n"
-            + "    public Long getScore() { return score; }\n    public void setScore(Long score) { this.score = score; }\n"
-            + "    public String getLabel() { return label; }\n    public void setLabel(String label) { this.label = label; }\n"
+            + "    public Long getScore() { return score; }\n    public void setScore(Long score) { this.score = " +
+                    "score; }\n"
+            + "    public String getLabel() { return label; }\n    public void setLabel(String label) { this.label = " +
+                    "label; }\n"
             + "}\n";
 
     private static final String V2_SOURCE = V1_SOURCE
             .replace("indexFieldNames = {\"score\"}", "indexFieldNames = {\"score\", \"extra\"}")
             .replace("    private String label;\n",
                       "    private String label;\n    private String extra;\n")
-            .replace("    public String getLabel() { return label; }\n    public void setLabel(String label) { this.label = label; }\n",
-                      "    public String getLabel() { return label; }\n    public void setLabel(String label) { this.label = label; }\n"
-                    + "    public String getExtra() { return extra; }\n    public void setExtra(String extra) { this.extra = extra; }\n");
+            .replace("    public String getLabel() { return label; }\n    public void setLabel(String label) { " +
+                    "this.label = label; }\n",
+                      "    public String getLabel() { return label; }\n    public void setLabel(String label) { " +
+                              "this.label = label; }\n"
+                    + "    public String getExtra() { return extra; }\n    public void setExtra(String extra) { " +
+                            "this.extra = extra; }\n");
 
     private static final String V1_SOURCE_BODY = V1_SOURCE.substring("package evolution;\n".length());
 
@@ -177,7 +186,8 @@ public class XdStorageSchemaEvolutionTest {
         }
 
         @Override
-        public XdStorageUpdateStructureResult execute(final io.github.xdstorage.resource.XdStorageAbstractResourcesManager rm,
+        public XdStorageUpdateStructureResult execute(final io.github.xdstorage.resource
+                .XdStorageAbstractResourcesManager rm,
                                                       final io.github.xdstorage.transaction.XdStorageTransaction tx) {
             executions++;
             return remainingFailures.getAndDecrement() > 0
@@ -196,7 +206,8 @@ public class XdStorageSchemaEvolutionTest {
                 tempDir.resolve(dirName).toString(), 512);
     }
 
-    private List<IXdStorageStructureUpdater> executeUpdate(final IXdFileStorage storage, final Class<?> cl) throws Exception {
+    private List<IXdStorageStructureUpdater> executeUpdate(final IXdFileStorage storage, final Class<?> cl) throws
+            Exception {
         final IXdStorageTransaction tx = storage.beginTransaction(60000L);
         try {
             final List<IXdStorageStructureUpdater> result = storage.executeStructureUpdate(cl);
@@ -217,7 +228,8 @@ public class XdStorageSchemaEvolutionTest {
     @Test
     @DisplayName("first open inserts the structure and returns nothing; the repeat call short-circuits")
     public void freshOpenInsertsStructureAndShortCircuits() throws Exception {
-        final Class<?> v1 = loadVersion(compileVersion("v1", entityFqcn("fresh"), entitySource("fresh", "v1")), entityFqcn("fresh"));
+        final Class<?> v1 = loadVersion(compileVersion("v1", entityFqcn("fresh"), entitySource("fresh", "v1")),
+                entityFqcn("fresh"));
         final IXdFileStorage storage = open("fresh");
         try {
             final List<IXdStorageStructureUpdater> first = executeUpdate(storage, v1);
@@ -251,7 +263,8 @@ public class XdStorageSchemaEvolutionTest {
     @Test
     @DisplayName("the persisted structure and data survive a reopen; no change is detected")
     public void reopenSurvivesStructureAndData() throws Exception {
-        final Class<?> v1 = loadVersion(compileVersion("v1", entityFqcn("reopen"), entitySource("reopen", "v1")), entityFqcn("reopen"));
+        final Class<?> v1 = loadVersion(compileVersion("v1", entityFqcn("reopen"), entitySource("reopen", "v1")),
+                entityFqcn("reopen"));
         final IXdFileStorage first = open("reopen");
         final IXdStorageTransaction tx = first.beginTransaction(60000L);
         first.save(newEntity(v1, "survive-1", 10L), tx);
@@ -279,7 +292,8 @@ public class XdStorageSchemaEvolutionTest {
     @Test
     @DisplayName("V1→V2: change detection fires; SUCCESS and FAILURE updater outcomes are both reported")
     public void evolutionDetectsChangeAndReportsUpdaterOutcomes() throws Exception {
-        final Class<?> v1 = loadVersion(compileVersion("v1", entityFqcn("evolve"), entitySource("evolve", "v1")), entityFqcn("evolve"));
+        final Class<?> v1 = loadVersion(compileVersion("v1", entityFqcn("evolve"), entitySource("evolve", "v1")),
+                entityFqcn("evolve"));
         final IXdFileStorage first = open("evolve");
         final IXdStorageTransaction tx = first.beginTransaction(60000L);
         first.save(newEntity(v1, "evo-1", 1L), tx);
@@ -288,7 +302,8 @@ public class XdStorageSchemaEvolutionTest {
         assertTrue(executeUpdate(first, v1).isEmpty(), "the V1 structure baseline is inserted");
         first.shutdown();
 
-        final Class<?> v2 = loadVersion(compileVersion("v2", entityFqcn("evolve"), entitySource("evolve", "v2")), entityFqcn("evolve"));
+        final Class<?> v2 = loadVersion(compileVersion("v2", entityFqcn("evolve"), entitySource("evolve", "v2")),
+                entityFqcn("evolve"));
         assertNotEquals(v1.getClassLoader(), v2.getClassLoader());
         assertEquals(v1.getName(), v2.getName(), "same FQCN — the persisted structure belongs to this name");
 
@@ -319,9 +334,11 @@ public class XdStorageSchemaEvolutionTest {
     }
 
     @Test
-    @DisplayName("the updater ledger: SUCCESS records are skipped as executed earlier, FAILURE records retried after reopen")
+    @DisplayName("the updater ledger: SUCCESS records are skipped as executed earlier, FAILURE records retried after " +
+            "reopen")
     public void updaterLedgerIdempotencyAndRetry() throws Exception {
-        final Class<?> v1 = loadVersion(compileVersion("v1", entityFqcn("ledger"), entitySource("ledger", "v1")), entityFqcn("ledger"));
+        final Class<?> v1 = loadVersion(compileVersion("v1", entityFqcn("ledger"), entitySource("ledger", "v1")),
+                entityFqcn("ledger"));
         final IXdFileStorage first = open("ledger");
         final IXdStorageTransaction tx = first.beginTransaction(60000L);
         first.save(newEntity(v1, "led-1", 5L), tx);
@@ -329,7 +346,8 @@ public class XdStorageSchemaEvolutionTest {
         assertTrue(executeUpdate(first, v1).isEmpty(), "the V1 structure baseline is inserted");
         first.shutdown();
 
-        final Class<?> v2 = loadVersion(compileVersion("v2", entityFqcn("ledger"), entitySource("ledger", "v2")), entityFqcn("ledger"));
+        final Class<?> v2 = loadVersion(compileVersion("v2", entityFqcn("ledger"), entitySource("ledger", "v2")),
+                entityFqcn("ledger"));
 
         // generation 1: TWO updaters — the ok one SUCCEEDS (its SUCCESS ledger record is
         // persisted), the scripted one FAILS on purpose (no record — the retry semantics)
@@ -376,7 +394,8 @@ public class XdStorageSchemaEvolutionTest {
 
             // the structure is now settled: nothing left to do on the next open
             final List<IXdStorageStructureUpdater> settled = executeUpdate(third, v2);
-            assertTrue(settled.isEmpty(), "after all updaters succeeded the structure update persists and the change clears");
+            assertTrue(settled.isEmpty(),
+                    "after all updaters succeeded the structure update persists and the change clears");
         } finally {
             third.shutdown();
         }
@@ -385,14 +404,16 @@ public class XdStorageSchemaEvolutionTest {
     @Test
     @DisplayName("after the migration the V2 data is readable and the added field is present")
     public void migratedDataReadableAsV2() throws Exception {
-        final Class<?> v1 = loadVersion(compileVersion("v1", entityFqcn("readv2"), entitySource("readv2", "v1")), entityFqcn("readv2"));
+        final Class<?> v1 = loadVersion(compileVersion("v1", entityFqcn("readv2"), entitySource("readv2", "v1")),
+                entityFqcn("readv2"));
         final IXdFileStorage first = open("readv2");
         final IXdStorageTransaction tx = first.beginTransaction(60000L);
         first.save(newEntity(v1, "m-1", 42L), tx);
         first.commitTransaction(tx);
         first.shutdown();
 
-        final Class<?> v2 = loadVersion(compileVersion("v2", entityFqcn("readv2"), entitySource("readv2", "v2")), entityFqcn("readv2"));
+        final Class<?> v2 = loadVersion(compileVersion("v2", entityFqcn("readv2"), entitySource("readv2", "v2")),
+                entityFqcn("readv2"));
         final IXdFileStorage second = open("readv2");
         try {
             executeUpdate(second, v2); // migrate
@@ -412,7 +433,8 @@ public class XdStorageSchemaEvolutionTest {
     @Test
     @DisplayName("a registered custom updater is NOT invoked while the structure stays unchanged")
     public void customUpdaterNotInvokedWithoutChange() throws Exception {
-        final Class<?> v1 = loadVersion(compileVersion("v1", entityFqcn("nochange"), entitySource("nochange", "v1")), entityFqcn("nochange"));
+        final Class<?> v1 = loadVersion(compileVersion("v1", entityFqcn("nochange"), entitySource("nochange", "v1")),
+                entityFqcn("nochange"));
         final IXdFileStorage storage = open("nochange");
         try {
             final ScriptedUpdater updater = new ScriptedUpdater("evo-never", v1, 0);
@@ -449,9 +471,11 @@ public class XdStorageSchemaEvolutionTest {
     }
 
     @Test
-    @DisplayName("BUG-A acceptance: the structure resource replays after a structure update + reopen — no strand, no NPE")
+    @DisplayName("BUG-A acceptance: the structure resource replays after a structure update + reopen — no strand, no " +
+            "NPE")
     public void structureResourceReplaysAfterStructureUpdateAndReopen() throws Exception {
-        final Class<?> v1 = loadVersion(compileVersion("v1", entityFqcn("buga"), entitySource("buga", "v1")), entityFqcn("buga"));
+        final Class<?> v1 = loadVersion(compileVersion("v1", entityFqcn("buga"), entitySource("buga", "v1")),
+                entityFqcn("buga"));
         final IXdFileStorage first = open("buga");
         final IXdStorageTransaction tx = first.beginTransaction(60000L);
         first.save(newEntity(v1, "ba-1", 7L), tx);

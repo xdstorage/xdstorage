@@ -75,7 +75,8 @@ public class XdStorageBTreeDeepSerializationTest {
             oos.writeObject(original.getId());
             oos.writeObject(keysCopy);
             oos.writeObject(objectsCopy);
-            oos.writeLong(original.getNextTreeNodeOnThisLevel() != null ? original.getNextTreeNodeOnThisLevel().getId() : -1L);
+            oos.writeLong(original.getNextTreeNodeOnThisLevel() != null ? original.getNextTreeNodeOnThisLevel().getId()
+                    : -1L);
             oos.flush();
 
             ByteArrayInputStream bis = new ByteArrayInputStream(bos.toByteArray());

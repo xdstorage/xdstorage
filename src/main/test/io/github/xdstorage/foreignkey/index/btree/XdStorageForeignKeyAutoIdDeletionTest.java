@@ -32,7 +32,8 @@ public class XdStorageForeignKeyAutoIdDeletionTest {
         }
         deleteDir(new File(STORAGE_PATH));
         try {
-            storage = XdStorageProvider.newOrGetFileStorage("fk_autoid_delete_test", STORAGE_PATH, 128, FilesFormat.YAML);
+            storage = XdStorageProvider.newOrGetFileStorage("fk_autoid_delete_test", STORAGE_PATH, 128, FilesFormat
+                    .YAML);
         } catch (Exception e) {
             deleteDir(new File(STORAGE_PATH));
             throw e;
@@ -74,7 +75,8 @@ public class XdStorageForeignKeyAutoIdDeletionTest {
     }
 
     @Test
-    @DisplayName("Инвариант: Попытка удалить родителя по сгенерированному ID при живом ребенке должна вызывать эксепшен")
+    @DisplayName("Инвариант: Попытка удалить родителя по сгенерированному ID при живом ребенке должна вызывать " +
+            "эксепшен")
     public void testFK_AutoId_DeleteParentAlone_ShouldThrowException() throws Exception {
         IXdStorageTransaction tx = storage.beginTransaction();
 

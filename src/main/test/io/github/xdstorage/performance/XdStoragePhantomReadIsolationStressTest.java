@@ -168,7 +168,9 @@ public class XdStoragePhantomReadIsolationStressTest {
                             // внутрь текущего Range Scan до закрытия транзакции!
                             if (stableCount != INITIAL_PLANETS) {
                                 exceptions.add(new AssertionError(
-                                        String.format("🚨 НАРУШЕН ИНВАРИАНТ MVCC ИЗОЛЯЦИИ! Поток-Читатель %d увидел фантомов или потерял данные! Ожидали стабильных %d, а получили %d. (Призраков в скане: %d)",
+                                        String.format("🚨 НАРУШЕН ИНВАРИАНТ MVCC ИЗОЛЯЦИИ! Поток-Читатель %d увидел " +
+                                                "фантомов или потерял данные! Ожидали стабильных %d, а получили %d. " +
+                                                "(Призраков в скане: %d)",
                                                 readerId, INITIAL_PLANETS, stableCount, phantomCount)
                                 ));
                             }
@@ -179,7 +181,8 @@ public class XdStoragePhantomReadIsolationStressTest {
                         } catch (Throwable t) {
                             txRead.rollback();
                             if (!isLockBackpressure(t)) {
-                                exceptions.add(new AssertionError("🚨 Сбой на фазе диапазонного чтения в потоке " + readerId, t));
+                                exceptions.add(new AssertionError("🚨 Сбой на фазе диапазонного чтения в потоке " +
+                                        readerId, t));
                             }
                             // таймаут лока — штатное противодавление: ретрай следующей итерацией
                         }

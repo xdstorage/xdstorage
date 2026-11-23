@@ -89,7 +89,8 @@ public abstract class XdStorageAbstractResourcesManager {
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
     public IXdStorageIndexDaoResource lockIndexResource(final XdStorageClassInfo clInfo,
-                                                        final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+                                                        final XdStorageTransaction transaction) throws
+                                                                XdStorageException, XdStorageConnectionException {
         IXdStorageIndexResourceObject resource = null;
         final XdStoragePolicy policy = clInfo.getPolicy();
         if (policy == XdStoragePolicy.StoreAsClassObjects || policy == XdStoragePolicy.StoreWithParentObject) {
@@ -123,7 +124,8 @@ public abstract class XdStorageAbstractResourcesManager {
      * @param clInfo     metadata of the entity class
      * @return a new index resource object (not yet prepared)
      */
-    protected abstract IXdStorageIndexResourceObject createIndexResource(final Object resourceId, final String indexName,
+    protected abstract IXdStorageIndexResourceObject createIndexResource(final Object resourceId, final String
+            indexName,
                                                                          final XdStorageClassInfo clInfo);
 
     /**
@@ -139,7 +141,8 @@ public abstract class XdStorageAbstractResourcesManager {
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
     public IXdStorageDaoResource lockResource(final Object resourceId, final XdStorageClassInfo clInfo,
-                                              final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+                                              final XdStorageTransaction transaction) throws XdStorageException,
+                                                      XdStorageConnectionException {
         final IXdStorageResourceObject<IXdStorageDaoResource> resource = internalLockResource(new IResourceFactory() {
             @Override
             public Object getResourceId() {
@@ -177,7 +180,8 @@ public abstract class XdStorageAbstractResourcesManager {
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
     public IXdStorageDaoResource lockResource(final XdStorageClassInfo clInfo, final Object id,
-                                              final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+                                              final XdStorageTransaction transaction) throws XdStorageException,
+                                                      XdStorageConnectionException {
         final XdStoragePolicy policy = clInfo.getPolicy();
         final Object resourceId = getNamingService().getResourceId(policy, clInfo.getClazz(), null, id);
         final IXdStorageResourceObject<IXdStorageDaoResource> resource = internalLockResource(new IResourceFactory() {
@@ -228,7 +232,8 @@ public abstract class XdStorageAbstractResourcesManager {
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
     public IXdStorageDaoResource lockReferencesResource(final XdStorageClassInfo clInfo,
-                                                        final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+                                                        final XdStorageTransaction transaction) throws
+                                                                XdStorageException, XdStorageConnectionException {
         IXdStorageResourceObject<IXdStorageDaoResource> resource = null;
         final XdStoragePolicy policy = clInfo.getPolicy();
         if (policy == XdStoragePolicy.StoreAsSingleObject) {
@@ -262,7 +267,8 @@ public abstract class XdStorageAbstractResourcesManager {
      * @return a new references resource object (not yet prepared)
      */
     protected abstract IXdStorageResourceObject<IXdStorageDaoResource> createReferencesResource(final Object resourceId,
-                                                                                                final XdStorageClassInfo clInfo);
+                                                                                                final XdStorageClassInfo
+                                                                clInfo);
 
     /**
      * Locks (creating on first use) the class-shared data resource of a
@@ -277,7 +283,8 @@ public abstract class XdStorageAbstractResourcesManager {
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
     public IXdStorageDaoResource lockClassResource(final Object object, final XdStorageClassInfo clInfo,
-                                                   final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+                                                   final XdStorageTransaction transaction) throws XdStorageException,
+                                                           XdStorageConnectionException {
         IXdStorageResourceObject<IXdStorageDaoResource> resource = null;
         final XdStoragePolicy policy = clInfo.getPolicy();
         if (policy == XdStoragePolicy.StoreAsClassObjects) {
@@ -321,7 +328,8 @@ public abstract class XdStorageAbstractResourcesManager {
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
     public <T> IXdStorageDaoResource lockObjectResource(final T object,
-                                                        final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+                                                        final XdStorageTransaction transaction) throws
+                                                                XdStorageException, XdStorageConnectionException {
         IXdStorageResourceObject<IXdStorageDaoResource> resource = null;
         final Class<?> cl = XdStorageObjectUtils.getEntityClass(object.getClass());
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
@@ -367,7 +375,8 @@ public abstract class XdStorageAbstractResourcesManager {
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
     public IXdStorageDaoResource lockObjectResource(final XdStorageClassInfo clInfo, final Object id,
-                                                    final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+                                                    final XdStorageTransaction transaction) throws XdStorageException,
+                                                            XdStorageConnectionException {
         IXdStorageResourceObject<IXdStorageDaoResource> resource = null;
         final XdStoragePolicy policy = clInfo.getPolicy();
         if (policy == XdStoragePolicy.StoreAsSingleObject) {
@@ -408,8 +417,10 @@ public abstract class XdStorageAbstractResourcesManager {
      * @throws XdStorageException          on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
-    public IXdStorageSearchIndexDaoResource lockSearchIndexResource(final XdStorageClassInfo clInfo, final String indexName,
-                                                                    final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public IXdStorageSearchIndexDaoResource lockSearchIndexResource(final XdStorageClassInfo clInfo, final String
+            indexName,
+                                                                    final XdStorageTransaction transaction) throws
+                                                                XdStorageException, XdStorageConnectionException {
         final XdStoragePolicy policy = clInfo.getPolicy();
         final Object resourceId = getNamingService().getIndexResourceId(indexName, policy, clInfo.getClazz());
         final IXdStorageSearchIndexResourceObject resource = internalLockResource(new IResourceFactory() {
@@ -440,7 +451,8 @@ public abstract class XdStorageAbstractResourcesManager {
      * @param clInfo     metadata of the entity class
      * @return a new search index resource object (not yet prepared)
      */
-    protected abstract IXdStorageSearchIndexResourceObject createSearchIndexResource(final Object resourceId, String indexName, XdStorageClassInfo clInfo);
+    protected abstract IXdStorageSearchIndexResourceObject createSearchIndexResource(final Object resourceId, String
+            indexName, XdStorageClassInfo clInfo);
 
     /**
      * Locks (creating on first use) the entity class's structure resource — the class
@@ -453,7 +465,8 @@ public abstract class XdStorageAbstractResourcesManager {
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
     public IXdStorageDaoResource lockStructureResource(final XdStorageClassInfo clInfo,
-                                                       final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+                                                       final XdStorageTransaction transaction) throws
+                                                               XdStorageException, XdStorageConnectionException {
         final Object resourceId = getNamingService().getStructureResourceId(clInfo.getClazz());
         final IXdStorageResourceObject<IXdStorageDaoResource> resource = internalLockResource(new IResourceFactory() {
             @Override
@@ -519,7 +532,9 @@ public abstract class XdStorageAbstractResourcesManager {
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
     protected final <T extends IXdStorageResourceObject> T internalLockResource(final IResourceFactory factory,
-                                                                                final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+                                                                                final XdStorageTransaction transaction)
+                                                                throws XdStorageException, XdStorageConnectionException
+                                                                {
         final Object resourceId = factory.getResourceId();
 
         // Гарантируем атомарное создание счетчика локов без synchronized барьеров

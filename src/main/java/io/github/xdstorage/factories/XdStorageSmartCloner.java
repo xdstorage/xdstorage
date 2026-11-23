@@ -58,7 +58,8 @@ public class XdStorageSmartCloner implements IXdStorageCloner {
      * @throws XdStorageException when the object cannot be cloned or wrapped
      */
     @Override
-    public Object cloneAndWrap(final Object toClone, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException {
+    public Object cloneAndWrap(final Object toClone, final IXdStorage storage, final IXdStorageTransaction transaction)
+            throws XdStorageException {
         if (toClone == null) {
             return null;
         }
@@ -69,7 +70,8 @@ public class XdStorageSmartCloner implements IXdStorageCloner {
         }
     }
 
-    private Object cloneAndWrapForOneLevel(final Object toClone, final IXdStorage storage, final IXdStorageTransaction transaction) throws Exception {
+    private Object cloneAndWrapForOneLevel(final Object toClone, final IXdStorage storage, final IXdStorageTransaction
+            transaction) throws Exception {
         final Class<?> cl = toClone.getClass();
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
         if (clInfo.getPolicy() == XdStoragePolicy.StoreWithParentObject) {
@@ -137,7 +139,8 @@ public class XdStorageSmartCloner implements IXdStorageCloner {
         if (cl == io.github.xdstorage.btree.XdStorageBTree.class ||
                 cl == io.github.xdstorage.btree.XdStorageBTreeNode.class ||
                 cl.getName().contains("io.github.xdstorage.btree")) {
-            log.debug("clone: btree-infrastructure instance of {} passed through live (identity preserved)", cl.getName());
+            log.debug("clone: btree-infrastructure instance of {} passed through live (identity preserved)", cl
+                    .getName());
             return toClone; // Возвращаем живой инстанс без рекурсивного переклонирования
         }
 
@@ -179,7 +182,8 @@ public class XdStorageSmartCloner implements IXdStorageCloner {
      * @throws XdStorageException when either argument is {@code null} or the packing fails
      */
     @Override
-    public void fillAndWrap(final Object reference, final Object object, final IXdStorage storage, final XdStorageTransaction transaction) throws XdStorageException {
+    public void fillAndWrap(final Object reference, final Object object, final IXdStorage storage, final
+            XdStorageTransaction transaction) throws XdStorageException {
         if (reference == null) throw new XdStorageException("reference cannot be null");
         if (object == null) throw new XdStorageException("clonable object cannot be null");
 
@@ -211,7 +215,8 @@ public class XdStorageSmartCloner implements IXdStorageCloner {
         }
     }
 
-    private void fillAndWrapForOneLevel(final Object reference, final Object object, final IXdStorage storage, final IXdStorageTransaction transaction) throws Exception {
+    private void fillAndWrapForOneLevel(final Object reference, final Object object, final IXdStorage storage, final
+            IXdStorageTransaction transaction) throws Exception {
         // ФАЗА C: КАНОНИЧЕСКИЙ ИНСТАНС ДЛЯ B+ ДЕРЕВА. SimpleWrapper-ссылка становится
         // пасс-тру к живому каноническому инстансу (inner подменяется через поле 'object'),
         // а не наполняется копией. Для plain-ссылок того же класса копируем все поля
@@ -262,7 +267,8 @@ public class XdStorageSmartCloner implements IXdStorageCloner {
      * @return the wrapper representing the value inside the transaction snapshot
      * @throws Exception if the reference cannot be created or the value cannot be copied
      */
-    Object internalCloneAsReferenceAndWrapObject(final Object object, final IXdStorage storage, final IXdStorageTransaction transaction) throws Exception {
+    Object internalCloneAsReferenceAndWrapObject(final Object object, final IXdStorage storage, final
+            IXdStorageTransaction transaction) throws Exception {
         final Class<?> cl = XdStorageObjectUtils.getEntityClass(object.getClass());
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
         final XdStoragePolicy policy = clInfo.getPolicy();

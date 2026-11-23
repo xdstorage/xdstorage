@@ -133,7 +133,8 @@ public class XdStorageBackupRestoreWalkthroughTest {
                 // String-keyed search index: EQUALS answers from the copy
                 final XdStorageSearchQuery byName = new XdStorageSearchQuery(
                         new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS, "Ship-5"), null);
-                final java.util.Collection<XdStorageW2SearchShip> named = copy.load(XdStorageW2SearchShip.class, "w2_ship_idx", byName, readTx);
+                final java.util.Collection<XdStorageW2SearchShip> named = copy.load(XdStorageW2SearchShip.class,
+                        "w2_ship_idx", byName, readTx);
                 assertEquals(1, named.size(), "EQUALS on the String-keyed index answers from the copy");
                 assertEquals(5L, named.iterator().next().getId(), "the answered object is Ship-5 itself");
 
@@ -141,7 +142,8 @@ public class XdStorageBackupRestoreWalkthroughTest {
                 final XdStorageSearchQuery scoreWindow = new XdStorageSearchQuery(
                         new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN,
                                 new XdStorageRange(200L, 400L)), null);
-                final java.util.Collection<RangeOpsEntity> ranged = copy.load(RangeOpsEntity.class, "range_idx", scoreWindow, readTx);
+                final java.util.Collection<RangeOpsEntity> ranged = copy.load(RangeOpsEntity.class, "range_idx",
+                        scoreWindow, readTx);
                 assertEquals(3, ranged.size(), "the range on the numeric index answers from the copy");
                 assertEquals(3L, copy.count(RangeOpsEntity.class, "range_idx", scoreWindow, readTx),
                         "count on the numeric index agrees with load");

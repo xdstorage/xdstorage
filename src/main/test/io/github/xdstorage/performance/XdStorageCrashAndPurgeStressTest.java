@@ -69,7 +69,8 @@ public class XdStorageCrashAndPurgeStressTest {
         for (int i = 0; i < parallelThreads; i++) {
             workerPool.submit(() -> {
                 while (!stopFlag.get() && !Thread.currentThread().isInterrupted()) {
-                    int operation = rand.nextInt(5); // Разделение: 0,1 - запись, 2 - чтение, 3 - обновление, 4 - удаление
+                    // Разделение: 0,1 - запись, 2 - чтение, 3 - обновление, 4 - удаление
+                    int operation = rand.nextInt(5);
                     String targetUniverseId = stableUniverseIds.get(rand.nextInt(stableUniverseIds.size()));
 
                     try {
@@ -207,7 +208,8 @@ public class XdStorageCrashAndPurgeStressTest {
                                     storage.delete(planetRef, tx);
                                 }
                             } catch (Exception e) {
-                                skippedSubtrees.incrementAndGet(); // the planets are gone or unreadable — the system delete follows
+                                // the planets are gone or unreadable — the system delete follows
+                                skippedSubtrees.incrementAndGet();
                             }
                             storage.delete(systemRef, tx);
                         }
@@ -295,7 +297,8 @@ public class XdStorageCrashAndPurgeStressTest {
             }
         }
 
-        System.out.println("🧹 Пурдж завершен. Пропущено (crash residue) поддеревьев/записей: " + skippedSubtrees.get());
+        System.out.println("🧹 Пурдж завершен. Пропущено (crash residue) поддеревьев/записей: " + skippedSubtrees
+                .get());
 
         // ПРOВEРКA ПО КЛAССAМ: В базе не должно остаться ни одной записи ни по одному доменному типу!
         // (CRASHPURGE: the assertions ALWAYS execute — the answer to the leak question is mandatory.)
@@ -303,7 +306,8 @@ public class XdStorageCrashAndPurgeStressTest {
         try {
             assertTrue(storage.load(XdUniverse.class, verifyTx).isEmpty(), "Утечка! Найдены остаточные XdUniverse!");
             assertTrue(storage.load(XdGalaxy.class, verifyTx).isEmpty(), "Утечка! Найдены остаточные XdGalaxy!");
-            assertTrue(storage.load(XdStarSystem.class, verifyTx).isEmpty(), "Утечка! Найдены остаточные XdStarSystem!");
+            assertTrue(storage.load(XdStarSystem.class, verifyTx).isEmpty(),
+                    "Утечка! Найдены остаточные XdStarSystem!");
             assertTrue(storage.load(XdPlanet.class, verifyTx).isEmpty(), "Утечка! Найдены остаточные XdPlanet!");
             verifyTx.commit();
         } catch (Exception e) {
@@ -421,7 +425,8 @@ public class XdStorageCrashAndPurgeStressTest {
                 }
             }
         }
-        System.out.println("🧨 CRASHPURGE: dropped " + dropped + " FK index tree(s) — the recovery purge continues without FK enforcement");
+        System.out.println("🧨 CRASHPURGE: dropped " + dropped +
+                " FK index tree(s) — the recovery purge continues without FK enforcement");
         storage = XdStorageProvider.newOrGetFileStorage("crash_test", STORAGE_PATH, 200, FilesFormat.YAML);
     }
 

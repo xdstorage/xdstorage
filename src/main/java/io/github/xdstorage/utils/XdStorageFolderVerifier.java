@@ -88,7 +88,8 @@ public final class XdStorageFolderVerifier {
         try {
             metaRead = XdStorageFormatMeta.read(folder);
         } catch (final RuntimeException e) {
-            findings.add("UNREADABLE MARKER: " + XdStorageFormatMeta.META_FILE_NAME + " cannot be read (" + e.getMessage() + ")");
+            findings.add("UNREADABLE MARKER: " + XdStorageFormatMeta.META_FILE_NAME + " cannot be read (" + e
+                    .getMessage() + ")");
             corrupt = true;
         }
         final Properties meta = metaRead;
@@ -130,7 +131,8 @@ public final class XdStorageFolderVerifier {
         try (final Stream<Path> walk = Files.walk(folder.toPath())) {
             for (final Path path : walk.filter(Files::isRegularFile).collect(Collectors.toList())) {
                 final String name = path.getFileName().toString();
-                if (name.equals(XdStorageFormatMeta.META_FILE_NAME) || name.equals(XdStorageFolderLock.LOCK_FILE_NAME)) {
+                if (name.equals(XdStorageFormatMeta.META_FILE_NAME) || name.equals(XdStorageFolderLock.LOCK_FILE_NAME))
+                        {
                     continue;
                 }
                 if (name.endsWith(".tmp")) {
@@ -212,7 +214,8 @@ public final class XdStorageFolderVerifier {
                 final File baseDir = journalParent == null || journalParent.getFileName() == null
                         ? folder
                         : XdStorageYamlCommitJournal.JOURNAL_DIR.equals(journalParent.getFileName().toString())
-                        && journalParent.getParent() != null ? journalParent.getParent().toFile() : journalParent.toFile();
+                        && journalParent.getParent() != null ? journalParent.getParent().toFile() : journalParent
+                                .toFile();
                 final File base = new File(baseDir, baseName);
                 if (!base.isFile()) {
                     findings.add("ORPHANED JOURNAL: " + relative + " has no base file ("
@@ -222,7 +225,8 @@ public final class XdStorageFolderVerifier {
             }
         }
 
-        if (!sawContentFile && !new File(folder, DATA_DIR).isDirectory() && !new File(folder, STRUCTURE_DIR).isDirectory()) {
+        if (!sawContentFile && !new File(folder, DATA_DIR).isDirectory() && !new File(folder, STRUCTURE_DIR)
+                .isDirectory()) {
             findings.add("EMPTY FOLDER: no storage content (a fresh folder, or the wrong path?)");
             warnings = true;
         }
@@ -246,7 +250,8 @@ public final class XdStorageFolderVerifier {
                 final String classDirPath = DATA_DIR + "/" + dirName;
                 final String classJournalDirPath = classDirPath + "/" + XdStorageYamlCommitJournal.JOURNAL_DIR;
                 for (final FileReport row : files) {
-                    final String parent = row.path.contains("/") ? row.path.substring(0, row.path.lastIndexOf('/')) : "";
+                    final String parent = row.path.contains("/") ? row.path.substring(0, row.path.lastIndexOf('/')) :
+                            "";
                     if (!parent.equals(classDirPath) && !parent.equals(classJournalDirPath)) {
                         continue;
                     }
@@ -273,7 +278,9 @@ public final class XdStorageFolderVerifier {
 
         // ---- StoreAsClassObjects: data dir vs id-index (indexes/<Class>/) count check ----
         final File indexDir = new File(folder, INDEX_DIR);
-        System.err.println("[VERIFY-IDX] folder=" + folder + " INDEX_DIR=" + INDEX_DIR + " indexDir=" + indexDir + " exists=" + indexDir.isDirectory() + " dataDir=" + dataDir + " dataDirExists=" + dataDir.isDirectory() + " dataDirFiles=" + java.util.Arrays.toString(dataDir.listFiles()));
+        System.err.println("[VERIFY-IDX] folder=" + folder + " INDEX_DIR=" + INDEX_DIR + " indexDir=" + indexDir +
+                " exists=" + indexDir.isDirectory() + " dataDir=" + dataDir + " dataDirExists=" + dataDir.isDirectory()
+                + " dataDirFiles=" + java.util.Arrays.toString(dataDir.listFiles()));
         if (indexDir.isDirectory()) {
             final File[] indexClassDirs = indexDir.listFiles();
             if (indexClassDirs != null) {
@@ -282,7 +289,8 @@ public final class XdStorageFolderVerifier {
                         continue;
                     }
                     final String idxDirName = indexClassDir.getName();
-                    System.err.println("[VERIFY-IDX] class=" + idxDirName + " indexesDir=" + indexClassDir + " dataDir=" + new File(dataDir, idxDirName));
+                    System.err.println("[VERIFY-IDX] class=" + idxDirName + " indexesDir=" + indexClassDir + " dataDir="
+                            + new File(dataDir, idxDirName));
                     // match against a data dir by the same name
                     final File dataClassDir = new File(dataDir, idxDirName);
                     if (!dataClassDir.isDirectory()) {
@@ -299,7 +307,8 @@ public final class XdStorageFolderVerifier {
                             final Parsed p = parseStructurally(idxFile.toPath(), false);
                             if (p.state == State.OK) {
                                 idxEntries += p.entries;
-                                System.err.println("[VERIFY-IDX]   idxFile=" + idxFile.getName() + " entries=" + p.entries);
+                                System.err.println("[VERIFY-IDX]   idxFile=" + idxFile.getName() + " entries=" + p
+                                        .entries);
                             }
                         }
                     }
@@ -314,7 +323,8 @@ public final class XdStorageFolderVerifier {
                             final Parsed p = parseStructurally(dbFile.toPath(), false);
                             if (p.state == State.OK) {
                                 dbEntries += p.entries;
-                                System.err.println("[VERIFY-IDX]   dbFile=" + dbFile.getName() + " entries=" + p.entries);
+                                System.err.println("[VERIFY-IDX]   dbFile=" + dbFile.getName() + " entries=" + p
+                                        .entries);
                             }
                         }
                     }
@@ -344,7 +354,9 @@ public final class XdStorageFolderVerifier {
         }
         long entries = 0;
         boolean sentinelSeen = false;
-        try (final BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(new java.io.FileInputStream(file.toFile()), java.nio.charset.StandardCharsets.UTF_8), 1 << 16)) { // task 51: pinned cross-OS
+        // task 51: pinned cross-OS
+        try (final BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(new java.io
+                .FileInputStream(file.toFile()), java.nio.charset.StandardCharsets.UTF_8), 1 << 16)) {
             final XdStorageYamlTokenizer tokenizer = new XdStorageYamlTokenizer(reader);
             YamlLineToken token;
             while ((token = tokenizer.nextToken()) != null) {
@@ -361,7 +373,8 @@ public final class XdStorageFolderVerifier {
                 }
             }
         } catch (final Throwable e) {
-            return new Parsed(State.PARSE_FAILED, entries, bytes, e.getMessage() == null ? e.toString() : e.getMessage());
+            return new Parsed(State.PARSE_FAILED, entries, bytes, e.getMessage() == null ? e.toString() : e
+                    .getMessage());
         }
         if (!sentinelSeen) {
             return new Parsed(State.MISSING_SENTINEL, entries, bytes, null);

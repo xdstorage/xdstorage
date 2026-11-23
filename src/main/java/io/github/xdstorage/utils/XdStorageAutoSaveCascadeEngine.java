@@ -16,7 +16,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * AUTOSAVE (docs/tasks/2.1.0/22) cascade engine — the walk that upserts
- * {@link io.github.xdstorage.annotations.XdStorageAutoSave @XdStorageAutoSave} annotated children after their parent's own
+  * {@link io.github.xdstorage.annotations.XdStorageAutoSave @XdStorageAutoSave} annotated children after their parent's
+  * own
  * persistence. Called at the tail of the facade save/update; child saves re-enter the
  * facade's public save/update (the guards are idempotent), so triggers, observers, id
  * generation, rollback and MVCC behave exactly as for explicit saves.
@@ -158,7 +159,8 @@ public final class XdStorageAutoSaveCascadeEngine {
         }
     }
 
-    /** V1 upsert: id null → insert (generated id backfills the same instance); id set → update if the index knows it, insert otherwise. */
+    /** V1 upsert: id null → insert (generated id backfills the same instance); id set → update if the index knows
+     * it, insert otherwise. */
     private static void upsert(final Object child, final XdStorageClassInfo childInfo,
                                final IXdStorageTransaction tx, final XdStorageServicesLocator services,
                                final IXdFileStorage facade)

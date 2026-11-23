@@ -101,7 +101,8 @@ public class XdStorageTestGroupingContractTest {
         final Path root = Paths.get("src", "main", "test");
         assertTrue(Files.isDirectory(root),
                 "test source root not found at " + root.toAbsolutePath()
-                        + " — the contract test must run with the repository root (or module dir) as the working directory");
+                        + " — the contract test must run with the repository root (or module dir) as the working " +
+                                "directory");
         return root;
     }
 }

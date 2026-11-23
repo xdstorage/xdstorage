@@ -225,7 +225,8 @@ public final class XdStorageClassMetadataRegistry {
         } else if (Map.class.isAssignableFrom(fieldClass)) {
             isMap = true;
             Object p = ((ParameterizedType) getter.getGenericReturnType()).getActualTypeArguments()[0];
-            mapKeyClass = p instanceof ParameterizedType ? ((Class<?>)((ParameterizedType)p).getRawType()) : (Class<?>)p;
+            mapKeyClass = p instanceof ParameterizedType ? ((Class<?>)((ParameterizedType)p).getRawType()) : (Class<?
+                    >)p;
             p = ((ParameterizedType) getter.getGenericReturnType()).getActualTypeArguments()[1];
             valueClass = p instanceof ParameterizedType ? ((Class<?>)((ParameterizedType)p).getRawType()) : (Class<?>)p;
         } else {

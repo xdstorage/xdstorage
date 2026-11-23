@@ -42,11 +42,13 @@ public class XdStorageCacheCommitProtocol {
 
     private final XdStorageCacheContext cache;
 
-    private static final IXdStorageCacheInternalListener DO_NOTHING_LISTENER = (type, change, oldObject, newObject, transaction) -> {};
+    private static final IXdStorageCacheInternalListener DO_NOTHING_LISTENER = (type, change, oldObject, newObject,
+            transaction) -> {};
 
     private IXdStorageCacheInternalListener listener;
 
-    /** FNKEY POINT 6: the FK engine persisting the staged pair write-set at COMMIT (nullable — mock storages run FK-less). */
+    /** FNKEY POINT 6: the FK engine persisting the staged pair write-set at COMMIT (nullable — mock storages run
+     * FK-less). */
     private volatile io.github.xdstorage.foreignkey.IXdStorageForeignKeyEngine foreignKeyEngine;
 
     /**
@@ -90,7 +92,8 @@ public class XdStorageCacheCommitProtocol {
      * @param transaction the committing transaction whose write-set is snapshotted
      * @param collector   the per-resource change buffer that receives the prepared change objects
      */
-    public void prepareCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges collector) {
+    public void prepareCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges
+            collector) {
         runCommitPhase(transaction, collector, true);
     }
 
@@ -102,7 +105,8 @@ public class XdStorageCacheCommitProtocol {
      * @param transaction the committing transaction whose write-set is contributed
      * @param collector   the per-resource change buffer receiving the final change objects
      */
-    public void performCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges collector) {
+    public void performCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges
+            collector) {
         runCommitPhase(transaction, collector, false);
     }
 
@@ -120,7 +124,8 @@ public class XdStorageCacheCommitProtocol {
      * @param prepare     {@code true} for phase 1 (marks records prepare-committed),
      *                    {@code false} for phase 2 (marks them perform-committed)
      */
-    private void runCommitPhase(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges collector,
+    private void runCommitPhase(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges
+            collector,
                                 final boolean prepare) {
         final String transactionId = transaction.getTransactionId();
 
@@ -161,7 +166,8 @@ public class XdStorageCacheCommitProtocol {
 
                     if (log.isDebugEnabled()) {
                         log.debug((prepare ? "PREPARE COMMIT " : "PERFORM COMMIT ") + type + " by transaction "
-                                + transaction.getTransactionId() + "\r\n OLD OBJECT: " + oldObject + "\r\n NEW OBJECT: " + newObject);
+                                + transaction.getTransactionId() + "\r\n OLD OBJECT: " + oldObject + "\r\n NEW OBJECT: "
+                                        + newObject);
                     }
 
                     collector.addChangeObject(type, record.getId(),
@@ -177,7 +183,8 @@ public class XdStorageCacheCommitProtocol {
                     // are skipped (the R-42 structure-owned semantics); the inserts skip (no
                     // read moment — the duplicate-id guard owns that path).
                     if (prepare && !cache.isInfrastructureCache()
-                            && (type == XdStorageObjectOperationType.Update || type == XdStorageObjectOperationType.Delete)) {
+                            && (type == XdStorageObjectOperationType.Update || type == XdStorageObjectOperationType
+                                    .Delete)) {
                         // LOSTUPD-2: the revalidation hook (the single source — the tests pin
                         // the same logic); throws on the stale staged write (the foreign
                         // commit after this tx's read)
@@ -191,10 +198,12 @@ public class XdStorageCacheCommitProtocol {
                     }
                     if (prepare) {
                         record.prepareCommit(transaction);
-                        listener.notify(XdStorageCacheCommitPhase.PREPARE_COMMIT, type, oldObject, newObject, transaction);
+                        listener.notify(XdStorageCacheCommitPhase.PREPARE_COMMIT, type, oldObject, newObject,
+                                transaction);
                     } else {
                         record.performCommit(transaction);
-                        listener.notify(XdStorageCacheCommitPhase.PERFORM_COMMIT, type, oldObject, newObject, transaction);
+                        listener.notify(XdStorageCacheCommitPhase.PERFORM_COMMIT, type, oldObject, newObject,
+                                transaction);
                     }
                 }
             }
@@ -229,13 +238,15 @@ public class XdStorageCacheCommitProtocol {
                 final XdStorageCacheRecord record = it.next().getValue();
 
                 if (log.isDebugEnabled()) {
-                    log.debug("COMMIT by transaction " + transaction.getTransactionId() + "\r\n OLD OBJECT: " + record.getObject() + "\r\n NEW OBJECT: " + record.getNewObject());
+                    log.debug("COMMIT by transaction " + transaction.getTransactionId() + "\r\n OLD OBJECT: " + record
+                            .getObject() + "\r\n NEW OBJECT: " + record.getNewObject());
                 }
 
                 boolean committedNow = true;
                 synchronized (record) {
                     try {
-                        XdStorageObjectOperationType type = record.isInsertChange() ? Insert : record.isUpdateChange() ? Update : Delete;
+                        XdStorageObjectOperationType type = record.isInsertChange() ? Insert : record.isUpdateChange() ?
+                                Update : Delete;
                         Object oldObject = record.getObject();
                         Object newObject = record.getNewObject();
 
@@ -306,7 +317,8 @@ public class XdStorageCacheCommitProtocol {
                 final XdStorageCacheRecord record = it.next();
 
                 if (log.isDebugEnabled()) {
-                    log.debug("ROLLBACK by transaction " + transaction.getTransactionId() + "\r\n OLD OBJECT: " + record.getObject() + "\r\n NEW OBJECT: " + record.getNewObject());
+                    log.debug("ROLLBACK by transaction " + transaction.getTransactionId() + "\r\n OLD OBJECT: " + record
+                            .getObject() + "\r\n NEW OBJECT: " + record.getNewObject());
                 }
 
                 // Фиксируем признак вставки строго по транзакционному контракту СУБД
@@ -328,7 +340,8 @@ public class XdStorageCacheCommitProtocol {
                 } catch (final RuntimeException e) {
                     // Откат не завершился: оставшиеся записи журнала содержат незакрытые мутации.
                     // Без этого ERROR половина отката была бы НЕЗаметной.
-                    log.error("ROLLBACK FAILED mid-journal for transaction {} on record {} — {} undo entries left unprocessed",
+                    log.error("ROLLBACK FAILED mid-journal for transaction {} on record {} — {} undo entries left " +
+                            "unprocessed",
                             transactionId, recordId, countRemaining(it), e);
                     throw e;
                 } finally {
@@ -389,7 +402,8 @@ public class XdStorageCacheCommitProtocol {
      * @param committed   the change objects the collector reported as applied before the failure
      * @throws XdStorageException if a record's lock cannot be released
      */
-    public void rollbackFailedCommit(final XdStorageTransaction transaction, final Collection<XdStorageObjectChange> committed) throws XdStorageException {
+    public void rollbackFailedCommit(final XdStorageTransaction transaction, final Collection<XdStorageObjectChange>
+            committed) throws XdStorageException {
         final String transactionId = transaction.getTransactionId();
         cache.workspace().removeUndoLog(transactionId);
         final Map<Object, XdStorageCacheRecord> map = cache.workspace().removeChanges(transactionId);
@@ -410,7 +424,8 @@ public class XdStorageCacheCommitProtocol {
                 }
                 if (record != null) {
                     if (log.isDebugEnabled()) {
-                        log.debug("ROLLBACK FAILED COMMIT by transaction " + transaction.getTransactionId() + "\r\n OLD OBJECT: " + record.getObject() + "\r\n NEW OBJECT: " + record.getNewObject());
+                        log.debug("ROLLBACK FAILED COMMIT by transaction " + transaction.getTransactionId() +
+                                "\r\n OLD OBJECT: " + record.getObject() + "\r\n NEW OBJECT: " + record.getNewObject());
                     }
 
                     synchronized (record) {
@@ -422,7 +437,8 @@ public class XdStorageCacheCommitProtocol {
         }
 
         if (map != null) {
-            log.debug("rollback-failed-commit of tx {}: {} record(s) restored from the collector's committed changes", transactionId, map.size());
+            log.debug("rollback-failed-commit of tx {}: {} record(s) restored from the collector's committed changes",
+                    transactionId, map.size());
         }
 
         cache.workspace().finishTransaction(transactionId);

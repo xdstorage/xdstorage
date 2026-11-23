@@ -308,8 +308,10 @@ public class ForeignKeyDifferentCollectionsHashTest extends AbstractForeignKeyBa
         HashIndexParentManualId parent = new HashIndexParentManualId();
         parent.setChildren(new HashSet<>());
         parent.setId(10001L);
-        HashIndexChildManualId child1 = new HashIndexChildManualId(); child1.setId(20001L); child1.setParent(parent); parent.addChild(child1);
-        HashIndexChildManualId child2 = new HashIndexChildManualId(); child2.setId(20002L); child2.setParent(parent); parent.addChild(child2);
+        HashIndexChildManualId child1 = new HashIndexChildManualId(); child1.setId(20001L); child1.setParent(parent);
+                parent.addChild(child1);
+        HashIndexChildManualId child2 = new HashIndexChildManualId(); child2.setId(20002L); child2.setParent(parent);
+                parent.addChild(child2);
         storage.save(parent);
         assertDoesNotThrow(() -> storage.commitTransaction(tx));
     }
@@ -321,8 +323,10 @@ public class ForeignKeyDifferentCollectionsHashTest extends AbstractForeignKeyBa
         HashIndexParentManualId parent = new HashIndexParentManualId();
         parent.setChildren(new HashSet<>());
         parent.setId(30001L);
-        HashIndexChildManualId child1 = new HashIndexChildManualId(); child1.setId(40001L); child1.setParent(parent); parent.addChild(child1);
-        HashIndexChildManualId child2 = new HashIndexChildManualId(); child2.setId(40002L); child2.setParent(parent); parent.addChild(child2);
+        HashIndexChildManualId child1 = new HashIndexChildManualId(); child1.setId(40001L); child1.setParent(parent);
+                parent.addChild(child1);
+        HashIndexChildManualId child2 = new HashIndexChildManualId(); child2.setId(40002L); child2.setParent(parent);
+                parent.addChild(child2);
         storage.save(child1);
         storage.save(child2);
         assertThrows(XdStorageRuntimeException.class, () -> storage.commitTransaction(tx));

@@ -18,7 +18,8 @@ public class XdStorageCriterionTest {
     @Test
     @DisplayName("Хранит имя поля, оператор и значение")
     public void testExposesFields() {
-        final XdStorageCriterion criterion = new XdStorageCriterion("name", IXdStorageCriterionOperator.EQUALS, "alpha");
+        final XdStorageCriterion criterion = new XdStorageCriterion("name", IXdStorageCriterionOperator.EQUALS,
+                "alpha");
 
         assertEquals("name", criterion.fieldName);
         assertSame(IXdStorageCriterionOperator.EQUALS, criterion.operator);

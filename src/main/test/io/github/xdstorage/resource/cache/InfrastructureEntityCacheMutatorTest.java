@@ -23,7 +23,8 @@ public class InfrastructureEntityCacheMutatorTest extends AbstractCacheMutatorIn
         cacheContext.switchToInfrastructureMode(XdStorageBTreeNode.class);
 
         // Поднимаем настоящие инстансы структурного дерева и ноды
-        XdStorageBTreeId treeId = new XdStorageBTreeId(AbstractCacheMutatorIntegrationTest.TestDomainEntity.class, "idx_btree_nodes");
+        XdStorageBTreeId treeId = new XdStorageBTreeId(AbstractCacheMutatorIntegrationTest.TestDomainEntity.class,
+                "idx_btree_nodes");
         XdStorageBTree btree = new XdStorageBTree(treeId, false, 3);
         btreeNode = new XdStorageBTreeNode(btree, null);
         btreeNode.setId(nodeId);

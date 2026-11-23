@@ -67,7 +67,8 @@ public final class XdStorageAtomicFile {
      * @throws IOException when the write or the replace fails, wrapping any non-IOException
      *         thrown by the callback
      */
-    public static void writeReplacing(final String fileName, final boolean durable, final ContentWriter content) throws IOException {
+    public static void writeReplacing(final String fileName, final boolean durable, final ContentWriter content) throws
+            IOException {
         final File target = new File(fileName);
         final File tmp = new File(fileName + ".tmp");
         if (tmp.exists()) {
@@ -89,7 +90,9 @@ public final class XdStorageAtomicFile {
                 // Phase D: буферизация обязательна — сырой FileWriter делает syscall на каждый
                 // append сериализации; на full-file write-out это доминирующая стоимость коммита
                 fos = new FileOutputStream(tmp);
-                writer = new BufferedWriter(new OutputStreamWriter(fos, java.nio.charset.StandardCharsets.UTF_8), 1 << 16); // task 51: pinned cross-OS
+                // task 51: pinned cross-OS
+                writer = new BufferedWriter(new OutputStreamWriter(fos, java.nio.charset.StandardCharsets.UTF_8), 1 <<
+                        16);
                 content.write(writer);
                 writer.flush();
                 if (durable) {

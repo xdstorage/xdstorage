@@ -71,7 +71,8 @@ public final class XdStorageObjectUtils {
      */
     public static boolean isWrappableObject(final Object object) {
         try {
-            final Class<?> w = XdStorageProxyCompilationEngine.getClassUnmodifiableWrapper(getEntityClass(object.getClass()));
+            final Class<?> w = XdStorageProxyCompilationEngine.getClassUnmodifiableWrapper(getEntityClass(object
+                    .getClass()));
             return !((Boolean) XdStorageProxyCompilationEngine.getCheckingWrappableMethod(w).invoke(w));
         } catch (Exception e) { return true; }
     }
@@ -88,7 +89,8 @@ public final class XdStorageObjectUtils {
         if (object == null) return null;
         if (object instanceof IXdStorageIdObservableWrapper) return (IXdStorageIdObservableWrapper) object;
         try {
-            return (IXdStorageIdObservableWrapper) XdStorageProxyCompilationEngine.getClassObservableWrapper(object.getClass())
+            return (IXdStorageIdObservableWrapper) XdStorageProxyCompilationEngine.getClassObservableWrapper(object
+                    .getClass())
                     .getConstructor(object.getClass()).newInstance(object);
         } catch (Exception e) { return null; }
     }
@@ -121,13 +123,15 @@ public final class XdStorageObjectUtils {
      *         when the object is {@code null} or not simply wrappable
      * @throws Exception when the wrapper class cannot be generated, looked up or instantiated
      */
-    public static <TObject> IXdStorageSimpleWrapper wrapAsSimpleObject(final TObject object, final IXdStorage storage, final IXdStorageTransaction transaction) throws Exception {
+    public static <TObject> IXdStorageSimpleWrapper wrapAsSimpleObject(final TObject object, final IXdStorage storage,
+            final IXdStorageTransaction transaction) throws Exception {
         if (object == null) return null;
         if (object instanceof IXdStorageSimpleWrapper) return (IXdStorageSimpleWrapper) object;
 
         final Class<?> w = XdStorageProxyCompilationEngine.getClassSimpleWrapper(object.getClass());
         if ((Boolean) XdStorageProxyCompilationEngine.getCheckingSimpleWrappableMethod(w).invoke(w)) return null;
-        return (IXdStorageSimpleWrapper) w.getConstructor(Object.class, object.getClass(), IXdStorage.class).newInstance(null, object, storage);
+        return (IXdStorageSimpleWrapper) w.getConstructor(Object.class, object.getClass(), IXdStorage.class)
+                .newInstance(null, object, storage);
     }
 
     /**
@@ -148,7 +152,8 @@ public final class XdStorageObjectUtils {
      * @return {@code true} when the object carries an id and can be persisted by reference
      */
     public static boolean isSimpleReference(final Object obj) {
-        return obj instanceof io.github.xdstorage.object.XdStorageIdentifiableObject || obj instanceof io.github.xdstorage.code.IXdStorageSimpleWrapper;
+        return obj instanceof io.github.xdstorage.object.XdStorageIdentifiableObject || obj instanceof io.github
+                .xdstorage.code.IXdStorageSimpleWrapper;
     }
 
     /**
@@ -163,7 +168,8 @@ public final class XdStorageObjectUtils {
      * @return the wrapped object graph, or {@code null} when {@code object} is {@code null}
      *         or the wrapping is not possible
      */
-    public static <TObject> TObject wrapAsUnmodifiableObject(final TObject object, final IXdStorage storage, final IXdStorageTransaction transaction) {
+    public static <TObject> TObject wrapAsUnmodifiableObject(final TObject object, final IXdStorage storage, final
+            IXdStorageTransaction transaction) {
         return wrapAsUnmodifiableObject(null, object, storage, transaction);
     }
 
@@ -182,33 +188,40 @@ public final class XdStorageObjectUtils {
      * @return the wrapped object graph, or {@code null} when wrapping is not possible
      */
     @SuppressWarnings("unchecked")
-    public static <TObject> TObject wrapAsUnmodifiableObject(final Object parent, TObject object, final IXdStorage storage, final IXdStorageTransaction transaction) {
+    public static <TObject> TObject wrapAsUnmodifiableObject(final Object parent, TObject object, final IXdStorage
+            storage, final IXdStorageTransaction transaction) {
         if (object == null) return null;
         final Class<?> cl = object.getClass();
 
         try {
             if (cl == Class.class || cl == Object.class || isSimpleType(cl, null)) return object;
             if (cl.isArray()) return wrapArrayAsUnmodifiableObjects(parent, object, storage, transaction);
-            if (object instanceof Collection<?>) return (TObject) wrapCollectionAsUnmodifiableObjects(parent, (Collection<?>) object, storage, transaction);
-            if (object instanceof Map<?, ?>) return (TObject) wrapMapAsUnmodifiableObjects(parent, (Map<?, ?>) object, storage, transaction);
+            if (object instanceof Collection<?>) return (TObject) wrapCollectionAsUnmodifiableObjects(parent,
+                    (Collection<?>) object, storage, transaction);
+            if (object instanceof Map<?, ?>) return (TObject) wrapMapAsUnmodifiableObjects(parent, (Map<?, ?>) object,
+                    storage, transaction);
 
-            final Class<?> toWrapCl = (cl == XdStorageIdentifiableObject.class) ? ((XdStorageIdentifiableObject) object).getType() : (IXdStorageSimpleWrapper.class.isAssignableFrom(cl) ? getEntityClass(cl) : cl);
+            final Class<?> toWrapCl = (cl == XdStorageIdentifiableObject.class) ? ((XdStorageIdentifiableObject) object)
+                    .getType() : (IXdStorageSimpleWrapper.class.isAssignableFrom(cl) ? getEntityClass(cl) : cl);
             if (IXdStorageSimpleWrapper.class.isAssignableFrom(cl)) object = getWrappedObjectOrSameObject(object);
 
             final Class<?> w = XdStorageProxyCompilationEngine.getClassUnmodifiableWrapper(toWrapCl);
             if ((Boolean) XdStorageProxyCompilationEngine.getCheckingWrappableMethod(w).invoke(w)) return null;
-            return (TObject) w.getConstructor(Object.class, toWrapCl, IXdStorage.class, IXdStorageTransaction.class).newInstance(parent, object, storage, transaction);
+            return (TObject) w.getConstructor(Object.class, toWrapCl, IXdStorage.class, IXdStorageTransaction.class)
+                    .newInstance(parent, object, storage, transaction);
         } catch (Exception e) { return null; }
     }
 
-    private static <TObject> TObject wrapArrayAsUnmodifiableObjects(final Object parent, final TObject arr, final IXdStorage storage, final IXdStorageTransaction transaction) {
+    private static <TObject> TObject wrapArrayAsUnmodifiableObjects(final Object parent, final TObject arr, final
+            IXdStorage storage, final IXdStorageTransaction transaction) {
         final Object[] src = (Object[]) arr;
         final Object[] dst = (Object[]) Array.newInstance(arr.getClass().getComponentType(), src.length);
         for (int i = 0; i < src.length; ++i) dst[i] = wrapAsUnmodifiableObject(parent, src[i], storage, transaction);
         return (TObject) dst;
     }
 
-    private static Collection<?> wrapCollectionAsUnmodifiableObjects(final Object parent, final Collection<?> src, final IXdStorage storage, final IXdStorageTransaction transaction) throws Exception {
+    private static Collection<?> wrapCollectionAsUnmodifiableObjects(final Object parent, final Collection<?> src, final
+            IXdStorage storage, final IXdStorageTransaction transaction) throws Exception {
         if (src.isEmpty()) return Collections.emptyList();
         final Collection<Object> clone = (Collection<Object>) src.getClass().newInstance();
         for (final Object object : src) {
@@ -216,14 +229,17 @@ public final class XdStorageObjectUtils {
             if (object == null || cl.isEnum() || isSimpleType(cl, object)) clone.add(object);
             else if (cl == Date.class) clone.add(new Date(((Date) object).getTime()));
             else if (cl.isArray()) clone.add(wrapArrayAsUnmodifiableObjects(parent, object, storage, transaction));
-            else if (object instanceof Collection<?>) clone.add(wrapCollectionAsUnmodifiableObjects(parent, (Collection<?>) object, storage, transaction));
-            else if (object instanceof Map<?, ?>) clone.add(wrapMapAsUnmodifiableObjects(parent, (Map<?, ?>) object, storage, transaction));
+            else if (object instanceof Collection<?>) clone.add(wrapCollectionAsUnmodifiableObjects(parent,
+                    (Collection<?>) object, storage, transaction));
+            else if (object instanceof Map<?, ?>) clone.add(wrapMapAsUnmodifiableObjects(parent, (Map<?, ?>) object,
+                    storage, transaction));
             else clone.add(wrapAsUnmodifiableObject(parent, object, storage, transaction));
         }
         return clone;
     }
 
-    private static Map<?, ?> wrapMapAsUnmodifiableObjects(final Object parent, final Map<?, ?> src, final IXdStorage storage, final IXdStorageTransaction transaction) throws Exception {
+    private static Map<?, ?> wrapMapAsUnmodifiableObjects(final Object parent, final Map<?, ?> src, final IXdStorage
+            storage, final IXdStorageTransaction transaction) throws Exception {
         if (src.isEmpty()) return Collections.emptyMap();
         final Map<Object, Object> clone = (Map<Object, Object>) src.getClass().newInstance();
         for (final Map.Entry<?, ?> entry : src.entrySet()) {
@@ -238,8 +254,10 @@ public final class XdStorageObjectUtils {
             if (valuetmp == null || cl.isEnum() || isSimpleType(cl, valuetmp)) value = valuetmp;
             else if (cl == Date.class) value = new Date(((Date) valuetmp).getTime());
             else if (cl.isArray()) value = wrapArrayAsUnmodifiableObjects(parent, valuetmp, storage, transaction);
-            else if (valuetmp instanceof Collection<?>) value = wrapCollectionAsUnmodifiableObjects(parent, (Collection<?>) valuetmp, storage, transaction);
-            else if (valuetmp instanceof Map<?, ?>) value = wrapMapAsUnmodifiableObjects(parent, (Map<?, ?>) valuetmp, storage, transaction);
+            else if (valuetmp instanceof Collection<?>) value = wrapCollectionAsUnmodifiableObjects(parent,
+                    (Collection<?>) valuetmp, storage, transaction);
+            else if (valuetmp instanceof Map<?, ?>) value = wrapMapAsUnmodifiableObjects(parent, (Map<?, ?>) valuetmp,
+                    storage, transaction);
             else value = wrapAsUnmodifiableObject(parent, valuetmp, storage, transaction);
 
             clone.put(key, value);
@@ -257,7 +275,8 @@ public final class XdStorageObjectUtils {
      * @return {@code true} when the class is stored inline without a nested record
      */
     public static boolean isSimpleType(final Class<?> cl, final Object object) {
-        return cl.isPrimitive() || Number.class.isAssignableFrom(cl) || cl == Boolean.class || cl == Character.class || cl == String.class;
+        return cl.isPrimitive() || Number.class.isAssignableFrom(cl) || cl == Boolean.class || cl == Character.class ||
+                cl == String.class;
     }
 
     /**
@@ -267,7 +286,8 @@ public final class XdStorageObjectUtils {
      * @return the entity class behind a wrapper, or {@code cl} itself when it is not a wrapper
      */
     public static Class<?> getEntityClass(final Class<?> cl) {
-        return (IXdStorageIdObservableWrapper.class.isAssignableFrom(cl) || IXdStorageSimpleWrapper.class.isAssignableFrom(cl)) ? cl.getSuperclass() : cl;
+        return (IXdStorageIdObservableWrapper.class.isAssignableFrom(cl) || IXdStorageSimpleWrapper.class
+                .isAssignableFrom(cl)) ? cl.getSuperclass() : cl;
     }
 
     /** Delegates to {@link XdStorageClassMetadataRegistry#getClassInfo(Class)} (builds metadata on first use).
@@ -344,9 +364,12 @@ public final class XdStorageObjectUtils {
     public static <T> T getWrappedObjectOrSameObject(final Object object) {
         final Class<?> cl = object.getClass();
         try {
-            if (IXdStorageSimpleWrapper.class.isAssignableFrom(cl)) return (T) getWrappedObjectOrSameObject(getSimpleWrapperObjectField(cl).get(object));
-            if (IXdStorageUnmodifiableWrapper.class.isAssignableFrom(cl)) return (T) getWrappedObjectOrSameObject(getUnmodifiableWrapperObjectField(cl).get(object));
-            if (IXdStorageIdObservableWrapper.class.isAssignableFrom(cl)) return (T) getWrappedObjectOrSameObject(getObservableWrapperObjectField(cl).get(object));
+            if (IXdStorageSimpleWrapper.class.isAssignableFrom(cl)) return (T)
+                    getWrappedObjectOrSameObject(getSimpleWrapperObjectField(cl).get(object));
+            if (IXdStorageUnmodifiableWrapper.class.isAssignableFrom(cl)) return (T)
+                    getWrappedObjectOrSameObject(getUnmodifiableWrapperObjectField(cl).get(object));
+            if (IXdStorageIdObservableWrapper.class.isAssignableFrom(cl)) return (T)
+                    getWrappedObjectOrSameObject(getObservableWrapperObjectField(cl).get(object));
         } catch (final Exception e) {
 //            throw new RuntimeException(e);
         }

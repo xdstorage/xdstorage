@@ -24,7 +24,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class XdStorageDefaultReferenceProvider implements IXdStorageReferenceProvider {
 
     private final IXdStorage storage;
-    private final Map<String, Map<Class<?>, Map<Object, IXdStorageSimpleWrapper>>> references = new ConcurrentHashMap<>();
+    private final Map<String, Map<Class<?>, Map<Object, IXdStorageSimpleWrapper>>> references = new
+            ConcurrentHashMap<>();
 
     /**
      * Creates the provider bound to one storage.
@@ -42,7 +43,8 @@ public class XdStorageDefaultReferenceProvider implements IXdStorageReferencePro
      * @return the memoized wrapper, or {@code null} when none was registered yet
      */
     @Override
-    public IXdStorageSimpleWrapper getReference(final Class<?> cl, final Object objectId, final IXdStorageTransaction transaction) {
+    public IXdStorageSimpleWrapper getReference(final Class<?> cl, final Object objectId, final IXdStorageTransaction
+            transaction) {
         final String transactionId = transaction.getTransactionId();
         Map<Class<?>, Map<Object, IXdStorageSimpleWrapper>> transactionReferencesMap = references.get(transactionId);
         if (transactionReferencesMap == null) return null;
@@ -67,11 +69,15 @@ public class XdStorageDefaultReferenceProvider implements IXdStorageReferencePro
      *         degraded to a dummy, or registration failed
      */
     @Override
-    public IXdStorageSimpleWrapper createAndRegisterReference(final Class<?> cl, final XdStorageObjectIdField idField, final Object objectId, final IXdStorage storage, final IXdStorageTransaction transaction) throws XdStorageException {
+    public IXdStorageSimpleWrapper createAndRegisterReference(final Class<?> cl, final XdStorageObjectIdField idField,
+            final Object objectId, final IXdStorage storage, final IXdStorageTransaction transaction) throws
+            XdStorageException {
         final String transactionId = transaction.getTransactionId();
 
-        Map<Class<?>, Map<Object, IXdStorageSimpleWrapper>> transactionReferencesMap = references.computeIfAbsent(transactionId, k -> new ConcurrentHashMap<>());
-        Map<Object, IXdStorageSimpleWrapper> transactionClassReferences = transactionReferencesMap.computeIfAbsent(cl, k -> new ConcurrentHashMap<>());
+        Map<Class<?>, Map<Object, IXdStorageSimpleWrapper>> transactionReferencesMap = references
+                .computeIfAbsent(transactionId, k -> new ConcurrentHashMap<>());
+        Map<Object, IXdStorageSimpleWrapper> transactionClassReferences = transactionReferencesMap.computeIfAbsent(cl, k
+                -> new ConcurrentHashMap<>());
 
         // АЛГОРИТМИЧЕСКОЕ ИСПРАВЛЕНИЕ ЯДРА (Устранение паразитного дублирования MVCC-версий):
         // Сначала выполняем жесткую проверку наличия прокси в реестре сессии. Если ссылка уже
@@ -84,14 +90,16 @@ public class XdStorageDefaultReferenceProvider implements IXdStorageReferencePro
                 result = transactionClassReferences.get(objectId);
                 if (result == null) {
                     try {
-                        final IXdStorageSimpleWrapper tmp = XdStorageObjectUtils.wrapAsSimpleObject(cl.newInstance(), storage, transaction);
+                        final IXdStorageSimpleWrapper tmp = XdStorageObjectUtils.wrapAsSimpleObject(cl.newInstance(),
+                                storage, transaction);
                         // КАНОНИЧЕСКОЕ ИСПРАВЛЕНИЕ (покрыто тестами поискового движка): null-обертка
                         // (деградация генерации в dummy — JRE без компилятора или класс вне classpath
                         // рантайм-компилятора) раньше писалась в CHM как null-значение и рвала чтение
                         // NPE внутри ConcurrentHashMap.put. Теперь отказ - явная диагностируемая ошибка.
                         if (tmp == null) {
                             throw new XdStorageException("cannot create simple wrapper reference for "
-                                    + cl.getName() + " (wrapper generation degraded to dummy: check system compiler availability)");
+                                    + cl.getName() + " (wrapper generation degraded to dummy: check system compiler " +
+                                            "availability)");
                         }
                         idField.set(tmp, objectId);
                         transactionClassReferences.put(objectId, tmp);

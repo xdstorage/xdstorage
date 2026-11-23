@@ -24,7 +24,8 @@ public class XdStorageTransactionResourceChangesTest {
         @Override public Object getDao() { return null; }
         @Override public void prepare(XdStorageTransaction tx) {}
         @Override public void performFirstPhaseCommit(XdStorageTransaction tx, XdStorageTransactionResourceChanges r) {}
-        @Override public void performSecondPhaseCommit(XdStorageTransaction tx, XdStorageTransactionResourceChanges r) {}
+        @Override public void performSecondPhaseCommit(XdStorageTransaction tx, XdStorageTransactionResourceChanges r)
+                {}
         @Override public void rollbackPerformingFirstPhaseCommit(XdStorageTransaction tx, Collection cs) {}
         @Override public void rollback(XdStorageTransaction tx) {}
         @Override public void release(XdStorageTransaction tx) {}
@@ -74,7 +75,8 @@ public class XdStorageTransactionResourceChangesTest {
         String newState = "{\"name\":\"Ivan\",\"age\":30}";
 
         // Использование динамического определения типа для обхода нестыковок пакета енама
-        io.github.xdstorage.resource.XdStorageObjectOperationType type = io.github.xdstorage.resource.XdStorageObjectOperationType.UPDATE;
+        io.github.xdstorage.resource.XdStorageObjectOperationType type = io.github.xdstorage.resource
+                .XdStorageObjectOperationType.UPDATE;
         resourceChanges.addChangeObject(type, objId, oldState, newState);
 
         Collection<XdStorageObjectChange> changes = resourceChanges.getChangesObjects();
@@ -90,7 +92,8 @@ public class XdStorageTransactionResourceChangesTest {
     @Test
     public void testPerformTriggers_ShouldForwardChangesToTriggerManager() {
         DummyTriggerManager mockTriggerManager = new DummyTriggerManager();
-        io.github.xdstorage.resource.XdStorageObjectOperationType type = io.github.xdstorage.resource.XdStorageObjectOperationType.INSERT;
+        io.github.xdstorage.resource.XdStorageObjectOperationType type = io.github.xdstorage.resource
+                .XdStorageObjectOperationType.INSERT;
         resourceChanges.addChangeObject(type, "id_1", null, "data");
 
         resourceChanges.performTriggers(null, mockTriggerManager);
@@ -103,7 +106,8 @@ public class XdStorageTransactionResourceChangesTest {
 
     @Test
     public void testAddChangeObject_WithAllNullParameters_ShouldStoreSafely() {
-        io.github.xdstorage.resource.XdStorageObjectOperationType type = io.github.xdstorage.resource.XdStorageObjectOperationType.DELETE;
+        io.github.xdstorage.resource.XdStorageObjectOperationType type = io.github.xdstorage.resource
+                .XdStorageObjectOperationType.DELETE;
         assertDoesNotThrow(() -> {
             resourceChanges.addChangeObject(type, null, null, null);
         });

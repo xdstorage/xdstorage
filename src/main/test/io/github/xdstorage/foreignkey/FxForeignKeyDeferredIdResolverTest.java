@@ -58,12 +58,13 @@ public class FxForeignKeyDeferredIdResolverTest {
      * Test 1: deferred-ID resolves on parent save.
      * TX0: save child w/ null parent (deferred-ID registered, NOT rolled back)
      * TX1: save parent → deferred-ID should resolve → child appears in parent's children
-     * 
+     *
      * Ключевой момент: child должен быть сохранён (не rollback),
      * иначе deferred-ID waiter не существует.
      */
     @Test
-    @DisplayName("deferredIdResolvesOnParentSave: родитель сохранен первым → ребенок ссылается, пара зарегистрирована (delete-alone вето pins)")
+    @DisplayName("deferredIdResolvesOnParentSave: родитель сохранен первым → ребенок ссылается, пара " +
+            "зарегистрирована (delete-alone вето pins)")
     public void deferredIdResolvesOnParentSave() throws Exception {
         // Канонический порядок: родитель → ребенок (ссылка несет УЖЕ СОХРАНЕННЫЙ id).
         IXdStorageTransaction tx1 = storage.beginTransaction();
@@ -105,7 +106,8 @@ public class FxForeignKeyDeferredIdResolverTest {
      * TX1: save parent (different TX) → deferred-ID should resolve
      */
     @Test
-    @DisplayName("deferredIdAcrossTxBoundary: ребенок с несохраненным родителем → вето на commit; после сохранения родителя пара регистрируется")
+    @DisplayName("deferredIdAcrossTxBoundary: ребенок с несохраненным родителем → вето на commit; после сохранения " +
+            "родителя пара регистрируется")
     public void deferredIdAcrossTxBoundary() throws Exception {
         // Ребенок ссылается на родителя, которого еще нет → commit обязан ветоировать
         // (pinned orphan canon: "parent must be persisted before the child").

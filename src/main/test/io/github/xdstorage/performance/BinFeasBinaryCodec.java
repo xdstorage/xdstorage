@@ -97,7 +97,8 @@ final class BinFeasBinaryCodec {
     }
 
     /** Serializes engine-neutral records (the readData form) — the inverse of readAsRecords. */
-    static void writeRecordsBlock(final Writer out, final Collection<XdStorageIdentifiableObject> records) throws IOException {
+    static void writeRecordsBlock(final Writer out, final Collection<XdStorageIdentifiableObject> records) throws
+            IOException {
         out.write(MAGIC + "\n");
         if (records.isEmpty()) {
             out.write("0\n");
@@ -147,7 +148,8 @@ final class BinFeasBinaryCodec {
             out.write("S" + s.length() + "\n");
             out.write(s);
             out.write("\n");
-        } else if (value instanceof Long || value instanceof Integer || value instanceof Short || value instanceof Byte) {
+        } else if (value instanceof Long || value instanceof Integer || value instanceof Short || value instanceof Byte)
+                {
             out.write("I" + ((Number) value).longValue() + "\n");
         } else if (value instanceof Double || value instanceof Float) {
             out.write("D" + Double.doubleToRawLongBits(((Number) value).doubleValue()) + "\n");
@@ -157,7 +159,8 @@ final class BinFeasBinaryCodec {
             final List<?> list = (List<?>) value;
             out.write("L" + list.size() + "\n");
             for (final Object element : list) {
-                if (element instanceof String || element instanceof Number || element instanceof Boolean || element == null) {
+                if (element instanceof String || element instanceof Number || element instanceof Boolean || element ==
+                        null) {
                     writeValue(out, element);
                 } else {
                     throw loud("list element type " + element.getClass().getName());
@@ -221,7 +224,8 @@ final class BinFeasBinaryCodec {
     }
 
     /** Reads the blocks into live instances (the {@code read} family). */
-    static List<Object> readInstances(final Reader reader, final IXdStorageTransaction transaction) throws IOException, XdStorageException {
+    static List<Object> readInstances(final Reader reader, final IXdStorageTransaction transaction) throws IOException,
+            XdStorageException {
         final Cursor cur = new Cursor(reader);
         final List<Object> result = new ArrayList<>();
         readMagic(cur);
@@ -337,7 +341,8 @@ final class BinFeasBinaryCodec {
         try {
             type = XdStorageClassMetadataRegistry.resolveOrThrow(cur.line());
         } catch (final ClassNotFoundException unknownClass) {
-            throw new XdStorageIOException("BINFEAS codec: the block class is not on the classpath: " + unknownClass.getMessage(), unknownClass);
+            throw new XdStorageIOException("BINFEAS codec: the block class is not on the classpath: " + unknownClass
+                    .getMessage(), unknownClass);
         }
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(type);
         final Map<String, XdStorageObjectField> fields = clInfo.getFields();

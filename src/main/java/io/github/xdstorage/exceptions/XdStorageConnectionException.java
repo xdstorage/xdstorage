@@ -19,7 +19,8 @@ public class XdStorageConnectionException extends Exception {
      * @param enableSuppression  whether suppression is enabled
      * @param writableStackTrace whether the stack trace is writable
      */
-    protected XdStorageConnectionException(final String message, final Throwable cause, final boolean enableSuppression, final boolean writableStackTrace) {
+    protected XdStorageConnectionException(final String message, final Throwable cause, final boolean enableSuppression,
+            final boolean writableStackTrace) {
         super(message, cause, enableSuppression, writableStackTrace);
     }
 

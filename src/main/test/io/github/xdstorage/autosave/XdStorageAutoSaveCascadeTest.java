@@ -73,7 +73,8 @@ public class XdStorageAutoSaveCascadeTest {
     }
 
     @Test
-    @DisplayName("insert cascade: parent save persists annotated children; generated ids backfill the SAME instances; reopen answers")
+    @DisplayName("insert cascade: parent save persists annotated children; generated ids backfill the SAME " +
+            "instances; reopen answers")
     public void insertCascadeWithIdBackfill() throws Exception {
         open();
         final Order order = order("o-1",
@@ -111,7 +112,8 @@ public class XdStorageAutoSaveCascadeTest {
     }
 
     @Test
-    @DisplayName("update cascade: modify a child, then add a NEW child — both persist; the removed child STAYS persisted")
+    @DisplayName("update cascade: modify a child, then add a NEW child — both persist; the removed child STAYS " +
+            "persisted")
     public void updateCascadeAndRemovedChildPin() throws Exception {
         open();
         final OrderLine keep = new OrderLine("l-keep", "sku-keep");
@@ -260,7 +262,8 @@ public class XdStorageAutoSaveCascadeTest {
     }
 
     @Test
-    @DisplayName("MAP shape: annotated Map VALUES cascade (keys are never candidates); id-field-less values are skipped")
+    @DisplayName("MAP shape: annotated Map VALUES cascade (keys are never candidates); id-field-less values are " +
+            "skipped")
     public void mapValuesCascade() throws Exception {
         open();
         final MapHolder holder = new MapHolder();

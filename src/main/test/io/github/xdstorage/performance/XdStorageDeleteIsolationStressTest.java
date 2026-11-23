@@ -179,11 +179,14 @@ public class XdStorageDeleteIsolationStressTest {
                             // ИСПРАВЛEННЫЙ ДИНАМИЧEСКИЙ ИНВАРИАНТ MVCC:
                             // Если индекс на диске выдал коллекцию размером expectedSnapshotSize, то кэш ресурсов
                             // по законам Snapshot Isolation ОБЯЗАН материализовать ровно столько же живых/исторических
-                            // объектов (stableCount)! Ни одна ссылка внутри ОДНОЙ транзакции не имеет права вернуть null!
+                            // объектов (stableCount)! Ни одна ссылка внутри ОДНОЙ транзакции не имеет права вернуть
+                            // null!
                             // =========================================================================
                             if (stableCount != expectedSnapshotSize || nullLinksCount > 0) {
                                 exceptions.add(new AssertionError(
-                                        String.format("🚨 НАРУШЕН ИНВАРИАНТ MVCC ИЗОЛЯЦИИ УДАЛEНИЙ! Внутри транзакции чтения пропали данные! Индекс выдал ссылок: %d, а кэш материализовал: %d. (Битых null-ссылок в скане: %d)",
+                                        String.format("🚨 НАРУШЕН ИНВАРИАНТ MVCC ИЗОЛЯЦИИ УДАЛEНИЙ! "
+                                                + "Внутри транзакции чтения пропали данные! Индекс выдал ссылок: %d, "
+                                                + "а кэш материализовал: %d. (Битых null-ссылок в скане: %d)",
                                                 expectedSnapshotSize, stableCount, nullLinksCount)
                                 ));
                             }
@@ -194,7 +197,8 @@ public class XdStorageDeleteIsolationStressTest {
                         } catch (Throwable t) {
                             txRead.rollback();
                             if (!isLockBackpressure(t)) {
-                                exceptions.add(new AssertionError("🚨 Сбой на фазе диапазонного чтения удалений в потоке " + readerId, t));
+                                exceptions.add(new AssertionError("🚨 Сбой на фазе диапазонного чтения удалений в " +
+                                        "потоке " + readerId, t));
                             }
                             // таймаут лока — штатное противодавление: ретрай следующей итерацией
                         }
@@ -227,14 +231,16 @@ public class XdStorageDeleteIsolationStressTest {
         System.out.println("=========================================================================");
 
         if (!exceptions.isEmpty()) {
-            System.err.println("🚨 ОБНАРУЖЕНЫ АНОМАЛИИ ИЛИ ПОТЕРЯ ССЫЛОЧНОЙ ЦЕЛОСТНОСТИ (" + exceptions.size() + " шт):");
+            System.err.println("🚨 ОБНАРУЖЕНЫ АНОМАЛИИ ИЛИ ПОТЕРЯ ССЫЛОЧНОЙ ЦЕЛОСТНОСТИ (" + exceptions.size() +
+                    " шт):");
             exceptions.forEach(e -> {
                 System.err.println("---");
                 e.printStackTrace(System.err);
             });
             fail("МВСС СЛОМАЛСЯ НА УДAЛEНИЯХ! Читатели теряют prevObject исторической видимости!");
         } else {
-            System.out.println("🎉 ИДЕАЛЬНО! Ни одного промаха, ни одной битой ссылки. Динамический MVCC-контур безупречен!");
+            System.out.println("🎉 ИДЕАЛЬНО! Ни одного промаха, ни одной битой ссылки. Динамический MVCC-контур " +
+                    "безупречен!");
         }
     }
 }

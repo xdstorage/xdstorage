@@ -41,7 +41,8 @@ public class XdStorageObjectField {
      * @param getter the field's getter (may be {@code null} only for degenerate holders)
      * @param fieldInfo the shape descriptor built from the field's declared types
      */
-    public XdStorageObjectField(final Field field, final Method setter, final Method getter, final XdStorageObjectFieldInfo fieldInfo) {
+    public XdStorageObjectField(final Field field, final Method setter, final Method getter, final
+            XdStorageObjectFieldInfo fieldInfo) {
         this.field = field;
         this.setter = setter;
         this.getter = getter;
@@ -118,7 +119,8 @@ public class XdStorageObjectField {
         try {
             setter.invoke(obj, value);
         } catch (final IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-            log.error("cannot set property {}{}", getName(), obj != null ? " of " + obj.getClass() : " for null object", e);
+            log.error("cannot set property {}{}", getName(), obj != null ? " of " + obj.getClass() : " for null object",
+                    e);
         }
     }
 
@@ -135,7 +137,8 @@ public class XdStorageObjectField {
         try {
             return (T) getter.invoke(obj, new Object[]{});
         } catch (final IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-            log.error("cannot get property {}{}", getName(), obj != null ? " of " + obj.getClass() : " from null object", e);
+            log.error("cannot get property {}{}", getName(), obj != null ? " of " + obj.getClass() :
+                    " from null object", e);
         }
         return null;
     }

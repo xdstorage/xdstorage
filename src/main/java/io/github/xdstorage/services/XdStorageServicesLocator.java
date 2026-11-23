@@ -90,7 +90,8 @@ public class XdStorageServicesLocator {
      * @param fragmentSize  fragment size for the file-backed resources
      * @param format        on-disk serialization format
      */
-    public void initFileConfiguration(final IXdStorage storage, final String folder, final int fragmentSize, FilesFormat format) {
+    public void initFileConfiguration(final IXdStorage storage, final String folder, final int fragmentSize, FilesFormat
+            format) {
         initFileConfiguration(storage, folder, fragmentSize, format, XdStorageConfig.defaults());
     }
 
@@ -112,7 +113,8 @@ public class XdStorageServicesLocator {
         this.storageConfig = config == null ? XdStorageConfig.defaults() : config;
         this.metrics = new XdStorageMetrics();
         this.storage = storage;
-        this.executor = Executors.newFixedThreadPool(storageConfig.getWorkerPoolSize(), workerThreadFactory(storageConfig));
+        this.executor = Executors.newFixedThreadPool(storageConfig.getWorkerPoolSize(),
+                workerThreadFactory(storageConfig));
         this.namingService = new XdStorageResourceNamingService(folder, format.name().toLowerCase());
         this.idGenerator = new XdStorageDefaultIdGenerator(this);
 //        this.ioFactory = new XdStorageDefaultIOFactory(this, idGenerator);
@@ -124,8 +126,10 @@ public class XdStorageServicesLocator {
         this.searchManager = new XdStorageSearchManager(this);
         this.referencesProvider = new XdStorageDefaultReferenceProvider(this.storage);
         this.cloner = new XdStorageSmartCloner(this.referencesProvider);
-        XdStorageForeignKeyResourcesManager foreignKeyResourcesManager = new XdStorageForeignKeyResourcesManager(this, resourcesManager);
-        this.foreignKeyEngine = new XdStorageForeignKeyEngine(foreignKeyResourcesManager, new XdStorageForeignKeyRegistry(), storageConfig.isEnableForeignKeys());
+        XdStorageForeignKeyResourcesManager foreignKeyResourcesManager = new XdStorageForeignKeyResourcesManager(this,
+                resourcesManager);
+        this.foreignKeyEngine = new XdStorageForeignKeyEngine(foreignKeyResourcesManager, new
+                XdStorageForeignKeyRegistry(), storageConfig.isEnableForeignKeys());
     }
 
     /** S-4: именованные воркеры (диагностика дампов) + опционально daemon (забытый shutdown() не вешает JVM). */

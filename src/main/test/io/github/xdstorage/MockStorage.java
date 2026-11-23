@@ -62,7 +62,8 @@ public class MockStorage implements IXdStorage {
     }
 
     @Override
-    public void save(Object object, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void save(Object object, IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
 
     }
 
@@ -72,7 +73,8 @@ public class MockStorage implements IXdStorage {
     }
 
     @Override
-    public void save(Collection<?> objects, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void save(Collection<?> objects, IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
 
     }
 
@@ -82,7 +84,8 @@ public class MockStorage implements IXdStorage {
     }
 
     @Override
-    public boolean has(Class<?> cl, Object id, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public boolean has(Class<?> cl, Object id, IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         return true;
     }
 
@@ -92,7 +95,8 @@ public class MockStorage implements IXdStorage {
     }
 
     @Override
-    public void load(Object reference, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void load(Object reference, IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
 
     }
 
@@ -102,7 +106,8 @@ public class MockStorage implements IXdStorage {
     }
 
     @Override
-    public <T> T load(Class<T> cl, Object id, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public <T> T load(Class<T> cl, Object id, IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         return null;
     }
 
@@ -112,7 +117,8 @@ public class MockStorage implements IXdStorage {
     }
 
     @Override
-    public void load(Collection<?> references, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void load(Collection<?> references, IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
 
     }
 
@@ -122,7 +128,8 @@ public class MockStorage implements IXdStorage {
     }
 
     @Override
-    public <T> Collection<T> load(Class<T> cl, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public <T> Collection<T> load(Class<T> cl, IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         return null;
     }
 
@@ -132,7 +139,8 @@ public class MockStorage implements IXdStorage {
     }
 
     @Override
-    public void update(Object object, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void update(Object object, IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
 
     }
 
@@ -142,7 +150,8 @@ public class MockStorage implements IXdStorage {
     }
 
     @Override
-    public void update(Collection<?> objects, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void update(Collection<?> objects, IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
 
     }
 
@@ -152,7 +161,8 @@ public class MockStorage implements IXdStorage {
     }
 
     @Override
-    public void delete(Object reference, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void delete(Object reference, IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
 
     }
 
@@ -162,7 +172,8 @@ public class MockStorage implements IXdStorage {
     }
 
     @Override
-    public void delete(Collection<?> references, IXdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void delete(Collection<?> references, IXdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
 
     }
 

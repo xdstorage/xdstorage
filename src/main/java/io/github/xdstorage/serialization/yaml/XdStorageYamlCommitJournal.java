@@ -152,7 +152,8 @@ public final class XdStorageYamlCommitJournal {
         Path chosen = null;
         final java.util.List<Path> superseded = new java.util.ArrayList<>();
         for (final Path candidate : new Path[]{
-                journalFileFor(baseFileName), siblingJournalFileFor(baseFileName), legacyJournalFileFor(baseFileName)}) {
+                journalFileFor(baseFileName), siblingJournalFileFor(baseFileName), legacyJournalFileFor(baseFileName)})
+                        {
             if (Files.exists(candidate)) {
                 if (chosen == null) {
                     chosen = candidate;
@@ -206,7 +207,8 @@ public final class XdStorageYamlCommitJournal {
         final Path dataAnchoredStacked = dataClassDir == null ? null
                 : legacyJournalFileFor(new File(dataClassDir, new File(baseFileName).getName()).getPath());
         final Path dataAnchoredSibling = dataClassDir == null ? null
-                : new File(dataClassDir, stripFormatExtension(new File(baseFileName).getName()) + JOURNAL_SUFFIX).toPath();
+                : new File(dataClassDir, stripFormatExtension(new File(baseFileName).getName()) + JOURNAL_SUFFIX)
+                        .toPath();
         for (final Path candidate : new Path[]{
                 dataJournalFileFor(baseFileName, dataClassJournalDir),
                 journalFileFor(baseFileName), siblingJournalFileFor(baseFileName), legacyJournalFileFor(baseFileName),
@@ -401,7 +403,8 @@ public final class XdStorageYamlCommitJournal {
                                   final Collection<XdStorageObjectChange> changes,
                                   final XdStorageServicesLocator services,
                                   final XdStorageYamlIOFactory factory,
-                                  final boolean durable) throws IOException, io.github.xdstorage.exceptions.XdStorageException {
+                                  final boolean durable) throws IOException, io.github.xdstorage.exceptions
+                                          .XdStorageException {
         final List<Record> records = new ArrayList<>();
         for (final XdStorageObjectChange change : changes) {
             if (change.id == null) {
@@ -433,7 +436,8 @@ public final class XdStorageYamlCommitJournal {
                                           final Collection<XdStorageObjectChange> changes,
                                           final XdStorageServicesLocator services,
                                           final XdStorageYamlIOFactory factory,
-                                          final boolean durable) throws IOException, io.github.xdstorage.exceptions.XdStorageException {
+                                          final boolean durable) throws IOException, io.github.xdstorage.exceptions
+                                                  .XdStorageException {
         final List<Record> records = new ArrayList<>();
         for (final XdStorageObjectChange change : changes) {
             if (change.id == null) {
@@ -478,7 +482,8 @@ public final class XdStorageYamlCommitJournal {
     private static void append(final Path file, final List<Record> records,
                                             final XdStorageServicesLocator services,
                                             final XdStorageYamlIOFactory factory,
-                                            final boolean durable) throws IOException, io.github.xdstorage.exceptions.XdStorageException {
+                                            final boolean durable) throws IOException, io.github.xdstorage.exceptions
+                                                    .XdStorageException {
         if (records.isEmpty()) {
             return;
         }
@@ -493,7 +498,8 @@ public final class XdStorageYamlCommitJournal {
             emitter.writeKey("op");
             emitter.writeScalar(record.delete ? "DELETE" : "UPSERT");
             emitter.writeKey("id");
-            emitter.writeScalar("'" + XdStorageYamlBlockObjectsWriter.encode(helper.simpleTypeToString(record.id)) + "'");
+            emitter.writeScalar("'" + XdStorageYamlBlockObjectsWriter.encode(helper.simpleTypeToString(record.id)) +
+                    "'");
             if (!record.delete && record.object != null) {
                 emitter.openBlock("object");
                 XdStorageYamlBlockObjectsWriter.writeObjectData(record.object, emitter, services, helper, idGenerator);
@@ -503,7 +509,8 @@ public final class XdStorageYamlCommitJournal {
         }
         emitter.writeEofSentinel();
 
-        final byte[] bytes = out.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8); // task 51: pinned cross-OS
+        // task 51: pinned cross-OS
+        final byte[] bytes = out.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
         final Object appendLock = appendLockFor(file);
         // сериализация выше — вне лока; под локом только системный аппенд
         synchronized (appendLock) {
@@ -565,7 +572,9 @@ public final class XdStorageYamlCommitJournal {
         if (!Files.exists(file)) {
             return replay;
         }
-        try (BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(new java.io.FileInputStream(file.toFile()), java.nio.charset.StandardCharsets.UTF_8), 1 << 16)) { // task 51: pinned cross-OS
+        // task 51: pinned cross-OS
+        try (BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(new java.io.FileInputStream(file
+                .toFile()), java.nio.charset.StandardCharsets.UTF_8), 1 << 16)) {
             final XdStorageYamlTokenizer tokenizer = new XdStorageYamlTokenizer(reader);
             final List<Object[]> pending = new ArrayList<>();   // [Boolean delete, Object idOrObject]
             boolean tornTail = false;

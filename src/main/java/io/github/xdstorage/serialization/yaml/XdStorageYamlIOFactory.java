@@ -45,7 +45,8 @@ public class XdStorageYamlIOFactory implements IXdStorageIOFactory {
      * @param simpleTypeHelper the simple-type SPI used by the produced readers/writers
      * @param idGenerator      the engine id generator applied when marshalling id fields
      */
-    public XdStorageYamlIOFactory(final XdStorageServicesLocator services, final IXdStorageSimpleTypeHelper simpleTypeHelper,
+    public XdStorageYamlIOFactory(final XdStorageServicesLocator services, final IXdStorageSimpleTypeHelper
+            simpleTypeHelper,
                                   final IXdStorageIdGenerator idGenerator) {
         this.services = services;
         this.simpleTypeHelper = simpleTypeHelper;

@@ -75,7 +75,8 @@ public class DomainEntityCacheMutatorTest extends AbstractCacheMutatorIntegratio
         // Создаем запись чистого чтения (будто объект пришел с диска)
         XdStorageCacheRecord existingRecord = cacheContext.createReadRecord(domainEntity);
         cacheContext.records().put(entityId, existingRecord);
-        workspace.readObjectsOf(transaction).put(entityId, new XdStorageCacheObjectChange(domainEntity, XdStorageCacheChange.read, 1000L));
+        workspace.readObjectsOf(transaction).put(entityId, new XdStorageCacheObjectChange(domainEntity,
+                XdStorageCacheChange.read, 1000L));
 
         TestDomainEntity freshUpdate = new TestDomainEntity(entityId, "Fresh Update");
         mutator.update(freshUpdate, transaction);

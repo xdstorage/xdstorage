@@ -126,7 +126,8 @@ public class XdStorageW1JournalTest {
     }
 
     @Test
-    @DisplayName("Оборванный хвост журнала отбрасывается с WARN (не роняет открытие) — crash proxy: копия при открытом хранилище")
+    @DisplayName("Оборванный хвост журнала отбрасывается с WARN (не роняет открытие) — crash proxy: копия при " +
+            "открытом хранилище")
     public void testTornTailDiscarded() throws Exception {
         final Path dir = Files.createTempDirectory("w1_torn_tail");
         final Path copy = dir.resolveSibling("w1_torn_tail_copy");
@@ -167,7 +168,8 @@ public class XdStorageW1JournalTest {
             Files.write(journalPath, "\r\n- record:\r\n\tserial: 99\r\n\top: UPS".getBytes(StandardCharsets.UTF_8),
                     java.nio.file.StandardOpenOption.APPEND);
 
-            final IXdFileStorage reopened = XdStorageProvider.newOrGetFileStorage(NAME + "-copy", copy.toString(), 128, config());
+            final IXdFileStorage reopened = XdStorageProvider.newOrGetFileStorage(NAME + "-copy", copy.toString(), 128,
+                    config());
             try {
                 final IXdStorageTransaction tx = reopened.beginTransaction();
                 final int size = reopened.load(BenchmarkEntity.class, tx).size();
@@ -186,13 +188,15 @@ public class XdStorageW1JournalTest {
     public void testJournalOnByDefault() throws Exception {
         final Path dir = Files.createTempDirectory("w1_default_on");
         try {
-            final IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage(NAME, dir.toString(), 128, XdStorageConfig.defaults());
+            final IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage(NAME, dir.toString(), 128,
+                    XdStorageConfig.defaults());
             try {
                 final IXdStorageTransaction tx = storage.beginTransaction();
                 storage.save(new BenchmarkEntity("o-1", "alpha"), tx);
                 tx.commit();
 
-                assertNull(findDataBaseFile(dir), "default (W-3): commits are journaled, base not written before checkpoint");
+                assertNull(findDataBaseFile(dir),
+                        "default (W-3): commits are journaled, base not written before checkpoint");
                 assertNotNull(findJournalFile(dir), "default (W-3): journal file exists");
             } finally {
                 storage.shutdown();
@@ -210,7 +214,8 @@ public class XdStorageW1JournalTest {
     public void testJournalRequiresYamlFormat() {
         final XdStorageConfig journalCfg = XdStorageConfig.builder().journalWrites(true).build();
         assertThrows(RuntimeException.class,
-                () -> XdStorageProvider.newOrGetFileStorage("w1-xml", "./target/w1_xml_db", 128, FilesFormat.XML, journalCfg),
+                () -> XdStorageProvider.newOrGetFileStorage("w1-xml", "./target/w1_xml_db", 128, FilesFormat.XML,
+                        journalCfg),
                 "journal is YAML-only in W-1");
     }
 
@@ -248,7 +253,8 @@ public class XdStorageW1JournalTest {
         void save(EntitySaver saver) throws Exception;
     }
 
-    private void openSaveShutdown(final Path dir, final XdStorageConfig config, final SaverBlock block) throws Exception {
+    private void openSaveShutdown(final Path dir, final XdStorageConfig config, final SaverBlock block) throws Exception
+            {
         final IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage(NAME, dir.toString(), 128, config);
         try {
             final IXdStorageTransaction tx = storage.beginTransaction();

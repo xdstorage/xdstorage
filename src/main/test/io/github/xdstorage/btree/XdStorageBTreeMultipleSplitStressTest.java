@@ -43,7 +43,8 @@ public class XdStorageBTreeMultipleSplitStressTest {
 
         // Целевой ключ для проверки дубликатов планет
         final String targetKey = "star-system-id-777";
-        final int duplicatesCount = 6; // Количество элементов, гарантирующее сплит листов и выталкивание разделителя в корень
+        // Количество элементов, гарантирующее сплит листов и выталкивание разделителя в корень
+        final int duplicatesCount = 6;
 
         System.out.println("=== ЗАПУСК ПOШАГOВOГO TDD-ВOСПРOИЗВEДEНИЯ БАГА ===");
 
@@ -74,7 +75,8 @@ public class XdStorageBTreeMultipleSplitStressTest {
         System.out.println("🔹 Фактически извлечено из B+ Дерева: " + searchResult.size());
 
         assertEquals(duplicatesCount, searchResult.size(),
-                "🚨 БАГ ВOСПРOИЗВEДEН! Навигатор поиска ослеп и промахнулся мимо дочерней страницы из-за асимметрии сплита!");
+                "🚨 БАГ ВOСПРOИЗВEДEН! Навигатор поиска ослеп и промахнулся мимо дочерней страницы из-за асимметрии " +
+                        "сплита!");
 
         System.out.println("🎉 ПОБEДА! Тест успешно прошел (Правки работают исправно)!");
     }

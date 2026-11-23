@@ -84,7 +84,8 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
      * @throws XdStorageConnectionException on a storage I/O failure (a retry may help)
      */
     protected XdStorageSearchIndexRecord buildIndexRecord(final XdStorageSearchIndex index, final Object object,
-                                                          final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+                                                          final XdStorageTransaction transaction) throws
+                                                                XdStorageException, XdStorageConnectionException {
         final XdStorageSearchIndexRecord record = new XdStorageSearchIndexRecord();
 
         final XdStorageObjectIdField idField = index.getIdField();
@@ -105,7 +106,8 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
         for (final Map.Entry<String, XdStorageObjectField> entry : index.getFieldAccesors().entrySet()) {
             record.setFieldValue(entry.getKey(), entry.getValue().get(object));
         }
-        final Collection<List<XdStoragePair<String, XdStorageObjectField>>> childsByProperties = index.getChildAccessors();
+        final Collection<List<XdStoragePair<String, XdStorageObjectField>>> childsByProperties = index
+                .getChildAccessors();
         for (final List<XdStoragePair<String, XdStorageObjectField>> childAccessors : childsByProperties) {
             for (final XdStoragePair<String, XdStorageObjectField> childProperty : childAccessors) {
                 final String propertyName = childProperty.a;
@@ -117,16 +119,20 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
                 final Class<?> propertyClass = XdStorageObjectUtils.getEntityClass(propertyValue.getClass());
                 if (propertyClass.isArray()) {
                     final Class<?> type = XdStorageObjectUtils.getEntityClass(propertyClass.getComponentType());
-                    recordWrapper = addArrayObjectsPropertiesToIndex(propertyName, index, record, type, (Object[]) propertyValue,
+                    recordWrapper = addArrayObjectsPropertiesToIndex(propertyName, index, record, type, (Object[])
+                            propertyValue,
                             recordWrapper, confermer, object, idField, transaction);
                 } else if (propertyValue instanceof Collection<?>) {
-                    recordWrapper = addCollectionObjectsPropertiesToIndex(propertyName, index, record, (Collection<?>) propertyValue,
+                    recordWrapper = addCollectionObjectsPropertiesToIndex(propertyName, index, record, (Collection<?>)
+                            propertyValue,
                             recordWrapper, confermer, object, idField, transaction);
                 } else if (propertyValue instanceof Map<?, ?>) {
-                    recordWrapper = addMapObjectsPropertiesToIndex(propertyName, index, record, (Map<?, ?>) propertyValue,
+                    recordWrapper = addMapObjectsPropertiesToIndex(propertyName, index, record, (Map<?, ?>)
+                            propertyValue,
                             recordWrapper, confermer, object, idField, transaction);
                 } else {
-                    recordWrapper = addObjectPropertiesToIndex(propertyName, index, record, propertyClass, propertyValue,
+                    recordWrapper = addObjectPropertiesToIndex(propertyName, index, record, propertyClass,
+                            propertyValue,
                             recordWrapper, confermer, object, idField, transaction);
                 }
             }
@@ -135,8 +141,10 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
         return recordWrapper != null ? (XdStorageSearchIndexRecord) recordWrapper : record;
     }
 
-    private IXdStorageIdObservableWrapper createRecordWrapper(final Object object, final XdStorageTransaction transaction,
-                                                              final XdStorageSearchIndexRecord record, final XdStorageObjectIdField idField,
+    private IXdStorageIdObservableWrapper createRecordWrapper(final Object object, final XdStorageTransaction
+            transaction,
+                                                              final XdStorageSearchIndexRecord record, final
+                                                                XdStorageObjectIdField idField,
                                                               final XdStorageSearchIndexRecordConfermer confermer) {
         IXdStorageIdObservableWrapper recordWrapper;
         recordWrapper = XdStorageObserverService.getObservableWrapper(record);
@@ -147,9 +155,11 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
             objectWrapper.addObserver(new XdStorageAbstractIdObserver() {
                 @Override
                 public void onNewIdIsSet(final IXdStorageIdObservableWrapper wrapper, final Object id) {
-                    confermer.unregisterObjectWithoutIdentifier(XdStorageObjectUtils.getWrappedObjectOrSameObject(wrapper));
+                    confermer.unregisterObjectWithoutIdentifier(XdStorageObjectUtils
+                            .getWrappedObjectOrSameObject(wrapper));
                     if (confermer.noObjectsWithoutIdentifier()) {
-                        final XdStorageSearchIndexRecord wrappedRecord = (XdStorageSearchIndexRecord) finalRecordWrapper;
+                        final XdStorageSearchIndexRecord wrappedRecord = (XdStorageSearchIndexRecord)
+                                finalRecordWrapper;
                         try {
                             setIdentifyableInformation(wrappedRecord, id, object, idField, transaction);
                         } catch (final XdStorageException | XdStorageConnectionException e) {
@@ -166,18 +176,25 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
 
     private void setIdentifyableInformation(final XdStorageSearchIndexRecord record, final Object id,
                                             final Object object, final XdStorageObjectIdField idField,
-                                            final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+                                            final XdStorageTransaction transaction) throws XdStorageException,
+                                                    XdStorageConnectionException {
         final XdStorageSearchIndexRecord wrappedRecord = XdStorageObjectUtils.getWrappedObjectOrSameObject(record);
         final Object resourceId = getResourceId(id, object, idField, transaction);
         wrappedRecord.setResourceId(resourceId);
         record.setId(id);
     }
 
-    private IXdStorageIdObservableWrapper addCollectionObjectsPropertiesToIndex(final String childFieldName, final XdStorageSearchIndex index,
-                                                                                final XdStorageSearchIndexRecord record, final Collection<?> collection,
-                                                                                final IXdStorageIdObservableWrapper wrapper, final XdStorageSearchIndexRecordConfermer confermer,
-                                                                                final Object rootObject, final XdStorageObjectIdField rootObjectIdField,
-                                                                                final XdStorageTransaction transaction) {
+    private IXdStorageIdObservableWrapper addCollectionObjectsPropertiesToIndex(final String childFieldName, final
+            XdStorageSearchIndex index,
+                                                                                final XdStorageSearchIndexRecord record,
+                                                                final Collection<?> collection,
+                                                                                final IXdStorageIdObservableWrapper
+                                                                wrapper, final XdStorageSearchIndexRecordConfermer
+                                                                confermer,
+                                                                                final Object rootObject, final
+                                                                XdStorageObjectIdField rootObjectIdField,
+                                                                                final XdStorageTransaction transaction)
+                                                                {
         IXdStorageIdObservableWrapper recordWrapper = wrapper;
         for (final Object object : collection) {
             final Class<?> cl = XdStorageObjectUtils.getEntityClass(object.getClass());
@@ -193,7 +210,8 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
                     recordWrapper = createRecordWrapper(rootObject, transaction, record, rootObjectIdField, confermer);
                 }
 
-                createChildWrapper(childFieldName, record, confermer, transaction, object, cl, rootObject, rootObjectIdField, accessors);
+                createChildWrapper(childFieldName, record, confermer, transaction, object, cl, rootObject,
+                        rootObjectIdField, accessors);
             } else {
                 setChildInformation(childFieldName, record, object, cl, accessors, objectId);
             }
@@ -204,10 +222,14 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
 
 
 
-    private IXdStorageIdObservableWrapper addMapObjectsPropertiesToIndex(final String childFieldName, final XdStorageSearchIndex index,
-                                                                         final XdStorageSearchIndexRecord record, final Map<?, ?> map,
-                                                                         final IXdStorageIdObservableWrapper wrapper, final XdStorageSearchIndexRecordConfermer confermer,
-                                                                         final Object rootObject, final XdStorageObjectIdField rootObjectIdField,
+    private IXdStorageIdObservableWrapper addMapObjectsPropertiesToIndex(final String childFieldName, final
+            XdStorageSearchIndex index,
+                                                                         final XdStorageSearchIndexRecord record, final
+                                                                Map<?, ?> map,
+                                                                         final IXdStorageIdObservableWrapper wrapper,
+                                                                final XdStorageSearchIndexRecordConfermer confermer,
+                                                                         final Object rootObject, final
+                                                                XdStorageObjectIdField rootObjectIdField,
                                                                          final XdStorageTransaction transaction) {
         IXdStorageIdObservableWrapper recordWrapper = wrapper;
         for (final Object object : map.values()) {
@@ -224,7 +246,8 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
                     recordWrapper = createRecordWrapper(rootObject, transaction, record, rootObjectIdField, confermer);
                 }
 
-                createChildWrapper(childFieldName, record, confermer, transaction, object, cl, rootObject, rootObjectIdField, accessors);
+                createChildWrapper(childFieldName, record, confermer, transaction, object, cl, rootObject,
+                        rootObjectIdField, accessors);
             } else {
                 setChildInformation(childFieldName, record, object, cl, accessors, objectId);
             }
@@ -233,10 +256,14 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
         return recordWrapper;
     }
 
-    private IXdStorageIdObservableWrapper addArrayObjectsPropertiesToIndex(final String childFieldName, final XdStorageSearchIndex index,
-                                                                           final XdStorageSearchIndexRecord record, final Class<?> cl, final Object[] arr,
-                                                                           final IXdStorageIdObservableWrapper wrapper, final XdStorageSearchIndexRecordConfermer confermer,
-                                                                           final Object rootObject, final XdStorageObjectIdField rootObjectIdField,
+    private IXdStorageIdObservableWrapper addArrayObjectsPropertiesToIndex(final String childFieldName, final
+            XdStorageSearchIndex index,
+                                                                           final XdStorageSearchIndexRecord record,
+                                                                final Class<?> cl, final Object[] arr,
+                                                                           final IXdStorageIdObservableWrapper wrapper,
+                                                                final XdStorageSearchIndexRecordConfermer confermer,
+                                                                           final Object rootObject, final
+                                                                XdStorageObjectIdField rootObjectIdField,
                                                                            final XdStorageTransaction transaction) {
         IXdStorageIdObservableWrapper recordWrapper = wrapper;
 
@@ -251,7 +278,8 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
                     recordWrapper = createRecordWrapper(rootObject, transaction, record, rootObjectIdField, confermer);
                 }
 
-                createChildWrapper(childFieldName, record, confermer, transaction, object, cl, rootObject, rootObjectIdField, accessors);
+                createChildWrapper(childFieldName, record, confermer, transaction, object, cl, rootObject,
+                        rootObjectIdField, accessors);
             } else {
                 setChildInformation(childFieldName, record, object, cl, accessors, objectId);
             }
@@ -260,10 +288,14 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
         return recordWrapper;
     }
 
-    private IXdStorageIdObservableWrapper addObjectPropertiesToIndex(final String childFieldName, final XdStorageSearchIndex index,
-                                                                     final XdStorageSearchIndexRecord record, final Class<?> cl, final Object object,
-                                                                     final IXdStorageIdObservableWrapper wrapper, final XdStorageSearchIndexRecordConfermer confermer,
-                                                                     final Object rootObject, final XdStorageObjectIdField rootObjectIdField,
+    private IXdStorageIdObservableWrapper addObjectPropertiesToIndex(final String childFieldName, final
+            XdStorageSearchIndex index,
+                                                                     final XdStorageSearchIndexRecord record, final
+                                                                Class<?> cl, final Object object,
+                                                                     final IXdStorageIdObservableWrapper wrapper, final
+                                                                XdStorageSearchIndexRecordConfermer confermer,
+                                                                     final Object rootObject, final
+                                                                XdStorageObjectIdField rootObjectIdField,
                                                                      final XdStorageTransaction transaction) {
         IXdStorageIdObservableWrapper recordWrapper = wrapper;
 
@@ -278,7 +310,8 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
                 recordWrapper = createRecordWrapper(rootObject, transaction, record, rootObjectIdField, confermer);
             }
 
-            createChildWrapper(childFieldName, record, confermer, transaction, object, cl, rootObject, rootObjectIdField, accessors);
+            createChildWrapper(childFieldName, record, confermer, transaction, object, cl, rootObject,
+                    rootObjectIdField, accessors);
         } else {
             setChildInformation(childFieldName, record, object, cl, accessors, objectId);
         }
@@ -287,7 +320,8 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
     }
 
     private Object getResourceId(final Object objectId, final Object object, final XdStorageObjectIdField idField,
-                                 final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+                                 final XdStorageTransaction transaction) throws XdStorageException,
+                                         XdStorageConnectionException {
         final Class<?> cl = object.getClass();
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
         final XdStoragePolicy policy = clInfo.getPolicy();
@@ -298,15 +332,18 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
         // одиночного объекта не используется - чтение идет через lockObjectResource(clInfo, objectId).
         Object resourceId = null;
         if (policy == XdStoragePolicy.StoreAsClassObjects) {
-            final IXdStorageIndexDaoResource resource = services.getResourcesManager().lockIndexResource(clInfo, transaction);
+            final IXdStorageIndexDaoResource resource = services.getResourcesManager().lockIndexResource(clInfo,
+                    transaction);
             resourceId = resource.getObjectResourceId(objectId, transaction);
         }
         return resourceId;
     }
 
     private void createChildWrapper(final String childFieldName, final XdStorageSearchIndexRecord record,
-                                    final XdStorageSearchIndexRecordConfermer confermer, final XdStorageTransaction transaction,
-                                    final Object object, final Class<?> cl, final Object rootObject, final XdStorageObjectIdField rootObjectIdField,
+                                    final XdStorageSearchIndexRecordConfermer confermer, final XdStorageTransaction
+                                            transaction,
+                                    final Object object, final Class<?> cl, final Object rootObject, final
+                                            XdStorageObjectIdField rootObjectIdField,
                                     final Map<String, XdStorageObjectField> accessors) {
         final IXdStorageIdObservableWrapper objectWrapper = XdStorageObserverService.getObservableWrapper(object);
         objectWrapper.addObserver(new XdStorageAbstractIdObserver() {
@@ -317,9 +354,11 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
                 setChildInformation(childFieldName, record, object, cl, accessors, id);
 
                 if(confermer.noObjectsWithoutIdentifier()) {
-                    final XdStorageSearchIndexRecord wrappedRecord = (XdStorageSearchIndexRecord) XdStorageObserverService.getObservableWrapper(record);
+                    final XdStorageSearchIndexRecord wrappedRecord = (XdStorageSearchIndexRecord)
+                            XdStorageObserverService.getObservableWrapper(record);
                     try {
-                        final Object objectId = confermer.getIdForRootObject() != null ? confermer.getIdForRootObject() : wrappedRecord.getId();
+                        final Object objectId = confermer.getIdForRootObject() != null ? confermer.getIdForRootObject()
+                                : wrappedRecord.getId();
                         setIdentifyableInformation(wrappedRecord, objectId, rootObject, rootObjectIdField, transaction);
                     } catch (final XdStorageException | XdStorageConnectionException e) {
                         throw new XdStorageRuntimeException(e);
@@ -330,7 +369,8 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
     }
 
     private void setChildInformation(final String childFieldName, final XdStorageSearchIndexRecord record,
-                                     final Object object, final Class<?> cl, final Map<String, XdStorageObjectField> accessors,
+                                     final Object object, final Class<?> cl, final Map<String, XdStorageObjectField>
+                                             accessors,
                                      final Object objectId) {
         record.addChildIdIfNotExists(childFieldName, cl, objectId);
 
@@ -340,7 +380,8 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
     }
 
     @Override
-    public void insert(final Object object, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void insert(final Object object, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         if (object == null) return;
 
         final Class<?> cl = object.getClass();
@@ -356,16 +397,19 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
     }
 
     private void insert(final Class<?> cl, final Map<String, XdStorageSearchIndex> indexes, final Object object,
-                        final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+                        final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException
+                                {
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
         for (XdStorageSearchIndex index : indexes.values()) {
-            final IXdStorageSearchIndexDaoResource searchIndexResource = services.getResourcesManager().lockSearchIndexResource(clInfo, index.getName(), transaction);
+            final IXdStorageSearchIndexDaoResource searchIndexResource = services.getResourcesManager()
+                    .lockSearchIndexResource(clInfo, index.getName(), transaction);
             searchIndexResource.insert(buildIndexRecord(index, object, transaction), transaction);
         }
     }
 
     @Override
-    public void insert(final Collection<?> objects, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void insert(final Collection<?> objects, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         if (objects == null || objects.isEmpty()) return;
 
         final Class<?> cl = objects.iterator().next().getClass();
@@ -391,19 +435,22 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
     }
 
     @Override
-    public void update(final Object object, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void update(final Object object, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         final Class<?> cl = object.getClass();
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
         final Map<String, XdStorageSearchIndex> indexes = clInfo.getIndexes();
 
         for (XdStorageSearchIndex index : indexes.values()) {
-            final IXdStorageSearchIndexDaoResource searchIndexResource = services.getResourcesManager().lockSearchIndexResource(clInfo, index.getName(), transaction);
+            final IXdStorageSearchIndexDaoResource searchIndexResource = services.getResourcesManager()
+                    .lockSearchIndexResource(clInfo, index.getName(), transaction);
             searchIndexResource.update(buildIndexRecord(index, object, transaction), transaction);
         }
     }
 
     @Override
-    public void delete(final Object reference, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void delete(final Object reference, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         final Class<?> cl = reference.getClass();
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
         final Map<String, XdStorageSearchIndex> indexes = clInfo.getIndexes();
@@ -412,17 +459,21 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
     }
 
     private void delete(final Class<?> cl, final Map<String, XdStorageSearchIndex> indexes, final Object reference,
-                        final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+                        final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException
+                                {
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
-        log.debug("search-index delete for {} ({} index(es)) by tx {}", cl.getName(), indexes.size(), transaction.getTransactionId());
+        log.debug("search-index delete for {} ({} index(es)) by tx {}", cl.getName(), indexes.size(), transaction
+                .getTransactionId());
         for (XdStorageSearchIndex index : indexes.values()) {
-            final IXdStorageSearchIndexDaoResource searchIndexResource = services.getResourcesManager().lockSearchIndexResource(clInfo, index.getName(), transaction);
+            final IXdStorageSearchIndexDaoResource searchIndexResource = services.getResourcesManager()
+                    .lockSearchIndexResource(clInfo, index.getName(), transaction);
             searchIndexResource.delete(buildIndexRecord(index, reference, transaction), transaction);
         }
     }
 
     @Override
-    public void delete(final Collection<?> references, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void delete(final Collection<?> references, final XdStorageTransaction transaction) throws
+            XdStorageException, XdStorageConnectionException {
         final Class<?> cl = references.iterator().next().getClass();
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
         final Map<String, XdStorageSearchIndex> indexes = clInfo.getIndexes();
@@ -434,11 +485,13 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
 
     @Override
     public <T> Collection<T> search(final Class<T> cl, final String indexName, final XdStorageSearchQuery query,
-                                    final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+                                    final XdStorageTransaction transaction) throws XdStorageException,
+                                            XdStorageConnectionException {
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
         final XdStorageSearchIndex index = clInfo.getIndexes().get(indexName);
         if (index == null) {
-            throw new XdStorageException("required index '" + indexName + "' for class " + cl.getName() + " doesn't exist");
+            throw new XdStorageException("required index '" + indexName + "' for class " + cl.getName() +
+                    " doesn't exist");
         }
 
         final XdStoragePolicy policy = clInfo.getPolicy();
@@ -477,12 +530,14 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
         final XdStorageSearchIndex index = clInfo.getIndexes().get(indexName);
         if (index == null) {
-            throw new XdStorageException("required index '" + indexName + "' for class " + cl.getName() + " doesn't exist");
+            throw new XdStorageException("required index '" + indexName + "' for class " + cl.getName() +
+                    " doesn't exist");
         }
 
         final XdStoragePolicy policy = clInfo.getPolicy();
         final IXdStorage storage = services.getStorage();
-        final XdStorageBTree tree = storage.load(XdStorageBTree.class, new XdStorageBTreeId(clInfo.getClazz(), indexName), transaction);
+        final XdStorageBTree tree = storage.load(XdStorageBTree.class, new XdStorageBTreeId(clInfo.getClazz(),
+                indexName), transaction);
         if (tree == null) {
             return 0L;
         }
@@ -501,11 +556,16 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
         return matched.get();
     }
 
-    private <T> void handleQuery(final XdStorageSearchQuery query, final XdStorageTransaction transaction, final XdStorageClassInfo clInfo,
-                                 final XdStorageSearchIndex index, final XdStoragePolicy policy, final Map<Object, T> result,
-                                 final IXdStorage storage, final XdStorageBTree tree) throws XdStorageException, XdStorageConnectionException {
-        final List<XdStoragePair<IXdStoragePrimaryCriterion, IXdStorageCriterion>> notEquals = Collections.synchronizedList(new ArrayList<>());
-        final List<XdStoragePair<IXdStoragePrimaryCriterion, IXdStorageCriterion>> ranges = Collections.synchronizedList(new ArrayList<>());
+    private <T> void handleQuery(final XdStorageSearchQuery query, final XdStorageTransaction transaction, final
+            XdStorageClassInfo clInfo,
+                                 final XdStorageSearchIndex index, final XdStoragePolicy policy, final Map<Object, T>
+                                         result,
+                                 final IXdStorage storage, final XdStorageBTree tree) throws XdStorageException,
+                                         XdStorageConnectionException {
+        final List<XdStoragePair<IXdStoragePrimaryCriterion, IXdStorageCriterion>> notEquals = Collections
+                .synchronizedList(new ArrayList<>());
+        final List<XdStoragePair<IXdStoragePrimaryCriterion, IXdStorageCriterion>> ranges = Collections
+                .synchronizedList(new ArrayList<>());
 
         final AtomicBoolean failed = new AtomicBoolean(false);
         final XdStorageException[] ex = new XdStorageException[] { null };
@@ -538,7 +598,8 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
         }
 
         for (final XdStoragePair<IXdStoragePrimaryCriterion, IXdStorageCriterion> pair : ranges) {
-            handleRangePrimaryCriterion(transaction, clInfo, policy, result, storage, tree, index.getPrimaryField().field.getType(), pair.a, pair.b);
+            handleRangePrimaryCriterion(transaction, clInfo, policy, result, storage, tree, index.getPrimaryField()
+                    .field.getType(), pair.a, pair.b);
         }
 
         if (!notEquals.isEmpty()) {
@@ -656,7 +717,8 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(cl);
         final XdStorageSearchIndex index = clInfo.getIndexes().get(indexName);
         if (index == null) {
-            throw new XdStorageException("required index '" + indexName + "' for class " + cl.getName() + " doesn't exist");
+            throw new XdStorageException("required index '" + indexName + "' for class " + cl.getName() +
+                    " doesn't exist");
         }
         final String idIndexType = clInfo.getIndexType() != null ? clInfo.getIndexType().name() : "BTree";
 
@@ -772,7 +834,8 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
 
     private <T> List<T> evaluateShapedQuery(final XdStorageSearchQuery query, final XdStorageTransaction transaction,
                                             final XdStorageClassInfo clInfo, final XdStorageSearchIndex index,
-                                            final XdStoragePolicy policy, final IXdStorage storage, final XdStorageBTree tree)
+                                            final XdStoragePolicy policy, final IXdStorage storage, final XdStorageBTree
+                                                    tree)
             throws XdStorageException, XdStorageConnectionException {
         final List<T> page = new ArrayList<>();
 
@@ -781,7 +844,8 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
         final boolean singleRangeCriterion = query.getCriterions().size() == 1
                 && query.getCriterions().get(0).a != null
                 && isRangeOperator(query.getCriterions().get(0).a.getOperator());
-        final boolean ascWalkWithLimit = singleRangeCriterion && !query.isOrderByPrimaryDescending() && query.getLimit() >= 0;
+        final boolean ascWalkWithLimit = singleRangeCriterion && !query.isOrderByPrimaryDescending() && query.getLimit()
+                >= 0;
 
         if (ascWalkWithLimit) {
             // Page-exact ascending walk: a record counts toward the page only when its object
@@ -898,7 +962,8 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
     private void evaluateCriterions(final XdStorageSearchQuery query, final XdStorageTransaction transaction,
                                     final XdStorageClassInfo clInfo, final XdStorageSearchIndex index,
                                     final XdStoragePolicy policy, final IXdStorage storage, final XdStorageBTree tree,
-                                    final MatchProcessor processor) throws XdStorageException, XdStorageConnectionException {
+                                    final MatchProcessor processor) throws XdStorageException,
+                                            XdStorageConnectionException {
         final List<XdStoragePair<IXdStoragePrimaryCriterion, IXdStorageCriterion>> equalsPairs = new ArrayList<>();
         final List<XdStoragePair<IXdStoragePrimaryCriterion, IXdStorageCriterion>> rangePairs = new ArrayList<>();
         final List<XdStoragePair<IXdStoragePrimaryCriterion, IXdStorageCriterion>> scanPairs = new ArrayList<>();
@@ -913,7 +978,8 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
         }
 
         for (final XdStoragePair<IXdStoragePrimaryCriterion, IXdStorageCriterion> pair : rangePairs) {
-            walkRangeCriterion(transaction, clInfo, policy, storage, tree, index.getPrimaryField().field.getType(), pair.a, pair.b, processor);
+            walkRangeCriterion(transaction, clInfo, policy, storage, tree, index.getPrimaryField().field.getType(), pair
+                    .a, pair.b, processor);
         }
         for (final XdStoragePair<IXdStoragePrimaryCriterion, IXdStorageCriterion> pair : equalsPairs) {
             collectEqualsCriterion(transaction, clInfo, policy, storage, tree, pair.a, pair.b, processor);
@@ -981,9 +1047,11 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
         }
 
         try {
-            tree.readRange(fromKey, fromInclusive, toKey, toInclusive, storage, transaction, new IXdStorageBTreeViewer() {
+            tree.readRange(fromKey, fromInclusive, toKey, toInclusive, storage, transaction, new IXdStorageBTreeViewer()
+                    {
                 @Override
-                public void look(final Comparable key, final Object rec) throws XdStorageException, XdStorageConnectionException {
+                public void look(final Comparable key, final Object rec) throws XdStorageException,
+                        XdStorageConnectionException {
                     final XdStorageSearchIndexRecord record = (XdStorageSearchIndexRecord) rec;
                     if (!primaryCriterion.passed(record)) {
                         return;
@@ -1005,11 +1073,13 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
 
     /** EQUALS primary: exact key lookup, per-record child-criterion check, processor per match. */
     private void collectEqualsCriterion(final XdStorageTransaction transaction, final XdStorageClassInfo clInfo,
-                                        final XdStoragePolicy policy, final IXdStorage storage, final XdStorageBTree tree,
+                                        final XdStoragePolicy policy, final IXdStorage storage, final XdStorageBTree
+                                                tree,
                                         final IXdStoragePrimaryCriterion primaryCriterion,
                                         final IXdStorageCriterion criterion, final MatchProcessor processor)
             throws XdStorageException, XdStorageConnectionException {
-        final XdStorageSearchIndexKey key = new XdStorageSearchIndexKey(primaryCriterion.getValue(), null, XdStorageSearchIndexOperationType.Search);
+        final XdStorageSearchIndexKey key = new XdStorageSearchIndexKey(primaryCriterion.getValue(), null,
+                XdStorageSearchIndexOperationType.Search);
         final List<Object> records = tree.find(key, storage, transaction);
         for (final Object rec : records) {
             final XdStorageSearchIndexRecord record = (XdStorageSearchIndexRecord) rec;
@@ -1022,9 +1092,12 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
     /** Scan path: stream the whole index, apply every scan criterion pair, first match wins. */
     private void collectScanCriterions(final XdStorageTransaction transaction, final XdStorageClassInfo clInfo,
                                        final XdStorageSearchIndex index, final XdStoragePolicy policy,
-                                       final List<XdStoragePair<IXdStoragePrimaryCriterion, IXdStorageCriterion>> scanPairs,
-                                       final MatchProcessor processor) throws XdStorageException, XdStorageConnectionException {
-        final IXdStorageSearchIndexDaoResource resource = services.getResourcesManager().lockSearchIndexResource(clInfo, index.getName(), transaction);
+                                       final List<XdStoragePair<IXdStoragePrimaryCriterion, IXdStorageCriterion>>
+                                               scanPairs,
+                                       final MatchProcessor processor) throws XdStorageException,
+                                               XdStorageConnectionException {
+        final IXdStorageSearchIndexDaoResource resource = services.getResourcesManager().lockSearchIndexResource(clInfo,
+                index.getName(), transaction);
         resource.watch(transaction, new IXdStorageWatcher<XdStorageSearchIndexRecord>() {
             @Override
             public void watch(final XdStorageSearchIndexRecord object) {
@@ -1056,7 +1129,8 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
     private static MatchProcessor deduppped(final Set<Object> seen, final MatchProcessor delegate) {
         return new MatchProcessor() {
             @Override
-            public void match(final XdStorageSearchIndexRecord record) throws XdStorageException, XdStorageConnectionException {
+            public void match(final XdStorageSearchIndexRecord record) throws XdStorageException,
+                    XdStorageConnectionException {
                 if (seen.add(record.getId())) {
                     delegate.match(record);
                 }
@@ -1071,12 +1145,14 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
      * ({@code primaryCriterion.passed(record)}) is the semantic authority per record, the
      * bounds only prune; nulls never satisfy, mixed-type bounds fail loudly.
      */
-    private <T> void handleRangePrimaryCriterion(final XdStorageTransaction transaction, final XdStorageClassInfo clInfo,
+    private <T> void handleRangePrimaryCriterion(final XdStorageTransaction transaction, final XdStorageClassInfo
+            clInfo,
                                                  final XdStoragePolicy policy, final Map<Object, T> result,
                                                  final IXdStorage storage, final XdStorageBTree tree,
                                                  final Class<?> primaryFieldType,
                                                  final IXdStoragePrimaryCriterion primaryCriterion,
-                                                 final IXdStorageCriterion criterion) throws XdStorageException, XdStorageConnectionException {
+                                                 final IXdStorageCriterion criterion) throws XdStorageException,
+                                                         XdStorageConnectionException {
         final IXdStorageCriterionOperator operator = primaryCriterion.getOperator();
         final Object value = primaryCriterion.getValue();
         Comparable fromKey = null;
@@ -1121,9 +1197,11 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
         }
 
         try {
-            tree.readRange(fromKey, fromInclusive, toKey, toInclusive, storage, transaction, new IXdStorageBTreeViewer() {
+            tree.readRange(fromKey, fromInclusive, toKey, toInclusive, storage, transaction, new IXdStorageBTreeViewer()
+                    {
                 @Override
-                public void look(final Comparable key, final Object rec) throws XdStorageException, XdStorageConnectionException {
+                public void look(final Comparable key, final Object rec) throws XdStorageException,
+                        XdStorageConnectionException {
                     final XdStorageSearchIndexRecord record = (XdStorageSearchIndexRecord) rec;
                     if (!primaryCriterion.passed(record)) {
                         return;
@@ -1152,7 +1230,8 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
         final Class<?> declared = boxedType(primaryFieldType);
         if (!declared.isInstance(bound)) {
             throw new XdStorageRuntimeException("range operator " + operator + ": criterion bound of type "
-                    + bound.getClass().getName() + " is not comparable with the indexed values of index criteria for class "
+                    + bound.getClass().getName() +
+                            " is not comparable with the indexed values of index criteria for class "
                     + clInfo.getClazz().getName() + " — mixed-type comparison fails loudly");
         }
     }
@@ -1203,14 +1282,17 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
      * transaction rollback-only, exactly like the legacy fetch tail.
      */
     private Object fetchVisible(final XdStoragePolicy policy, final XdStorageClassInfo clInfo,
-                                final XdStorageSearchIndexRecord record, final XdStorageTransaction transaction) throws XdStorageException {
+                                final XdStorageSearchIndexRecord record, final XdStorageTransaction transaction) throws
+                                        XdStorageException {
         final Object objectId = record.getId();
         try {
             if (policy == XdStoragePolicy.StoreAsClassObjects) {
-                final IXdStorageDaoResource resource = services.getResourcesManager().lockResource(record.getResourceId(), clInfo, transaction);
+                final IXdStorageDaoResource resource = services.getResourcesManager().lockResource(record
+                        .getResourceId(), clInfo, transaction);
                 return resource.read(objectId, transaction);
             } else if (policy == XdStoragePolicy.StoreAsSingleObject) {
-                final IXdStorageDaoResource resource = services.getResourcesManager().lockObjectResource(clInfo, objectId, transaction);
+                final IXdStorageDaoResource resource = services.getResourcesManager().lockObjectResource(clInfo,
+                        objectId, transaction);
                 return resource.read(objectId, transaction);
             }
             return null;
@@ -1221,11 +1303,15 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
         }
     }
 
-    private <T> void handleNotEqualsPrimaryCriterions(final XdStorageTransaction transaction, final XdStorageClassInfo clInfo,
+    private <T> void handleNotEqualsPrimaryCriterions(final XdStorageTransaction transaction, final XdStorageClassInfo
+            clInfo,
                                                       final XdStorageSearchIndex index, final XdStoragePolicy policy,
-                                                      final Map<Object, T> result, final List<XdStoragePair<IXdStoragePrimaryCriterion, IXdStorageCriterion>> notEquals)
+                                                      final Map<Object, T> result, final
+                                                              List<XdStoragePair<IXdStoragePrimaryCriterion,
+                                                              IXdStorageCriterion>> notEquals)
             throws XdStorageException, XdStorageConnectionException {
-        final IXdStorageSearchIndexDaoResource resource = services.getResourcesManager().lockSearchIndexResource(clInfo, index.getName(), transaction);
+        final IXdStorageSearchIndexDaoResource resource = services.getResourcesManager().lockSearchIndexResource(clInfo,
+                index.getName(), transaction);
         resource.watch(transaction, new IXdStorageWatcher<XdStorageSearchIndexRecord>() {
             @Override
             public void watch(final XdStorageSearchIndexRecord object) {
@@ -1240,11 +1326,13 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
                         try {
                             final Object objectId = object.getId();
                             if (policy == XdStoragePolicy.StoreAsClassObjects) {
-                                final IXdStorageDaoResource resource = services.getResourcesManager().lockResource(object.getResourceId(), clInfo, transaction);
+                                final IXdStorageDaoResource resource = services.getResourcesManager()
+                                        .lockResource(object.getResourceId(), clInfo, transaction);
                                 result.put(objectId, (T) resource.read(objectId, transaction));
                                 break;
                             } else if (policy == XdStoragePolicy.StoreAsSingleObject) {
-                                final IXdStorageDaoResource resource = services.getResourcesManager().lockObjectResource(clInfo, objectId, transaction);
+                                final IXdStorageDaoResource resource = services.getResourcesManager()
+                                        .lockObjectResource(clInfo, objectId, transaction);
                                 result.put(objectId, (T) resource.read(objectId, transaction));
                                 break;
                             }
@@ -1257,12 +1345,15 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
         });
     }
 
-    private <T> void handleEqualsPrimaryCriterion(final XdStorageTransaction transaction, final XdStorageClassInfo clInfo,
+    private <T> void handleEqualsPrimaryCriterion(final XdStorageTransaction transaction, final XdStorageClassInfo
+            clInfo,
                                                   final XdStoragePolicy policy, final Map<Object, T> result,
                                                   final IXdStorage storage, final XdStorageBTree tree,
                                                   final IXdStoragePrimaryCriterion primaryCriterion,
-                                                  final IXdStorageCriterion criterion) throws XdStorageException, XdStorageConnectionException {
-        final XdStorageSearchIndexKey key = new XdStorageSearchIndexKey(primaryCriterion.getValue(), null, XdStorageSearchIndexOperationType.Search);
+                                                  final IXdStorageCriterion criterion) throws XdStorageException,
+                                                          XdStorageConnectionException {
+        final XdStorageSearchIndexKey key = new XdStorageSearchIndexKey(primaryCriterion.getValue(), null,
+                XdStorageSearchIndexOperationType.Search);
         final List<Object> records = tree.find(key, storage, transaction);
         records.stream().forEach(rec -> {
             final XdStorageSearchIndexRecord record = (XdStorageSearchIndexRecord) rec;
@@ -1270,10 +1361,12 @@ public class XdStorageSearchManager implements IXdStorageSearchManager {
                 final Object objectId = record.getId();
                 try {
                     if (policy == XdStoragePolicy.StoreAsClassObjects) {
-                        final IXdStorageDaoResource resource = services.getResourcesManager().lockResource(record.getResourceId(), clInfo, transaction);
+                        final IXdStorageDaoResource resource = services.getResourcesManager().lockResource(record
+                                .getResourceId(), clInfo, transaction);
                         result.put(objectId, (T) resource.read(objectId, transaction));
                     } else if (policy == XdStoragePolicy.StoreAsSingleObject) {
-                        final IXdStorageDaoResource resource = services.getResourcesManager().lockObjectResource(clInfo, objectId, transaction);
+                        final IXdStorageDaoResource resource = services.getResourcesManager().lockObjectResource(clInfo,
+                                objectId, transaction);
                         result.put(objectId, (T) resource.read(objectId, transaction));
                     }
                 } catch (final XdStorageException | XdStorageConnectionException e) {

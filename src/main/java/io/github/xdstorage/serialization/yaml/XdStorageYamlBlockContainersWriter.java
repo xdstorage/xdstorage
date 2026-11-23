@@ -44,7 +44,8 @@ public class XdStorageYamlBlockContainersWriter {
      * @param emitter  the YAML output target
      * @throws IOException when the underlying writer fails
      */
-    public static void writeEnum(final String name, final Class<?> cl, final Object value, final XdStorageYamlEmitter emitter) throws IOException {
+    public static void writeEnum(final String name, final Class<?> cl, final Object value, final XdStorageYamlEmitter
+            emitter) throws IOException {
         emitter.openBlock(name);
         writeEnumInline(cl, value, emitter);
         emitter.closeBlock();
@@ -59,7 +60,8 @@ public class XdStorageYamlBlockContainersWriter {
      * @param emitter the YAML output target
      * @throws IOException when the underlying writer fails
      */
-    public static void writeEnumInline(final Class<?> cl, final Object value, final XdStorageYamlEmitter emitter) throws IOException {
+    public static void writeEnumInline(final Class<?> cl, final Object value, final XdStorageYamlEmitter emitter) throws
+            IOException {
         emitter.openBlock("enum");
         emitter.writeKey("class");
         emitter.writeScalar("'" + cl.getName() + "'");
@@ -110,7 +112,8 @@ public class XdStorageYamlBlockContainersWriter {
                                              final XdStorageYamlEmitter emitter,
                                              final XdStorageServicesLocator services,
                                              final IXdStorageSimpleTypeHelper simpleTypeHelper,
-                                             final IXdStorageIdGenerator idGenerator) throws IOException, XdStorageException {
+                                             final IXdStorageIdGenerator idGenerator) throws IOException,
+                                                     XdStorageException {
         emitter.openBlock("collection");
         emitter.writeKey("class");
         emitter.writeScalar("'" + cl.getName() + "'");
@@ -139,7 +142,8 @@ public class XdStorageYamlBlockContainersWriter {
                 // Нарезаем контент строго внутрь узла value:
                 if (simpleTypeHelper.isSimpleType(c, item)) {
                     emitter.writeKey("value");
-                    emitter.writeScalar("'" + XdStorageYamlBlockObjectsWriter.encode(simpleTypeHelper.simpleTypeToString(item)) + "'");
+                    emitter.writeScalar("'" + XdStorageYamlBlockObjectsWriter.encode(simpleTypeHelper
+                            .simpleTypeToString(item)) + "'");
                 } else if (c.isEnum()) {
                     emitter.openBlock("value");
                     writeEnumInline(c, item, emitter);
@@ -173,7 +177,8 @@ public class XdStorageYamlBlockContainersWriter {
                                         final XdStorageYamlEmitter emitter,
                                         final XdStorageServicesLocator services,
                                         final IXdStorageSimpleTypeHelper simpleTypeHelper,
-                                        final IXdStorageIdGenerator idGenerator) throws IOException, XdStorageException {
+                                        final IXdStorageIdGenerator idGenerator) throws IOException, XdStorageException
+                                                {
         emitter.openBlock("array");
         emitter.writeKey("class");
         emitter.writeScalar("'" + arrayClass.getComponentType().getName() + "'");
@@ -193,7 +198,8 @@ public class XdStorageYamlBlockContainersWriter {
                 emitter.writeScalar("'" + ic.getName() + "'");
                 if (simpleTypeHelper.isSimpleType(ic, item)) {
                     emitter.writeKey("value");
-                    emitter.writeScalar("'" + XdStorageYamlBlockObjectsWriter.encode(simpleTypeHelper.simpleTypeToString(item)) + "'");
+                    emitter.writeScalar("'" + XdStorageYamlBlockObjectsWriter.encode(simpleTypeHelper
+                            .simpleTypeToString(item)) + "'");
                 } else if (ic.isEnum()) {
                     emitter.openBlock("value");
                     writeEnumInline(ic, item, emitter);
@@ -275,10 +281,12 @@ public class XdStorageYamlBlockContainersWriter {
         emitter.closeBlock(); // Закрываем "map"
     }
 
-    private static void writeMapComponentNode(final String nodeName, final Object item, final XdStorageYamlEmitter emitter,
+    private static void writeMapComponentNode(final String nodeName, final Object item, final XdStorageYamlEmitter
+            emitter,
                                               final XdStorageServicesLocator services,
                                               final IXdStorageSimpleTypeHelper simpleTypeHelper,
-                                              final IXdStorageIdGenerator idGenerator) throws IOException, XdStorageException {
+                                              final IXdStorageIdGenerator idGenerator) throws IOException,
+                                                      XdStorageException {
         emitter.openBlock(nodeName);
         if (item == null) {
             emitter.writeKey("type");
@@ -301,7 +309,8 @@ public class XdStorageYamlBlockContainersWriter {
                 emitter.writeScalar("'" + c.getName() + "'");
                 if (simpleTypeHelper.isSimpleType(c, item)) {
                     emitter.writeKey("value");
-                    emitter.writeScalar("'" + XdStorageYamlBlockObjectsWriter.encode(simpleTypeHelper.simpleTypeToString(item)) + "'");
+                    emitter.writeScalar("'" + XdStorageYamlBlockObjectsWriter.encode(simpleTypeHelper
+                            .simpleTypeToString(item)) + "'");
                 } else if (c.isEnum()) {
                     emitter.openBlock("value");
                     writeEnumInline(c, item, emitter);
@@ -319,7 +328,8 @@ public class XdStorageYamlBlockContainersWriter {
     private static void writeComplexItemInline(final Class<?> c, final Object item, final XdStorageYamlEmitter emitter,
                                                final XdStorageServicesLocator services,
                                                final IXdStorageSimpleTypeHelper simpleTypeHelper,
-                                               final IXdStorageIdGenerator idGenerator) throws IOException, XdStorageException {
+                                               final IXdStorageIdGenerator idGenerator) throws IOException,
+                                                       XdStorageException {
         // PROPTEST (docs/tasks/2.2.0/03): a NESTED CONTAINER as an item is a real shape
         // (List<List<String>>, List<Map<String,String>>, ...): routing it into the object
         // branch wrote 'object: class: ArrayList, fields:' — an EMPTY object block, and the

@@ -49,7 +49,8 @@ class XdStorageCommitRefusalCauseTest extends CacheInvariantTestSupport {
         mutator.insertInternal(entity(7L, "a"), tx);
 
         XdStorageRuntimeException e = assertThrows(XdStorageRuntimeException.class, () -> protocol.commit(tx));
-        assertTrue(e.getMessage().contains("Illegal state of record to commit"), "историческое ядро сообщения сохранено");
+        assertTrue(e.getMessage().contains("Illegal state of record to commit"),
+                "историческое ядро сообщения сохранено");
         assertTrue(e.getMessage().contains("record 7"), "идентификатор записи в сообщении");
         assertTrue(e.getMessage().contains("tx-refusal-1"), "идентификатор транзакции в сообщении");
         assertTrue(e.getMessage().contains("firstPhaseCommit=false"), "фактический флаг фазы 1 в сообщении");
@@ -72,7 +73,8 @@ class XdStorageCommitRefusalCauseTest extends CacheInvariantTestSupport {
 
         XdStorageRuntimeException e = assertThrows(XdStorageRuntimeException.class, () -> protocol.commit(tx));
         assertTrue(e.getMessage().contains("Illegal state of record to commit"), "ядро сообщения сохранено");
-        assertTrue(e.getMessage().contains("unit-test poisoning site"), "первая причина отравления процитирована в отказе");
+        assertTrue(e.getMessage().contains("unit-test poisoning site"),
+                "первая причина отравления процитирована в отказе");
     }
 
     @Test

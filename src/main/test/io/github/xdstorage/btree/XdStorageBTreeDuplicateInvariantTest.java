@@ -138,7 +138,8 @@ public class XdStorageBTreeDuplicateInvariantTest extends AbstractBTreeIntegrati
             actual.merge(pair, 1, Integer::sum);
         }
         assertEquals(expected, actual,
-                context + ": мультимножество пар в дереве не равно ожидаемому (потеря/лишняя пара после точечных удалений)");
+                context + ": мультимножество пар в дереве не равно ожидаемому (потеря/лишняя пара после точечных " +
+                        "удалений)");
     }
 
     private void verifyFullyCollapsed(final String context) {
@@ -360,7 +361,8 @@ public class XdStorageBTreeDuplicateInvariantTest extends AbstractBTreeIntegrati
     }
 
     @Test
-    @DisplayName("Инвариант 5 (DUPRACE): серия ключа через несколько листьев — точечное удаление находит пару в ЛЮБОМ листе диапазона")
+    @DisplayName("Инвариант 5 (DUPRACE): серия ключа через несколько листьев — точечное удаление находит пару в " +
+            "ЛЮБОМ листе диапазона")
     public void testTargetedDeleteFindsPairAcrossMultiLeafDuplicateSpan() throws Exception {
         final String targetKey = "span_a";
         final String neighborKey = "span_b";

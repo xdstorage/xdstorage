@@ -50,7 +50,8 @@ public class XdStorageTransactionResourceChanges {
      * @param oldObject the previous state of the object ({@code null} for an insert)
      * @param newObject the new state of the object ({@code null} for a delete)
      */
-    public void addChangeObject(final XdStorageObjectOperationType type, final Object id, final Object oldObject, final Object newObject) {
+    public void addChangeObject(final XdStorageObjectOperationType type, final Object id, final Object oldObject, final
+            Object newObject) {
         changes.add(new XdStorageObjectChange(type, id, oldObject, newObject));
     }
 

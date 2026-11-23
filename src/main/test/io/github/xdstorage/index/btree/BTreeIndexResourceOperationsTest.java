@@ -90,7 +90,8 @@ public class BTreeIndexResourceOperationsTest extends AbstractBTreeIndexResource
 
         // Проверяем, что жертва честно упала по таймауту
         assertNotNull(caughtException, "Параллельный поток заснул вместо отвала по таймауту ReentrantLock!");
-        assertTrue(caughtException instanceof XdStorageRuntimeException, "Тип ошибки должен быть XdStorageRuntimeException!");
+        assertTrue(caughtException instanceof XdStorageRuntimeException,
+                "Тип ошибки должен быть XdStorageRuntimeException!");
         assertTrue(caughtException.getMessage().contains("cannot be locked for commit"), "Текст ошибки не совпадает!");
 
         // 3. Освобождаем замок в главном потоке для чистоты окружения

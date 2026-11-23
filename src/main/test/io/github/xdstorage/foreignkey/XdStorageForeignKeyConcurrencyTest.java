@@ -101,8 +101,10 @@ public class XdStorageForeignKeyConcurrencyTest extends AbstractForeignKeyEngine
                         private final Set<Object> resources = new HashSet<>();
                         @Override public void startCriticalSection(boolean r) {}
                         @Override public void finishCriticalSection() {}
-                        @Override public boolean isResourceRegistered(io.github.xdstorage.resource.IXdStorageResourceObject res) { return resources.contains(res.getResourceId()); }
-                        @Override public void registerResource(io.github.xdstorage.resource.IXdStorageResourceObject res, int order) { resources.add(res.getResourceId()); }
+                        @Override public boolean isResourceRegistered(io.github.xdstorage.resource
+                                .IXdStorageResourceObject res) { return resources.contains(res.getResourceId()); }
+                        @Override public void registerResource(io.github.xdstorage.resource.IXdStorageResourceObject
+                                res, int order) { resources.add(res.getResourceId()); }
                     };
 
                     XdStorageForeignKeyPair pair = new XdStorageForeignKeyPair(

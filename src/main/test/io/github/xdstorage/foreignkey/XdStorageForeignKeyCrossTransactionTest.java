@@ -57,7 +57,8 @@ public class XdStorageForeignKeyCrossTransactionTest {
      * TX1 saves parent → FK resolves.
      * TX2 deletes parent → should veto (child still references it). */
     @Test
-    @DisplayName("testTx0SavesChild_Tx2DeletesParent_Vetoed: TX0 откат → FK-след отсутствует; parent+child → parent-delete вето")
+    @DisplayName("testTx0SavesChild_Tx2DeletesParent_Vetoed: TX0 откат → FK-след отсутствует; parent+child → " +
+            "parent-delete вето")
     public void testTx0SavesChild_Tx2DeletesParent_Vetoed() throws Exception {
         // TX0: save child with unsaved parent — then ROLLBACK: перс-тX изоляция снимает
         // и запись ребенка, и pending (канон "TX0 pending → TX1 can't see it").
@@ -108,7 +109,8 @@ public class XdStorageForeignKeyCrossTransactionTest {
     /** TX0 saves child with null parent → deferred-ID.
      * TX1 deletes parent → should veto (parent never saved, child still pending). */
     @Test
-    @DisplayName("testTx0SavesChild_Tx1DeletesParent_Tx2SeesIt: откат TX0 → FK-след отсутствует; parent+child → вето на parent-delete")
+    @DisplayName("testTx0SavesChild_Tx1DeletesParent_Tx2SeesIt: откат TX0 → FK-след отсутствует; parent+child → вето " +
+            "на parent-delete")
     public void testTx0SavesChild_Tx1DeletesParent_Tx2SeesIt() throws Exception {
         // TX0 (откачен): ребенок с несохраненным родителем — FK-след отсутствует
         IXdStorageTransaction tx0 = storage.beginTransaction();

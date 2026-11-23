@@ -69,7 +69,8 @@ public final class XdStorageBinaryFormatExperiment {
 
         private static io.github.xdstorage.services.XdStorageServicesLocator serviceOf(final IXdStorageIOFactory f) {
             try {
-                return (io.github.xdstorage.services.XdStorageServicesLocator) findField(f.getClass(), "services").get(f);
+                return (io.github.xdstorage.services.XdStorageServicesLocator) findField(f.getClass(), "services")
+                        .get(f);
             } catch (final Exception e) {
                 throw new RuntimeException(e);
             }
@@ -77,7 +78,8 @@ public final class XdStorageBinaryFormatExperiment {
 
         private static io.github.xdstorage.idgeneration.IXdStorageIdGenerator idGenOf(final IXdStorageIOFactory f) {
             try {
-                return (io.github.xdstorage.idgeneration.IXdStorageIdGenerator) findField(f.getClass(), "idGenerator").get(f);
+                return (io.github.xdstorage.idgeneration.IXdStorageIdGenerator) findField(f.getClass(), "idGenerator")
+                        .get(f);
             } catch (final Exception e) {
                 throw new RuntimeException(e);
             }
@@ -88,8 +90,10 @@ public final class XdStorageBinaryFormatExperiment {
             final IXdStorageObjectsReader delegate = this.delegate.newInstanceReader();
             return new IXdStorageObjectsReader() {
                 @Override
-                public Collection<Object> readReferences(final Reader reader, final io.github.xdstorage.utils.XdStorageObjectIdField field)
-                        throws io.github.xdstorage.exceptions.XdStorageIOException, io.github.xdstorage.exceptions.XdStorageException {
+                public Collection<Object> readReferences(final Reader reader, final io.github.xdstorage.utils
+                        .XdStorageObjectIdField field)
+                        throws io.github.xdstorage.exceptions.XdStorageIOException, io.github.xdstorage.exceptions
+                                .XdStorageException {
                     final long t0 = System.nanoTime();
                     try {
                         return delegate.readReferences(reader, field);
@@ -100,7 +104,8 @@ public final class XdStorageBinaryFormatExperiment {
 
                 @Override
                 public Collection<Object> read(final Reader reader)
-                        throws io.github.xdstorage.exceptions.XdStorageIOException, io.github.xdstorage.exceptions.XdStorageException {
+                        throws io.github.xdstorage.exceptions.XdStorageIOException, io.github.xdstorage.exceptions
+                                .XdStorageException {
                     final long t0 = System.nanoTime();
                     try {
                         return delegate.read(reader);
@@ -121,9 +126,12 @@ public final class XdStorageBinaryFormatExperiment {
                 }
 
                 @Override
-                public Collection<io.github.xdstorage.object.XdStorageIdentifiableObject> readData(final Reader xmlReader,
-                                                                                                    final io.github.xdstorage.utils.XdStorageObjectIdField field)
-                        throws io.github.xdstorage.exceptions.XdStorageIOException, io.github.xdstorage.exceptions.XdStorageException {
+                public Collection<io.github.xdstorage.object.XdStorageIdentifiableObject> readData(final Reader
+                        xmlReader,
+                                                                                                    final io.github
+                                                                .xdstorage.utils.XdStorageObjectIdField field)
+                        throws io.github.xdstorage.exceptions.XdStorageIOException, io.github.xdstorage.exceptions
+                                .XdStorageException {
                     final long t0 = System.nanoTime();
                     try {
                         return delegate.readData(xmlReader, field);
@@ -169,7 +177,8 @@ public final class XdStorageBinaryFormatExperiment {
         return model;
     }
 
-    private static void assertIntegrity(final Collection<BinFeasEntity> loaded, final Map<String, BinFeasEntity> model) {
+    private static void assertIntegrity(final Collection<BinFeasEntity> loaded, final Map<String, BinFeasEntity> model)
+            {
         assertEquals(model.size(), loaded.size(), "the loaded count diverges from the model (a data loss)");
         for (final BinFeasEntity e : loaded) {
             final BinFeasEntity expected = model.get(e.getId());
@@ -219,10 +228,12 @@ public final class XdStorageBinaryFormatExperiment {
         int checked = 0;
         try (final java.util.stream.Stream<Path> walk = Files.walk(root.resolve("data"))) {
             for (final Path p : (Iterable<Path>) walk.filter(Files::isRegularFile)
-                    .filter(f -> f.getFileName().toString().endsWith(".yaml") && !f.toString().contains("journal"))::iterator) {
+                    .filter(f -> f.getFileName().toString().endsWith(".yaml") && !f.toString()
+                            .contains("journal"))::iterator) {
                 final String head = new String(Files.readAllBytes(p), 0, 3, StandardCharsets.US_ASCII);
                 if (!"BF1".equals(head)) {
-                    throw new AssertionError("the base file " + p + " is not binary (head='" + head + "') — the conversion did not cover it");
+                    throw new AssertionError("the base file " + p + " is not binary (head='" + head +
+                            "') — the conversion did not cover it");
                 }
                 checked++;
             }
@@ -234,7 +245,8 @@ public final class XdStorageBinaryFormatExperiment {
     private static void convertIndexBase(final Path root, final IXdFileStorage session) throws Exception {
         final Path indexFile = root.resolve("indexes/BinFeasEntity/index.yaml");
         final io.github.xdstorage.serialization.yaml.XdStorageYamlIOFactory yaml =
-                new io.github.xdstorage.serialization.yaml.XdStorageYamlIOFactory(servicesOf(session), idGenOf(session));
+                new io.github.xdstorage.serialization.yaml.XdStorageYamlIOFactory(servicesOf(session),
+                        idGenOf(session));
         final io.github.xdstorage.utils.XdStorageObjectIdField idField =
                 io.github.xdstorage.utils.XdStorageObjectUtils.getClassInfo(BinFeasEntity.class).getIdField();
         final Collection<io.github.xdstorage.object.XdStorageIdentifiableObject> records;
@@ -284,7 +296,8 @@ public final class XdStorageBinaryFormatExperiment {
         storage.shutdown();
         final long yamlCpWall = System.nanoTime() - yamlCpStart;
         final long yamlBytes = dirBytes(root);
-        System.out.printf(Locale.ROOT, "[BINEXP] YAML: %,d bytes, checkpoint %,d ms%n", yamlBytes, yamlCpWall / 1_000_000);
+        System.out.printf(Locale.ROOT, "[BINEXP] YAML: %,d bytes, checkpoint %,d ms%n", yamlBytes, yamlCpWall /
+                1_000_000);
 
         // ── 2. the YAML cold rounds ──
         final List<Long> yamlScanWalls = new ArrayList<>();
@@ -297,7 +310,8 @@ public final class XdStorageBinaryFormatExperiment {
             final IXdStorageTransaction tx = storage.beginTransaction();
             READER_NANOS.set(0);
             final long t0 = System.nanoTime();
-            final Collection<BinFeasEntity> loaded = storage.load(BinFeasEntity.class, (IXdStoragePredicate<BinFeasEntity>) o -> true, tx);
+            final Collection<BinFeasEntity> loaded = storage.load(BinFeasEntity.class,
+                    (IXdStoragePredicate<BinFeasEntity>) o -> true, tx);
             final long wall = System.nanoTime() - t0;
             assertIntegrity(loaded, model);
             yamlScanWalls.add(wall);
@@ -325,8 +339,10 @@ public final class XdStorageBinaryFormatExperiment {
             yamlAvg.add((System.nanoTime() - ta) / lookups);
             storage.commitTransaction(tx);
             storage.shutdown();
-            System.out.printf(Locale.ROOT, "[BINEXP][diag] yaml lookup round %d: FIRST %,d µs (reader %,d µs), avg %,d µs/op%n",
-                    r, yamlFirst.get(yamlFirst.size() - 1) / 1_000, firstReader / 1_000, yamlAvg.get(yamlAvg.size() - 1) / 1_000);
+            System.out.printf(Locale.ROOT,
+                    "[BINEXP][diag] yaml lookup round %d: FIRST %,d µs (reader %,d µs), avg %,d µs/op%n",
+                    r, yamlFirst.get(yamlFirst.size() - 1) / 1_000, firstReader / 1_000, yamlAvg.get(yamlAvg.size() - 1)
+                            / 1_000);
         }
 
         // ── 3. the CONVERSION: open → LOAD everything (the YAML factory: the caches fill)
@@ -335,7 +351,8 @@ public final class XdStorageBinaryFormatExperiment {
         // checkpoint would rewrite nothing — the first smoke run proved it) ──
         storage = XdStorageProvider.newOrGetFileStorage("binexp-convert", root.toString(), 64);
         final IXdStorageTransaction loadTx = storage.beginTransaction();
-        final int staged = storage.load(BinFeasEntity.class, (IXdStoragePredicate<BinFeasEntity>) o -> true, loadTx).size();
+        final int staged = storage.load(BinFeasEntity.class, (IXdStoragePredicate<BinFeasEntity>) o -> true, loadTx)
+                .size();
         storage.commitTransaction(loadTx);
         install(storage, new BinFeasBinaryIOFactory(servicesOf(storage), idGenOf(storage)));
         // the RESOURCES capture their reader/writer at construction (the load above created
@@ -356,7 +373,8 @@ public final class XdStorageBinaryFormatExperiment {
 
         final long binCpStart = System.nanoTime();
         storage.shutdown();
-        System.out.printf(Locale.ROOT, "[BINEXP] conversion staged %d entities into the cache before the checkpoint%n", staged);
+        System.out.printf(Locale.ROOT, "[BINEXP] conversion staged %d entities into the cache before the checkpoint%n",
+                staged);
         final long binCpWall = System.nanoTime() - binCpStart;
         final long binBytes = dirBytes(root);
         assertBinaryBases(root);
@@ -378,7 +396,8 @@ public final class XdStorageBinaryFormatExperiment {
             final IXdStorageTransaction tx = storage.beginTransaction();
             READER_NANOS.set(0);
             final long t0 = System.nanoTime();
-            final Collection<BinFeasEntity> loaded = storage.load(BinFeasEntity.class, (IXdStoragePredicate<BinFeasEntity>) o -> true, tx);
+            final Collection<BinFeasEntity> loaded = storage.load(BinFeasEntity.class,
+                    (IXdStoragePredicate<BinFeasEntity>) o -> true, tx);
             final long wall = System.nanoTime() - t0;
             assertIntegrity(loaded, model); // the data-loss gate: EVERY entity, EVERY field
             binScanWalls.add(wall);
@@ -416,17 +435,21 @@ public final class XdStorageBinaryFormatExperiment {
         final long bSer = median(binScanReaders);
         System.out.println();
         System.out.println("=== BINEXP RESULT (medians over " + rounds + " rounds) ===");
-        System.out.printf(Locale.ROOT, "cold full scan:  YAML %,d ms (serialization %,d ms) | BINARY %,d ms (serialization %,d ms) | realized %.2f×%n",
+        System.out.printf(Locale.ROOT,
+                "cold full scan:  YAML %,d ms (serialization %,d ms) | BINARY %,d ms (serialization %,d ms) | " +
+                "realized %.2f×%n",
                 yScan / 1_000_000, ySer / 1_000_000, bScan / 1_000_000, bSer / 1_000_000, (double) yScan / bScan);
         System.out.printf(Locale.ROOT, "cold FIRST lookup: YAML %,d µs | BINARY %,d µs | realized %.2f×%n",
                 median(yamlFirst) / 1_000, median(binFirst) / 1_000, (double) median(yamlFirst) / median(binFirst));
-        System.out.printf(Locale.ROOT, "warm lookups:      YAML %,d µs | BINARY %,d µs (format-blind: the record cache)%n",
+        System.out.printf(Locale.ROOT,
+                "warm lookups:      YAML %,d µs | BINARY %,d µs (format-blind: the record cache)%n",
                 median(yamlAvg) / 1_000, median(binAvg) / 1_000);
         System.out.printf(Locale.ROOT, "checkpoint write-out: YAML %,d ms | BINARY %,d ms | realized %.2f×%n",
                 yamlCpWall / 1_000_000, binCpWall / 1_000_000, (double) yamlCpWall / binCpWall);
         System.out.printf(Locale.ROOT, "storage bytes: YAML %,d | BINARY %,d (%.2f× smaller)%n",
                 yamlBytes, binBytes, (double) yamlBytes / Math.max(1, binBytes));
-        System.out.println("INTEGRITY: every entity field-equal to the source model in BOTH arms; all lookups payload-checked; the bases BF1-magic-verified.");
+        System.out.println("INTEGRITY: every entity field-equal to the source model in BOTH arms; all lookups " +
+                "payload-checked; the bases BF1-magic-verified.");
     }
 
     /** Swaps the reader/writer of every LIVE resource to the binary codec (the resources
@@ -445,16 +468,22 @@ public final class XdStorageBinaryFormatExperiment {
         System.out.printf(Locale.ROOT, "[BINEXP] swapped the reader/writer of %d live resources to binary%n", swapped);
     }
 
-    private static io.github.xdstorage.services.XdStorageServicesLocator servicesOf(final IXdStorage storage) throws Exception {
-        return (io.github.xdstorage.services.XdStorageServicesLocator) findField(storage.getClass(), "services").get(storage);
+    private static io.github.xdstorage.services.XdStorageServicesLocator servicesOf(final IXdStorage storage) throws
+            Exception {
+        return (io.github.xdstorage.services.XdStorageServicesLocator) findField(storage.getClass(), "services")
+                .get(storage);
     }
 
-    private static io.github.xdstorage.services.XdStorageServicesLocator servicesOf(final IXdFileStorage storage) throws Exception {
-        return (io.github.xdstorage.services.XdStorageServicesLocator) findField(storage.getClass(), "services").get(storage);
+    private static io.github.xdstorage.services.XdStorageServicesLocator servicesOf(final IXdFileStorage storage) throws
+            Exception {
+        return (io.github.xdstorage.services.XdStorageServicesLocator) findField(storage.getClass(), "services")
+                .get(storage);
     }
 
-    private static io.github.xdstorage.idgeneration.IXdStorageIdGenerator idGenOf(final IXdFileStorage storage) throws Exception {
+    private static io.github.xdstorage.idgeneration.IXdStorageIdGenerator idGenOf(final IXdFileStorage storage) throws
+            Exception {
         final Object locator = servicesOf(storage);
-        return (io.github.xdstorage.idgeneration.IXdStorageIdGenerator) findField(locator.getClass(), "idGenerator").get(locator);
+        return (io.github.xdstorage.idgeneration.IXdStorageIdGenerator) findField(locator.getClass(), "idGenerator")
+                .get(locator);
     }
 }

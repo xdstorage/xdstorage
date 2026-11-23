@@ -136,7 +136,8 @@ public class XdStorageCacheRecord {
      * @param object the materialized committed object the record will hold
      * @return a new cache record in the clean-read state
      */
-    public static XdStorageCacheRecord newReadRecord(final XdStorageCacheContext cache, final XdStorageObjectIdField field, final Object object) {
+    public static XdStorageCacheRecord newReadRecord(final XdStorageCacheContext cache, final XdStorageObjectIdField
+            field, final Object object) {
         final XdStorageCacheRecord record = new XdStorageCacheRecord(cache);
         record.id = field.get(object);
         record.object = object;
@@ -180,7 +181,8 @@ public class XdStorageCacheRecord {
      * @param transaction the inserting transaction, which becomes the record's owner
      * @return a new cache record in the uncommitted-insert state
      */
-    public static XdStorageCacheRecord newInsertRecord(final XdStorageCacheContext cache, final XdStorageObjectIdField field, final Object newObject, final XdStorageTransaction transaction) {
+    public static XdStorageCacheRecord newInsertRecord(final XdStorageCacheContext cache, final XdStorageObjectIdField
+            field, final Object newObject, final XdStorageTransaction transaction) {
         final XdStorageCacheRecord record = new XdStorageCacheRecord(cache);
         record.id = field.get(newObject);
         record.object = null;
@@ -291,13 +293,15 @@ public class XdStorageCacheRecord {
         // =========================================================================
         boolean result = this.state == State.undefined
                 || !isOwnerTxAlive
-                || (this.state == State.locked && this.transaction == transaction && transaction.getTimestart() == timestamp)
+                || (this.state == State.locked && this.transaction == transaction && transaction.getTimestart() ==
+                        timestamp)
                 || (this.state == State.locked && isOwnedByTransactionChain(transaction))
                 || (this.state == State.committed && transaction.getTimestart() > timestamp);
 
         if (log.isDebugEnabled()) {
             log.debug("canBeChangedByTransaction state: " + this.state
-                    + " \r\n this.transaction: " + this.transaction + "(" + (this.transaction != null ? this.transaction.getTransactionId() : null)
+                    + " \r\n this.transaction: " + this.transaction + "(" + (this.transaction != null ? this.transaction
+                            .getTransactionId() : null)
                     + ")\r\n transaction: " + transaction + "(" + transaction.getTransactionId()
                     + ")\r\n this.timestamp: " + timestamp + "\r\n tran.timestart: " + transaction.getTimestart());
         }
@@ -331,7 +335,8 @@ public class XdStorageCacheRecord {
      * @param readObjectByTransactionTimestamp   the timestamp of the version the transaction read
      * @return {@code true} if the change would not conflict with the version the transaction saw
      */
-    public boolean canBeChangedByTransaction(final XdStorageTransaction transaction, final long readObjectByTransactionTimestamp) {
+    public boolean canBeChangedByTransaction(final XdStorageTransaction transaction, final long
+            readObjectByTransactionTimestamp) {
         boolean isOwnerTxAlive = this.transaction != null &&
                 cache.isTransactionAlive(this.transaction);
 
@@ -343,15 +348,18 @@ public class XdStorageCacheRecord {
 
         boolean result = this.state == State.undefined
                 || !isOwnerTxAlive
-                || (this.state == State.locked && this.transaction == transaction && transaction.getTimestart() == timestamp)
+                || (this.state == State.locked && this.transaction == transaction && transaction.getTimestart() ==
+                        timestamp)
                 || (this.state == State.locked && isOwnedByTransactionChain(transaction))
                 || (this.state == State.committed && readObjectByTransactionTimestamp > committedComparator);
 
         if (log.isDebugEnabled()) {
             log.debug("canBeChangedByTransaction state: " + this.state
-                    + " \r\n this.transaction: " + this.transaction + "(" + (this.transaction != null ? this.transaction.getTransactionId() : null)
+                    + " \r\n this.transaction: " + this.transaction + "(" + (this.transaction != null ? this.transaction
+                            .getTransactionId() : null)
                     + ")\r\n transaction: " + transaction + "(" + transaction.getTransactionId()
-                    + ")\r\n this.timestamp: " + timestamp + "\r\n tran.timestart: " + readObjectByTransactionTimestamp);
+                    + ")\r\n this.timestamp: " + timestamp + "\r\n tran.timestart: " +
+                            readObjectByTransactionTimestamp);
         }
 
         return result;
@@ -700,7 +708,9 @@ public class XdStorageCacheRecord {
                             log.warn("record {} locked by transaction {} (change={}) — waiter {} timed out after {} ms",
                                     id, this.transaction != null ? this.transaction.getTransactionId() : null,
                                     change, transactionId, transaction.getTimeout());
-                            throw new XdStorageRuntimeException("transaction " + transactionId + " should be rolled back by timeout. Object with id " + id + " is locked for " + change);
+                            throw new XdStorageRuntimeException("transaction " + transactionId +
+                                    " should be rolled back by timeout. Object with id " + id + " is locked for " +
+                                    change);
                         } else {
                             blockingTime.put(transactionId, startTime);
                         }
@@ -742,8 +752,10 @@ public class XdStorageCacheRecord {
             }
         } else {
             log.warn("unlock of record {} rejected: caller {} does not own it (owner={})",
-                    id, transaction.getTransactionId(), this.transaction != null ? this.transaction.getTransactionId() : null);
-            throw new XdStorageException("trying to release locking object by the transaction is not locked this object");
+                    id, transaction.getTransactionId(), this.transaction != null ? this.transaction.getTransactionId() :
+                            null);
+            throw new XdStorageException("trying to release locking object by the transaction is not locked this " +
+                    "object");
         }
     }
 
@@ -762,8 +774,10 @@ public class XdStorageCacheRecord {
      */
     private static final Object LEGACY_ARMING_KEY = new Object();
 
-    private final java.util.Set<Object> phaseOneArmedFor = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
-    private final java.util.Set<Object> phaseTwoArmedFor = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+    private final java.util.Set<Object> phaseOneArmedFor = java.util.Collections.synchronizedSet(new java.util
+            .HashSet<>());
+    private final java.util.Set<Object> phaseTwoArmedFor = java.util.Collections.synchronizedSet(new java.util
+            .HashSet<>());
 
     private static Object markerKey(final IXdStorageTransaction tx) {
         return tx != null ? tx : LEGACY_ARMING_KEY;
@@ -866,7 +880,8 @@ public class XdStorageCacheRecord {
                     + ", secondPhaseCommit=" + secondPhaseArmed
                     + ", state=" + state + ", change=" + change
                     + ", owner=" + (transaction != null ? transaction.getTransactionId() : null) + ")";
-            log.error("commit of {} rejected: the record's two-phase flags were disarmed while its commit was in flight", detail);
+            log.error("commit of {} rejected: the record's two-phase flags were disarmed while its commit was in " +
+                    "flight", detail);
             // RBCOMMIT (docs/tasks/2.1.0/45): the refusal carries the record id, the tx id,
             // the actual flag/state and — when the committing transaction carries a
             // rollback-only cause (the nested-expiry cascade, the timeout sweeper) — that
@@ -889,7 +904,9 @@ public class XdStorageCacheRecord {
         // rollback) and this finalize becomes a no-op: the first finalize of a shared
         // record wins, loudly visible in the log. The historical null publish is dead.
         if (newObject == null && change != XdStorageCacheChange.delete && id != null) {
-            log.warn("commit of record {} by tx {} skipped: the pending content was already finalized/reset by a chain or co-staged transaction (change={}, state={}, owner={}) — the record's current state stands, the shared record's first finalize wins",
+            log.warn("commit of record {} by tx {} skipped: the pending content was already finalized/reset by a " +
+                    "chain or co-staged transaction (change={}, state={}, owner={}) — the record's current state " +
+                    "stands, the shared record's first finalize wins",
                     id, tx != null ? tx.getTransactionId() : null, change, state,
                     transaction != null ? transaction.getTransactionId() : null);
             return;
@@ -965,7 +982,8 @@ public class XdStorageCacheRecord {
         // и не затрагиваются; rollbackFailedCommit подменяет записи старыми инстансами
         // до вызова rollback — тоже не затронут.
         if (this.state == State.committed) {
-            log.warn("rollback ignored for record {} — record already committed (change={}, owner={}); late/racing rollback suppressed",
+            log.warn("rollback ignored for record {} — record already committed (change={}, owner={}); late/racing " +
+                    "rollback suppressed",
                     id, change, transaction != null ? transaction.getTransactionId() : null);
             return;
         }
@@ -978,7 +996,8 @@ public class XdStorageCacheRecord {
         // committed-with-null zombies. The owner itself and its chain ancestors (R-40)
         // keep the full reset.
         if (!pendingStateOwnedByRollingChain(tx)) {
-            log.warn("rollback of record {} by tx {} skipped the content reset — the pending state is owned by another live transaction (adoption handoff)",
+            log.warn("rollback of record {} by tx {} skipped the content reset — the pending state is owned by " +
+                    "another live transaction (adoption handoff)",
                     id, tx != null ? tx.getTransactionId() : null);
             return;
         }

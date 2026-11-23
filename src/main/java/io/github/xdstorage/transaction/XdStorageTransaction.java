@@ -111,7 +111,8 @@ public class XdStorageTransaction implements IXdStorageTransaction {
     private final java.util.List<Object[]> indexKeysForRollback =
             java.util.Collections.synchronizedList(new java.util.ArrayList<>());
 
-    private final AtomicReference<TransactionState> transactionState = new AtomicReference<>(TransactionState.InProcess);
+    private final AtomicReference<TransactionState> transactionState = new AtomicReference<>(TransactionState
+            .InProcess);
 
     private final XdStorageTransaction globalTransaction;
 
@@ -174,7 +175,8 @@ public class XdStorageTransaction implements IXdStorageTransaction {
      * @param transactionId       the unique transaction id
      */
     protected XdStorageTransaction(final IXdStorageTransactionManager manager, final String transactionThreadId,
-                                   final XdStorageTransaction globalTransaction, final long timeout, final String transactionId) {
+                                   final XdStorageTransaction globalTransaction, final long timeout, final String
+                                           transactionId) {
         this.manager = manager;
         this.transactionThreadId = transactionThreadId;
         this.globalTransaction = globalTransaction;
@@ -302,18 +304,23 @@ public class XdStorageTransaction implements IXdStorageTransaction {
                         // R-41: внутренняя tx, привязанная к ТЕКУЩЕМУ потоку, брошена этим же
                         // потоком (исключение из nested-области до commit/rollback) — завершить
                         // ее некому; ждем только 3.5с зомби-окна, отравляющего чужие спуски.
-                        if (!internal.isRollbackOnly() && ((XdStorageTransactionManager) manager).isTransactionBoundToCurrentThread(internalId)) {
-                            log.warn("Parent transaction {} force-sweeps internal transaction {} abandoned on the same thread (exception escaped its scope)",
+                        if (!internal.isRollbackOnly() && ((XdStorageTransactionManager) manager)
+                                .isTransactionBoundToCurrentThread(internalId)) {
+                            log.warn("Parent transaction {} force-sweeps internal transaction {} abandoned on the " +
+                                    "same thread (exception escaped its scope)",
                                     transactionId, internalId);
                             // RBCAUSE: cascadedFrom = родитель-уборщик — жертва знает, КТО ее смыл
                             internal.markSelfAndChildrenRollbackOnlyCascaded(
-                                    "parent force-sweep of same-thread abandoned internal tx " + internalId, null, this.transactionId);
+                                    "parent force-sweep of same-thread abandoned internal tx " + internalId, null, this
+                                            .transactionId);
                             swept = true;
                             continue;
                         }
                         final long ageMillis = (System.nanoTime() - internal.getTimestart()) / 1_000_000;
-                        if (ageMillis > internal.getTimeout() + INTERNAL_SWEEP_GRACE_MILLIS && !internal.isRollbackOnly()) {
-                            log.warn("Parent transaction {} force-sweeps expired internal transaction {} (age {} ms > timeout {} ms) — it was abandoned without commit/rollback",
+                        if (ageMillis > internal.getTimeout() + INTERNAL_SWEEP_GRACE_MILLIS && !internal
+                                .isRollbackOnly()) {
+                            log.warn("Parent transaction {} force-sweeps expired internal transaction {} (age {} ms " +
+                                    "> timeout {} ms) — it was abandoned without commit/rollback",
                                     transactionId, internalId, ageMillis, internal.getTimeout());
                             // Отравление цепочки: первый вызов каскадно помечает parent (ACID:
                             // упавшая вложенная tx обязана откатить родителя), второй — саму
@@ -402,7 +409,8 @@ public class XdStorageTransaction implements IXdStorageTransaction {
             // Если транзакция УЖЕ помечена как rollback-only, и это не вызов самого отката,
             // мгновенно прерываем операцию легитимным исключением СУБД!
             if (!rollback && rollbackOnly.get())
-                throw buildRollbackOnlyFailure("transaction " + transactionId + " marked as rollback only and will be rolled back");
+                throw buildRollbackOnlyFailure("transaction " + transactionId +
+                        " marked as rollback only and will be rolled back");
             critical.incrementAndGet();
         }
     }
@@ -445,7 +453,8 @@ public class XdStorageTransaction implements IXdStorageTransaction {
             // мы КАТЕГОРИЧЕСКИ запрещаем вызывать блокирующий critical.wait(), который усыплял поток сам в себе!
             // Взводим флаг отката атомарно, полностью ликвидируя внутритранзакционные дедлоки!
             final String currentThreadStr = String.valueOf(Thread.currentThread().getId());
-            if (transactionThreadId != null && (transactionThreadId.equals(currentThreadStr) || transactionThreadId.contains(currentThreadStr))) {
+            if (transactionThreadId != null && (transactionThreadId.equals(currentThreadStr) || transactionThreadId
+                    .contains(currentThreadStr))) {
                 rollbackOnly.set(true);
                 return;
             }
@@ -470,7 +479,8 @@ public class XdStorageTransaction implements IXdStorageTransaction {
     private void recordRollbackOnlyMark(final String site, final Throwable cause, final String cascadedFrom) {
         final long txAgeMillis = (System.nanoTime() - timestart) / 1_000_000L;
         final XdStorageRollbackOnlyCause first =
-                new XdStorageRollbackOnlyCause(site != null ? site : "unspecified", cause, cascadedFrom, transactionId, txAgeMillis);
+                new XdStorageRollbackOnlyCause(site != null ? site : "unspecified", cause, cascadedFrom, transactionId,
+                        txAgeMillis);
         if (rollbackOnlyCause.compareAndSet(null, first)) {
             if (cause != null) {
                 log.warn("transaction {} marked as rollback only by {} (tx-age {} ms): {}",
@@ -540,7 +550,8 @@ public class XdStorageTransaction implements IXdStorageTransaction {
      * @param commitOrder the resource's position in the two-phase commit order
      * @throws XdStorageException when the transaction is marked rollback-only
      */
-    public void registerResource(final IXdStorageResourceObject resource, final int commitOrder) throws XdStorageException {
+    public void registerResource(final IXdStorageResourceObject resource, final int commitOrder) throws
+            XdStorageException {
         synchronized (critical) {
             if (rollbackOnly.get()) {
                 final XdStorageRuntimeException failure = buildRollbackOnlyFailure(
@@ -570,7 +581,8 @@ public class XdStorageTransaction implements IXdStorageTransaction {
      *                            {@code XdStorageRuntimeException} wrapping the cause
      */
     public void commitInternal(final XdStorageCommitTransactionStateHolder state,
-                               final Map<Object, XdStorageTransactionResourceChanges> firstPhaseCommittedResources) throws XdStorageException {
+                               final Map<Object, XdStorageTransactionResourceChanges> firstPhaseCommittedResources)
+                                       throws XdStorageException {
 
         final XdStorageRuntimeException[] exceptions = new XdStorageRuntimeException[]{null};
         final AtomicBoolean hasError = new AtomicBoolean();
@@ -624,7 +636,8 @@ public class XdStorageTransaction implements IXdStorageTransaction {
         final List<ComparableResourceObject> filteredAcquisition = new ArrayList<>(acquisitionOrder.size());
         for (final ComparableResourceObject entry : acquisitionOrder) {
             final IXdStorageResourceObject candidate = entry.resource;
-            final boolean fkValidationResource = candidate instanceof io.github.xdstorage.foreignkey.IXdStorageForeignKeyResource;
+            final boolean fkValidationResource = candidate instanceof io.github.xdstorage.foreignkey
+                    .IXdStorageForeignKeyResource;
             boolean hasWrites;
             try {
                 hasWrites = candidate.hasChanges(this);
@@ -763,7 +776,8 @@ public class XdStorageTransaction implements IXdStorageTransaction {
             try {
                 io.github.xdstorage.btree.XdStorageBTree.undoAllAppliedOverlays(this);
             } catch (final Throwable undoFailure) {
-                log.error("TREEOVERLAY: undo of applied overlays failed during commit failure (post-phase-2)", undoFailure);
+                log.error("TREEOVERLAY: undo of applied overlays failed during commit failure (post-phase-2)",
+                        undoFailure);
             }
             io.github.xdstorage.btree.XdStorageBTree.discardAllOverlays(this);
             throw exceptions[0];
@@ -887,11 +901,14 @@ public class XdStorageTransaction implements IXdStorageTransaction {
         }
 
         int reloadedGroups = 0;
-        for (final java.util.Map.Entry<Object, java.util.List<io.github.xdstorage.resource.XdStorageResource>> group : byTree.entrySet()) {
-            final io.github.xdstorage.btree.XdStorageBTree tree = (io.github.xdstorage.btree.XdStorageBTree) group.getKey();
+        for (final java.util.Map.Entry<Object, java.util.List<io.github.xdstorage.resource.XdStorageResource>> group :
+                byTree.entrySet()) {
+            final io.github.xdstorage.btree.XdStorageBTree tree = (io.github.xdstorage.btree.XdStorageBTree) group
+                    .getKey();
             final java.util.List<io.github.xdstorage.resource.XdStorageResource> members = group.getValue();
             if (!isTreeGroupQuiet(members)) {
-                log.debug("TREEFILE: tree {} stays on key compensations — group busy with other transactions' staged state", tree.getId());
+                log.debug("TREEFILE: tree {} stays on key compensations — group busy with other transactions' staged " +
+                        "state", tree.getId());
                 continue;
             }
             try {
@@ -899,7 +916,8 @@ public class XdStorageTransaction implements IXdStorageTransaction {
                 // перезагрузочный батч и сериализует держателей старого инстанса.
                 tree.lockWrite(this);
             } catch (final XdStorageException e) {
-                log.warn("TREEFILE: tree {} reload skipped — write lock not captured: {}", tree.getId(), e.getMessage());
+                log.warn("TREEFILE: tree {} reload skipped — write lock not captured: {}", tree.getId(), e
+                        .getMessage());
                 continue;
             }
             try {
@@ -917,7 +935,8 @@ public class XdStorageTransaction implements IXdStorageTransaction {
                 // Перезагрузка обязана ломать откат: громкий лог, дерево остается на
                 // ключевых компенсациях (перезагруженные СОСЕДИ группы уже заменены —
                 // их каноны свежие, компенсации этой группы пропущены).
-                log.error("TREEFILE: tree {} group reload failed mid-way — the tree may carry a mixed graph; keeping compensations skipped", tree.getId(), reloadFailure);
+                log.error("TREEFILE: tree {} group reload failed mid-way — the tree may carry a mixed graph; keeping " +
+                        "compensations skipped", tree.getId(), reloadFailure);
             } finally {
                 tree.unlockWrite();
             }
@@ -931,12 +950,14 @@ public class XdStorageTransaction implements IXdStorageTransaction {
                     resource.reloadInfrastructureFromCommittedFiles(this);
                 }
             } catch (final Throwable reloadFailure) {
-                log.warn("TREEFILE: ungrouped infra resource reload failed (kept as-is): {}", reloadFailure.getMessage());
+                log.warn("TREEFILE: ungrouped infra resource reload failed (kept as-is): {}", reloadFailure
+                        .getMessage());
             }
         }
 
         if (reloadedGroups > 0) {
-            log.debug("TREEFILE: infra recovery reloaded {} tree group(s) from committed files; {} group(s) skipped as busy",
+            log.debug("TREEFILE: infra recovery reloaded {} tree group(s) from committed files; {} group(s) skipped " +
+                    "as busy",
                     reloadedGroups, byTree.size() - reloadedGroups);
         }
     }
@@ -1021,14 +1042,16 @@ public class XdStorageTransaction implements IXdStorageTransaction {
      * @return {@code true} when every resource rolled back cleanly, {@code false} when at least
      *         one rollback failed
      */
-    public boolean rollbackFailedCommit(final Map<Object, XdStorageTransactionResourceChanges> firstPhaseCommittedResources) {
+    public boolean rollbackFailedCommit(final Map<Object, XdStorageTransactionResourceChanges>
+            firstPhaseCommittedResources) {
         log.warn("ROLLBACK FAILED COMMIT of transaction {} started", getTransactionId());
 
         final List<XdStorageRuntimeException> exceptions = Collections.synchronizedList(new ArrayList<>());
 
         firstPhaseCommittedResources.entrySet().stream().forEach(entry -> {
             try {
-                resources.get(entry.getKey()).rollbackPerformingFirstPhaseCommit(this, entry.getValue().getChangesObjects());
+                resources.get(entry.getKey()).rollbackPerformingFirstPhaseCommit(this, entry.getValue()
+                        .getChangesObjects());
             } catch (final Throwable e) {
                 exceptions.add(new XdStorageRuntimeException(e));
             }
@@ -1193,7 +1216,8 @@ public class XdStorageTransaction implements IXdStorageTransaction {
         manager.registerRollbackOnlyTransaction(this);
     }
 
-    private void markSelfAndChildrenRollbackOnlyCascaded(final String site, final Throwable cause, final String cascadedFrom) {
+    private void markSelfAndChildrenRollbackOnlyCascaded(final String site, final Throwable cause, final String
+            cascadedFrom) {
         markSelfAndChildrenRollbackOnly(site, cause, cascadedFrom);
     }
 

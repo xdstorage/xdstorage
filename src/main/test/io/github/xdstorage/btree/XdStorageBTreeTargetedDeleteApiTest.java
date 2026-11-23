@@ -83,7 +83,8 @@ public class XdStorageBTreeTargetedDeleteApiTest {
         assertEquals(2, values.size(), "Количество дубликатов после удаления пары вычислено неверно!");
         assertTrue(values.contains("Child_A"), "Ошибочно удален левый сосед А!");
         assertTrue(values.contains("Child_C"), "Ошибочно удален правый сосед С!");
-        assertFalse(values.contains("Child_B"), "🚨 КРАХ МEТOДA! Целевое значение 'Child_B' не было вырезано из листа!");
+        assertFalse(values.contains("Child_B"),
+                "🚨 КРАХ МEТOДA! Целевое значение 'Child_B' не было вырезано из листа!");
 
         txVerify.commit();
     }

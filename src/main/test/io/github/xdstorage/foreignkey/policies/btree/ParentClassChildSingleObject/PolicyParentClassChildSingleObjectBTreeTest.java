@@ -1,6 +1,7 @@
 package io.github.xdstorage.foreignkey.policies.btree.ParentClassChildSingleObject;
 
-import io.github.xdstorage.entities.foreignkeys.policies.btree.ParentClassChildSingleObject.PolicyParentClassChildSingleObject;
+import io.github.xdstorage.entities.foreignkeys.policies.btree.ParentClassChildSingleObject
+        .PolicyParentClassChildSingleObject;
 import io.github.xdstorage.entities.foreignkeys.policies.btree.ParentClassChildSingleObject.PolicyChildSingleObject;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.foreignkey.index.btree.AbstractForeignKeyBaseSpecificationTest;
@@ -30,8 +31,10 @@ public class PolicyParentClassChildSingleObjectBTreeTest extends AbstractForeign
         tx = storage.beginTransaction();
         PolicyParentClassChildSingleObject parent = new PolicyParentClassChildSingleObject();
         parent.setChildren(new HashSet<>());
-        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent.addChild(child1);
-        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent.addChild(child2);
+        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent
+                .addChild(child1);
+        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent
+                .addChild(child2);
         storage.save(parent);
         assertDoesNotThrow(() -> storage.commitTransaction(tx));
         assertNotNull(parent.getId());
@@ -43,8 +46,10 @@ public class PolicyParentClassChildSingleObjectBTreeTest extends AbstractForeign
         tx = storage.beginTransaction();
         PolicyParentClassChildSingleObject parent = new PolicyParentClassChildSingleObject();
         parent.setChildren(new HashSet<>());
-        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent.addChild(child1);
-        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent.addChild(child2);
+        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent
+                .addChild(child1);
+        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent
+                .addChild(child2);
         storage.save(child1);
         storage.save(child2);
         assertThrows(XdStorageRuntimeException.class, () -> storage.commitTransaction(tx));
@@ -104,8 +109,10 @@ public class PolicyParentClassChildSingleObjectBTreeTest extends AbstractForeign
         tx = storage.beginTransaction();
         PolicyParentClassChildSingleObject parent = new PolicyParentClassChildSingleObject();
         parent.setChildren(new HashSet<>());
-        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent.addChild(child1);
-        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent.addChild(child2);
+        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent
+                .addChild(child1);
+        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent
+                .addChild(child2);
         storage.save(parent);
         storage.commitTransaction(tx);
         Long parentId = parent.getId();
@@ -121,13 +128,16 @@ public class PolicyParentClassChildSingleObjectBTreeTest extends AbstractForeign
         tx = storage.beginTransaction();
         PolicyParentClassChildSingleObject parent = new PolicyParentClassChildSingleObject();
         parent.setChildren(new HashSet<>());
-        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent.addChild(child1);
-        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent.addChild(child2);
+        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent
+                .addChild(child1);
+        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent
+                .addChild(child2);
         storage.save(parent);
         storage.commitTransaction(tx);
         Long parentId = parent.getId(), child1Id = child1.getId();
         tx = storage.beginTransaction();
-        PolicyParentClassChildSingleObject loadedParent = storage.load(PolicyParentClassChildSingleObject.class, parentId);
+        PolicyParentClassChildSingleObject loadedParent = storage.load(PolicyParentClassChildSingleObject.class,
+                parentId);
         PolicyChildSingleObject loadedChild1 = storage.load(PolicyChildSingleObject.class, child1Id);
         loadedParent.getChildren().remove(loadedChild1);
         storage.update(loadedParent);
@@ -141,8 +151,10 @@ public class PolicyParentClassChildSingleObjectBTreeTest extends AbstractForeign
         tx = storage.beginTransaction();
         PolicyParentClassChildSingleObject parent = new PolicyParentClassChildSingleObject();
         parent.setChildren(new HashSet<>());
-        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent.addChild(child1);
-        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent.addChild(child2);
+        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent
+                .addChild(child1);
+        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent
+                .addChild(child2);
         storage.save(parent);
         storage.commitTransaction(tx);
         Long child1Id = child1.getId();
@@ -158,13 +170,16 @@ public class PolicyParentClassChildSingleObjectBTreeTest extends AbstractForeign
         tx = storage.beginTransaction();
         PolicyParentClassChildSingleObject parent = new PolicyParentClassChildSingleObject();
         parent.setChildren(new HashSet<>());
-        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent.addChild(child1);
-        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent.addChild(child2);
+        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent
+                .addChild(child1);
+        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent
+                .addChild(child2);
         storage.save(parent);
         storage.commitTransaction(tx);
         Long parentId = parent.getId(), child1Id = child1.getId();
         tx = storage.beginTransaction();
-        PolicyParentClassChildSingleObject loadedParent = storage.load(PolicyParentClassChildSingleObject.class, parentId);
+        PolicyParentClassChildSingleObject loadedParent = storage.load(PolicyParentClassChildSingleObject.class,
+                parentId);
         PolicyChildSingleObject loadedChild1 = storage.load(PolicyChildSingleObject.class, child1Id);
         loadedParent.getChildren().remove(loadedChild1);
         PolicyChildSingleObject child3 = new PolicyChildSingleObject(); child3.setParent(loadedParent);
@@ -175,18 +190,22 @@ public class PolicyParentClassChildSingleObjectBTreeTest extends AbstractForeign
     }
 
     @Test
-    @DisplayName("4b. Обновление родителя: удалить child1, вставить child3 — Успешно (Rule 4: удаление из коллекции ≠ delete, child survives independently)")
+    @DisplayName("4b. Обновление родителя: удалить child1, вставить child3 — Успешно (Rule 4: удаление из коллекции " +
+            "≠ delete, child survives independently)")
     void testUpdateParentRemoveOneInsertOneNoDeleteSuccess() throws Exception {
         tx = storage.beginTransaction();
         PolicyParentClassChildSingleObject parent = new PolicyParentClassChildSingleObject();
         parent.setChildren(new HashSet<>());
-        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent.addChild(child1);
-        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent.addChild(child2);
+        PolicyChildSingleObject child1 = new PolicyChildSingleObject(); child1.setParent(parent); parent
+                .addChild(child1);
+        PolicyChildSingleObject child2 = new PolicyChildSingleObject(); child2.setParent(parent); parent
+                .addChild(child2);
         storage.save(parent);
         storage.commitTransaction(tx);
         Long parentId = parent.getId(), child1Id = child1.getId();
         tx = storage.beginTransaction();
-        PolicyParentClassChildSingleObject loadedParent = storage.load(PolicyParentClassChildSingleObject.class, parentId);
+        PolicyParentClassChildSingleObject loadedParent = storage.load(PolicyParentClassChildSingleObject.class,
+                parentId);
         PolicyChildSingleObject loadedChild1 = storage.load(PolicyChildSingleObject.class, child1Id);
         loadedParent.getChildren().remove(loadedChild1);
         PolicyChildSingleObject child3 = new PolicyChildSingleObject(); child3.setParent(loadedParent);

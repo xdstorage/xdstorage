@@ -158,10 +158,12 @@ public class XdStorageGiantGraphPurgeStressTest {
                 }
             }
             txVerifyInsert.commit();
-            System.out.println("⭐ ФАЗА ВСТАВКИ ИДЕАЛЬНА! Все ноды дерева сбалансированы правильно. Баг сидит строго в слиянии (Delete/Join)!");
+            System.out.println("⭐ ФАЗА ВСТАВКИ ИДЕАЛЬНА! Все ноды дерева сбалансированы правильно. Баг сидит строго " +
+                    "в слиянии (Delete/Join)!");
         } catch (Throwable t) {
             txVerifyInsert.rollback();
-            System.err.println("🚨 КРАХ НА ФАЗЕ ВСТАВКИ! Балансировка при разделении страниц повреждает разделители Кнута!");
+            System.err.println("🚨 КРАХ НА ФАЗЕ ВСТАВКИ! Балансировка при разделении страниц повреждает разделители " +
+                    "Кнута!");
             throw t;
         }
 
@@ -223,6 +225,7 @@ public class XdStorageGiantGraphPurgeStressTest {
         assertTrue(checkGalaxies.isEmpty(), "Таблица XdGalaxy не очищена после каскадного пурджа!");
         assertTrue(checkPlanets.isEmpty(), "Таблица XdPlanet не очищена после каскадного пурджа!");
 
-        System.out.println("🎉 ПОЛНЫЙ ТРИУМФ! Огромный случайный граф каскадно вычищен в одну транзакцию без единой ошибки!");
+        System.out.println("🎉 ПОЛНЫЙ ТРИУМФ! Огромный случайный граф каскадно вычищен в одну транзакцию без единой " +
+                "ошибки!");
     }
 }

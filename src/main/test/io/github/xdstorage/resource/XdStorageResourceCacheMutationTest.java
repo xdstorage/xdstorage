@@ -36,7 +36,8 @@ public class XdStorageResourceCacheMutationTest extends AbstractXdStorageResourc
 
         resourceCache.insert(node, tx);
         assertDoesNotThrow(() -> resourceCache.insert(node, tx),
-                "Повторный вызов insert() для той же ноды в одной TX должен вежливо игнорироваться глобальной защитой!");
+                "Повторный вызов insert() для той же ноды в одной TX должен вежливо игнорироваться глобальной " +
+                        "защитой!");
     }
 
     // =========================================================================
@@ -50,8 +51,10 @@ public class XdStorageResourceCacheMutationTest extends AbstractXdStorageResourc
 
         public StubObservableWrapper(TestEntity object) { this.object = object; }
         public Object getId() { return object.getId(); }
-        public void addObserver(io.github.xdstorage.observing.XdStorageAbstractIdObserver observer) { observers.add(observer); }
-        public void removeObserver(io.github.xdstorage.observing.XdStorageAbstractIdObserver observer) { observers.remove(observer); }
+        public void addObserver(io.github.xdstorage.observing.XdStorageAbstractIdObserver observer) { observers
+                .add(observer); }
+        public void removeObserver(io.github.xdstorage.observing.XdStorageAbstractIdObserver observer) { observers
+                .remove(observer); }
         public List<io.github.xdstorage.observing.XdStorageAbstractIdObserver> getObservers() { return observers; }
     }
 
@@ -67,13 +70,15 @@ public class XdStorageResourceCacheMutationTest extends AbstractXdStorageResourc
         // Передаем стаб в фасад кэша ресурсов
         resourceCache.insert(stubWrapper, tx);
 
-        assertFalse(stubWrapper.getObservers().isEmpty(), "Метод insert() не зарегистрировал транзакционный анонимный обсервер СУБД!");
+        assertFalse(stubWrapper.getObservers().isEmpty(),
+                "Метод insert() не зарегистрировал транзакционный анонимный обсервер СУБД!");
 
         // Переводим ID в детерминированное состояние и триггерим обсервер СУБД
         payload.setValue("LazyPlanet_Generated");
         stubWrapper.getObservers().get(0).onNewIdIsSet(stubWrapper, 999L);
 
-        assertTrue(resourceCache.hasObject(999L), "СУБД не смогла материализовать отложенный инсерт ноды после выставления ID!");
+        assertTrue(resourceCache.hasObject(999L),
+                "СУБД не смогла материализовать отложенный инсерт ноды после выставления ID!");
     }
 
     @Test

@@ -37,7 +37,8 @@ public class XdStorageS3FolderLockTest {
             }
 
             // после shutdown каталог свободен
-            final IXdFileStorage secondAfterRelease = XdStorageProvider.newOrGetFileStorage("s3-lock-b", dir.toString(), 128);
+            final IXdFileStorage secondAfterRelease = XdStorageProvider.newOrGetFileStorage("s3-lock-b", dir.toString(),
+                    128);
             secondAfterRelease.shutdown();
         } finally {
             deleteQuietly(dir);

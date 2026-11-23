@@ -42,10 +42,13 @@ public class XdStorageDefaultObjectsReaderTest {
     @Test
     public void testRead_WithMalformedXml_ShouldThrowXdStorageIOException() {
         // Граничное условие: Сломанный/невалидный XML синтаксис
-        String malformedXml = "<?xml version=\"1.0\"?><objects><object class=\"java.lang.String\" name=\"test\" value=\"123\""; // нет закрывающего тега
+        // нет закрывающего тега
+        String malformedXml =
+                "<?xml version=\"1.0\"?><objects><object class=\"java.lang.String\" name=\"test\" value=\"123\"";
         StringReader reader = new StringReader(malformedXml);
 
-        // Движок StAX XMLStreamReader должен упасть, а метод обязан перехватить Throwable и обернуть в XdStorageIOException
+        // Движок StAX XMLStreamReader должен упасть, а метод обязан перехватить Throwable и обернуть в
+        // XdStorageIOException
         assertThrows(XdStorageIOException.class, () -> {
             objectsReader.read(reader);
         });

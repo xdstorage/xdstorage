@@ -38,11 +38,13 @@ public class XdStorageS1TruncationDetectionTest {
             final File dataFile = findClassObjectsFile(dir);
             assertNotNull(dataFile, "class-objects data file must exist after commit");
             final String content = new String(Files.readAllBytes(dataFile.toPath()), "UTF-8");
-            assertTrue(content.contains("# xdstorage-eof"), "writer must append the EOF sentinel, got: " + tail(content));
+            assertTrue(content.contains("# xdstorage-eof"), "writer must append the EOF sentinel, got: " +
+                    tail(content));
 
             // эмулируем обрезку (сбой/внешнее вмешательство): срезаем хвост ПО ГРАНИЦЕ ЗАПИСЕЙ —
             // остаются 2 целых записи валидного YAML, но сентинела нет
-            final int thirdRecord = content.indexOf("- object", content.indexOf("- object", content.indexOf("- object") + 1) + 1);
+            final int thirdRecord = content.indexOf("- object", content.indexOf("- object", content.indexOf("- object")
+                    + 1) + 1);
             assertTrue(thirdRecord > 0, "expected at least three object records in the data file");
             Files.write(dataFile.toPath(), content.substring(0, thirdRecord).getBytes("UTF-8"));
 
@@ -62,7 +64,8 @@ public class XdStorageS1TruncationDetectionTest {
             }
 
             // легаси-режим миграции: читает частичные данные (2 из 3 записей) без ошибки сентинела
-            final XdStorageConfig legacy = XdStorageConfig.builder().journalWrites(false).acceptMissingEofSentinel(true).build();
+            final XdStorageConfig legacy = XdStorageConfig.builder().journalWrites(false).acceptMissingEofSentinel(true)
+                    .build();
             IXdFileStorage legacyStorage = XdStorageProvider.newOrGetFileStorage(NAME, dir.toString(), 128, legacy);
             try {
                 final IXdStorageTransaction tx = legacyStorage.beginTransaction();
@@ -89,7 +92,8 @@ public class XdStorageS1TruncationDetectionTest {
                     XdStorageConfig.builder().journalWrites(false).build());
             try {
                 final IXdStorageTransaction tx = storage.beginTransaction();
-                final java.util.List<BenchmarkEntity> loaded = new java.util.ArrayList<>(storage.load(BenchmarkEntity.class, tx));
+                final java.util.List<BenchmarkEntity> loaded = new java.util.ArrayList<>(storage.load(BenchmarkEntity
+                        .class, tx));
                 assertEquals(3, loaded.size(), "complete file must load fully");
                 tx.commit();
             } finally {

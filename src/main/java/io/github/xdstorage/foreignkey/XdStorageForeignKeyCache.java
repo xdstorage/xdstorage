@@ -95,7 +95,8 @@ public final class XdStorageForeignKeyCache {
         transactionRecords.computeIfAbsent(tx.getTransactionId(), k -> ConcurrentHashMap.newKeySet()).add(fullKey);
     }
 
-    private XdStorageForeignKeyCacheRecord newRecord(final XdStorageForeignKeyPair pair, final XdStorageTransaction tx) {
+    private XdStorageForeignKeyCacheRecord newRecord(final XdStorageForeignKeyPair pair, final XdStorageTransaction tx)
+            {
         final XdStorageForeignKeyCacheRecord record = new XdStorageForeignKeyCacheRecord(pair, tx.getTransactionId());
         record.prepareCommit(tx); // phase = PREPARE_COMMIT
         return record;
@@ -265,7 +266,8 @@ public final class XdStorageForeignKeyCache {
                                           final IXdStorageIdObservableWrapper childObject,
                                           final XdStorageTransaction tx,
                                           final String resolvePosition,
-                                          final java.util.function.BiConsumer<Comparable<?>, XdStorageTransaction> onFiredCallback) {
+                                          final java.util.function.BiConsumer<Comparable<?>, XdStorageTransaction>
+                                                  onFiredCallback) {
         cacheInsert(pair, tx);
         final String position = resolvePosition; // "front" or "reverse"
         childObject.addObserver(new XdStorageAbstractIdObserver() {

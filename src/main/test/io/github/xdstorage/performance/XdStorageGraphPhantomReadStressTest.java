@@ -27,7 +27,8 @@ public class XdStorageGraphPhantomReadStressTest {
     private static final int BASE_SYSTEMS_PER_GALAXY = 3;
     private static final int BASE_PLANETS_PER_SYSTEM = 20;
     // Итого базовых планет в СУБД: 2 * 3 * 20 = 120 штук
-    private static final int EXPECTED_TOTAL_BASE_PLANETS = BASE_GALAXIES * BASE_SYSTEMS_PER_GALAXY * BASE_PLANETS_PER_SYSTEM;
+    private static final int EXPECTED_TOTAL_BASE_PLANETS = BASE_GALAXIES * BASE_SYSTEMS_PER_GALAXY *
+            BASE_PLANETS_PER_SYSTEM;
 
     /**
      * ФАЗА 0 (Честная классификация сбоев): таймаут спин-лока — штатное противодавление
@@ -108,7 +109,8 @@ public class XdStorageGraphPhantomReadStressTest {
             }
 
             txInit.commit();
-            System.out.println("✅ Стабильный базовый граф успешно развернут. Всего планет: " + EXPECTED_TOTAL_BASE_PLANETS);
+            System.out.println("✅ Стабильный базовый граф успешно развернут. Всего планет: " +
+                    EXPECTED_TOTAL_BASE_PLANETS);
         } catch (Throwable t) {
             txInit.rollback();
             throw t;
@@ -117,7 +119,8 @@ public class XdStorageGraphPhantomReadStressTest {
 
     @AfterEach
     public void tearDown() throws Exception {
-        System.out.println("Result: ⏳ [tearDown] Запуск тотальной верификации консистентности графа и B+Tree индексов...");
+        System.out.println("Result: ⏳ [tearDown] Запуск тотальной верификации консистентности графа и B+Tree " +
+                "индексов...");
         if (storage != null) {
             IXdStorageTransaction txVerify = storage.beginTransaction();
             try {
@@ -148,10 +151,12 @@ public class XdStorageGraphPhantomReadStressTest {
                     }
                 }
                 txVerify.commit();
-                System.out.println("⭐ [tearDown] ВЕРИФИКАЦИЯ УСПЕШНА: Логическая структура графа и Б+ Дерева на 100% консистентны. Финальное число планет в СУБД: " + checkedPlanets);
+                System.out.println("⭐ [tearDown] ВЕРИФИКАЦИЯ УСПЕШНА: Логическая структура графа и Б+ Дерева на 100% " +
+                        "консистентны. Финальное число планет в СУБД: " + checkedPlanets);
             } catch (Throwable t) {
                 txVerify.rollback();
-                System.err.println("🚨 [tearDown] КАТАСТРОФА: Стресс-нагрузка нарушила консистентность графа на диске!");
+                System.err.println("🚨 [tearDown] КАТАСТРОФА: Стресс-нагрузка нарушила консистентность графа на " +
+                        "диске!");
                 t.printStackTrace(System.err);
                 fail("ORM инварианты СУБД разрушены: " + t.getMessage());
             } finally {
@@ -285,8 +290,11 @@ public class XdStorageGraphPhantomReadStressTest {
 // видеть ровно EXPECTED_TOTAL_BASE_PLANETS базовых планет!
                             if (visibleBasePlanetsCount != EXPECTED_TOTAL_BASE_PLANETS) {
                                 exceptions.add(new AssertionError(
-                                        String.format("🚨 КРИТИЧЕСКОЕ НАРУШЕНИЕ MVCC! Поток-Читатель %d поймал призраков графа! Ожидали базовых %d, получили %d. (Призраков просочилось: %d)",
-                                                readerId, EXPECTED_TOTAL_BASE_PLANETS, visibleBasePlanetsCount, visiblePhantomPlanetsCount)
+                                        String.format("🚨 КРИТИЧЕСКОЕ НАРУШЕНИЕ MVCC! Поток-Читатель %d поймал " +
+                                                "призраков графа! Ожидали базовых %d, получили %d. (Призраков " +
+                                                "просочилось: %d)",
+                                                readerId, EXPECTED_TOTAL_BASE_PLANETS, visibleBasePlanetsCount,
+                                                        visiblePhantomPlanetsCount)
                                 ));
                             }
 
@@ -296,7 +304,8 @@ public class XdStorageGraphPhantomReadStressTest {
                         } catch (Throwable t) {
                             txRead.rollback();
                             if (!isLockBackpressure(t)) {
-                                exceptions.add(new AssertionError("🚨 Крах глубокого ORM-сканирования в потоке Читателя " + readerId, t));
+                                exceptions.add(new AssertionError("🚨 Крах глубокого ORM-сканирования "
+                                        + "в потоке Читателя " + readerId, t));
                             }
                             // таймаут лока — штатное противодавление: ретрай следующей итерацией
                         }
@@ -330,14 +339,16 @@ public class XdStorageGraphPhantomReadStressTest {
 
         // Анализ исключений (Исключения локеров, гонки, IndexOutOfBounds, NPE)
         if (!exceptions.isEmpty()) {
-            System.err.println("🚨 ЗАФИКСИРОВАНЫ АЛГОРИТМИЧЕСКИЕ СБОИ СУБД ИЛИ ПРОСАЧИВАНИЯ ЭЛЕМЕНТОВ (" + exceptions.size() + " шт):");
+            System.err.println("🚨 ЗАФИКСИРОВАНЫ АЛГОРИТМИЧЕСКИЕ СБОИ СУБД ИЛИ ПРОСАЧИВАНИЯ ЭЛЕМЕНТОВ (" + exceptions
+                    .size() + " шт):");
             exceptions.forEach(e -> {
                 System.err.println("---");
                 e.printStackTrace(System.err);
             });
             fail("Сбой Snapshot Isolation! Каскадные In-Place сплиты разрушили изоляцию Phantom Read!");
         } else {
-            System.out.println("🎉 ФАНТАСТИКА! Полный триумф! Ни одной гонки, ни одного фантома, ни единого NPE. Граф выстоял в абсолютном ACID-порядке!");
+            System.out.println("🎉 ФАНТАСТИКА! Полный триумф! Ни одной гонки, ни одного фантома, ни единого NPE. "
+                    + "Граф выстоял в абсолютном ACID-порядке!");
         }
     }
 }

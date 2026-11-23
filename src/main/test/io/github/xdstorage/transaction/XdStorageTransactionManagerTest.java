@@ -197,7 +197,8 @@ public class XdStorageTransactionManagerTest {
         String targetTxId = "race_tx_007";
         when(mockTx.getTransactionId()).thenReturn(targetTxId);
         when(mockTx.isRollbackOnly()).thenReturn(true);
-        when(mockTx.getTransactionThreadId()).thenReturn(Thread.currentThread().getName() + Thread.currentThread().getId());
+        when(mockTx.getTransactionThreadId()).thenReturn(Thread.currentThread().getName() + Thread.currentThread()
+                .getId());
 
         // Настраиваем фейковый асинхронный Executor в сервисах, который сразу выполняет задачу
         java.util.concurrent.ExecutorService inlineExecutor = java.util.concurrent.Executors.newSingleThreadExecutor();
@@ -254,7 +255,8 @@ public class XdStorageTransactionManagerTest {
         // Теперь текущей транзакцией в потоке должна стать именно T2!
         assertEquals(t2, txManager.getCurrentTransaction(), "T2 должна вытеснить T1 из контекста потока");
         assertNotEquals(t1Id, t2Id, "Вложенная транзакция должна иметь свой уникальный UUID");
-        assertEquals(t1, t2.getGlobalTransaction(), "T1 должна быть зафиксирована как родительская (глобальная) для T2");
+        assertEquals(t1, t2.getGlobalTransaction(),
+                "T1 должна быть зафиксирована как родительская (глобальная) для T2");
 
         // Настраиваем фейковый стейт финиша для внутренней транзакции,
         // чтобы избежать зависания commitInternal на неинициализированных ресурсах
@@ -280,7 +282,8 @@ public class XdStorageTransactionManagerTest {
         XdStorageTransaction restoredTx = txManager.getCurrentTransaction();
 
         assertNotNull(restoredTx, "Критический баг! Родительская транзакция T1 потерялась после коммита вложенной T2!");
-        assertEquals(t1Id, restoredTx.getTransactionId(), "В контекст потока должна была вернуться именно родительская T1!");
+        assertEquals(t1Id, restoredTx.getTransactionId(),
+                "В контекст потока должна была вернуться именно родительская T1!");
 
         // Чистим за собой реестр
         try {

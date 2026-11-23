@@ -68,7 +68,8 @@ public class ImplementMeForeignKeyTest extends AbstractForeignKeyEngineIntegrati
 //        parent.setId(10L);
 //        SampleChild child = new SampleChild(); // id == null
 //
-//        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta, parentMeta.getFields().get("childRef"), transaction);
+// IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta,
+// parentMeta.getFields().get("childRef"), transaction);
 //
 //        // Сейчас этот вызов упадет с XdStorageException("implement me") во второй ветке delete(Object, Object)
 //        XdStorageException exception = assertThrows(XdStorageException.class, () -> {
@@ -85,7 +86,8 @@ public class ImplementMeForeignKeyTest extends AbstractForeignKeyEngineIntegrati
 //        SampleChild child = new SampleChild();
 //        child.setId(77L);
 //
-//        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta, parentMeta.getFields().get("childRef"), transaction);
+// IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta,
+// parentMeta.getFields().get("childRef"), transaction);
 //
 //        // Сейчас этот вызов упадет с XdStorageException("implement me") в третьей ветке delete(Object, Object)
 //        XdStorageException exception = assertThrows(XdStorageException.class, () -> {
@@ -101,9 +103,10 @@ public class ImplementMeForeignKeyTest extends AbstractForeignKeyEngineIntegrati
 //        SampleParent parent = new SampleParent(); // id == null
 //        Long childObjectId = 88L;
 //
-//        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta, parentMeta.getFields().get("childRef"), transaction);
+// IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta,
+// parentMeta.getFields().get("childRef"), transaction);
 //
-//        // Сейчас этот вызов упадет с XdStorageException("implement me") внутри delete(Object, Comparable, Transaction)
+// // Сейчас этот вызов упадет с XdStorageException("implement me") внутри delete(Object, Comparable, Transaction)
 //        XdStorageException exception = assertThrows(XdStorageException.class, () -> {
 //            fkResource.delete(parent, childObjectId, transaction);
 //        });
@@ -117,9 +120,10 @@ public class ImplementMeForeignKeyTest extends AbstractForeignKeyEngineIntegrati
 //        Long parentObjectId = 99L;
 //        SampleChild child = new SampleChild(); // id == null
 //
-//        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta, parentMeta.getFields().get("childRef"), transaction);
+// IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta,
+// parentMeta.getFields().get("childRef"), transaction);
 //
-//        // Сейчас этот вызов упадет с XdStorageException("implement me") внутри delete(Comparable, Object, Transaction)
+// // Сейчас этот вызов упадет с XdStorageException("implement me") внутри delete(Comparable, Object, Transaction)
 //        XdStorageException exception = assertThrows(XdStorageException.class, () -> {
 //            fkResource.delete(parentObjectId, child, transaction);
 //        });

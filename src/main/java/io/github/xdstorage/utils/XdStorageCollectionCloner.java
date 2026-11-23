@@ -24,7 +24,8 @@ public final class XdStorageCollectionCloner {
      * @return the cloned array of the same length and component type
      * @throws Exception when a nested entity clone fails (delegated reflective instantiation)
      */
-    public static Object cloneArray(final Object parent, final Object array, final Map<Object, Object> visited) throws Exception {
+    public static Object cloneArray(final Object parent, final Object array, final Map<Object, Object> visited) throws
+            Exception {
         final int length = Array.getLength(array);
         final Object clone = Array.newInstance(array.getClass().getComponentType(), length);
         for (int i = 0; i < length; ++i) {
@@ -62,7 +63,8 @@ public final class XdStorageCollectionCloner {
      *         element cannot be cloned (never a silent {@code null})
      */
     @SuppressWarnings("unchecked")
-    public static Object cloneCollection(final Object parent, final Object collection, final Map<Object, Object> visited) {
+    public static Object cloneCollection(final Object parent, final Object collection, final Map<Object, Object>
+            visited) {
         try {
             if (collection == null) return null;
             final Collection<Object> src = (Collection<Object>) collection;
@@ -197,7 +199,8 @@ public final class XdStorageCollectionCloner {
 
                 final Object valuetmp = entry.getValue(), value;
                 cl = valuetmp != null ? valuetmp.getClass() : null;
-                if (valuetmp == null || cl.isEnum() || XdStorageObjectUtils.isSimpleType(cl, valuetmp)) value = valuetmp;
+                if (valuetmp == null || cl.isEnum() || XdStorageObjectUtils.isSimpleType(cl, valuetmp)) value =
+                        valuetmp;
                 else if (cl == Date.class) value = new Date(((Date) valuetmp).getTime());
                 else value = XdStoragePojoCloner.clonePojo(null, valuetmp, visited);
 

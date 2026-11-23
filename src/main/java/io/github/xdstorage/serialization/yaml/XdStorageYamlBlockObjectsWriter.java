@@ -78,7 +78,8 @@ public class XdStorageYamlBlockObjectsWriter {
                 if ((idField.getIdGeneratorType() == XdStorageIdGeneratorType.DATABASE_GENERATOR
                         || idField.getIdGeneratorType() == XdStorageIdGeneratorType.CUSTOM_GENERATOR)
                         && idField.get(object) == null) {
-                    idField.set(XdStorageObserverService.getObservableWrapper(object), idGenerator.generate(cl, services.getStorage(), null));
+                    idField.set(XdStorageObserverService.getObservableWrapper(object), idGenerator.generate(cl, services
+                            .getStorage(), null));
                 }
             }
 
@@ -107,15 +108,18 @@ public class XdStorageYamlBlockObjectsWriter {
                 emitter.closeBlock();
             } else if (value instanceof Collection<?>) {
                 emitter.openBlock("value");
-                XdStorageYamlBlockContainersWriter.writeCollectionInline(c, (Collection<?>) value, emitter, services, simpleTypeHelper, idGenerator);
+                XdStorageYamlBlockContainersWriter.writeCollectionInline(c, (Collection<?>) value, emitter, services,
+                        simpleTypeHelper, idGenerator);
                 emitter.closeBlock();
             } else if (value instanceof Map<?, ?>) {
                 emitter.openBlock("value");
-                XdStorageYamlBlockContainersWriter.writeMapInline(c, (Map<?, ?>) value, emitter, services, simpleTypeHelper, idGenerator);
+                XdStorageYamlBlockContainersWriter.writeMapInline(c, (Map<?, ?>) value, emitter, services,
+                        simpleTypeHelper, idGenerator);
                 emitter.closeBlock();
             } else if (c.isArray()) {
                 emitter.openBlock("value");
-                XdStorageYamlBlockContainersWriter.writeArrayInline(c, value, emitter, services, simpleTypeHelper, idGenerator);
+                XdStorageYamlBlockContainersWriter.writeArrayInline(c, value, emitter, services, simpleTypeHelper,
+                        idGenerator);
                 emitter.closeBlock();
             } else {
                 emitter.openBlock("value");
@@ -149,7 +153,8 @@ public class XdStorageYamlBlockObjectsWriter {
                                                           final XdStorageYamlEmitter emitter,
                                                           final XdStorageServicesLocator services,
                                                           final IXdStorageSimpleTypeHelper simpleTypeHelper,
-                                                          final IXdStorageIdGenerator idGenerator) throws IOException, XdStorageException {
+                                                          final IXdStorageIdGenerator idGenerator) throws IOException,
+                                                                XdStorageException {
         final Class<?> entityClass = XdStorageObjectUtils.getEntityClass(cl);
         final XdStorageClassInfo targetClInfo = XdStorageObjectUtils.getClassInfo(entityClass);
         final XdStoragePolicy policy = targetClInfo.getPolicy();
@@ -201,10 +206,12 @@ public class XdStorageYamlBlockObjectsWriter {
      * @throws IOException        when the underlying writer fails
      * @throws XdStorageException when id generation fails
      */
-    public static void writeReferenceData(final Object reference, final XdStorageObjectIdField field, final XdStorageYamlEmitter emitter,
+    public static void writeReferenceData(final Object reference, final XdStorageObjectIdField field, final
+            XdStorageYamlEmitter emitter,
                                           final XdStorageServicesLocator services,
                                           final IXdStorageSimpleTypeHelper simpleTypeHelper,
-                                          final IXdStorageIdGenerator idGenerator) throws IOException, XdStorageException {
+                                          final IXdStorageIdGenerator idGenerator) throws IOException,
+                                                  XdStorageException {
         final Object value = field.get(reference);
         emitter.writeKey("class");
         emitter.writeScalar("'" + XdStorageObjectUtils.getEntityClass(reference.getClass()).getName() + "'");

@@ -128,7 +128,8 @@ class CacheInvariantTestSupport {
         }
 
         @Override
-        public void insert(final Object newObject, final XdStorageTransaction transaction) throws io.github.xdstorage.exceptions.XdStorageException {
+        public void insert(final Object newObject, final XdStorageTransaction transaction) throws io.github.xdstorage
+                .exceptions.XdStorageException {
             // Минимальная модель публичной вставки фасада: без guard'а дубликатов и
             // критических секций (моки транзакций делают их no-op), но с ПОЛНЫМ
             // контуром вставки мутатора — самозарвка (R-40) обязана создавать запись.

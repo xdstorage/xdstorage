@@ -148,7 +148,8 @@ public class XdStorageBTreeStressTest {
                     } catch (NullPointerException npe) {
                         // Перехватываем аппаратный NPE (например, getTree() == null), который рушил нам сборку
                         npeCounter.incrementAndGet();
-                        System.err.println("🚨 КРАХ ИНДEКСА: Перехвачен NullPointerException в потоке чтения Б+ Дерева!");
+                        System.err.println("🚨 КРАХ ИНДEКСА: Перехвачен NullPointerException в потоке чтения Б+ " +
+                                "Дерева!");
                     } catch (Exception e) {
                         // Системные сбои
                     }
@@ -177,7 +178,8 @@ public class XdStorageBTreeStressTest {
         System.out.println("🔹 Всего выполнено поисковых запросов find(): " + totalFinds.get());
         System.out.println("🔹 Всего выполнено мутаций/сплитов страниц (Splits): " + totalSplits.get());
         System.out.println("❌ Зафиксировано NullPointerException (Крах структуры): " + npeCounter.get());
-        System.out.println("❌ Зафиксировано нарушений Snapshot Isolation (Фантомы/Промахи): " + phantomOrDataLossErrors.get());
+        System.out.println("❌ Зафиксировано нарушений Snapshot Isolation (Фантомы/Промахи): " + phantomOrDataLossErrors
+                .get());
         System.out.println("=========================================================================");
 
         // Главные утверждения многопоточного качества ядра СУБД
@@ -188,7 +190,8 @@ public class XdStorageBTreeStressTest {
     }
 
     @Test
-    @DisplayName("Стресс-кейс 2: Параллельный поиск find() против жестких каскадных удалений и слияний нод (Merges/Joins)")
+    @DisplayName("Стресс-кейс 2: Параллельный поиск find() против жестких каскадных удалений и слияний нод " +
+            "(Merges/Joins)")
     public void testBTree_ParallelFind_AgainstHeavyDeletesAndMerges_ShouldBeDeadlockProof() throws Exception {
         final IXdStorage mockStorage = mock(IXdStorage.class);
         final IXdStorageTransaction mockTransaction = mock(IXdStorageTransaction.class);
@@ -283,7 +286,8 @@ public class XdStorageBTreeStressTest {
         System.out.println("=========================================================================");
         System.out.println("📊 РEЗУЛЬТАТЫ СТРEСС-ТEСТИРOВАНИЯ СЛИЯНИЯ СТРУКТУР Б+ ДEРEВА:");
         System.out.println("🔹 Всего успешно выполнено конкурентных операций: " + totalOperations.get());
-        System.out.println("♻️ Штатных отказов по таймауту лока (backpressure, ретрай): " + lockBackpressureRetries.get());
+        System.out.println("♻️ Штатных отказов по таймауту лока (backpressure, ретрай): " + lockBackpressureRetries
+                .get());
         System.out.println("❌ Зафиксировано критических сбоев / дедлоков: " + deadlockOrErrorCounter.get());
         System.out.println("=========================================================================");
 

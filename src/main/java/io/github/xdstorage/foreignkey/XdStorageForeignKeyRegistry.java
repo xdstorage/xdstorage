@@ -37,7 +37,8 @@ public class XdStorageForeignKeyRegistry {
             null, null, null, null
     );
 
-    private final Map<Class<?>, Map<XdStorageObjectField, XdStorageForeignKeyRelation>> relations = new ConcurrentHashMap<>();
+    private final Map<Class<?>, Map<XdStorageObjectField, XdStorageForeignKeyRelation>> relations = new
+            ConcurrentHashMap<>();
 
     /** FNKEY: classes whose OWN registration ran (an entry-map can exist without it —
      * the other side's isParent branch creates it via computeIfAbsent). */
@@ -93,7 +94,8 @@ public class XdStorageForeignKeyRegistry {
                     // перевернутые дубли-записи FK).
                     final XdStorageAutoSaveFieldInfo parentAutosaveField = parentClassInfo.getAutoSaveFields().stream()
                             .filter(autosaveField -> {
-                                final Class<?> autosaveChildClass = autosaveField.getAccessor().getFieldInfo().getValueClass();
+                                final Class<?> autosaveChildClass = autosaveField.getAccessor().getFieldInfo()
+                                        .getValueClass();
                                 return autosaveChildClass != null && autosaveChildClass == classInfo.getClazz();
                             })
                             .findFirst().orElse(null);

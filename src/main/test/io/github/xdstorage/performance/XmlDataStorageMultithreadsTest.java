@@ -27,7 +27,8 @@ public class XmlDataStorageMultithreadsTest {
         return generateBigUniverse(countGalaxies, countStarSystems, countPlanets, false);
     }
 
-    private static XdUniverse generateBigUniverse(int countGalaxies, int countStarSystems, int countPlanets, boolean forException) {
+    private static XdUniverse generateBigUniverse(int countGalaxies, int countStarSystems, int countPlanets, boolean
+            forException) {
         final XdUniverse universe = new XdUniverse();
         universe.setId(nextStringId());
         universe.setGalaxies(new ArrayList<XdGalaxy>());
@@ -105,13 +106,13 @@ public class XmlDataStorageMultithreadsTest {
         operations.add(new UpdateSystemOperation(storage));
         operations.add(new DeleteSystemOperation(storage));
 
-//		operations.add(new InsertPlanetOperation(storage));
-//		operations.add(new UpdatePlanetOperation(storage));
-//		operations.add(new DeletePlanetOperation(storage));
+//        operations.add(new InsertPlanetOperation(storage));
+//        operations.add(new UpdatePlanetOperation(storage));
+//        operations.add(new DeletePlanetOperation(storage));
 
-//		operations.add(new insert(storage));
-//		operations.add(new update(storage));
-//		operations.add(new delete(storage));
+//        operations.add(new insert(storage));
+//        operations.add(new update(storage));
+//        operations.add(new delete(storage));
 
         return operations.toArray(new Runnable[operations.size()]);
     }
@@ -232,7 +233,8 @@ public class XmlDataStorageMultithreadsTest {
                 }
                 if (file.getName().equals("structure") || file.getName().equals("references.xml")
                         || file.getName().endsWith(".lock") || file.getName().endsWith(".meta")
-                        || file.getAbsolutePath().endsWith("id_index.xml") || file.getAbsolutePath().endsWith("idx.xml")) {
+                        || file.getAbsolutePath().endsWith("id_index.xml") || file.getAbsolutePath()
+                                .endsWith("idx.xml")) {
                     continue;
                 }
                 ++countFiles;

@@ -54,7 +54,8 @@ public class XdStorageDefaultSimpleTypeHelper implements IXdStorageSimpleTypeHel
                 // loaded through its OWN classloader (an upgraded entity generation) — invisible
                 // to ClassUtils. Resolve against the metadata registry before giving up: a null
                 // here used to degrade journal/data records into null-keyed poison.
-                final Class<?> loaded = io.github.xdstorage.utils.XdStorageClassMetadataRegistry.findLoadedClassByName(value);
+                final Class<?> loaded = io.github.xdstorage.utils.XdStorageClassMetadataRegistry
+                        .findLoadedClassByName(value);
                 if (loaded == null) {
                     log.error("class not found and not registered in this JVM: {}", value, e);
                 }

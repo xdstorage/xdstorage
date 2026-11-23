@@ -91,7 +91,8 @@ public class PropFacadeContractTest {
             methods.put("load(id)", () -> storage.load(BinFeasEntity.class, "e0"));
             methods.put("load(all)", () -> storage.load(BinFeasEntity.class));
             methods.put("load(pred)", () -> storage.load(BinFeasEntity.class, o -> true));
-            methods.put("load(pred,tx)", () -> storage.load(BinFeasEntity.class, o -> true, (IXdStorageTransaction) null));
+            methods.put("load(pred,tx)", () -> storage.load(BinFeasEntity.class, o -> true, (IXdStorageTransaction)
+                    null));
             methods.put("load(ref)", () -> storage.load((Object) entity));
             methods.put("load(refs)", () -> storage.load((java.util.Collection<?>) entities));
             methods.put("load(search)", () -> storage.load(RangeOpsEntity.class, "range_idx", query));
@@ -150,7 +151,8 @@ public class PropFacadeContractTest {
                 final long lo = rnd.nextInt(100);
                 final long hi = lo + rnd.nextInt(20);
                 final XdStorageSearchQuery range = new XdStorageSearchQuery(
-                        new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange(lo, hi)), null);
+                        new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange(lo, hi)),
+                                null);
                 final XdStorageSearchQuery equals = new XdStorageSearchQuery(
                         new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS, lo), null);
                 assertEquals(storage.load(RangeOpsEntity.class, "range_idx", range, tx).size(),
@@ -162,7 +164,8 @@ public class PropFacadeContractTest {
             }
             // the plan/exec consistency: the explain must not change the result
             final XdStorageSearchQuery stable = new XdStorageSearchQuery(
-                    new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange(10L, 20L)), null);
+                    new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN, new XdStorageRange(10L, 20L)),
+                            null);
             final int before = storage.load(RangeOpsEntity.class, "range_idx", stable, tx).size();
             storage.explain(RangeOpsEntity.class, "range_idx", stable, tx);
             assertEquals(before, storage.load(RangeOpsEntity.class, "range_idx", stable, tx).size(),

@@ -65,8 +65,10 @@ public class XdStorageTransactionTest {
         @Override public boolean hasChanges(XdStorageTransaction tx) { return false; }
         @Override public Object getDao() { return null; }
         @Override public void prepare(XdStorageTransaction tx) {}
-        @Override public void performFirstPhaseCommit(XdStorageTransaction tx, io.github.xdstorage.transaction.XdStorageTransactionResourceChanges r) {}
-        @Override public void performSecondPhaseCommit(XdStorageTransaction tx, io.github.xdstorage.transaction.XdStorageTransactionResourceChanges r) {}
+        @Override public void performFirstPhaseCommit(XdStorageTransaction tx, io.github.xdstorage.transaction
+                .XdStorageTransactionResourceChanges r) {}
+        @Override public void performSecondPhaseCommit(XdStorageTransaction tx, io.github.xdstorage.transaction
+                .XdStorageTransactionResourceChanges r) {}
         @Override public void rollbackPerformingFirstPhaseCommit(XdStorageTransaction tx, java.util.Collection cs) {}
         @Override public void rollback(XdStorageTransaction tx) {}
         @Override public void release(XdStorageTransaction tx) {}

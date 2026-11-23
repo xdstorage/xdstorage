@@ -27,7 +27,8 @@ public class TargetedDuplicateBTreeTest extends AbstractBTreeIntegrationTest {
         btree.delete(key7, "value_7_5", storageFacade, transaction);
         btree.delete(key7, "value_7_7", storageFacade, transaction);
 
-        assertEquals(4, btree.find(key7, storageFacade, transaction).size(), "После удаления должно остаться 4 дубликата");
+        assertEquals(4, btree.find(key7, storageFacade, transaction).size(),
+                "После удаления должно остаться 4 дубликата");
 
         // Зачищаем оставшиеся 4
         btree.delete(key7, "value_7_1", storageFacade, transaction);
@@ -35,7 +36,8 @@ public class TargetedDuplicateBTreeTest extends AbstractBTreeIntegrationTest {
         btree.delete(key7, "value_7_4", storageFacade, transaction);
         btree.delete(key7, "value_7_6", storageFacade, transaction);
 
-        assertTrue(btree.find(key7, storageFacade, transaction).isEmpty(), "Серия из 7 ключей должна полностью удалиться");
+        assertTrue(btree.find(key7, storageFacade, transaction).isEmpty(),
+                "Серия из 7 ключей должна полностью удалиться");
 
 
         // --- ЭТАП 2: Тестируем серию из 13 одинаковых ключей (Спровоцирует split при t=5) ---
@@ -44,7 +46,8 @@ public class TargetedDuplicateBTreeTest extends AbstractBTreeIntegrationTest {
             btree.insert(key13, "value_13_" + i, storageFacade, transaction);
         }
 
-        // Проверяем, что из-за превышения 2t-1 (9 ключей на ноду) корень расщепился, но find() нашел все 13 штук через горизонтальный обход
+        // Проверяем, что из-за превышения 2t-1 (9 ключей на ноду) корень расщепился, но find() нашел все 13 штук через
+        // горизонтальный обход
         List<Object> res13 = btree.find(key13, storageFacade, transaction);
         assertEquals(13, res13.size());
 

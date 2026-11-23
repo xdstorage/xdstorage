@@ -44,7 +44,8 @@ public class XdStorageSearchIndexKey implements Comparable<XdStorageSearchIndexK
      * @param objectId  the id of the indexed object (may be {@code null} for a seek template)
      * @param operation the operation tag (may be {@code null}; not part of the ordering)
      */
-    public XdStorageSearchIndexKey(final Object value, final Object objectId, final XdStorageSearchIndexOperationType operation) {
+    public XdStorageSearchIndexKey(final Object value, final Object objectId, final XdStorageSearchIndexOperationType
+            operation) {
         this.value = value;
         this.objectId = objectId;
         this.operation = operation;
@@ -112,11 +113,14 @@ public class XdStorageSearchIndexKey implements Comparable<XdStorageSearchIndexK
         // === АЛГОРИТМИЧЕСКОЕ ИСПРАВЛЕНИЕ СУБД (Корень всех сбоев маршрутизации Б+ Дерева): ===
         // Гарантируем абсолютную симметричность контракта compareTo для всех типов операций (Insert/Search/Update)!
         // Сначала сравниваем ключи по первичному значению индексируемого поля 'value'.
-        int result = this.value == null ? (o.value == null ? 0 : -1) : (o.value == null ? 1 : ((Comparable) this.value).compareTo(o.value));
+        int result = this.value == null ? (o.value == null ? 0 : -1) : (o.value == null ? 1 : ((Comparable) this.value)
+                .compareTo(o.value));
 
         // Если первичные значения равны, и у ОБЕИХ сравниваемых записей присутствуют идентификаторы объектов objectId,
-        // мы ОБЯЗАНЫ выполнить строгое уточняющее сравнение по objectId (ID планеты), вне зависимости от флагов операций!
-        // Прежняя логика игнорировала objectId в режиме Search, что ломало топологию B+ Дерева и вызывало крах readByReference!
+        // мы ОБЯЗАНЫ выполнить строгое уточняющее сравнение по objectId (ID планеты), вне зависимости от флагов
+        // операций!
+        // Прежняя логика игнорировала objectId в режиме Search, что ломало топологию B+ Дерева и вызывало крах
+        // readByReference!
         if (result == 0 && this.objectId != null && o.objectId != null) {
             result = ((Comparable) this.objectId).compareTo(o.objectId);
         }

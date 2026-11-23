@@ -80,7 +80,8 @@ public class XdStorageYamlReferencesTest {
         assertTrue(outputYaml.contains("class: 'io.github.xdstorage.entities.XdPlanet'"));
         assertTrue(outputYaml.contains("objectId: '500'"));
         assertTrue(outputYaml.contains("objectId: '900'"));
-        assertFalse(outputYaml.contains("fields:"), "🚨 ОШИБКА: Райтер ошибочно выгрузил тяжелые JavaBeans-свойства внутрь ссылки!");
+        assertFalse(outputYaml.contains("fields:"),
+                "🚨 ОШИБКА: Райтер ошибочно выгрузил тяжелые JavaBeans-свойства внутрь ссылки!");
 
         // =========================================================================
         // ШАГ 3: ВОССТАНОВЛЕНИЕ СВЯЗЕЙ ИЗ ФАЙЛА (КОНТУР ЧТЕНИЯ)

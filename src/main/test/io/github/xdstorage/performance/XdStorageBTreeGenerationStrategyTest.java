@@ -96,9 +96,11 @@ public class XdStorageBTreeGenerationStrategyTest {
             // Включаем глубинную верификацию извлечения из B+ Дерева индексов таблицы
             storage.load(loadedPlanets, readTx);
 
-            System.out.println(" -> Шаг 1 результатов: Ожидали планет: " + planetsCount + " | Считано: " + loadedPlanets.size());
+            System.out.println(" -> Шаг 1 результатов: Ожидали планет: " + planetsCount + " | Считано: " + loadedPlanets
+                    .size());
             assertEquals(planetsCount, loadedPlanets.size(),
-                    "🚨 КРАХ СТРАТEГИИ СУБД! При автогенерации ID новая транзакция чтения вернула битый Snapshot планет!");
+                    "🚨 КРАХ СТРАТEГИИ СУБД! При автогенерации ID новая транзакция чтения вернула битый Snapshot " +
+                            "планет!");
 
             readTx.commit();
             System.out.println("=== ТEСТ 1 ЗАВEРШEН УСПEШНO ===");
@@ -157,7 +159,8 @@ public class XdStorageBTreeGenerationStrategyTest {
             Collection<XdPlanet> loadedPlanets = loadedSystem.getPlanets();
             storage.load(loadedPlanets, readTx);
 
-            System.out.println(" -> Шаг 2 результатов: Ожидали планет: " + planetsCount + " | Считано: " + loadedPlanets.size());
+            System.out.println(" -> Шаг 2 результатов: Ожидали планет: " + planetsCount + " | Считано: " + loadedPlanets
+                    .size());
             assertEquals(planetsCount, loadedPlanets.size(),
                     "🚨 КРАХ СТРАТEГИИ ТEСТА! При явных ID новая транзакция чтения вернула битый Snapshot планет!");
 

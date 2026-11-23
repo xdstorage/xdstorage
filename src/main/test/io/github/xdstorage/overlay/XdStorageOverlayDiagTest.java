@@ -77,7 +77,8 @@ public class XdStorageOverlayDiagTest {
             } catch (final Exception ignored) {
             }
             final boolean mentionsChild = content.contains("diag-child-0") || content.contains("diag-parent-1");
-            System.out.println("[FILES] " + file.getPath() + " (" + file.length() + " b, mentionsSeed=" + mentionsChild + ")");
+            System.out.println("[FILES] " + file.getPath() + " (" + file.length() + " b, mentionsSeed=" + mentionsChild
+                    + ")");
             if (mentionsChild && file.length() < 4000) {
                 System.out.println("[FILES] ---- content ----\n" + content + "\n---- end ----");
             }
@@ -137,7 +138,8 @@ public class XdStorageOverlayDiagTest {
         // reopen: the file truth
         storage.shutdown();
         storage = XdStorageProvider.newOrGetFileStorage(
-                "overlay_diag_reopen_" + System.nanoTime(), STORAGE_PATH, 200, FilesFormat.YAML, new XdStorageConfig.Builder()
+                "overlay_diag_reopen_" + System.nanoTime(), STORAGE_PATH, 200, FilesFormat.YAML, new XdStorageConfig
+                        .Builder()
                         .journalWrites(true)
                         .setEnableForeignKeys(true)
                         .build());

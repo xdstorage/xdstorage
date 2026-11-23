@@ -84,14 +84,16 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
      * @param clazz    the entity class the cache stores, or {@code null} when unknown
      * @param field    metadata of the entity id field
      */
-    public XdStorageResourceCache(final XdStorageServicesLocator services, final Class<?> clazz, final XdStorageObjectIdField field) {
+    public XdStorageResourceCache(final XdStorageServicesLocator services, final Class<?> clazz, final
+            XdStorageObjectIdField field) {
         this.services = services;
         this.field = field;
         this.infrastructureCache = clazz != null && clazz.getName().contains("io.github.xdstorage.btree");
         // R-42: НОДЫ — внутренняя структура (истина = живой инстанс, сериализация нодовыми
         // write-локами) — полная инфра-релаксация. Само ДЕРЕВО — логическая сущность БД:
         // контракты фантомов (BTreeEntityTest) действуют на его удаление.
-        this.structuralNodeCache = clazz != null && clazz.getName().equals("io.github.xdstorage.btree.XdStorageBTreeNode");
+        this.structuralNodeCache = clazz != null && clazz.getName()
+                .equals("io.github.xdstorage.btree.XdStorageBTreeNode");
         this.clazz = clazz;
         this.cloner = this.services.getCloner();
         // O-3: уровень изоляции хранилища задается конфигом при открытии (раньше был
@@ -235,7 +237,8 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
         }
     }
 
-    /** W-1: replay of a committed journal UPSERT — base-парсинг уступает состоянию журнала (last writer wins), поэтому put, не putIfAbsent.
+    /** W-1: replay of a committed journal UPSERT — base-парсинг уступает состоянию журнала (last writer wins), поэтому
+     * put, не putIfAbsent.
      *
      * @param object the committed object state from the journal
      */
@@ -284,7 +287,8 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
      * (коммитная выписка) сознательно не бюджетируется. Превышение — громкий отказ с
      * подсказкой вместо молчаливого роста кучи до OOM.
      */
-    /** W-2: бюджет включают ТОЛЬКО ресурсы пользовательских данных (id-индексы — служебные записи, не бюджетируются). */
+    /** W-2: бюджет включают ТОЛЬКО ресурсы пользовательских данных (id-индексы — служебные записи, не
+     * бюджетируются). */
     private volatile boolean enforceMaterializationBudget;
 
     /**
@@ -339,7 +343,8 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
      * @param transaction the transaction to materialize for
      * @throws XdStorageException when the critical section cannot be entered
      */
-    public <T> void fillAndCloneCacheOnlyIfNotExists(final List<T> objects, final Collection<T> result, final XdStorageTransaction transaction) throws XdStorageException {
+    public <T> void fillAndCloneCacheOnlyIfNotExists(final List<T> objects, final Collection<T> result, final
+            XdStorageTransaction transaction) throws XdStorageException {
         transaction.startCriticalSection();
         try {
             fillAndCloneCacheOnlyIfNotExistsInternal(objects, result, transaction);
@@ -349,8 +354,10 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
     }
 
     @SuppressWarnings("unchecked")
-    private <T> void fillAndCloneCacheOnlyIfNotExistsInternal(final List<T> objects, final Collection<T> result, final XdStorageTransaction transaction) throws XdStorageException {
-        log.debug("fillAndClone: {} object(s) into the read contour of tx {}", objects.size(), transaction.getTransactionId());
+    private <T> void fillAndCloneCacheOnlyIfNotExistsInternal(final List<T> objects, final Collection<T> result, final
+            XdStorageTransaction transaction) throws XdStorageException {
+        log.debug("fillAndClone: {} object(s) into the read contour of tx {}", objects.size(), transaction
+                .getTransactionId());
         final Map<Object, XdStorageCacheObjectChange> tmpReadObjects = workspace.readObjectsOf(transaction);
 
         for (final T object : objects) {
@@ -360,7 +367,8 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
             final Object clonedObject = infrastructureCache
                     ? objectToCache
                     : cloner.cloneAndWrap(objectToCache, services.getStorage(), transaction);
-            tmpReadObjects.putIfAbsent(objectId, new XdStorageCacheObjectChange(clonedObject, XdStorageCacheChange.read, System.nanoTime()));
+            tmpReadObjects.putIfAbsent(objectId, new XdStorageCacheObjectChange(clonedObject, XdStorageCacheChange.read,
+                    System.nanoTime()));
             result.add((T) tmpReadObjects.get(objectId).object);
             cache.putIfAbsent(objectId, createReadRecord(objectToCache));
         }
@@ -394,7 +402,8 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
         }
         final Object canonical = registry.adoptOrRegister(clazz, parsedId, parsed);
         if (log.isDebugEnabled() && canonical != parsed) {
-            log.debug("infra instance {}#{} adopted from the canonical registry; parsed copy discarded", clazz.getSimpleName(), parsedId);
+            log.debug("infra instance {}#{} adopted from the canonical registry; parsed copy discarded", clazz
+                    .getSimpleName(), parsedId);
         }
         return canonical;
     }
@@ -428,7 +437,8 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
      * @return the registered unidentified object, or {@code null} when none was registered
      * @throws XdStorageException when the critical section cannot be entered
      */
-    public <T> T findUnidentified(final Object object, final XdStorageTransaction transaction) throws XdStorageException {
+    public <T> T findUnidentified(final Object object, final XdStorageTransaction transaction) throws XdStorageException
+            {
         transaction.startCriticalSection();
         try {
             return findUnidentifiedInternal(object, transaction);
@@ -468,7 +478,8 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
      *                            materialization budget violation
      */
     @SuppressWarnings("unchecked")
-    public <T> Collection<T> read(final XdStorageTransaction transaction, final IXdStoragePredicate<T> predicate) throws XdStorageException {
+    public <T> Collection<T> read(final XdStorageTransaction transaction, final IXdStoragePredicate<T> predicate) throws
+            XdStorageException {
         transaction.startCriticalSection();
         try {
             final Collection<T> result = readInternal(transaction, predicate);
@@ -480,7 +491,8 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
     }
 
     @SuppressWarnings("unchecked")
-    private <T> Collection<T> readInternal(final XdStorageTransaction transaction, final IXdStoragePredicate<T> predicate) throws XdStorageException {
+    private <T> Collection<T> readInternal(final XdStorageTransaction transaction, final IXdStoragePredicate<T>
+            predicate) throws XdStorageException {
         final XdStorageException[] exceptions = new XdStorageException[]{null};
         final java.util.concurrent.atomic.AtomicBoolean hasError = new java.util.concurrent.atomic.AtomicBoolean(false);
 
@@ -520,7 +532,8 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
                             || (rcRefresh && materialized.recordVersion != record.getVersion());
                     if (needsRematerialize) {
                         Object cloned = cloner.cloneAndWrap(object, services.getStorage(), transaction);
-                        final XdStorageCacheObjectChange oc = new XdStorageCacheObjectChange(cloned, XdStorageCacheChange.read, System.nanoTime());
+                        final XdStorageCacheObjectChange oc = new XdStorageCacheObjectChange(cloned,
+                                XdStorageCacheChange.read, System.nanoTime());
                         oc.recordVersion = record.getVersion();
                         if (rcRefresh) {
                             readObjects.put(objectId, oc);
@@ -538,7 +551,8 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
                     // видит полный скан read(transaction) — нарушение контракта Snapshot Isolation!
                     // =========================================================================
                     if (objectToReturn != null) {
-                        final Object wrappedObject = XdStorageObjectUtils.wrapAsUnmodifiableObject(objectToReturn, services.getStorage(), transaction);
+                        final Object wrappedObject = XdStorageObjectUtils.wrapAsUnmodifiableObject(objectToReturn,
+                                services.getStorage(), transaction);
                         final Object objectForPredicate = wrappedObject != null ? wrappedObject : objectToReturn;
                         if (predicate.passed((T) objectForPredicate)) {
                             result.add((T) objectToReturn);
@@ -596,7 +610,8 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
      *                            materialization budget violation
      */
     @SuppressWarnings("unchecked")
-    public <T> void watch(final XdStorageTransaction transaction, final IXdStorageWatcher<T> watcher) throws XdStorageException {
+    public <T> void watch(final XdStorageTransaction transaction, final IXdStorageWatcher<T> watcher) throws
+            XdStorageException {
         transaction.startCriticalSection();
         try {
             watchInternal(transaction, watcher);
@@ -607,7 +622,8 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
     }
 
     @SuppressWarnings("unchecked")
-    private <T> void watchInternal(final XdStorageTransaction transaction, final IXdStorageWatcher<T> watcher) throws XdStorageException {
+    private <T> void watchInternal(final XdStorageTransaction transaction, final IXdStorageWatcher<T> watcher) throws
+            XdStorageException {
         final XdStorageException[] exceptions = new XdStorageException[]{null};
         final AtomicBoolean hasError = new AtomicBoolean(false);
 
@@ -650,12 +666,14 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
                         objectToWrap = XdStorageObjectUtils.cloneObject(object);
                         if (isolationLevel == XdStorageIsolationLevel.READ_COMMITTED) {
                             // запоминаем версию записи, чтобы следующее чтение увидело устаревание копии
-                            final XdStorageCacheObjectChange refreshed = new XdStorageCacheObjectChange(objectToWrap, XdStorageCacheChange.read, System.nanoTime());
+                            final XdStorageCacheObjectChange refreshed = new XdStorageCacheObjectChange(objectToWrap,
+                                    XdStorageCacheChange.read, System.nanoTime());
                             refreshed.recordVersion = record.getVersion();
                             readObjects.put(objectId, refreshed);
                         }
                     }
-                    watcher.watch((T) XdStorageObjectUtils.wrapAsUnmodifiableObject(objectToWrap, services.getStorage(), transaction));
+                    watcher.watch((T) XdStorageObjectUtils.wrapAsUnmodifiableObject(objectToWrap, services.getStorage(),
+                            transaction));
                 }
             } catch (final Throwable e) {
                 if (hasError.get()) {
@@ -749,7 +767,8 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
                                     && materialized.recordVersion != record.getVersion());
                         if (needsRematerialize) {
                             Object cloned = cloner.cloneAndWrap(object, services.getStorage(), transaction);
-                            final XdStorageCacheObjectChange oc = new XdStorageCacheObjectChange(cloned, XdStorageCacheChange.read, System.nanoTime());
+                            final XdStorageCacheObjectChange oc = new XdStorageCacheObjectChange(cloned,
+                                    XdStorageCacheChange.read, System.nanoTime());
                             oc.recordVersion = record.getVersion();
                             readObjects.put(objectId, oc);
                         }
@@ -910,7 +929,8 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
                             : (record.isChangedByTransaction(transaction) ? record.getNewObject() : null);
                 }
                 if (object != null) {
-                    readObjects.putIfAbsent(id, new XdStorageCacheObjectChange(object, XdStorageCacheChange.read, System.nanoTime()));
+                    readObjects.putIfAbsent(id, new XdStorageCacheObjectChange(object, XdStorageCacheChange.read, System
+                            .nanoTime()));
                     return readObjects.get(id).object;
                 }
                 return null;
@@ -936,7 +956,8 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
                         // already-mutated state (the task-40 channel closed at the read).
                         record.captureSnapshotIfNeeded();
                         Object cloned = cloner.cloneAndWrap(object, services.getStorage(), transaction);
-                        final XdStorageCacheObjectChange oc = new XdStorageCacheObjectChange(cloned, XdStorageCacheChange.read, System.nanoTime());
+                        final XdStorageCacheObjectChange oc = new XdStorageCacheObjectChange(cloned,
+                                XdStorageCacheChange.read, System.nanoTime());
                         oc.recordVersion = record.getVersion();
                         readObjects.put(id, oc);
                     }
@@ -958,7 +979,8 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
      * @param transaction the transaction whose snapshot the load resolves in
      * @throws XdStorageException when the referenced object cannot be loaded
      */
-    public void readByReference(final Object reference, final XdStorageTransaction transaction) throws XdStorageException {
+    public void readByReference(final Object reference, final XdStorageTransaction transaction) throws
+            XdStorageException {
         transaction.startCriticalSection();
         try {
             readByReferenceInternal(reference, transaction);
@@ -968,7 +990,8 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
         }
     }
 
-    private void readByReferenceInternal(final Object reference, final XdStorageTransaction transaction) throws XdStorageException {
+    private void readByReferenceInternal(final Object reference, final XdStorageTransaction transaction) throws
+            XdStorageException {
         Map<Object, XdStorageCacheObjectChange> readObjects = workspace.readObjectsOf(transaction);
 
         final Object objectId = field.get(reference);
@@ -1013,10 +1036,12 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
                 }
                 if (object != null) {
                     cloner.fillAndWrap(reference, object, services.getStorage(), transaction);
-                    readObjects.putIfAbsent(objectId, new XdStorageCacheObjectChange(reference, XdStorageCacheChange.read, System.nanoTime()));
+                    readObjects.putIfAbsent(objectId, new XdStorageCacheObjectChange(reference, XdStorageCacheChange
+                            .read, System.nanoTime()));
                     return;
                 }
-                throw new XdStorageException("cannot load by reference object of " + reference.getClass() + " with id " + field.get(reference));
+                throw new XdStorageException("cannot load by reference object of " + reference.getClass() + " with id "
+                        + field.get(reference));
             }
             synchronized (record) {
                 // R-58: гидрация ссылки обязана быть СОГЛАСОВАННОЙ СО СНАПШОТОМ читателя.
@@ -1033,7 +1058,8 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
                     // READ COMMITTED: наполняем ссылку последним закоммиченным состоянием,
                     // а не устаревшей материализацией из транзитной карты
                     cloner.fillAndWrap(reference, object, services.getStorage(), transaction);
-                    readObjects.putIfAbsent(objectId, new XdStorageCacheObjectChange(reference, XdStorageCacheChange.read, System.nanoTime()));
+                    readObjects.putIfAbsent(objectId, new XdStorageCacheObjectChange(reference, XdStorageCacheChange
+                            .read, System.nanoTime()));
                     return;
                 }
             }
@@ -1047,7 +1073,8 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
                     "reference is not visible in the reader snapshot: object of " + reference.getClass()
                             + " with id " + field.get(reference));
         }
-        throw new XdStorageException("cannot load by reference object of " + reference.getClass() + " with id " + field.get(reference));
+        throw new XdStorageException("cannot load by reference object of " + reference.getClass() + " with id " + field
+                .get(reference));
     }
 
     /**
@@ -1088,14 +1115,16 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
             }
             record = cache.get(objectId);
             if (record == null) {
-                log.debug("infra record {} disappeared while waiting — owner rolled back the invisible insert", objectId);
+                log.debug("infra record {} disappeared while waiting — owner rolled back the invisible insert",
+                        objectId);
                 return false; // запись изъята (откат вставки) — записи больше нет
             }
         }
         return true;
     }
 
-    private boolean isInvisibleUncommittedMutation(final XdStorageCacheRecord record, final XdStorageTransaction transaction) {
+    private boolean isInvisibleUncommittedMutation(final XdStorageCacheRecord record, final XdStorageTransaction
+            transaction) {
         if (record == null || record.isCommittedState()) {
             return false;
         }
@@ -1256,7 +1285,8 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
      * @param transaction the committing transaction
      * @param collector   the collector receiving the staged changes
      */
-    public void prepareCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges collector) {
+    public void prepareCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges
+            collector) {
         commitProtocol.prepareCommit(transaction, collector);
     }
 
@@ -1269,7 +1299,8 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
      * @param transaction the committing transaction
      * @param collector   the collector filled by {@link #prepareCommit}
      */
-    public void performCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges collector) {
+    public void performCommit(final XdStorageTransaction transaction, final XdStorageTransactionResourceChanges
+            collector) {
         commitProtocol.performCommit(transaction, collector);
     }
 
@@ -1304,7 +1335,8 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
      * @param committed   the changes the failed first phase persisted
      * @throws XdStorageException when the compensation cannot be completed
      */
-    public void rollbackFailedCommit(final XdStorageTransaction transaction, final Collection<XdStorageObjectChange> committed) throws XdStorageException {
+    public void rollbackFailedCommit(final XdStorageTransaction transaction, final Collection<XdStorageObjectChange>
+            committed) throws XdStorageException {
         commitProtocol.rollbackFailedCommit(transaction, committed);
     }
 }

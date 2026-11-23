@@ -148,7 +148,8 @@ public class XdStorageConcurrentSerializationTest {
         }
         assertTrue(finishedCleanly, "Многопоточный XML-тест завис! Обнаружен скрытый Deadlock локеров в ObjectUtils!");
         assertEquals(0, errorCounter.get(), "Зафиксированы рантайм ошибки при параллельном XML-обходе!");
-        assertEquals(threadsCount * iterationsPerThread, successCounter.get(), "Не все итерации многопоточного XML-теста были выполнены!");
+        assertEquals(threadsCount * iterationsPerThread, successCounter.get(),
+                "Не все итерации многопоточного XML-теста были выполнены!");
     }
 
     /**
@@ -180,7 +181,8 @@ public class XdStorageConcurrentSerializationTest {
 
                         // ИСПРАВЛЕНИЕ: Инстанцируем РАЙТЕР и РИДЕР локально для каждого потока/итерации,
                         // строго соблюдая потоковый контракт и изоляцию состояния СУБД!
-                        XdStorageDefaultObjectsWriter localWriter = new XdStorageDefaultObjectsWriter(mockServices, typeHelper, mockIdGenerator);
+                        XdStorageDefaultObjectsWriter localWriter = new XdStorageDefaultObjectsWriter(mockServices,
+                                typeHelper, mockIdGenerator);
                         XdStorageDefaultObjectsReader localReader = new XdStorageDefaultObjectsReader(typeHelper);
 
                         // 1. Тестируем запись локальным писателем

@@ -17,7 +17,8 @@ public class MassDuplicatesBTreeStressTest extends AbstractBTreeIntegrationTest 
     @Test
     @DisplayName("2) Нагрузочный тест на лавинообразную вставку дубликатов с каскадным пурджем страниц")
     void testMassDuplicatesLoadAndCleanStress() throws Exception {
-        int duplicateCount = 150; // Генерируем 150 дубликатов одного ключа (гарантирует глубокий многоуровневый split ярусов при t=5)
+        // Генерируем 150 дубликатов одного ключа (гарантирует глубокий многоуровневый split ярусов при t=5)
+        int duplicateCount = 150;
         String hotKey = "hot_key_stress";
 
         // Массовый накат дубликатов в СУБД
@@ -38,7 +39,8 @@ public class MassDuplicatesBTreeStressTest extends AbstractBTreeIntegrationTest 
         assertEquals(50, btree.find(mixedKey, storageFacade, transaction).size());
 
         // --- ЭТАП ВТОРОЙ: Стресс-пурдж (Удаление в случайном порядке) ---
-        // Перемешиваем порядок удаления полезной нагрузки, чтобы создать максимальное количество асимметричных перекосов в B+ дереве
+        // Перемешиваем порядок удаления полезной нагрузки, чтобы создать максимальное количество асимметричных
+        // перекосов в B+ дереве
         List<Integer> deleteOrder = new ArrayList<>();
         for (int i = 1; i <= duplicateCount; i++) {
             deleteOrder.add(i);
@@ -62,7 +64,9 @@ public class MassDuplicatesBTreeStressTest extends AbstractBTreeIntegrationTest 
 
         // Полный контроль целостности: База абсолютно чиста, граф нод корректно демонтирован
         assertTrue(btree.find(mixedKey, storageFacade, transaction).isEmpty());
-        assertNull(btree.getRoot(), "Многоярусная структура дерева не смогла полностью схлопнуться (остался висячий корень-сирота)");
-        assertTrue(nodeStorage.isEmpty(), "В репозитории СУБД остались висячие файлы нод-призраков после полного удаления данных");
+        assertNull(btree.getRoot(),
+                "Многоярусная структура дерева не смогла полностью схлопнуться (остался висячий корень-сирота)");
+        assertTrue(nodeStorage.isEmpty(),
+                "В репозитории СУБД остались висячие файлы нод-призраков после полного удаления данных");
     }
 }

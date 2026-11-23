@@ -27,7 +27,8 @@ public interface IXdStorageCloner {
      * @return the wrapped clone, or {@code null} when {@code toClone} is {@code null}
      * @throws XdStorageException when the object cannot be cloned or wrapped
      */
-    Object cloneAndWrap(Object toClone, IXdStorage storage, IXdStorageTransaction transaction) throws XdStorageException;
+    Object cloneAndWrap(Object toClone, IXdStorage storage, IXdStorageTransaction transaction) throws
+            XdStorageException;
 
     /**
      * Reverse direction: unwraps a (possibly wrapped) object and clones it into a plain
@@ -49,7 +50,8 @@ public interface IXdStorageCloner {
      * @param transaction the transaction the reference belongs to
      * @throws XdStorageException when either argument is {@code null} or the packing fails
      */
-    void fillAndWrap(Object reference, Object object, IXdStorage storage, XdStorageTransaction transaction) throws XdStorageException;
+    void fillAndWrap(Object reference, Object object, IXdStorage storage, XdStorageTransaction transaction) throws
+            XdStorageException;
 
     /**
      * Releases the transaction's reference state (the memoized per-object wrappers).

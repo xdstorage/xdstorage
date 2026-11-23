@@ -29,7 +29,8 @@ public interface IXdStorageSearchIndexDaoResource {
      * @throws XdStorageException         when the index structure cannot be initialized
      * @throws XdStorageConnectionException on a storage access failure
      */
-    void insert(Object object, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void insert(Object object, XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Re-indexes an object's assembled record: rewrites the search-tree entry in place when
@@ -41,7 +42,8 @@ public interface IXdStorageSearchIndexDaoResource {
      * @throws XdStorageException         when the object has no key-tree entry (never indexed)
      * @throws XdStorageConnectionException on a storage access failure
      */
-    void update(Object object, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void update(Object object, XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Removes an object's search-tree and key-tree entries. Absent entries (or a missing
@@ -52,7 +54,8 @@ public interface IXdStorageSearchIndexDaoResource {
      * @throws XdStorageException         on an index access failure
      * @throws XdStorageConnectionException on a storage access failure
      */
-    void delete(Object object, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void delete(Object object, XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Streams every record of the index tree to the watcher, in the tree's iteration order.
@@ -69,5 +72,6 @@ public interface IXdStorageSearchIndexDaoResource {
      * @throws XdStorageException         on an index access failure
      * @throws XdStorageConnectionException on a storage access failure
      */
-    <T> void watch(XdStorageTransaction transaction, IXdStorageWatcher<T> watcher) throws XdStorageException, XdStorageConnectionException;
+    <T> void watch(XdStorageTransaction transaction, IXdStorageWatcher<T> watcher) throws XdStorageException,
+            XdStorageConnectionException;
 }

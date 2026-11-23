@@ -1,6 +1,7 @@
 package io.github.xdstorage.foreignkey.policies.btree.ParentSingleObjectChildClass;
 
-import io.github.xdstorage.entities.foreignkeys.policies.btree.ParentSingleObjectChildClass.PolicyParentSingleObjectChildClass;
+import io.github.xdstorage.entities.foreignkeys.policies.btree.ParentSingleObjectChildClass
+        .PolicyParentSingleObjectChildClass;
 import io.github.xdstorage.entities.foreignkeys.policies.btree.ParentSingleObjectChildClass.PolicyChildClass;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.foreignkey.index.btree.AbstractForeignKeyBaseSpecificationTest;
@@ -127,7 +128,8 @@ public class PolicyParentSingleObjectChildClassBTreeTest extends AbstractForeign
         storage.commitTransaction(tx);
         Long parentId = parent.getId(), child1Id = child1.getId();
         tx = storage.beginTransaction();
-        PolicyParentSingleObjectChildClass loadedParent = storage.load(PolicyParentSingleObjectChildClass.class, parentId);
+        PolicyParentSingleObjectChildClass loadedParent = storage.load(PolicyParentSingleObjectChildClass.class,
+                parentId);
         PolicyChildClass loadedChild1 = storage.load(PolicyChildClass.class, child1Id);
         loadedParent.getChildren().remove(loadedChild1);
         storage.update(loadedParent);
@@ -164,7 +166,8 @@ public class PolicyParentSingleObjectChildClassBTreeTest extends AbstractForeign
         storage.commitTransaction(tx);
         Long parentId = parent.getId(), child1Id = child1.getId();
         tx = storage.beginTransaction();
-        PolicyParentSingleObjectChildClass loadedParent = storage.load(PolicyParentSingleObjectChildClass.class, parentId);
+        PolicyParentSingleObjectChildClass loadedParent = storage.load(PolicyParentSingleObjectChildClass.class,
+                parentId);
         PolicyChildClass loadedChild1 = storage.load(PolicyChildClass.class, child1Id);
         loadedParent.getChildren().remove(loadedChild1);
         PolicyChildClass child3 = new PolicyChildClass(); child3.setParent(loadedParent);
@@ -175,7 +178,8 @@ public class PolicyParentSingleObjectChildClassBTreeTest extends AbstractForeign
     }
 
     @Test
-    @DisplayName("4b. Обновление родителя: удалить child1, вставить child3 — Успешно (Rule 4: удаление из коллекции ≠ delete, child survives independently)")
+    @DisplayName("4b. Обновление родителя: удалить child1, вставить child3 — Успешно (Rule 4: удаление из коллекции " +
+            "≠ delete, child survives independently)")
     void testUpdateParentRemoveOneInsertOneNoDeleteSuccess() throws Exception {
         tx = storage.beginTransaction();
         PolicyParentSingleObjectChildClass parent = new PolicyParentSingleObjectChildClass();
@@ -186,7 +190,8 @@ public class PolicyParentSingleObjectChildClassBTreeTest extends AbstractForeign
         storage.commitTransaction(tx);
         Long parentId = parent.getId(), child1Id = child1.getId();
         tx = storage.beginTransaction();
-        PolicyParentSingleObjectChildClass loadedParent = storage.load(PolicyParentSingleObjectChildClass.class, parentId);
+        PolicyParentSingleObjectChildClass loadedParent = storage.load(PolicyParentSingleObjectChildClass.class,
+                parentId);
         PolicyChildClass loadedChild1 = storage.load(PolicyChildClass.class, child1Id);
         loadedParent.getChildren().remove(loadedChild1);
         PolicyChildClass child3 = new PolicyChildClass(); child3.setParent(loadedParent);

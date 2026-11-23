@@ -40,14 +40,16 @@ public class XdStorageClonerFieldUnpacker {
             final Object value = field.get(src);
             final Class<?> clValue = value != null ? XdStorageObjectUtils.getEntityClass(value.getClass()) : null;
 
-            if (value == null || clValue.isPrimitive() || clValue.isEnum() || XdStorageObjectUtils.isSimpleType(clValue, value)) {
+            if (value == null || clValue.isPrimitive() || clValue.isEnum() || XdStorageObjectUtils.isSimpleType(clValue,
+                    value)) {
                 field.set(target, value);
             } else if (clValue == Date.class) {
                 field.set(target, new Date(((Date) value).getTime()));
             } else if (clValue.isArray()) {
                 field.set(target, XdStorageClonerArrayProcessor.unwrapAndCloneArray(value, cloner));
             } else if (value instanceof Collection<?>) {
-                field.set(target, XdStorageClonerCollectionProcessor.unwrapAndCloneCollection((Collection<?>) value, cloner));
+                field.set(target, XdStorageClonerCollectionProcessor.unwrapAndCloneCollection((Collection<?>) value,
+                        cloner));
             } else if (value instanceof Map<?, ?>) {
                 field.set(target, XdStorageClonerCollectionProcessor.unwrapAndCloneMap((Map<?, ?>) value, cloner));
             } else {

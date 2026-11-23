@@ -55,7 +55,8 @@ public class IncomeAndObservabilityForeignKeyTest extends AbstractForeignKeyEngi
         registry.getOutcomeRelations(parentMeta);
         registry.getIncomeRelations(childMeta);
 
-        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta, parentMeta.getFields().get("childRef"), transaction);
+        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta,
+                parentMeta.getFields().get("childRef"), transaction);
         fkResource.insert(80L, 900L, transaction);
 
         // Обрабатываем удаление ребенка
@@ -76,7 +77,8 @@ public class IncomeAndObservabilityForeignKeyTest extends AbstractForeignKeyEngi
 
         TestObservableWrapper childWrapper = new TestObservableWrapper(child);
 
-        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta, parentMeta.getFields().get("childRef"), transaction);
+        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta,
+                parentMeta.getFields().get("childRef"), transaction);
 
         // Передаем обертку ожидания ID ребенка в ресурс внешнего ключа
         fkResource.insert(50L, childWrapper, transaction);
@@ -120,7 +122,8 @@ public class IncomeAndObservabilityForeignKeyTest extends AbstractForeignKeyEngi
         TestObservableWrapper parentWrapper = new TestObservableWrapper(parent);
         TestObservableWrapper childWrapper = new TestObservableWrapper(child);
 
-        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta, parentMeta.getFields().get("childRef"), transaction);
+        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta,
+                parentMeta.getFields().get("childRef"), transaction);
 
         fkResource.insert(parentWrapper, childWrapper, transaction);
 

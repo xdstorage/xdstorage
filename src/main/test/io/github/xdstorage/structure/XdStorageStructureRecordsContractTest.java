@@ -37,9 +37,11 @@ public class XdStorageStructureRecordsContractTest {
                 "score", Long.class);
         final XdStorageClassStructure b = structure("evolution.EvoEntity", XdStoragePolicy.StoreAsClassObjects,
                 "score", Long.class);
-        final XdStorageClassStructure differentField = structure("evolution.EvoEntity", XdStoragePolicy.StoreAsClassObjects,
+        final XdStorageClassStructure differentField = structure("evolution.EvoEntity", XdStoragePolicy
+                .StoreAsClassObjects,
                 "extra", String.class);
-        final XdStorageClassStructure differentPolicy = structure("evolution.EvoEntity", XdStoragePolicy.StoreAsSingleObject,
+        final XdStorageClassStructure differentPolicy = structure("evolution.EvoEntity", XdStoragePolicy
+                .StoreAsSingleObject,
                 "score", Long.class);
 
         assertEquals(a, b, "equal records");
@@ -53,7 +55,8 @@ public class XdStorageStructureRecordsContractTest {
         assertTrue(set.add(a));
         assertFalse(set.add(b), "an equal record must not re-enter the set");
         assertEquals(1, set.size());
-        assertTrue(set.contains(structure("evolution.EvoEntity", XdStoragePolicy.StoreAsClassObjects, "score", Long.class)),
+        assertTrue(set.contains(structure("evolution.EvoEntity", XdStoragePolicy.StoreAsClassObjects, "score", Long
+                .class)),
                 "an equal fresh instance must be FOUND in the set (the hashCode contract)");
     }
 
@@ -62,7 +65,8 @@ public class XdStorageStructureRecordsContractTest {
     public void indexStructureHashCodeContract() {
         final XdStorageClassIndexStructure a = indexStructure("evolution.EvoEntity", "evo_idx", "score", Long.class);
         final XdStorageClassIndexStructure b = indexStructure("evolution.EvoEntity", "evo_idx", "score", Long.class);
-        final XdStorageClassIndexStructure widened = indexStructure("evolution.EvoEntity", "evo_idx", "score", Long.class);
+        final XdStorageClassIndexStructure widened = indexStructure("evolution.EvoEntity", "evo_idx", "score", Long
+                .class);
         widened.addField("extra", String.class);
 
         assertEquals(a, b, "equal index records");

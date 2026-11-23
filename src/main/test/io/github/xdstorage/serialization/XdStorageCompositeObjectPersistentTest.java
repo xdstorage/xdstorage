@@ -123,7 +123,8 @@ public class XdStorageCompositeObjectPersistentTest {
             assertEquals(NODE_ACTIVE, verifiedNode.getIsActive(), "🚨 ИСКАЖЕНИЕ ПОЛЯ BOOLEAN (isActive)!");
 
             readTx.commit();
-            System.out.println("🎉 УСПЕХ! Рефлексивный маршалинг составных объектов и примитивных полей работает идеально!");
+            System.out.println("🎉 УСПЕХ! Рефлексивный маршалинг составных объектов и примитивных полей работает " +
+                    "идеально!");
         } catch (Throwable e) {
             readTx.rollback();
             System.err.println("🚨 Крах СУБД на этапе верификации полей составного объекта:");

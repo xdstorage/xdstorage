@@ -42,7 +42,8 @@ public class XdStorageStringUtilsTest {
         // Зависит от внутренней реализации СУБД (используется ли .trim() или проверяется строго длина)
         // Прогон этого теста покажет нам точное поведение метода!
         boolean result = XdStorageStringUtils.isEmpty(input);
-        System.out.println("Граничное условие [пробелы/управляющие символы] для '" + input.replace("\n", "\\n") + "' вернуло: " + result);
+        System.out.println("Граничное условие [пробелы/управляющие символы] для '" + input.replace("\n", "\\n") +
+                "' вернуло: " + result);
     }
 
     @Test

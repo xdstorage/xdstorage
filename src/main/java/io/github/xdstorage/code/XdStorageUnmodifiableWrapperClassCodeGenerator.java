@@ -6,7 +6,8 @@ import java.util.Map;
 
 /**
  * Полностью декомпозированный сервис генерации кода немодифицируемых оберток (Поинт В).
- * Делегирует строковую сборку в XdStorageUnmodifiableBlockGettersGenerator и XdStorageUnmodifiableBlockSettersGenerator.
+  * Делегирует строковую сборку в XdStorageUnmodifiableBlockGettersGenerator и
+  * XdStorageUnmodifiableBlockSettersGenerator.
  */
 public class XdStorageUnmodifiableWrapperClassCodeGenerator extends XdStorageAbstractClassCodeGenerator {
 
@@ -29,7 +30,8 @@ public class XdStorageUnmodifiableWrapperClassCodeGenerator extends XdStorageAbs
      * @return the same accumulator map with the generated source added
      */
     @Override
-    public Map<String, String> generate(final String classesPackage, final Class<?> cl, final Map<String, String> code) {
+    public Map<String, String> generate(final String classesPackage, final Class<?> cl, final Map<String, String> code)
+            {
         final GenerationContext ctx = collectMethodsAndClasses(cl);
 
         final StringBuilder builder = new StringBuilder();
@@ -55,7 +57,8 @@ public class XdStorageUnmodifiableWrapperClassCodeGenerator extends XdStorageAbs
         return code;
     }
 
-    private void appendPackageAndClassHeader(final StringBuilder builder, final String classesPackage, final String className, final Class<?> cl) {
+    private void appendPackageAndClassHeader(final StringBuilder builder, final String classesPackage, final String
+            className, final Class<?> cl) {
         builder.append("package ").append(classesPackage).append(";\r\n\r\n");
         builder.append("public class ").append(className).append(" extends ").append(getSourceTypeName(cl));
         builder.append(" implements ").append(IXdStorageUnmodifiableWrapper.class.getName()).append(" {\r\n");
@@ -104,9 +107,11 @@ public class XdStorageUnmodifiableWrapperClassCodeGenerator extends XdStorageAbs
         builder.append("\t\tif (obj == null) return false;\r\n\r\n");
 
         // 1) Проверяем объект-параметр: является ли он UnmodifiableWrapper?
-        builder.append("\t\tif (obj instanceof ").append(IXdStorageUnmodifiableWrapper.class.getName()).append(") {\r\n");
+        builder.append("\t\tif (obj instanceof ").append(IXdStorageUnmodifiableWrapper.class.getName())
+                .append(") {\r\n");
         // 1.1) Если да — вытаскиваем обёрнутый объект напрямую и сравниваем со своим
-        builder.append("\t\t\treturn this.object.equals(((").append(IXdStorageUnmodifiableWrapper.class.getName()).append(") obj).getWrappedObject__());\r\n");
+        builder.append("\t\t\treturn this.object.equals(((").append(IXdStorageUnmodifiableWrapper.class.getName())
+                .append(") obj).getWrappedObject__());\r\n");
         builder.append("\t\t}\r\n\r\n");
 
         // 1.2) Если нет (чистый объект, SimpleWrapper или другой тип) — объекты НЕ равны!

@@ -78,7 +78,8 @@ public final class XdStorageDesignPointProbe {
             m.put("ops", ops);
             m.put("seconds", round(seconds));
             m.put("opsPerSec", round(seconds > 0 ? ops / seconds : 0));
-            m.put("status", timedOut ? "TIMEOUT (budget " + SCENARIO_BUDGET_SEC + "s exceeded — the ceiling finding)" : "ok");
+            m.put("status", timedOut ? "TIMEOUT (budget " + SCENARIO_BUDGET_SEC + "s exceeded — the ceiling finding)" :
+                    "ok");
             return m;
         }
     }
@@ -215,7 +216,8 @@ public final class XdStorageDesignPointProbe {
                     new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS, knownScore), null);
             final IXdStorageTransaction sTx = storage.beginTransaction(TX_TIMEOUT);
             try {
-                final java.util.Collection<XdStorageDesignPointEntity> found = storage.load(XdStorageDesignPointEntity.class, "probe_idx", q, sTx);
+                final java.util.Collection<XdStorageDesignPointEntity> found = storage.load(XdStorageDesignPointEntity
+                        .class, "probe_idx", q, sTx);
                 sTx.commit();
                 return found != null && found.size() == 1;
             } catch (final Exception e) {
@@ -231,7 +233,8 @@ public final class XdStorageDesignPointProbe {
                             new XdStorageRange(100_000L, 200_000L)), null);
             final IXdStorageTransaction sTx = storage.beginTransaction(TX_TIMEOUT);
             try {
-                final java.util.Collection<XdStorageDesignPointEntity> found = storage.load(XdStorageDesignPointEntity.class, "probe_idx", q, sTx);
+                final java.util.Collection<XdStorageDesignPointEntity> found = storage.load(XdStorageDesignPointEntity
+                        .class, "probe_idx", q, sTx);
                 sTx.commit();
                 return found != null;
             } catch (final Exception e) {

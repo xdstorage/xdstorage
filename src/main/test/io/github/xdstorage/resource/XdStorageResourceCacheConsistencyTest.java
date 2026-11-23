@@ -76,7 +76,8 @@ public class XdStorageResourceCacheConsistencyTest extends AbstractXdStorageReso
         StubIdObservableWrapper stub = new StubIdObservableWrapper(new TestEntity(null, "Lazy"));
         resourceCache.insert(stub, txOwner);
 
-        assertNull(resourceCache.findUnidentified(stub, txAlien), "Чужая транзакция не должна видеть чужие неидентифицированные объекты!");
+        assertNull(resourceCache.findUnidentified(stub, txAlien),
+                "Чужая транзакция не должна видеть чужие неидентифицированные объекты!");
         assertNull(resourceCache.findUnidentified(new TestEntity(1L, "Plain"), txOwner),
                 "findUnidentified() для сырого POJO обязан возвращать null!");
     }
@@ -111,7 +112,8 @@ public class XdStorageResourceCacheConsistencyTest extends AbstractXdStorageReso
 
         Collection<TestEntity> unsafe = resourceCache.readUnsafe(tx);
 
-        assertEquals(3, unsafe.size(), "readUnsafe() должен видеть базу + собственный insert, но не собственный delete!");
+        assertEquals(3, unsafe.size(),
+                "readUnsafe() должен видеть базу + собственный insert, но не собственный delete!");
         assertTrue(unsafe.stream().noneMatch(n -> n != null && Long.valueOf(2L).equals(n.getId())),
                 "Собственное удаление обязано исчезнуть из грязного чтения владельца!");
         assertTrue(unsafe.stream().anyMatch(n -> n != null && "Ins_4".equals(n.getValue())),
@@ -309,7 +311,8 @@ public class XdStorageResourceCacheConsistencyTest extends AbstractXdStorageReso
 
         assertEquals(1, first.size());
         assertEquals(1, second.size());
-        assertSame(first.get(0), second.get(0), "Повторное наполнение обязано переиспользовать уже материализованный клон!");
+        assertSame(first.get(0), second.get(0),
+                "Повторное наполнение обязано переиспользовать уже материализованный клон!");
     }
 
     // =========================================================================
@@ -342,7 +345,8 @@ public class XdStorageResourceCacheConsistencyTest extends AbstractXdStorageReso
         assertEquals("Ins_4", ((TestEntity) ins.newObject).getValue());
 
         assertEquals(1L, upd.id);
-        assertEquals("Stable_1", ((TestEntity) upd.oldObject).getValue(), "Update обязан нести оригинал как oldObject!");
+        assertEquals("Stable_1", ((TestEntity) upd.oldObject).getValue(),
+                "Update обязан нести оригинал как oldObject!");
         assertEquals("Upd_1", ((TestEntity) upd.newObject).getValue());
 
         assertEquals(2L, del.id);
@@ -368,7 +372,8 @@ public class XdStorageResourceCacheConsistencyTest extends AbstractXdStorageReso
         Collection<TestEntity> snapshot = resourceCache.read(freshReader);
 
         assertEquals(3, snapshot.size(), "После коммита читатель обязан видеть 3 записи: update, stable, insert!");
-        assertNull(resourceCache.read(2L, freshReader), "Закоммиченный delete обязан скрыть запись для новых транзакций!");
+        assertNull(resourceCache.read(2L, freshReader),
+                "Закоммиченный delete обязан скрыть запись для новых транзакций!");
         assertEquals("Upd_1", ((TestEntity) resourceCache.read(1L, freshReader)).getValue());
         assertEquals("Ins_4", ((TestEntity) resourceCache.read(4L, freshReader)).getValue());
         assertFalse(resourceCache.hasChanges(tx), "После коммита транзакционный контур обязан быть пуст!");

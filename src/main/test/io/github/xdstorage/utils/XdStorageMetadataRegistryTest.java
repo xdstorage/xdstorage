@@ -51,6 +51,7 @@ public class XdStorageMetadataRegistryTest extends AbstractUtilsTest {
 
         Map<String, XdStorageObjectField> fields = XdStorageReflectionFieldScanner.scanFields(extendedClass);
 
-        assertTrue(fields.containsKey("id"), "Каскадный сканер обязан находить поля, объявленные в родительских классах!");
+        assertTrue(fields.containsKey("id"),
+                "Каскадный сканер обязан находить поля, объявленные в родительских классах!");
     }
 }

@@ -69,7 +69,8 @@ public class ForeignKeyManualIdSpecificationTest extends AbstractForeignKeyBaseS
     // =========================================================================
 
     @Test
-    @DisplayName("Удаление ребенка из коллекции родителя и обновление только родителя -> Успешный commit (Правило 4: удаление из коллекции ≠ удаление объекта)")
+    @DisplayName("Удаление ребенка из коллекции родителя и обновление только родителя -> Успешный commit (Правило 4: " +
+            "удаление из коллекции ≠ удаление объекта)")
     void testUpdateOnlyParentAfterRemovingChildSuccess() throws Exception {
         // Наполнение базовой валидной вселенной
         tx = storage.beginTransaction();
@@ -94,7 +95,8 @@ public class ForeignKeyManualIdSpecificationTest extends AbstractForeignKeyBaseS
     // =========================================================================
 
     @Test
-    @DisplayName("Сценарий со ссылками: Удаление ребенка из коллекции родителя + Сброс parent в null + Апдейт обоих -> Успешный commit")
+    @DisplayName("Сценарий со ссылками: Удаление ребенка из коллекции родителя + Сброс parent в null + Апдейт обоих " +
+            "-> Успешный commit")
     void testClearLinkAndNullifyParentBackReferenceSuccess() throws Exception {
         // Наполнение базовой валидной вселенной
         tx = storage.beginTransaction();

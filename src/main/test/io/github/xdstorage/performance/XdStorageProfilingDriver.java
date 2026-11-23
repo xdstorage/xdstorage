@@ -56,7 +56,8 @@ public final class XdStorageProfilingDriver {
             runScanCold(n, windowSec, root, deadline);
         } else if ("point_warm".equals(scenario)) {
             runPointWarm(n, windowSec, root, deadline);
-        } else if ("search_equals".equals(scenario) || "search_range".equals(scenario) || "search_paged".equals(scenario)) {
+        } else if ("search_equals".equals(scenario) || "search_range".equals(scenario) ||
+                "search_paged".equals(scenario)) {
             runSearch(scenario, n, windowSec, root, deadline);
         } else if ("write_heavy".equals(scenario)) {
             runWriteHeavy(n, windowSec, root, deadline);
@@ -98,7 +99,8 @@ public final class XdStorageProfilingDriver {
         System.out.flush();
     }
 
-    private static void runScanCold(final int n, final long window, final String root, final long deadline) throws Exception {
+    private static void runScanCold(final int n, final long window, final String root, final long deadline) throws
+            Exception {
         IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage("prof-fill-" + System.nanoTime(), root, 64);
         System.out.println("[DRV] fill " + fill(storage, n, false) + " ms");
         storage.shutdown(); // the fill's folder lock would block the scan rounds' reopens
@@ -116,7 +118,8 @@ public final class XdStorageProfilingDriver {
         System.out.println("[DRV] rounds=" + rounds + " lastLoaded=" + loaded);
     }
 
-    private static void runPointWarm(final int n, final long window, final String root, final long deadline) throws Exception {
+    private static void runPointWarm(final int n, final long window, final String root, final long deadline) throws
+            Exception {
         IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage("prof-fill-" + System.nanoTime(), root, 64);
         System.out.println("[DRV] fill " + fill(storage, n, false) + " ms");
         final IXdStorageTransaction warmTx = storage.beginTransaction();
@@ -139,7 +142,8 @@ public final class XdStorageProfilingDriver {
         System.out.println("[DRV] ops=" + ops.get());
     }
 
-    private static void runSearch(final String scenario, final int n, final long window, final String root, final long deadline) throws Exception {
+    private static void runSearch(final String scenario, final int n, final long window, final String root, final long
+            deadline) throws Exception {
         IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage("prof-fill-" + System.nanoTime(), root, 64);
         System.out.println("[DRV] fill " + fill(storage, n, true) + " ms");
         ready();
@@ -150,7 +154,8 @@ public final class XdStorageProfilingDriver {
             final java.util.Collection<RangeOpsEntity> result;
             if ("search_equals".equals(scenario)) {
                 result = storage.load(RangeOpsEntity.class, "range_idx",
-                        new XdStorageSearchQuery(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS, mid), null), tx);
+                        new XdStorageSearchQuery(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS, mid),
+                                null), tx);
             } else if ("search_range".equals(scenario)) {
                 result = storage.load(RangeOpsEntity.class, "range_idx",
                         new XdStorageSearchQuery(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.BETWEEN,
@@ -171,7 +176,8 @@ public final class XdStorageProfilingDriver {
         System.out.println("[DRV] ops=" + ops.get());
     }
 
-    private static void runWriteHeavy(final int n, final long window, final String root, final long deadline) throws Exception {
+    private static void runWriteHeavy(final int n, final long window, final String root, final long deadline) throws
+            Exception {
         IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage("prof-fill-" + System.nanoTime(), root, 64);
         System.out.println("[DRV] fill " + fill(storage, n, false) + " ms");
         ready();
@@ -188,7 +194,8 @@ public final class XdStorageProfilingDriver {
         System.out.println("[DRV] ops=" + ops.get());
     }
 
-    private static void runSaveDelete(final int n, final long window, final String root, final long deadline) throws Exception {
+    private static void runSaveDelete(final int n, final long window, final String root, final long deadline) throws
+            Exception {
         IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage("prof-fill-" + System.nanoTime(), root, 64);
         System.out.println("[DRV] fill " + fill(storage, n, false) + " ms");
         ready();
@@ -207,7 +214,8 @@ public final class XdStorageProfilingDriver {
         System.out.println("[DRV] ops=" + ops.get());
     }
 
-    private static void runBatch(final int n, final long window, final String root, final long deadline) throws Exception {
+    private static void runBatch(final int n, final long window, final String root, final long deadline) throws
+            Exception {
         IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage("prof-fill-" + System.nanoTime(), root, 64);
         System.out.println("[DRV] fill " + fill(storage, n, false) + " ms");
         ready();
@@ -226,7 +234,8 @@ public final class XdStorageProfilingDriver {
         System.out.println("[DRV] ops=" + ops.get());
     }
 
-    private static void runConcurrent(final int n, final long window, final String root, final long deadline) throws Exception {
+    private static void runConcurrent(final int n, final long window, final String root, final long deadline) throws
+            Exception {
         IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage("prof-fill-" + System.nanoTime(), root, 64);
         System.out.println("[DRV] fill " + fill(storage, n, false) + " ms");
         ready();
@@ -243,7 +252,8 @@ public final class XdStorageProfilingDriver {
                 while (System.nanoTime() < deadline) {
                     final IXdStorageTransaction tx = storage.beginTransaction();
                     try {
-                        final BinFeasEntity e = storage.load(BinFeasEntity.class, "e" + ((tFinal * 7 + ops.get()) % n), tx);
+                        final BinFeasEntity e = storage.load(BinFeasEntity.class, "e" + ((tFinal * 7 + ops.get()) % n),
+                                tx);
                         e.setName(e.getName() + ".");
                         storage.update(e, tx);
                         storage.commitTransaction(tx);

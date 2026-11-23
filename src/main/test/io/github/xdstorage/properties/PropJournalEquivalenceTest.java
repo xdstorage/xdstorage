@@ -62,7 +62,8 @@ public class PropJournalEquivalenceTest {
     }
 
     /** The random op sequence model: inserts/updates/deletes over BinFeasEntity. */
-    private Map<String, String> runSequence(final IXdFileStorage storage, final Random rnd, final int ops) throws Exception {
+    private Map<String, String> runSequence(final IXdFileStorage storage, final Random rnd, final int ops) throws
+            Exception {
         final Map<String, String> model = new HashMap<>();
         for (int i = 0; i < ops; i++) {
             final int op = rnd.nextInt(100);
@@ -96,7 +97,8 @@ public class PropJournalEquivalenceTest {
     private Map<String, String> readAll(final IXdFileStorage storage) throws Exception {
         final Map<String, String> state = new HashMap<>();
         final IXdStorageTransaction tx = storage.beginTransaction();
-        for (final BinFeasEntity e : storage.load(BinFeasEntity.class, (IXdStoragePredicate<BinFeasEntity>) o -> true, tx)) {
+        for (final BinFeasEntity e : storage.load(BinFeasEntity.class, (IXdStoragePredicate<BinFeasEntity>) o -> true,
+                tx)) {
             state.put(e.getId(), e.getName());
         }
         storage.commitTransaction(tx);
@@ -117,7 +119,8 @@ public class PropJournalEquivalenceTest {
         }
     }
 
-    private static void assertEqualsMaps(final Map<String, String> expected, final Map<String, String> actual, final String what) {
+    private static void assertEqualsMaps(final Map<String, String> expected, final Map<String, String> actual, final
+            String what) {
         final List<String> problems = new ArrayList<>();
         for (final Map.Entry<String, String> e : expected.entrySet()) {
             if (!actual.containsKey(e.getKey())) {
@@ -150,7 +153,8 @@ public class PropJournalEquivalenceTest {
         final Random modelRnd = new Random(seed); // the SAME sequence model for both storages
 
         // ── the live session: the journals accumulate (no shutdown before the copy) ──
-        IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage("pt-jnl-a-" + System.nanoTime(), dirA.getPath(), 64);
+        IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage("pt-jnl-a-" + System.nanoTime(), dirA.getPath(),
+                64);
         final Map<String, String> model = runSequence(storage, modelRnd, ops);
         final long bytes = 1; // the marker (the real check: the journals are non-empty is NOT required —
                                // an empty journal means everything was checkpointed, the equivalence holds either way)
@@ -158,22 +162,26 @@ public class PropJournalEquivalenceTest {
         storage.shutdown(); // the clean checkpoint path
 
         // ── path 1: the copy-replay (the un-checkpointed tail restored by the replay) ──
-        IXdFileStorage copyStorage = XdStorageProvider.newOrGetFileStorage("pt-jnl-copy-" + System.nanoTime(), dirCopy.getPath(), 64);
+        IXdFileStorage copyStorage = XdStorageProvider.newOrGetFileStorage("pt-jnl-copy-" + System.nanoTime(), dirCopy
+                .getPath(), 64);
         final Map<String, String> copyState = readAll(copyStorage);
         copyStorage.shutdown();
 
         // ── path 2: the checkpointed original reopened ──
-        IXdFileStorage reopened = XdStorageProvider.newOrGetFileStorage("pt-jnl-re-" + System.nanoTime(), dirA.getPath(), 64);
+        IXdFileStorage reopened = XdStorageProvider.newOrGetFileStorage("pt-jnl-re-" + System.nanoTime(), dirA
+                .getPath(), 64);
         final Map<String, String> checkpointed = readAll(reopened);
         reopened.shutdown();
 
         // ── path 3: the DIRECT baseline — the same sequence into a fresh storage, then the
         // clean shutdown (the checkpoint folds everything) ──
-        IXdFileStorage direct = XdStorageProvider.newOrGetFileStorage("pt-jnl-direct-" + System.nanoTime(), dirDirect.getPath(), 64);
+        IXdFileStorage direct = XdStorageProvider.newOrGetFileStorage("pt-jnl-direct-" + System.nanoTime(), dirDirect
+                .getPath(), 64);
         final Random directRnd = new Random(seed);
         final Map<String, String> directModel = runSequence(direct, directRnd, ops);
         direct.shutdown();
-        IXdFileStorage directReopened = XdStorageProvider.newOrGetFileStorage("pt-jnl-dre-" + System.nanoTime(), dirDirect.getPath(), 64);
+        IXdFileStorage directReopened = XdStorageProvider.newOrGetFileStorage("pt-jnl-dre-" + System.nanoTime(),
+                dirDirect.getPath(), 64);
         final Map<String, String> directState = readAll(directReopened);
         directReopened.shutdown();
 

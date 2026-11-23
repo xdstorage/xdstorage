@@ -121,13 +121,17 @@ public class XdStorageForeignKeyChangeRegistry {
      * @throws XdStorageRuntimeException when either counter is still positive at phase-1
      */
     public void checkAllNotificationsReceived(IXdStorageTransaction transaction) {
-        if (insertWaitingIdentifiers.getOrDefault(transaction.getTransactionId(), new java.util.concurrent.atomic.AtomicLong()).get() != 0) {
+        if (insertWaitingIdentifiers.getOrDefault(transaction.getTransactionId(), new java.util.concurrent.atomic
+                .AtomicLong()).get() != 0) {
             log.error("Not all foreign keys are registered for relation "
-                    + registry.getParentClassInfo().getClazz() + "#" + registry.getParentField().getName() + " -> " + registry.getChildClassInfo().getClazz());
+                    + registry.getParentClassInfo().getClazz() + "#" + registry.getParentField().getName() + " -> " +
+                            registry.getChildClassInfo().getClazz());
         }
-        if (deleteWaitingIdentifiers.getOrDefault(transaction.getTransactionId(), new java.util.concurrent.atomic.AtomicLong()).get() != 0) {
+        if (deleteWaitingIdentifiers.getOrDefault(transaction.getTransactionId(), new java.util.concurrent.atomic
+                .AtomicLong()).get() != 0) {
             log.error("Not all foreign keys are deleted for relation "
-                    + registry.getParentClassInfo().getClazz() + "#" + registry.getParentField().getName() + " -> " + registry.getChildClassInfo().getClazz());
+                    + registry.getParentClassInfo().getClazz() + "#" + registry.getParentField().getName() + " -> " +
+                            registry.getChildClassInfo().getClazz());
         }
         XdStorageClassInfo clParentInfo = registry.getParentClassInfo();
         XdStorageClassInfo clChildInfo = registry.getChildClassInfo();
@@ -175,7 +179,8 @@ public class XdStorageForeignKeyChangeRegistry {
      * @param parentIdField the parent's id field, used to match change events to the parent
      * @param transaction the transaction the waiter is armed for
      */
-    public void registerUpdateListener(XdStorageResource resource, Comparable<?> parentObjectId, Comparable<?> childObjectId,
+    public void registerUpdateListener(XdStorageResource resource, Comparable<?> parentObjectId, Comparable<?>
+            childObjectId,
                                        XdStorageObjectIdField parentIdField, IXdStorageTransaction transaction) {
         XdStorageObjectField clParentField = registry.getParentField();
         XdStorageClassInfo clChildInfo = registry.getChildClassInfo();
@@ -184,8 +189,10 @@ public class XdStorageForeignKeyChangeRegistry {
         trackArmedDeletePair(transaction, parentObjectId, childObjectId, true);
         resource.registerListener(new IXdStorageInternalListener() {
             @Override
-            public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
-                if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT && change == XdStorageObjectOperationType.Update) {
+            public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject,
+                    Object newObject, IXdStorageTransaction transaction) {
+                if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT && change == XdStorageObjectOperationType.Update)
+                        {
                     // oldObject may be the parent object or its String ID — handle both
                     Object pId = oldObject == null ? parentObjectId : parentIdField.get(oldObject);
                     if (pId.equals(parentObjectId)
@@ -215,7 +222,8 @@ public class XdStorageForeignKeyChangeRegistry {
      * @param parentIdField the parent's id field, used to match change events to the parent
      * @param transaction the transaction the waiter is armed for
      */
-    public void registerUpdateListener(XdStorageBTreeIndexResource resource, Comparable<?> parentObjectId, Comparable<?> childObjectId,
+    public void registerUpdateListener(XdStorageBTreeIndexResource resource, Comparable<?> parentObjectId, Comparable<?>
+            childObjectId,
                                        XdStorageObjectIdField parentIdField, IXdStorageTransaction transaction) {
         XdStorageObjectField clParentField = registry.getParentField();
         XdStorageClassInfo clChildInfo = registry.getChildClassInfo();
@@ -224,8 +232,10 @@ public class XdStorageForeignKeyChangeRegistry {
         trackArmedDeletePair(transaction, parentObjectId, childObjectId, true);
         resource.registerListener(new IXdStorageInternalListener() {
             @Override
-            public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
-                if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT && change == XdStorageObjectOperationType.Update) {
+            public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject,
+                    Object newObject, IXdStorageTransaction transaction) {
+                if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT && change == XdStorageObjectOperationType.Update)
+                        {
                     Object pId = oldObject == null ? parentObjectId : parentIdField.get(oldObject);
                     if (pId.equals(parentObjectId)
                             && isReferenceToChildObjectDeleted(newObject, clParentField, clChildInfo, childObjectId)) {
@@ -254,7 +264,8 @@ public class XdStorageForeignKeyChangeRegistry {
      * @param parentIdField the parent's id field, used to match change events to the parent
      * @param transaction the transaction the waiter is armed for
      */
-    public void registerUpdateListener(XdStorageHashIndexResource resource, Comparable<?> parentObjectId, Comparable<?> childObjectId,
+    public void registerUpdateListener(XdStorageHashIndexResource resource, Comparable<?> parentObjectId, Comparable<?>
+            childObjectId,
                                        XdStorageObjectIdField parentIdField, IXdStorageTransaction transaction) {
         XdStorageObjectField clParentField = registry.getParentField();
         XdStorageClassInfo clChildInfo = registry.getChildClassInfo();
@@ -263,8 +274,10 @@ public class XdStorageForeignKeyChangeRegistry {
         trackArmedDeletePair(transaction, parentObjectId, childObjectId, true);
         resource.registerListener(new IXdStorageInternalListener() {
             @Override
-            public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
-                if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT && change == XdStorageObjectOperationType.Update) {
+            public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject,
+                    Object newObject, IXdStorageTransaction transaction) {
+                if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT && change == XdStorageObjectOperationType.Update)
+                        {
                     Object pId = oldObject == null ? parentObjectId : parentIdField.get(oldObject);
                     if (pId.equals(parentObjectId)
                             && isReferenceToChildObjectDeleted(newObject, clParentField, clChildInfo, childObjectId)) {
@@ -280,7 +293,8 @@ public class XdStorageForeignKeyChangeRegistry {
         }, transaction);
     }
 
-    private boolean isReferenceToChildObjectDeleted(Object newObject, XdStorageObjectField clParentField, XdStorageClassInfo clChildInfo, Comparable<?> childObjectId) {
+    private boolean isReferenceToChildObjectDeleted(Object newObject, XdStorageObjectField clParentField,
+            XdStorageClassInfo clChildInfo, Comparable<?> childObjectId) {
         Object fieldObject = clParentField.get(newObject);
         XdStorageObjectFieldInfo clParentFieldInfo = clParentField.getFieldInfo();
 
@@ -334,15 +348,18 @@ public class XdStorageForeignKeyChangeRegistry {
      * @param childIdField the child's id field, used to match change events to the child
      * @param transaction the transaction the waiter is armed for
      */
-    public void registerDeleteUpdateListener(XdStorageResource resource, Comparable<?> parentObjectId, Comparable<?> childObjectId,
+    public void registerDeleteUpdateListener(XdStorageResource resource, Comparable<?> parentObjectId, Comparable<?>
+            childObjectId,
                                              XdStorageObjectIdField childIdField, IXdStorageTransaction transaction) {
         incrementDeleteWaitingIdentifier(transaction);
         trackArmedDeletePair(transaction, parentObjectId, childObjectId, true);
         resource.registerListener(new IXdStorageInternalListener() {
             @Override
-            public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
+            public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject,
+                    Object newObject, IXdStorageTransaction transaction) {
                 if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT
-                        && (change == XdStorageObjectOperationType.Delete || change == XdStorageObjectOperationType.Update)) {
+                        && (change == XdStorageObjectOperationType.Delete || change == XdStorageObjectOperationType
+                                .Update)) {
                     // oldObject may be the child object or its String ID
                     Comparable<?> cId = oldObject == null ? childObjectId : (Comparable<?>) childIdField.get(oldObject);
                     if (cId != null && cId.equals(childObjectId)) {
@@ -371,15 +388,18 @@ public class XdStorageForeignKeyChangeRegistry {
      * @param childIdField the child's id field, used to match change events to the child
      * @param transaction the transaction the waiter is armed for
      */
-    public void registerDeleteUpdateListener(XdStorageBTreeIndexResource resource, Comparable<?> parentObjectId, Comparable<?> childObjectId,
+    public void registerDeleteUpdateListener(XdStorageBTreeIndexResource resource, Comparable<?> parentObjectId,
+            Comparable<?> childObjectId,
                                              XdStorageObjectIdField childIdField, IXdStorageTransaction transaction) {
         incrementDeleteWaitingIdentifier(transaction);
         trackArmedDeletePair(transaction, parentObjectId, childObjectId, true);
         resource.registerListener(new IXdStorageInternalListener() {
             @Override
-            public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
+            public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject,
+                    Object newObject, IXdStorageTransaction transaction) {
                 if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT
-                        && (change == XdStorageObjectOperationType.Delete || change == XdStorageObjectOperationType.Update)) {
+                        && (change == XdStorageObjectOperationType.Delete || change == XdStorageObjectOperationType
+                                .Update)) {
                     Comparable<?> cId = oldObject == null ? childObjectId : (Comparable<?>) childIdField.get(oldObject);
                     if (cId != null && cId.equals(childObjectId)) {
                         try {
@@ -407,15 +427,18 @@ public class XdStorageForeignKeyChangeRegistry {
      * @param childIdField the child's id field, used to match change events to the child
      * @param transaction the transaction the waiter is armed for
      */
-    public void registerDeleteUpdateListener(XdStorageHashIndexResource resource, Comparable<?> parentObjectId, Comparable<?> childObjectId,
+    public void registerDeleteUpdateListener(XdStorageHashIndexResource resource, Comparable<?> parentObjectId,
+            Comparable<?> childObjectId,
                                              XdStorageObjectIdField childIdField, IXdStorageTransaction transaction) {
         incrementDeleteWaitingIdentifier(transaction);
         trackArmedDeletePair(transaction, parentObjectId, childObjectId, true);
         resource.registerListener(new IXdStorageInternalListener() {
             @Override
-            public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
+            public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject,
+                    Object newObject, IXdStorageTransaction transaction) {
                 if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT
-                        && (change == XdStorageObjectOperationType.Delete || change == XdStorageObjectOperationType.Update)) {
+                        && (change == XdStorageObjectOperationType.Delete || change == XdStorageObjectOperationType
+                                .Update)) {
                     // oldObject may be the child object or its String ID — handle both
                     Comparable<?> cId = oldObject == null ? childObjectId : (Comparable<?>) childIdField.get(oldObject);
                     if (childObjectId.equals(cId)) {
@@ -445,15 +468,19 @@ public class XdStorageForeignKeyChangeRegistry {
      * @param parentIdField the parent's id field, used to match change events to the parent
      * @param transaction the transaction the waiter is armed for
      */
-    public void registerParentDeleteUpdateListener(XdStorageResource resource, Comparable<?> parentObjectId, Comparable<?> childObjectId,
-                                                   XdStorageObjectIdField parentIdField, IXdStorageTransaction transaction) {
+    public void registerParentDeleteUpdateListener(XdStorageResource resource, Comparable<?> parentObjectId,
+            Comparable<?> childObjectId,
+                                                   XdStorageObjectIdField parentIdField, IXdStorageTransaction
+                                                           transaction) {
         incrementDeleteWaitingIdentifier(transaction);
         trackArmedDeletePair(transaction, parentObjectId, childObjectId, false);
         resource.registerListener(new IXdStorageInternalListener() {
             @Override
-            public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
+            public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject,
+                    Object newObject, IXdStorageTransaction transaction) {
                 if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT
-                        && (change == XdStorageObjectOperationType.Delete || change == XdStorageObjectOperationType.Update)) {
+                        && (change == XdStorageObjectOperationType.Delete || change == XdStorageObjectOperationType
+                                .Update)) {
                     Object pId = oldObject == null ? parentObjectId : parentIdField.get(oldObject);
                     if (!pId.equals(parentObjectId)) {
                         return;
@@ -468,7 +495,8 @@ public class XdStorageForeignKeyChangeRegistry {
                     // isReferenceToChildObjectDeleted.) The DELETE branch stays unconditional: a deleted
                     // parent can never hold a dangling reference to the child.
                     if (change == XdStorageObjectOperationType.Update
-                            && !isReferenceToChildObjectDeleted(newObject, registry.getParentField(), registry.getChildClassInfo(), childObjectId)) {
+                            && !isReferenceToChildObjectDeleted(newObject, registry.getParentField(), registry
+                                    .getChildClassInfo(), childObjectId)) {
                         return;
                     }
                     try {
@@ -492,7 +520,8 @@ public class XdStorageForeignKeyChangeRegistry {
      * @param childObject the child wrapper whose generated id is awaited
      * @param transaction the transaction the waiter is armed for
      */
-    public void registerChildIdWaiter(Comparable<?> parentId, IXdStorageIdObservableWrapper childObject, XdStorageTransaction transaction) {
+    public void registerChildIdWaiter(Comparable<?> parentId, IXdStorageIdObservableWrapper childObject,
+            XdStorageTransaction transaction) {
         incrementInsertWaitingIdentifier(transaction);
         childObject.addObserver(new XdStorageAbstractIdObserver() {
             @Override
@@ -517,7 +546,8 @@ public class XdStorageForeignKeyChangeRegistry {
      * @param parentObject the parent wrapper whose generated id is awaited
      * @param transaction the transaction the waiter is armed for
      */
-    public void registerParentIdWaiter(Comparable<?> childId, IXdStorageIdObservableWrapper parentObject, XdStorageTransaction transaction) {
+    public void registerParentIdWaiter(Comparable<?> childId, IXdStorageIdObservableWrapper parentObject,
+            XdStorageTransaction transaction) {
         incrementInsertWaitingIdentifier(transaction);
         parentObject.addObserver(new XdStorageAbstractIdObserver() {
             @Override
@@ -542,7 +572,8 @@ public class XdStorageForeignKeyChangeRegistry {
      * @param childObject the child wrapper whose generated id is awaited
      * @param transaction the transaction the waiters are armed for
      */
-    public void registerRelationIdsWaiters(IXdStorageIdObservableWrapper parentObject, IXdStorageIdObservableWrapper childObject, XdStorageTransaction transaction) {
+    public void registerRelationIdsWaiters(IXdStorageIdObservableWrapper parentObject, IXdStorageIdObservableWrapper
+            childObject, XdStorageTransaction transaction) {
         Object[] relationIds = new Object[2];
         incrementInsertWaitingIdentifier(transaction);
         parentObject.addObserver(new XdStorageAbstractIdObserver() {
@@ -551,7 +582,8 @@ public class XdStorageForeignKeyChangeRegistry {
                 relationIds[0] = parentId;
                 if (relationIds[1] != null) {
                     try {
-                        registry.registerForeignKey((Comparable<?>) relationIds[0], (Comparable<?>) relationIds[1], transaction);
+                        registry.registerForeignKey((Comparable<?>) relationIds[0], (Comparable<?>) relationIds[1],
+                                transaction);
                         decrementInsertWaitingIdentifier(transaction);
                     } catch (XdStorageException e) {
                         throw new XdStorageRuntimeException(e);
@@ -566,7 +598,8 @@ public class XdStorageForeignKeyChangeRegistry {
                 relationIds[1] = childId;
                 if (relationIds[0] != null) {
                     try {
-                        registry.registerForeignKey((Comparable<?>) relationIds[0], (Comparable<?>) relationIds[1], transaction);
+                        registry.registerForeignKey((Comparable<?>) relationIds[0], (Comparable<?>) relationIds[1],
+                                transaction);
                         decrementInsertWaitingIdentifier(transaction);
                     } catch (XdStorageException e) {
                         throw new XdStorageRuntimeException(e);

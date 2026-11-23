@@ -28,7 +28,8 @@ public class XdPlanetAutoSave {
     @XdStorageObjectFieldProperties(length = 1000)
     private String name;
 
-    //    @XdStorageObjectSearchField(indexesNames = {XdConstants.TEST_INDEX_NAME}, fieldName = XdConstants.WATER_PERCENT_FIELD)
+    // @XdStorageObjectSearchField(indexesNames = {XdConstants.TEST_INDEX_NAME}, fieldName =
+    // XdConstants.WATER_PERCENT_FIELD)
     private int waterPercent;
 
     private XdSatelliteAutoSave satellite;

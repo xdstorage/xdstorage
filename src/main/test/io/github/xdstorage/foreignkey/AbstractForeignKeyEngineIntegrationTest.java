@@ -58,15 +58,18 @@ public abstract class AbstractForeignKeyEngineIntegrationTest {
         classesInfoField.setAccessible(true);
         ((Map<?, ?>) classesInfoField.get(null)).clear();
 
-        final io.github.xdstorage.serialization.IXdStorageObjectsReader mockReader = org.mockito.Mockito.mock(io.github.xdstorage.serialization.IXdStorageObjectsReader.class);
-        final io.github.xdstorage.serialization.IXdStorageObjectsWriter mockWriter = org.mockito.Mockito.mock(io.github.xdstorage.serialization.IXdStorageObjectsWriter.class);
+        final io.github.xdstorage.serialization.IXdStorageObjectsReader mockReader = org.mockito.Mockito.mock(io.github
+                .xdstorage.serialization.IXdStorageObjectsReader.class);
+        final io.github.xdstorage.serialization.IXdStorageObjectsWriter mockWriter = org.mockito.Mockito.mock(io.github
+                .xdstorage.serialization.IXdStorageObjectsWriter.class);
 
         // XdStorageYamlIOFactory for commit-journal replay — must be created before the
         // services locator because getIoFactory() references it (see T-FK-006 fix).
         final io.github.xdstorage.serialization.yaml.XdStorageYamlIOFactory yamlFactory =
                 new io.github.xdstorage.serialization.yaml.XdStorageYamlIOFactory(
                         new io.github.xdstorage.services.XdStorageServicesLocator() {
-                            @Override public io.github.xdstorage.resource.IXdStorageResourceNamingService getNamingService() { return namingService; }
+                            @Override public io.github.xdstorage.resource.IXdStorageResourceNamingService
+                                    getNamingService() { return namingService; }
                         }, null);
 
         // Сборка локатора сервисов на реальных in-memory структурах
@@ -80,7 +83,8 @@ public abstract class AbstractForeignKeyEngineIntegrationTest {
                     @Override public IXdStorageTransaction beginTransaction() { return null; }
                     @Override public IXdStorageTransaction beginTransaction(long timeout) { return null; }
                     @Override public IXdStorageTransaction beginTransaction(IXdStorageTransaction tx) { return null; }
-                    @Override public IXdStorageTransaction beginTransaction(IXdStorageTransaction tx, long timeout) { return null; }
+                    @Override public IXdStorageTransaction beginTransaction(IXdStorageTransaction tx, long timeout) {
+                            return null; }
                     @Override public void commitTransaction(IXdStorageTransaction tx) {}
                     @Override public void rollbackTransaction(IXdStorageTransaction tx) {}
                     @Override public void save(Object object) {}
@@ -89,8 +93,10 @@ public abstract class AbstractForeignKeyEngineIntegrationTest {
                             databaseStorage.put(((XdStorageBTree) obj).getId(), (XdStorageBTree) obj);
                         } else {
                             try {
-                                final Class<?> entityClass = io.github.xdstorage.utils.XdStorageObjectUtils.getEntityClass(obj.getClass());
-                                final Object objId = io.github.xdstorage.utils.XdStorageObjectUtils.getClassInfo(entityClass).getIdField().get(obj);
+                                final Class<?> entityClass = io.github.xdstorage.utils.XdStorageObjectUtils
+                                        .getEntityClass(obj.getClass());
+                                final Object objId = io.github.xdstorage.utils.XdStorageObjectUtils
+                                        .getClassInfo(entityClass).getIdField().get(obj);
                                 if (objId != null) {
                                     entityStorage.put(entityKey(entityClass, objId), obj);
                                 }
@@ -125,7 +131,8 @@ public abstract class AbstractForeignKeyEngineIntegrationTest {
                     @Override public void delete(Object reference, IXdStorageTransaction transaction) {}
                     @Override public void delete(Collection<?> r) {}
                     @Override public void delete(Collection<?> r, IXdStorageTransaction tx) {}
-                    @Override public io.github.xdstorage.transaction.IXdStorageTransactionManager getTransactionManager() { return null; }
+                    @Override public io.github.xdstorage.transaction.IXdStorageTransactionManager
+                            getTransactionManager() { return null; }
                     @Override public void shutdown() {}
                     @Override public void checkpoint() {}
                 };
@@ -136,7 +143,8 @@ public abstract class AbstractForeignKeyEngineIntegrationTest {
                 return abstractResourcesManager;
             }
 
-            @Override public io.github.xdstorage.resource.IXdStorageResourceNamingService getNamingService() { return namingService; }
+            @Override public io.github.xdstorage.resource.IXdStorageResourceNamingService getNamingService() { return
+                    namingService; }
             @Override public XdStorageCanonicalInstanceRegistry getCanonicalInstances() { return canonicalRegistry; }
             @Override public io.github.xdstorage.serialization.IXdStorageIOFactory getIoFactory() {
                 // Return a real XdStorageYamlIOFactory (not a bare mock) so that
@@ -163,7 +171,8 @@ public abstract class AbstractForeignKeyEngineIntegrationTest {
             @Override public boolean isResourceRegistered(io.github.xdstorage.resource.IXdStorageResourceObject res) {
                 return registeredResources.contains(res.getResourceId());
             }
-            @Override public void registerResource(io.github.xdstorage.resource.IXdStorageResourceObject res, int order) {
+            @Override public void registerResource(io.github.xdstorage.resource.IXdStorageResourceObject res, int order)
+                    {
                 registeredResources.add(res.getResourceId());
             }
         };

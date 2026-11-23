@@ -129,7 +129,8 @@ public class XdStorageIdGeneratorTest {
             longGenerator.generate(Long.class, mockStorage, mockTx);
         }
 
-        // 100-й элемент спровоцирует вызов takeNextPartOfIdentifiers, который наткнется на настроенный нами сбой транзакции
+        // 100-й элемент спровоцирует вызов takeNextPartOfIdentifiers, который наткнется на настроенный нами сбой
+        // транзакции
         assertThrows(RuntimeException.class, () -> {
             longGenerator.generate(Long.class, mockStorage, mockTx);
         }, "При аварии диска на границе пачки генератор обязана выбросить исключение!");

@@ -53,9 +53,12 @@ public class XdStorageMixedKeyFindTest {
             tree.insert("uuid-entry-5", "value-str-5", storage, tx);
         }, "вставка смешанных ключей не должна падать CCE");
 
-        assertEquals(Collections.singletonList("value-str-1"), tree.find("uuid-entry-1", storage, tx), "String-ключ находит своё значение");
-        assertEquals(Collections.singletonList("value-long-2"), tree.find(2L, storage, tx), "Long-ключ находит своё значение");
-        assertEquals(Collections.singletonList("value-str-5"), tree.find("uuid-entry-5", storage, tx), "последний String-ключ");
+        assertEquals(Collections.singletonList("value-str-1"), tree.find("uuid-entry-1", storage, tx),
+                "String-ключ находит своё значение");
+        assertEquals(Collections.singletonList("value-long-2"), tree.find(2L, storage, tx),
+                "Long-ключ находит своё значение");
+        assertEquals(Collections.singletonList("value-str-5"), tree.find("uuid-entry-5", storage, tx),
+                "последний String-ключ");
         assertEquals(Collections.singletonList("value-long-4"), tree.find(4L, storage, tx), "последний Long-ключ");
     }
 
@@ -77,7 +80,8 @@ public class XdStorageMixedKeyFindTest {
         assertEquals(3, found.size(), "multi-дерево: все 3 значения дубликата найдены");
         assertTrue(found.contains("val-str-1") && found.contains("val-str-2") && found.contains("val-str-3"),
                 "все значения дубликата на месте");
-        assertEquals(Collections.singletonList("val-long-1"), tree.find(7L, storage, tx), "Long-ключ соседний не задет");
+        assertEquals(Collections.singletonList("val-long-1"), tree.find(7L, storage, tx),
+                "Long-ключ соседний не задет");
     }
 
     @Test

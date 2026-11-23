@@ -29,7 +29,8 @@ public interface IXdStorageObjectsWriter {
      * @param references the referenced objects to persist as id-only entries
      * @throws XdStorageIOException when writing fails or an object cannot be marshalled
      */
-    void writeReferences(Writer writer, XdStorageObjectIdField field, Collection<Object> references) throws XdStorageIOException;
+    void writeReferences(Writer writer, XdStorageObjectIdField field, Collection<Object> references) throws
+            XdStorageIOException;
 
     /**
      * Writes a full-body resource: each given object is marshalled with every persisted

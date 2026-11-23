@@ -34,7 +34,8 @@ public class XdStorageBTreeSubStructureTest {
         mockTxManager = new IXdStorageTransactionManager() {
             @Override public IXdStorage getStorage() { return mockStorage; }
             @Override public IXdStorageTransaction beginTransaction(long timeout) { return null; }
-            @Override public IXdStorageTransaction beginTransaction(IXdStorageTransaction tx, long timeout) { return null; }
+            @Override public IXdStorageTransaction beginTransaction(IXdStorageTransaction tx, long timeout) { return
+                    null; }
             @Override public IXdStorageTransaction getTransaction(String txId) { return null; }
             @Override public void commitTransaction(IXdStorageTransaction tx) {}
             @Override public void rollbackTransaction(IXdStorageTransaction tx) {}
@@ -103,7 +104,8 @@ public class XdStorageBTreeSubStructureTest {
         }
 
         assertEquals(recordsCount, searchResult.size(),
-                "🚨 КАТАСТРОФА! Рассинхронизация дерева: после коммита вставки новая транзакция чтения потеряла подчиненные структуры!");
+                "🚨 КАТАСТРОФА! Рассинхронизация дерева: после коммита вставки новая транзакция чтения потеряла " +
+                        "подчиненные структуры!");
         System.out.println("🎉 УСПЕХ! Однопоточный контракт чтения подчиненных структур дерева работает безупречно!");
     }
 }

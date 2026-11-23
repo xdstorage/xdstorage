@@ -58,7 +58,8 @@ public abstract class AbstractCacheMutatorIntegrationTest {
         List<Object> deleteCalls = new ArrayList<>();
 
         @Override
-        public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
+        public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject,
+                Object newObject, IXdStorageTransaction transaction) {
             if (phase == XdStorageCacheCommitPhase.PREPARE_COMMIT) {
                 if (change == XdStorageObjectOperationType.Insert) {
                     insertCalls.add(newObject);
@@ -126,7 +127,8 @@ public abstract class AbstractCacheMutatorIntegrationTest {
             XdStorageCacheRecord rec = createInsertRecord(obj, tx);
             internalRecords.put(id, rec);
             workspace.registerMutation(tx.getTransactionId(), id, rec);
-            workspace.readObjectsOf(tx).put(id, new XdStorageCacheObjectChange(obj, XdStorageCacheChange.insert, tx.getTimestart()));
+            workspace.readObjectsOf(tx).put(id, new XdStorageCacheObjectChange(obj, XdStorageCacheChange.insert, tx
+                    .getTimestart()));
         }
     }
 }

@@ -57,7 +57,8 @@ public class PropBTreeSequencesTest {
     }
 
     @Property(tries = 40)
-    void randomSequences_HoldTheContract(@ForAll final long seed) throws XdStorageException, XdStorageConnectionException {
+    void randomSequences_HoldTheContract(@ForAll final long seed) throws XdStorageException,
+            XdStorageConnectionException {
         final Random rnd = new Random(seed);
         final File dir = new File("./target/pt-btree-" + System.nanoTime());
         folders.add(dir);

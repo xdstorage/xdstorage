@@ -66,7 +66,8 @@ public class XdStorageObjectConverter {
             final Class<?> valueCl = value == null ? null : value.getClass();
 
             final String fieldName = field.getName();
-            if (value == null || valueCl.isPrimitive() || valueCl.isEnum() || XdStorageObjectUtils.isSimpleType(valueCl, null)) {
+            if (value == null || valueCl.isPrimitive() || valueCl.isEnum() || XdStorageObjectUtils.isSimpleType(valueCl,
+                    null)) {
                 result.setProperty(fieldName, value);
             } else if (valueCl == Date.class) {
                 result.setProperty(fieldName, new Date(((Date) value).getTime()));
@@ -280,7 +281,8 @@ public class XdStorageObjectConverter {
                 final Class<?> valueCl = value == null ? null : value.getClass();
 
                 final String fieldName = field.getName();
-                if (value == null || valueCl.isPrimitive() || valueCl.isEnum() || XdStorageObjectUtils.isSimpleType(valueCl, null)) {
+                if (value == null || valueCl.isPrimitive() || valueCl.isEnum() || XdStorageObjectUtils
+                        .isSimpleType(valueCl, null)) {
                     field.set(result, value);
                 } else if (valueCl == Date.class) {
                     field.set(result, new Date(((Date) value).getTime()));

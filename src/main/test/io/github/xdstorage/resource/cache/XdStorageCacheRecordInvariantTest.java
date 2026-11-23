@@ -247,7 +247,8 @@ class XdStorageCacheRecordInvariantTest extends CacheInvariantTestSupport {
     @Test
     void isChangedByTransactionRequiresIdentityAndTimestartMatch() {
         XdStorageTransaction owner = mkTx("t1", 100L);
-        XdStorageCacheRecord record = XdStorageCacheRecord.newInsertRecord(context, context.idField(), entity(1L, "v"), owner);
+        XdStorageCacheRecord record = XdStorageCacheRecord.newInsertRecord(context, context.idField(), entity(1L, "v"),
+                owner);
 
         record.lock(owner);
 
@@ -285,7 +286,8 @@ class XdStorageCacheRecordInvariantTest extends CacheInvariantTestSupport {
         // НЕЗАКОММИЧЕННАЯ вставка: чужой читатель не видит, свой видит (владелец от фабрики)
         TestEntity insertedEntity = entity(2L, "new");
         XdStorageTransaction inserter = mkTx("i", 100L);
-        XdStorageCacheRecord inserted = XdStorageCacheRecord.newInsertRecord(context, context.idField(), insertedEntity, inserter);
+        XdStorageCacheRecord inserted = XdStorageCacheRecord.newInsertRecord(context, context.idField(), insertedEntity,
+                inserter);
 
         inserted.lock(inserter);
 
@@ -339,7 +341,8 @@ class XdStorageCacheRecordInvariantTest extends CacheInvariantTestSupport {
                         record.committingSerialVisibleTo(insideSnapshot)),
                 "R-45: читатель, чей снапшот включает commit-serial, видит НОВОЕ состояние до фазы-2");
 
-        assertSame(v1, record.resolveVisible(withSnapshotSerial(mkTx("early", 50L), 3L), XdStorageCacheRecord.View.BY_ID, 0L),
+        assertSame(v1, record.resolveVisible(withSnapshotSerial(mkTx("early", 50L), 3L), XdStorageCacheRecord.View
+                .BY_ID, 0L),
                 "читатель до serial: владелец жив, отказ -> последняя закоммиченная");
 
         assertSame(v1, record.resolveVisible(insideSnapshot, XdStorageCacheRecord.View.SCAN, 0L),
@@ -350,7 +353,8 @@ class XdStorageCacheRecordInvariantTest extends CacheInvariantTestSupport {
     void byIdInsertCommittingSerialBarrierIsScanExclusive() {
         TestEntity insertedEntity = entity(2L, "new");
         XdStorageTransaction committer = withCommitSerial(mkTx("c", 100L), 5L);
-        XdStorageCacheRecord inserted = XdStorageCacheRecord.newInsertRecord(context, context.idField(), insertedEntity, committer);
+        XdStorageCacheRecord inserted = XdStorageCacheRecord.newInsertRecord(context, context.idField(), insertedEntity,
+                committer);
         inserted.prepareCommit();
 
         XdStorageTransaction reader = withSnapshotSerial(mkTx("inside", 50L), 10L);
@@ -376,7 +380,8 @@ class XdStorageCacheRecordInvariantTest extends CacheInvariantTestSupport {
         assertSame(v1, record.resolveVisible(olderReader, XdStorageCacheRecord.View.SCAN, 0L),
                 "SCAN: снапшотное роутирование дает предыдущую версию");
         assertSame(v2, record.resolveVisible(olderReader, XdStorageCacheRecord.View.WRITE_OUT, 0L),
-                "R-15: выписка на диск берет последнее закоммиченное — иначе ранний коммиттер записал бы файл соседа его старой версией");
+                "R-15: выписка на диск берет последнее закоммиченное — иначе ранний коммиттер записал бы файл соседа " +
+                        "его старой версией");
     }
 
     @Test
@@ -427,7 +432,8 @@ class XdStorageCacheRecordInvariantTest extends CacheInvariantTestSupport {
                 "чужая транзакция не может захватить занятый latch и завершается по бюджету");
         assertTrue(timeout.getMessage().contains("locked for"));
         long elapsedMs = (System.nanoTime() - start) / 1_000_000;
-        assertTrue(elapsedMs >= 150L, "ожидание обязано длиться близко к бюджету транзакции, было: " + elapsedMs + " мс");
+        assertTrue(elapsedMs >= 150L, "ожидание обязано длиться близко к бюджету транзакции, было: " + elapsedMs +
+                " мс");
         assertTrue(elapsedMs <= 1000L, "и не превышать его многократно, было: " + elapsedMs + " мс");
 
         record.unlock(holder);
@@ -507,7 +513,8 @@ class XdStorageCacheRecordInvariantTest extends CacheInvariantTestSupport {
 
         // locked живым чужим владельцем — отказ
         XdStorageTransaction owner = mkTx("owner", 100L);
-        XdStorageCacheRecord locked = XdStorageCacheRecord.newInsertRecord(context, context.idField(), entity(2L, "v2"), owner);
+        XdStorageCacheRecord locked = XdStorageCacheRecord.newInsertRecord(context, context.idField(), entity(2L, "v2"),
+                owner);
         assertFalse(locked.canBeChangedByTransaction(mkTx("foreign", 200L)));
         assertTrue(locked.canBeChangedByTransaction(owner));
 

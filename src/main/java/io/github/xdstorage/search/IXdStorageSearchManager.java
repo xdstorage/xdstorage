@@ -39,7 +39,8 @@ public interface IXdStorageSearchManager {
      * @throws XdStorageException           on an indexing or storage failure
      * @throws XdStorageConnectionException on a storage I/O failure (a retry may help)
      */
-    void insert(Object object, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void insert(Object object, XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Indexes a collection of objects of one entity class, skipping already-indexed
@@ -50,7 +51,8 @@ public interface IXdStorageSearchManager {
      * @throws XdStorageException           on an indexing or storage failure
      * @throws XdStorageConnectionException on a storage I/O failure (a retry may help)
      */
-    void insert(Collection<?> objects, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void insert(Collection<?> objects, XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Re-indexes one object after a change, inside the caller's transaction. The object
@@ -61,7 +63,8 @@ public interface IXdStorageSearchManager {
      * @throws XdStorageException           when the object is not indexed, or on a storage failure
      * @throws XdStorageConnectionException on a storage I/O failure (a retry may help)
      */
-    void update(Object object, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void update(Object object, XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Removes one object from every search index declared on its class, inside the
@@ -72,7 +75,8 @@ public interface IXdStorageSearchManager {
      * @throws XdStorageException           on a de-indexing or storage failure
      * @throws XdStorageConnectionException on a storage I/O failure (a retry may help)
      */
-    void delete(Object reference, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void delete(Object reference, XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Removes a collection of objects of one entity class from every search index
@@ -83,7 +87,8 @@ public interface IXdStorageSearchManager {
      * @throws XdStorageException           on a de-indexing or storage failure
      * @throws XdStorageConnectionException on a storage I/O failure (a retry may help)
      */
-    void delete(Collection<?> references, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException;
+    void delete(Collection<?> references, XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException;
 
     /**
      * Executes the query against the named index of the entity class, inside the caller's

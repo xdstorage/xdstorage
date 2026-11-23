@@ -95,7 +95,8 @@ public class XdStorageSearchManagerTest extends AbstractXdStorageTest {
 
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(SearchEngineShip.class);
         final IXdStorageSearchIndexDaoResource indexResource = mock(IXdStorageSearchIndexDaoResource.class);
-        when(mockResourcesManager.lockSearchIndexResource(eq(clInfo), eq("ship_idx"), eq(mockTx))).thenReturn(indexResource);
+        when(mockResourcesManager.lockSearchIndexResource(eq(clInfo), eq("ship_idx"), eq(mockTx)))
+                .thenReturn(indexResource);
 
         final IXdStorageIndexDaoResource idResource = mock(IXdStorageIndexDaoResource.class);
         when(mockResourcesManager.lockIndexResource(eq(clInfo), eq(mockTx))).thenReturn(idResource);
@@ -150,7 +151,8 @@ public class XdStorageSearchManagerTest extends AbstractXdStorageTest {
     }
 
     @Test
-    @DisplayName("Отложенная финализация записи: ид назначаются фасадом ПОСЛЕ insert - запись достраивается наблюдателями")
+    @DisplayName("Отложенная финализация записи: ид назначаются фасадом ПОСЛЕ insert - запись достраивается " +
+            "наблюдателями")
     public void testInsertDefersFinalizationUntilIdsAssigned() throws Exception {
         final XdStorageSearchManager manager = new XdStorageSearchManager(mockServices);
 
@@ -163,7 +165,8 @@ public class XdStorageSearchManagerTest extends AbstractXdStorageTest {
 
         final XdStorageClassInfo clInfo = XdStorageObjectUtils.getClassInfo(SearchEngineShip.class);
         final IXdStorageSearchIndexDaoResource indexResource = mock(IXdStorageSearchIndexDaoResource.class);
-        when(mockResourcesManager.lockSearchIndexResource(eq(clInfo), eq("ship_idx"), eq(mockTx))).thenReturn(indexResource);
+        when(mockResourcesManager.lockSearchIndexResource(eq(clInfo), eq("ship_idx"), eq(mockTx)))
+                .thenReturn(indexResource);
         final IXdStorageIndexDaoResource idResource = mock(IXdStorageIndexDaoResource.class);
         when(mockResourcesManager.lockIndexResource(eq(clInfo), eq(mockTx))).thenReturn(idResource);
         when(idResource.getObjectResourceId(55L, mockTx)).thenReturn("res-55");
@@ -267,7 +270,8 @@ public class XdStorageSearchManagerTest extends AbstractXdStorageTest {
         final XdStorageSearchQuery query = new XdStorageSearchQuery(
                 new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS, "x"), null);
 
-        assertThrows(XdStorageException.class, () -> manager.search(ClassPolicyEntity.class, "missing_idx", query, mockTx));
+        assertThrows(XdStorageException.class, () -> manager.search(ClassPolicyEntity.class, "missing_idx", query,
+                mockTx));
     }
 
     @Test
@@ -281,7 +285,8 @@ public class XdStorageSearchManagerTest extends AbstractXdStorageTest {
         final XdStorageSearchQuery query = new XdStorageSearchQuery(
                 new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS, "x"), null);
 
-        final Collection<ClassPolicyEntity> result = manager.search(ClassPolicyEntity.class, "idx_class_entity_value", query, mockTx);
+        final Collection<ClassPolicyEntity> result = manager.search(ClassPolicyEntity.class, "idx_class_entity_value",
+                query, mockTx);
 
         assertTrue(result.isEmpty());
     }
@@ -321,7 +326,8 @@ public class XdStorageSearchManagerTest extends AbstractXdStorageTest {
         final XdStorageSearchQuery query = new XdStorageSearchQuery(
                 new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS, "alpha"), null);
 
-        final Collection<ClassPolicyEntity> result = manager.search(ClassPolicyEntity.class, "idx_class_entity_value", query, mockTx);
+        final Collection<ClassPolicyEntity> result = manager.search(ClassPolicyEntity.class, "idx_class_entity_value",
+                query, mockTx);
 
         assertEquals(2, result.size());
         assertTrue(result.contains(entity1));
@@ -359,9 +365,11 @@ public class XdStorageSearchManagerTest extends AbstractXdStorageTest {
 
         final XdStorageSearchQuery query = new XdStorageSearchQuery(
                 new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS, "primary"),
-                new io.github.xdstorage.search.query.XdStorageCriterion("value", IXdStorageCriterionOperator.EQUALS, "alpha"));
+                new io.github.xdstorage.search.query.XdStorageCriterion("value", IXdStorageCriterionOperator.EQUALS,
+                        "alpha"));
 
-        final Collection<ClassPolicyEntity> result = manager.search(ClassPolicyEntity.class, "idx_class_entity_value", query, mockTx);
+        final Collection<ClassPolicyEntity> result = manager.search(ClassPolicyEntity.class, "idx_class_entity_value",
+                query, mockTx);
 
         assertEquals(1, result.size());
         assertSame(entity, result.iterator().next());
@@ -374,7 +382,8 @@ public class XdStorageSearchManagerTest extends AbstractXdStorageTest {
         final XdStorageSearchManager manager = new XdStorageSearchManager(mockServices);
         final IXdStorage mockDb = mock(IXdStorage.class);
         when(mockServices.getStorage()).thenReturn(mockDb);
-        when(mockDb.load(eq(XdStorageBTree.class), any(XdStorageBTreeId.class), eq(mockTx))).thenReturn(mock(XdStorageBTree.class));
+        when(mockDb.load(eq(XdStorageBTree.class), any(XdStorageBTreeId.class), eq(mockTx)))
+                .thenReturn(mock(XdStorageBTree.class));
 
         final XdStorageSearchIndexRecord kept = new XdStorageSearchIndexRecord();
         kept.setId(2L);
@@ -406,7 +415,8 @@ public class XdStorageSearchManagerTest extends AbstractXdStorageTest {
         final XdStorageSearchQuery query = new XdStorageSearchQuery(
                 new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.NOT_EQUALS, "alpha"), null);
 
-        final Collection<ClassPolicyEntity> result = manager.search(ClassPolicyEntity.class, "idx_class_entity_value", query, mockTx);
+        final Collection<ClassPolicyEntity> result = manager.search(ClassPolicyEntity.class, "idx_class_entity_value",
+                query, mockTx);
 
         assertEquals(1, result.size());
         assertSame(entity, result.iterator().next());
@@ -418,7 +428,8 @@ public class XdStorageSearchManagerTest extends AbstractXdStorageTest {
         final XdStorageSearchManager manager = new XdStorageSearchManager(mockServices);
         final IXdStorage mockDb = mock(IXdStorage.class);
         when(mockServices.getStorage()).thenReturn(mockDb);
-        when(mockDb.load(eq(XdStorageBTree.class), any(XdStorageBTreeId.class), eq(mockTx))).thenReturn(mock(XdStorageBTree.class));
+        when(mockDb.load(eq(XdStorageBTree.class), any(XdStorageBTreeId.class), eq(mockTx)))
+                .thenReturn(mock(XdStorageBTree.class));
 
         final XdStorageSearchIndexRecord withField = new XdStorageSearchIndexRecord();
         withField.setId(1L);
@@ -448,9 +459,11 @@ public class XdStorageSearchManagerTest extends AbstractXdStorageTest {
         when(dao.read(1L, mockTx)).thenReturn(entity);
 
         final XdStorageSearchQuery query = new XdStorageSearchQuery(null,
-                new io.github.xdstorage.search.query.XdStorageCriterion("value", IXdStorageCriterionOperator.EQUALS, "target"));
+                new io.github.xdstorage.search.query.XdStorageCriterion("value", IXdStorageCriterionOperator.EQUALS,
+                        "target"));
 
-        final Collection<ClassPolicyEntity> result = manager.search(ClassPolicyEntity.class, "idx_class_entity_value", query, mockTx);
+        final Collection<ClassPolicyEntity> result = manager.search(ClassPolicyEntity.class, "idx_class_entity_value",
+                query, mockTx);
 
         assertEquals(1, result.size());
         assertSame(entity, result.iterator().next());

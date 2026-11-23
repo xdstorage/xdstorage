@@ -117,7 +117,8 @@ public class XdStorageForeignKeyBenchmark {
                     .journalWrites(true)
                     .setEnableForeignKeys(this.fkEnabled)
                     .build();
-            this.storage = XdStorageProvider.newOrGetFileStorage("fkbench-" + System.nanoTime(), this.folder.getPath(), 100, config);
+            this.storage = XdStorageProvider.newOrGetFileStorage("fkbench-" + System.nanoTime(), this.folder.getPath(),
+                    100, config);
 
             // the preloaded dataset: parents × childrenPerParent relations
             this.childIds = new ArrayList<>();
@@ -179,7 +180,8 @@ public class XdStorageForeignKeyBenchmark {
                     .journalWrites(true)
                     .setEnableForeignKeys(false)
                     .build();
-            this.storage = XdStorageProvider.newOrGetFileStorage("fkbench-plain-" + System.nanoTime(), this.folder.getPath(), 100, config);
+            this.storage = XdStorageProvider.newOrGetFileStorage("fkbench-plain-" + System.nanoTime(), this.folder
+                    .getPath(), 100, config);
 
             this.childIds = new ArrayList<>();
             for (int p = 0; p < this.parents; p++) {

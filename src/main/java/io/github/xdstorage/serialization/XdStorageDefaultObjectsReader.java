@@ -54,7 +54,8 @@ public class XdStorageDefaultObjectsReader implements IXdStorageObjectsReader {
     }
 
     @Override
-    public Collection<Object> readReferences(final Reader reader, final XdStorageObjectIdField field) throws XdStorageIOException {
+    public Collection<Object> readReferences(final Reader reader, final XdStorageObjectIdField field) throws
+            XdStorageIOException {
         Collection<Object> result = new ArrayList<Object>();
         try {
             XMLStreamReader xmlReader = XMLInputFactory.newInstance().createXMLStreamReader(reader);
@@ -109,9 +110,11 @@ public class XdStorageDefaultObjectsReader implements IXdStorageObjectsReader {
         try {
             XMLStreamReader xReader = XMLInputFactory.newInstance().createXMLStreamReader(r);
             while (xReader.hasNext()) {
-                if (xReader.next() == XMLStreamConstants.START_ELEMENT && (xReader.getLocalName().equals("object") || xReader.getLocalName().equals("reference"))) {
+                if (xReader.next() == XMLStreamConstants.START_ELEMENT && (xReader.getLocalName().equals("object") ||
+                        xReader.getLocalName().equals("reference"))) {
                     final String[] fn = new String[]{null};
-                    Object tmp = xReader.getLocalName().equals("object") ? read(fn, xReader) : readReference(fn, xReader);
+                    Object tmp = xReader.getLocalName().equals("object") ? read(fn, xReader) : readReference(fn,
+                            xReader);
                     if (tmp != null) res.add(tmp);
                 }
             }
@@ -129,7 +132,8 @@ public class XdStorageDefaultObjectsReader implements IXdStorageObjectsReader {
         final String name = xmlReader.getLocalName();
         // YAMLREAD: the mirror refusal — a `reference` element in a data-object file.
         if (name.equals("reference")) {
-            throw new XdStorageIOException("a data resource must contain object elements, got a reference element (corrupt or wrong-kind file)");
+            throw new XdStorageIOException("a data resource must contain object elements, got a reference element " +
+                    "(corrupt or wrong-kind file)");
         }
         if (name.equals("object")) {
             result = read(fn, xmlReader);
@@ -144,7 +148,8 @@ public class XdStorageDefaultObjectsReader implements IXdStorageObjectsReader {
         // YAMLREAD (docs/tasks/2.1.0/37): an `object` element in a references file is a
         // wrong-format/corrupt file — refuse loudly instead of silently yielding nothing.
         if (name.equals("object")) {
-            throw new XdStorageIOException("a references resource must contain reference elements, got an object element (corrupt or wrong-kind file)");
+            throw new XdStorageIOException("a references resource must contain reference elements, got an object " +
+                    "element (corrupt or wrong-kind file)");
         }
         if (name.equals("reference")) {
             result = readReference(fn, xmlReader, field);
@@ -553,7 +558,8 @@ public class XdStorageDefaultObjectsReader implements IXdStorageObjectsReader {
         return result;
     }
 
-    private Object readReference(final String fieldName[], final XMLStreamReader xmlReader, final XdStorageObjectIdField field) throws Exception {
+    private Object readReference(final String fieldName[], final XMLStreamReader xmlReader, final XdStorageObjectIdField
+            field) throws Exception {
         final int count = xmlReader.getAttributeCount();
         String className = null, classObjectId = null, idValue = null;
         for (int i = 0; i < count; ++i) {
@@ -599,7 +605,8 @@ public class XdStorageDefaultObjectsReader implements IXdStorageObjectsReader {
     }
 
     @Override
-    public Collection<XdStorageIdentifiableObject> readData(final Reader reader, final XdStorageObjectIdField field) throws XdStorageIOException {
+    public Collection<XdStorageIdentifiableObject> readData(final Reader reader, final XdStorageObjectIdField field)
+            throws XdStorageIOException {
         Collection<XdStorageIdentifiableObject> result = new ArrayList<>();
         try {
             XMLStreamReader xmlReader = XMLInputFactory.newInstance().createXMLStreamReader(reader);
@@ -752,7 +759,8 @@ public class XdStorageDefaultObjectsReader implements IXdStorageObjectsReader {
         return array;
     }
 
-    private Object readObjectDataCollection(final String[] fieldName, final XMLStreamReader xmlReader) throws Exception {
+    private Object readObjectDataCollection(final String[] fieldName, final XMLStreamReader xmlReader) throws Exception
+            {
         final int count = xmlReader.getAttributeCount();
         String className = null;
         for (int i = 0; i < count; ++i) {
@@ -872,7 +880,8 @@ public class XdStorageDefaultObjectsReader implements IXdStorageObjectsReader {
         return map;
     }
 
-    private Object readObjectDataReference(final String fieldName[], final XMLStreamReader xmlReader) throws InstantiationException, IllegalAccessException, ClassNotFoundException,
+    private Object readObjectDataReference(final String fieldName[], final XMLStreamReader xmlReader) throws
+            InstantiationException, IllegalAccessException, ClassNotFoundException,
             NoSuchMethodException, SecurityException, IllegalArgumentException, InvocationTargetException {
         final int count = xmlReader.getAttributeCount();
         String className = null, idValue = null, classObjectId = null;

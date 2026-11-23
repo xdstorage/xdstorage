@@ -39,7 +39,8 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>Engine-internal — not part of the public API.</p>
  */
-public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIndexResourceObject, IXdStorageIndexDaoResource {
+public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIndexResourceObject,
+        IXdStorageIndexDaoResource {
 
     private static final Logger log = LoggerFactory.getLogger(XdStorageAbstractHashIndexResource.class);
 
@@ -74,7 +75,8 @@ public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIn
     protected final XdStorageIndexResourceCache index;
 
     /** Per-transaction stacks of compensations for staged id-map mutations (keyed by transaction id). */
-    protected final Map<String, Stack<IXdStorageChangeIndexRollback>> rollbacks = new ConcurrentHashMap<String, Stack<IXdStorageChangeIndexRollback>>();
+    protected final Map<String, Stack<IXdStorageChangeIndexRollback>> rollbacks = new ConcurrentHashMap<String,
+            Stack<IXdStorageChangeIndexRollback>>();
 
     /** Class metadata of the ENTITY class being indexed. */
     protected final XdStorageClassInfo objectClInfo;
@@ -132,7 +134,8 @@ public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIn
     protected XdStorageAbstractHashIndexResource(final XdStorageServicesLocator services,
                                                  final XdStorageAbstractResourcesManager manager,
                                                  final Object resourceId, final String indexName,
-                                                 final XdStorageClassInfo clInfo, final IXdStorageIdGenerator idGenerator,
+                                                 final XdStorageClassInfo clInfo, final IXdStorageIdGenerator
+                                                         idGenerator,
                                                  final int fragmentSize) {
         this.services = services;
         this.manager = manager;
@@ -297,7 +300,8 @@ public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIn
      * @throws XdStorageException           on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
-    public boolean has(final Object id, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public boolean has(final Object id, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         return index.getResourceId(id) != null;
     }
 
@@ -310,7 +314,8 @@ public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIn
      * @throws XdStorageException           on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
-    public Collection<Object> read(final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public Collection<Object> read(final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         final List<Object> result = new ArrayList<>();
         final Collection<Object> ids = index.getResourcesIds();
         for (final Object resourceId : ids) {
@@ -331,7 +336,8 @@ public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIn
      * @throws XdStorageException           on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
-    public <T> Collection<T> read(final XdStorageTransaction transaction, final IXdStoragePredicate<T> predicate) throws XdStorageException, XdStorageConnectionException {
+    public <T> Collection<T> read(final XdStorageTransaction transaction, final IXdStoragePredicate<T> predicate) throws
+            XdStorageException, XdStorageConnectionException {
         final List<T> result = new ArrayList<>();
         final Collection<Object> ids = index.getResourcesIds();
         for (final Object resourceId : ids) {
@@ -351,7 +357,8 @@ public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIn
      * @throws XdStorageException           on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
-    public <T> void watch(final XdStorageTransaction transaction, final IXdStorageWatcher<T> watcher) throws XdStorageException, XdStorageConnectionException {
+    public <T> void watch(final XdStorageTransaction transaction, final IXdStorageWatcher<T> watcher) throws
+            XdStorageException, XdStorageConnectionException {
         final Collection<Object> ids = index.getResourcesIds();
         for (final Object resourceId : ids) {
             final IXdStorageDaoResource resource = manager.lockResource(resourceId, objectClInfo, transaction);
@@ -369,11 +376,13 @@ public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIn
      *         or on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
-    public void readByReference(final Object reference, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void readByReference(final Object reference, final XdStorageTransaction transaction) throws
+            XdStorageException, XdStorageConnectionException {
         final Object objectId = objectIdField.get(reference);
         final Object resourceId = index.getResourceId(objectId);
         if (resourceId == null) {
-            throw new XdStorageException("cannot load by reference object of class " + reference.getClass() + " with id " + objectId);
+            throw new XdStorageException("cannot load by reference object of class " + reference.getClass() +
+                    " with id " + objectId);
         }
 
         final IXdStorageDaoResource resource = manager.lockResource(resourceId, objectClInfo, transaction);
@@ -390,7 +399,8 @@ public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIn
      * @throws XdStorageException           on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
-    public Object read(final Object id, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public Object read(final Object id, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         final Object resourceId = index.getResourceId(id);
         if (resourceId == null) {
             return null;
@@ -411,7 +421,8 @@ public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIn
      * @throws XdStorageException           on a storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
-    public void insert(final Object object, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void insert(final Object object, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         final Object objectId = objectIdField.get(object);
         boolean isInserted = false;
         final Object freeResourceId = index.getFreeResourceId();
@@ -461,11 +472,13 @@ public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIn
      *         storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
-    public void update(final Object object, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void update(final Object object, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         final Object objectId = objectIdField.get(object);
         final Object resourceId = index.getResourceId(objectId);
         if (resourceId == null) {
-            throw new XdStorageException("object of class " + object.getClass() + " with id " + objectId + " does not exists");
+            throw new XdStorageException("object of class " + object.getClass() + " with id " + objectId +
+                    " does not exists");
         }
 
         final IXdStorageDaoResource resource = manager.lockResource(resourceId, objectClInfo, transaction);
@@ -482,11 +495,13 @@ public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIn
      *         storage-level failure
      * @throws XdStorageConnectionException on a connection-level failure (a retry may help)
      */
-    public void delete(final Object object, final XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public void delete(final Object object, final XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         final Object objectId = objectIdField.get(object);
         final Object resourceId = index.getResourceId(objectId);
         if (resourceId == null) {
-            throw new XdStorageException("object of class " + object.getClass() + " with id " + objectId + " does not exists");
+            throw new XdStorageException("object of class " + object.getClass() + " with id " + objectId +
+                    " does not exists");
         }
 
         final IXdStorageDaoResource resource = manager.lockResource(resourceId, objectClInfo, transaction);
@@ -496,7 +511,8 @@ public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIn
     }
 
     @Override
-    public boolean isDeleted(Object objectId, XdStorageTransaction transaction) throws XdStorageException, XdStorageConnectionException {
+    public boolean isDeleted(Object objectId, XdStorageTransaction transaction) throws XdStorageException,
+            XdStorageConnectionException {
         XdStorageCacheRecord record = cache.records().get(objectId);
         return record != null && record.isDeleteChange() && record.isChangedByTransaction(transaction);
     }
@@ -509,7 +525,8 @@ public abstract class XdStorageAbstractHashIndexResource implements IXdStorageIn
 
     private class XdStorageCacheInternalListener implements IXdStorageCacheInternalListener {
         @Override
-        public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject, Object newObject, IXdStorageTransaction transaction) {
+        public void notify(XdStorageCacheCommitPhase phase, XdStorageObjectOperationType change, Object oldObject,
+                Object newObject, IXdStorageTransaction transaction) {
             List<IXdStorageInternalListener> listenerList = listeners.get(transaction.getTransactionId());
             if (listenerList != null) {
                 listenerList.forEach(listener -> listener.notify(phase, change, oldObject, newObject, transaction));

@@ -31,7 +31,8 @@ public class XdStorageObjectFieldInfo {
      * @param valueClass the element/value class (component type for arrays, type argument for
      *                   collections and maps, the declared class otherwise)
      */
-    public XdStorageObjectFieldInfo(final Class<?> clazz, final boolean isArray, final boolean isCollection, final boolean isMap, final Class<?> mapKeyClass, final Class<?> valueClass) {
+    public XdStorageObjectFieldInfo(final Class<?> clazz, final boolean isArray, final boolean isCollection, final
+            boolean isMap, final Class<?> mapKeyClass, final Class<?> valueClass) {
         this.clazz = clazz;
         this.isArray = isArray;
         this.isCollection = isCollection;

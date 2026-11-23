@@ -77,7 +77,8 @@ public class XdStorageIndexJournalTest {
         try (Stream<Path> walk = Files.walk(folder)) {
             // JRNLNAME: the suffix spelling (the legacy stacked name is migration-only)
             return walk.filter(p -> p.getFileName().toString()
-                    .endsWith(io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.JOURNAL_SUFFIX)).count();
+                    .endsWith(io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.JOURNAL_SUFFIX))
+                            .count();
         }
     }
 
@@ -195,7 +196,8 @@ public class XdStorageIndexJournalTest {
         // tear the tail of every journal in the copy (simulates a crash mid-append)
         try (Stream<Path> walk = Files.walk(copy)) {
             walk.filter(p -> p.getFileName().toString()
-                    .endsWith(io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.JOURNAL_SUFFIX)).forEach(journal -> {
+                    .endsWith(io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.JOURNAL_SUFFIX))
+                            .forEach(journal -> {
                 try {
                     Files.write(journal, "\n- record:\n    serial: 999\n    op: UPSERT\n    id: 'torn'".getBytes(),
                             java.nio.file.StandardOpenOption.APPEND);

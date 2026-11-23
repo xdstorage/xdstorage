@@ -136,7 +136,8 @@ public final class XdStorageConfigSweep {
     // СЮИТЫ
     // =========================================================================
 
-    private static void runTSweep(final Path out, final String tag, final List<Integer> tValues, final int n) throws Exception {
+    private static void runTSweep(final Path out, final String tag, final List<Integer> tValues, final int n) throws
+            Exception {
         final List<SweepResult> results = new ArrayList<>();
         for (final int t : tValues) {
             final Class<?> cl = Class.forName("io.github.xdstorage.performance.sweep.SweepBTreeT" + t + "Entity");
@@ -149,7 +150,8 @@ public final class XdStorageConfigSweep {
         printTable(tag, results);
     }
 
-    private static void runFragSweep(final Path out, final String tag, final List<Integer> fragValues, final int n) throws Exception {
+    private static void runFragSweep(final Path out, final String tag, final List<Integer> fragValues, final int n)
+            throws Exception {
         final List<SweepResult> results = new ArrayList<>();
         for (final int frag : fragValues) {
             final SweepResult r = new SweepResult("fragsweep", SweepHashEntity.class.getSimpleName(), 0, frag, n);
@@ -161,7 +163,8 @@ public final class XdStorageConfigSweep {
         printTable(tag, results);
     }
 
-    private static void runSearchSweep(final Path out, final String tag, final List<Integer> tValues, final int n) throws Exception {
+    private static void runSearchSweep(final Path out, final String tag, final List<Integer> tValues, final int n)
+            throws Exception {
         final List<SweepResult> results = new ArrayList<>();
         for (final int t : tValues) {
             final Class<?> cl = Class.forName("io.github.xdstorage.performance.sweep.SweepSearchShipT" + t);
@@ -574,7 +577,8 @@ public final class XdStorageConfigSweep {
         return storage.load(cl, (IXdStoragePredicate<T>) o -> true, tx);
     }
 
-    private static Object newEntity(final Class<?> cl, final String id, final String tag, final int i) throws Exception {
+    private static Object newEntity(final Class<?> cl, final String id, final String tag, final int i) throws Exception
+            {
         final Object o = cl.getDeclaredConstructor().newInstance();
         cl.getMethod("setId", String.class).invoke(o, id);
         cl.getMethod("setPayload", String.class).invoke(o, payload(id, tag));
@@ -601,11 +605,13 @@ public final class XdStorageConfigSweep {
         cl.getMethod("setName", String.class).invoke(ship, "Ship-" + i);
         cl.getMethod("setTonnage", int.class).invoke(ship, (int) (i % 50));
         final Class<?> crewCl = Class.forName("io.github.xdstorage.performance.sweep.SweepSearchCrewMember");
-        final Object captain = crewCl.getDeclaredConstructor(Long.class, String.class).newInstance(i * 10, "Rank-" + (i % 5));
+        final Object captain = crewCl.getDeclaredConstructor(Long.class, String.class).newInstance(i * 10, "Rank-" + (i
+                % 5));
         cl.getMethod("setCaptain", crewCl).invoke(ship, captain);
         final Method add = cl.getMethod("addCrewMember", crewCl);
         add.invoke(ship, crewCl.getDeclaredConstructor(Long.class, String.class).newInstance(i * 10 + 1, "Rank-3"));
-        add.invoke(ship, crewCl.getDeclaredConstructor(Long.class, String.class).newInstance(i * 10 + 2, "Rank-" + (i % 5)));
+        add.invoke(ship, crewCl.getDeclaredConstructor(Long.class, String.class).newInstance(i * 10 + 2, "Rank-" + (i %
+                5)));
         return ship;
     }
 
@@ -620,7 +626,8 @@ public final class XdStorageConfigSweep {
     }
 
     private static XdStorageSearchQuery scanQuery() {
-        return new XdStorageSearchQuery(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.NOT_EQUALS, "@@none@@"), null);
+        return new XdStorageSearchQuery(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.NOT_EQUALS,
+                "@@none@@"), null);
     }
 
     @SuppressWarnings("unchecked")
@@ -766,7 +773,8 @@ public final class XdStorageConfigSweep {
     // ВЫВОД: JSON + CSV + консольная таблица
     // =========================================================================
 
-    private static void writeJson(final Path out, final String tag, final List<SweepResult> results) throws IOException {
+    private static void writeJson(final Path out, final String tag, final List<SweepResult> results) throws IOException
+            {
         final StringBuilder sb = new StringBuilder(64 * 1024);
         sb.append("{\n");
         sb.append("  \"tag\": \"").append(tag).append("\",\n");
@@ -788,7 +796,8 @@ public final class XdStorageConfigSweep {
         sb.append("      \"frag\": ").append(r.frag).append(",\n");
         sb.append("      \"n\": ").append(r.n).append(",\n");
         sb.append("      \"jvm\": \"").append(r.jvm).append("\",\n");
-        sb.append("      \"error\": ").append(r.error == null ? "null" : "\"" + r.error.replace("\"", "'") + "\"").append(",\n");
+        sb.append("      \"error\": ").append(r.error == null ? "null" : "\"" + r.error.replace("\"", "'") + "\"")
+                .append(",\n");
         sb.append("      \"heapUsedMb\": ").append(round(r.heapUsedMb)).append(",\n");
         sb.append("      \"wallTotalMs\": ").append(r.wallTotalMs).append(",\n");
         sb.append("      \"phases\": {").append(mapJson(r.phases, false)).append("},\n");
@@ -797,7 +806,8 @@ public final class XdStorageConfigSweep {
         final List<String> names = new ArrayList<>(r.metricDeltas.keySet());
         for (int i = 0; i < names.size(); i++) {
             final String phase = names.get(i);
-            sb.append("\n        \"").append(phase).append("\": {").append(mapJsonLong(r.metricDeltas.get(phase), true)).append("}");
+            sb.append("\n        \"").append(phase).append("\": {").append(mapJsonLong(r.metricDeltas.get(phase), true))
+                    .append("}");
             sb.append(i == names.size() - 1 ? "\n      " : ",");
         }
         sb.append("},\n");

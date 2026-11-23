@@ -113,7 +113,8 @@ public class XdStorageFacadeGiantArraySplitStressTest {
             // Вертикальный навигатор поиска промахнется, и этот вызов выбросит XdStorageRuntimeException!
             assertDoesNotThrow(() -> {
                 storage.load(loadedPlanets, readTx);
-            }, "🚨 БАГ ФАСАДА СУБД ВOСПРOИЗВEДEН! Навигатор индексов ослеп после сплитов при t=5. Транзакция ушла в rollback only!");
+            }, "🚨 БАГ ФАСАДА СУБД ВOСПРOИЗВEДEН! Навигатор индексов ослеп после сплитов при t=5. Транзакция ушла в " +
+                    "rollback only!");
 
             System.out.println("📊 ИТOГOВЫE РEЗУЛЬТАТЫ ИНТEГРАЦИOННOГO ТEСТА:");
             System.out.println("🔹 Ожидали планет в дочерней коллекции: " + planetsCount);

@@ -260,9 +260,12 @@ public class XdStorageMassFillAndCleanFirstStressTest {
         System.out.println("🔍 Запуск тотальной верификации по классам...");
         IXdStorageTransaction verifyTx = storage.beginTransaction();
         try {
-            Assertions.assertTrue(storage.load(XdUniverseAutoSave.class, verifyTx).isEmpty(), "Утечка памяти! Найдена XdUniverse!");
-            Assertions.assertTrue(storage.load(XdGalaxyAutoSave.class, verifyTx).isEmpty(), "Утечка памяти! Найдена XdGalaxy!");
-            Assertions.assertTrue(storage.load(XdStarSystemAutoSave.class, verifyTx).isEmpty(), "Утечка памяти! Найдена XdStarSystem!");
+            Assertions.assertTrue(storage.load(XdUniverseAutoSave.class, verifyTx).isEmpty(),
+                    "Утечка памяти! Найдена XdUniverse!");
+            Assertions.assertTrue(storage.load(XdGalaxyAutoSave.class, verifyTx).isEmpty(),
+                    "Утечка памяти! Найдена XdGalaxy!");
+            Assertions.assertTrue(storage.load(XdStarSystemAutoSave.class, verifyTx).isEmpty(),
+                    "Утечка памяти! Найдена XdStarSystem!");
             final Collection<XdPlanetAutoSave> leakedPlanets = storage.load(XdPlanetAutoSave.class, verifyTx);
             Assertions.assertTrue(leakedPlanets.isEmpty(), "Утечка памяти! Найдена XdPlanet!");
             verifyTx.commit();
@@ -283,7 +286,7 @@ public class XdStorageMassFillAndCleanFirstStressTest {
 //            remainingDataFiles = checkDataFilesCount(storageDir);
 //        }
 //        Assertions.assertEquals(0, remainingDataFiles,
-//                "🚨 ДИСКОВАЯ УТЕЧКА! После полной каскадной очистки на диске остались невычищенные файлы пользовательских данных!");
+// "🚨 ДИСКОВАЯ УТЕЧКА! После полной каскадной очистки на диске остались невычищенные файлы пользовательских данных!");
 
         System.out.println("=== СЦЕНАРИЙ 2 ЗАВЕРШЕН ТРИУМФАЛЬНО: БАЗА И ДИСК АБСОЛЮТНО ЧИСТЫ ===");
     }

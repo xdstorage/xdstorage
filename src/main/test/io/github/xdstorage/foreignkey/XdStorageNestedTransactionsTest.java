@@ -62,7 +62,8 @@ public class XdStorageNestedTransactionsTest {
         // Проверяем финальную видимость объектов на диске
         IXdStorageTransaction readTx = storage.beginTransaction();
         assertTrue(storage.has(DummyNode.class, "parent-root", readTx));
-        assertFalse(storage.has(DummyNode.class, "child-leaf", readTx), "Объект вложенной транзакции утек на диск вопреки ролбэку!");
+        assertFalse(storage.has(DummyNode.class, "child-leaf", readTx),
+                "Объект вложенной транзакции утек на диск вопреки ролбэку!");
         readTx.commit();
     }
 }

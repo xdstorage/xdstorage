@@ -63,7 +63,8 @@ public class StructuralGroupsForeignKeySpecificationTest extends AbstractForeign
 
         engine.process(parent, XdStorageForeignKeyObjectChangeType.INSERT, transaction);
 
-        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta, parentMeta.getFields().get("arrayChildren"), transaction);
+        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta,
+                parentMeta.getFields().get("arrayChildren"), transaction);
         Collection<Object> links = fkResource.readByParentObjectId(10L, transaction);
         assertEquals(1, links.size());
         assertTrue(links.contains(101L));
@@ -81,7 +82,8 @@ public class StructuralGroupsForeignKeySpecificationTest extends AbstractForeign
 
         engine.process(parent, XdStorageForeignKeyObjectChangeType.INSERT, transaction);
 
-        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta, parentMeta.getFields().get("collectionChildren"), transaction);
+        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta,
+                parentMeta.getFields().get("collectionChildren"), transaction);
         Collection<Object> links = fkResource.readByParentObjectId(20L, transaction);
         assertEquals(1, links.size());
         assertTrue(links.contains(201L));
@@ -102,7 +104,8 @@ public class StructuralGroupsForeignKeySpecificationTest extends AbstractForeign
 
         engine.process(parent, XdStorageForeignKeyObjectChangeType.INSERT, transaction);
 
-        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta, parentMeta.getFields().get("mapChildren"), transaction);
+        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta,
+                parentMeta.getFields().get("mapChildren"), transaction);
         Collection<Object> links = fkResource.readByParentObjectId(30L, transaction);
         assertEquals(1, links.size());
         assertTrue(links.contains(301L));
@@ -116,7 +119,8 @@ public class StructuralGroupsForeignKeySpecificationTest extends AbstractForeign
         registry.getOutcomeRelations(parentMeta);
         registry.getIncomeRelations(childMeta);
 
-        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta, parentMeta.getFields().get("collectionChildren"), transaction);
+        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta,
+                parentMeta.getFields().get("collectionChildren"), transaction);
         // Эмулируем наличие связи в базе данных СУБД. Ребенок должен быть ЖИВ (записан в
         // хранилище) — фантомная пара (torn-fill остаток) по текущему канону растворяется,
         // а не ветоируется.

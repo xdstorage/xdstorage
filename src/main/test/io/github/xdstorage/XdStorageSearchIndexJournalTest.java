@@ -28,7 +28,8 @@ public class XdStorageSearchIndexJournalTest {
 
     @TempDir java.nio.file.Path folder;
 
-    @io.github.xdstorage.annotations.XdStorageObjectPolicy(policy = io.github.xdstorage.XdStoragePolicy.StoreAsClassObjects)
+    @io.github.xdstorage.annotations.XdStorageObjectPolicy(policy = io.github.xdstorage.XdStoragePolicy
+            .StoreAsClassObjects)
     public static class TestEntity extends io.github.xdstorage.object.XdStorageIdentifiableObject {
         public String name;
         public TestEntity() { setId(0L); }
@@ -83,7 +84,8 @@ public class XdStorageSearchIndexJournalTest {
         } finally { storage.shutdown(); }
     }
 
-    // Returns the search-index journal path in the indexes/ subdirectory: <fp>/indexes/<ClassName>/<indexName>-journal.yaml
+    // Returns the search-index journal path in the indexes/ subdirectory:
+    // <fp>/indexes/<ClassName>/<indexName>-journal.yaml
     private Path searchIndexJournalPath(String fp) {
         return indexesPath(fp).resolve(sbi().toString() + "-journal.yaml");
     }
@@ -116,7 +118,8 @@ public class XdStorageSearchIndexJournalTest {
         createBaseTree(fp);
 
         XdStorageSearchIndexJournal.append(searchIndexJournalPath(fp), 2L,
-                Collections.singletonList(new XdStorageSearchIndexJournalRecord(2L, sbi().toString(), "DELKEY", "Bob", "10")));
+                Collections.singletonList(new XdStorageSearchIndexJournalRecord(2L, sbi().toString(), "DELKEY", "Bob",
+                        "10")));
         reopenWithJournal(name, fp);
     }
 
@@ -128,7 +131,8 @@ public class XdStorageSearchIndexJournalTest {
         createBaseTree(fp);
 
         XdStorageSearchIndexJournal.append(searchIndexJournalPath(fp), 3L,
-                Collections.singletonList(new XdStorageSearchIndexJournalRecord(3L, sbi().toString(), "ADDKEY", "Dup", "999")));
+                Collections.singletonList(new XdStorageSearchIndexJournalRecord(3L, sbi().toString(), "ADDKEY", "Dup",
+                        "999")));
 
         reopenWithJournal(name, fp);
         reopenWithJournal(name, fp);
@@ -142,7 +146,8 @@ public class XdStorageSearchIndexJournalTest {
         createBaseTree(fp);
 
         XdStorageSearchIndexJournal.append(searchIndexJournalPath(fp), 4L,
-                Collections.singletonList(new XdStorageSearchIndexJournalRecord(4L, sbi().toString(), "DELKEY", "Canon", "1")));
+                Collections.singletonList(new XdStorageSearchIndexJournalRecord(4L, sbi().toString(), "DELKEY", "Canon",
+                        "1")));
         reopenWithJournal(name, fp);
     }
 
@@ -158,7 +163,8 @@ public class XdStorageSearchIndexJournalTest {
 
         List<XdStorageSearchIndexJournalRecord> recs = new java.util.ArrayList<>();
         for (int i = 0; i < 10000; i++) {
-            recs.add(new XdStorageSearchIndexJournalRecord((long)(i+1), sbi().toString(), "ADDKEY", "K-"+i, String.valueOf(i)));
+            recs.add(new XdStorageSearchIndexJournalRecord((long)(i+1), sbi().toString(), "ADDKEY", "K-"+i, String
+                    .valueOf(i)));
         }
         XdStorageSearchIndexJournal.append(jf, 0L, recs);
         assertTrue(Files.size(jf) > 100_000);

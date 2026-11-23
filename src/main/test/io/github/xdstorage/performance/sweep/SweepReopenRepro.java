@@ -74,21 +74,25 @@ public final class SweepReopenRepro {
         cl.getMethod("setId", Long.class).invoke(ship, i);
         cl.getMethod("setName", String.class).invoke(ship, "Ship-" + i);
         cl.getMethod("setTonnage", int.class).invoke(ship, (int) (i % 50));
-        cl.getMethod("setCaptain", crewCl).invoke(ship, crewCl.getDeclaredConstructor(Long.class, String.class).newInstance(i * 10, "Rank-" + (i % 5)));
-        cl.getMethod("addCrewMember", crewCl).invoke(ship, crewCl.getDeclaredConstructor(Long.class, String.class).newInstance(i * 10 + 1, "Rank-3"));
+        cl.getMethod("setCaptain", crewCl).invoke(ship, crewCl.getDeclaredConstructor(Long.class, String.class)
+                .newInstance(i * 10, "Rank-" + (i % 5)));
+        cl.getMethod("addCrewMember", crewCl).invoke(ship, crewCl.getDeclaredConstructor(Long.class, String.class)
+                .newInstance(i * 10 + 1, "Rank-3"));
         return ship;
     }
 
     private static Object searchEquals(final IXdFileStorage storage, final Class<?> cl, final String name,
                                        final IXdStorageTransaction tx) throws Exception {
         return storage.load(cl, "sweep_idx",
-                new XdStorageSearchQuery(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS, name), null), tx);
+                new XdStorageSearchQuery(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS, name), null),
+                        tx);
     }
 
     private static Object searchScan(final IXdFileStorage storage, final Class<?> cl,
                                      final IXdStorageTransaction tx) throws Exception {
         return storage.load(cl, "sweep_idx",
-                new XdStorageSearchQuery(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.NOT_EQUALS, "@@none@@"), null), tx);
+                new XdStorageSearchQuery(new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.NOT_EQUALS,
+                        "@@none@@"), null), tx);
     }
 
     private static int repro(final String tag, final Class<?> cl) throws Exception {

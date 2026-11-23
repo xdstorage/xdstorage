@@ -360,8 +360,10 @@ public class XdStorageMassFillAndCleanSecondStressTest {
         System.out.println("   -> Успешных транзакций записи блоков: " + successfulInserts.get());
         System.out.println("   -> Успешных транзакций точечного удаления: " + successfulDeletes.get());
 
-        Assertions.assertTrue(successfulInserts.get() > 0, "🚨 Ошибка теста: ни один поток не смог записать данные из-за блокировок!");
-        Assertions.assertTrue(successfulDeletes.get() > 0, "🚨 Ошибка теста: операции модификации/удаления не выполнялись параллельно!");
+        Assertions.assertTrue(successfulInserts.get() > 0,
+                "🚨 Ошибка теста: ни один поток не смог записать данные из-за блокировок!");
+        Assertions.assertTrue(successfulDeletes.get() > 0,
+                "🚨 Ошибка теста: операции модификации/удаления не выполнялись параллельно!");
 
         // Проверяем соответствие СУБД нашей In-Memory Audit модели перед тотальной зачисткой
         System.out.println("🔍 Проверка консистентности хранилища с локальной Audit-моделью...");
@@ -370,7 +372,8 @@ public class XdStorageMassFillAndCleanSecondStressTest {
             XdUniverseAutoSave u = storage.load(XdUniverseAutoSave.class, uId, checkTx);
             int expectedSize = auditModel.get(uId).size();
             int actualSize = u != null ? u.getGalaxies().size() : 0;
-            Assertions.assertEquals(expectedSize, actualSize, "🚨 Рассинхрон! Данные в СУБД разошлись с успешной Audit-моделью!");
+            Assertions.assertEquals(expectedSize, actualSize,
+                    "🚨 Рассинхрон! Данные в СУБД разошлись с успешной Audit-моделью!");
         }
         checkTx.commit();
         System.out.println("🎉 Данные проверены: состояние СУБД на 100% совпадает с журналом успешных коммитов.");

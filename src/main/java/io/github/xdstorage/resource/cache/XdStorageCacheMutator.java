@@ -47,12 +47,15 @@ public final class XdStorageCacheMutator {
      *                            already exists, was deleted earlier in this transaction,
      *                            or its record cannot be locked by this transaction
      */
-    public void insertInternal(final Object newObject, final XdStorageTransaction transaction) throws XdStorageException {
-        log.debug("INSERT by transaction {} of {}", transaction.getTransactionId(), newObject.getClass().getSimpleName());
+    public void insertInternal(final Object newObject, final XdStorageTransaction transaction) throws XdStorageException
+            {
+        log.debug("INSERT by transaction {} of {}", transaction.getTransactionId(), newObject.getClass()
+                .getSimpleName());
         if (IXdStorageIdObservableWrapper.class.isAssignableFrom(newObject.getClass())) {
             final String transactionId = transaction.getTransactionId();
 
-            final Map<Object, IXdStorageIdObservableWrapper> records = cache.workspace().unidentifiedOf(transaction.getTransactionId());
+            final Map<Object, IXdStorageIdObservableWrapper> records = cache.workspace().unidentifiedOf(transaction
+                    .getTransactionId());
             records.put(newObject, (IXdStorageIdObservableWrapper) newObject);
 
             ((IXdStorageIdObservableWrapper) newObject).addObserver(new XdStorageAbstractIdObserver() {
@@ -60,7 +63,8 @@ public final class XdStorageCacheMutator {
                 public void onNewIdIsSet(final IXdStorageIdObservableWrapper wrapper, final Object id) {
                     XdStorageCacheRecord record;
 
-                    final Map<Object, IXdStorageIdObservableWrapper> wrappers = cache.workspace().unidentified(transactionId);
+                    final Map<Object, IXdStorageIdObservableWrapper> wrappers = cache.workspace()
+                            .unidentified(transactionId);
                     if (wrappers != null) {
                         wrappers.remove(newObject);
                     }
@@ -70,26 +74,32 @@ public final class XdStorageCacheMutator {
                     final XdStorageCacheRecord tmpRecord;
                     try {
                         // ИДЕНТИЧНОСТЬ B+ ДЕРЕВА: ноды индекса сохраняются живой инстанцией
-                        cache.records().putIfAbsent(id, tmpRecord = cache.createInsertRecord(cache.materializeForCache(object), transaction));
+                        cache.records().putIfAbsent(id, tmpRecord = cache.createInsertRecord(cache
+                                .materializeForCache(object), transaction));
                         record = cache.records().get(id);
                         if (record != tmpRecord) {
-                            throw new XdStorageRuntimeException("trying to double insert one object of " + newObject.getClass() + " with id " + id);
+                            throw new XdStorageRuntimeException("trying to double insert one object of " + newObject
+                                    .getClass() + " with id " + id);
                         }
 
                         record.lock(transaction);
                         if (!record.canBeChangedByTransaction(transaction)) {
-                            log.error("INSERT (deferred id) refused: object {} id {} record[state={}, ownerTx={}, recordTs={}]",
+                            log.error("INSERT (deferred id) refused: object {} id {} record[state={}, ownerTx={}, " +
+                                    "recordTs={}]",
                                     newObject.getClass().getSimpleName(), id, record.getState(),
                                     record.getOwnerTransactionId(), record.getRecordTimestamp());
                             record.unlock(transaction);
-                            throw new XdStorageRuntimeException("object of " + newObject.getClass() + " with id " + id + " can not be changed by transaction " + transactionId);
+                            throw new XdStorageRuntimeException("object of " + newObject.getClass() + " with id " + id +
+                                    " can not be changed by transaction " + transactionId);
                         }
                     } catch (final XdStorageException e) {
                         throw new XdStorageRuntimeException("trying to lock object", e);
                     }
 
-                    final Map<Object, XdStorageCacheObjectChange> readObjects = cache.workspace().readObjectsOf(transaction);
-                    readObjects.put(id, new XdStorageCacheObjectChange(object, XdStorageCacheChange.insert, transaction.getTimestart()));
+                    final Map<Object, XdStorageCacheObjectChange> readObjects = cache.workspace()
+                            .readObjectsOf(transaction);
+                    readObjects.put(id, new XdStorageCacheObjectChange(object, XdStorageCacheChange.insert, transaction
+                            .getTimestart()));
 
                     synchronized (record) {
                         record.prepareCommit(transaction);
@@ -118,32 +128,41 @@ public final class XdStorageCacheMutator {
                 cache.records().putIfAbsent(objectId, tmpRecord);
                 record = cache.records().get(objectId);
                 if (!record.canBeChangedByTransaction(transaction)) {
-                    log.error("INSERT refused (record check): object {} id {} record[state={}, ownerTx={}, recordTs={}]",
+                    log.error("INSERT refused (record check): object {} id {} record[state={}, ownerTx={}, " +
+                            "recordTs={}]",
                             newObject.getClass().getSimpleName(), objectId, record.getState(),
                             record.getOwnerTransactionId(), record.getRecordTimestamp());
                     record.unlock(transaction);
-                    throw new XdStorageException("object of " + newObject.getClass() + " with id " + objectId + " can not be inserted by transaction " + transactionId);
+                    throw new XdStorageException("object of " + newObject.getClass() + " with id " + objectId +
+                            " can not be inserted by transaction " + transactionId);
                 }
-                readObjects.put(objectId, new XdStorageCacheObjectChange(newObject, XdStorageCacheChange.insert, transaction.getTimestart()));
+                readObjects.put(objectId, new XdStorageCacheObjectChange(newObject, XdStorageCacheChange.insert,
+                        transaction.getTimestart()));
             } else {
                 synchronized (record) {
                     if (record.isChangedByTransaction(transaction)) {
                         if (record.isDeleteChange()) {
-                            log.error("INSERT refused: object {} id {} was deleted in this transaction", newObject.getClass().getSimpleName(), objectId);
-                            throw new XdStorageException("trying to insert deleted object of " + newObject.getClass() + " with id " + objectId);
+                            log.error("INSERT refused: object {} id {} was deleted in this transaction", newObject
+                                    .getClass().getSimpleName(), objectId);
+                            throw new XdStorageException("trying to insert deleted object of " + newObject.getClass() +
+                                    " with id " + objectId);
                         } else if (record.isInsertChange()) {
                             log.error("INSERT refused: double insert of object {} id {} in transaction {}",
                                     newObject.getClass().getSimpleName(), objectId, transactionId);
-                            throw new XdStorageException("trying to double insert one object of " + newObject.getClass() + " with id " + objectId);
+                            throw new XdStorageException("trying to double insert one object of " + newObject.getClass()
+                                    + " with id " + objectId);
                         } else {
                             log.error("INSERT refused: object {} id {} already exists (state={}, ownerTx={})",
-                                    newObject.getClass().getSimpleName(), objectId, record.getState(), record.getOwnerTransactionId());
-                            throw new XdStorageException("object of " + newObject.getClass() + " with id " + objectId + " is exists");
+                                    newObject.getClass().getSimpleName(), objectId, record.getState(), record
+                                            .getOwnerTransactionId());
+                            throw new XdStorageException("object of " + newObject.getClass() + " with id " + objectId +
+                                    " is exists");
                         }
                     } else {
                         log.error("INSERT refused: concurrent modification of object {} id {} — record owner is {}",
                                 newObject.getClass().getSimpleName(), objectId, record.getOwnerTransactionId());
-                        throw new XdStorageException("concurrent modification one object of " + newObject.getClass() + " with id " + objectId);
+                        throw new XdStorageException("concurrent modification one object of " + newObject.getClass() +
+                                " with id " + objectId);
                     }
                 }
             }
@@ -176,12 +195,14 @@ public final class XdStorageCacheMutator {
             // спуск через такой узел навсегда. Материализуем запись заново (как insert):
             // коммит узла запишет его на диск в согласии со структурой дерева.
             if (cache.isInfrastructureCache() && objectId != null) {
-                log.warn("UPDATE of infrastructure object {} id {} without cache record — re-materializing (structural ghost self-heal)",
+                log.warn("UPDATE of infrastructure object {} id {} without cache record — re-materializing " +
+                        "(structural ghost self-heal)",
                         newObject.getClass().getSimpleName(), objectId);
                 cache.insert(newObject, transaction);
                 return;
             }
-            throw new XdStorageException("object of " + newObject.getClass() + " with id " + objectId + " does not exists");
+            throw new XdStorageException("object of " + newObject.getClass() + " with id " + objectId +
+                    " does not exists");
         }
 
         // Запрашиваем лок ДО входа в глобальную критическую секцию транзакции!
@@ -208,11 +229,13 @@ public final class XdStorageCacheMutator {
                     // и все мутации, выполненные через другую инстанцию (например, подгруженный
                     // стаб ссылки B+ Дерева), молча терялись при коммите!
                     // =========================================================================
-                    final Map<Object, XdStorageCacheObjectChange> transitObjects = cache.workspace().readObjects(transactionId);
+                    final Map<Object, XdStorageCacheObjectChange> transitObjects = cache.workspace()
+                            .readObjects(transactionId);
                     if (transitObjects != null) {
                         final XdStorageCacheObjectChange previous = transitObjects.get(objectId);
                         if (previous != null) {
-                            transitObjects.put(objectId, new XdStorageCacheObjectChange(newObject, XdStorageCacheChange.update, previous.readTimestamp));
+                            transitObjects.put(objectId, new XdStorageCacheObjectChange(newObject, XdStorageCacheChange
+                                    .update, previous.readTimestamp));
                         }
                     }
                     return;
@@ -225,8 +248,10 @@ public final class XdStorageCacheMutator {
         }
     }
 
-    private void updateInternalAfterLock(final Object newObject, final XdStorageTransaction transaction, XdStorageCacheRecord record) throws XdStorageException {
-        log.debug("UPDATE by transaction {} of {}", transaction.getTransactionId(), newObject.getClass().getSimpleName());
+    private void updateInternalAfterLock(final Object newObject, final XdStorageTransaction transaction,
+            XdStorageCacheRecord record) throws XdStorageException {
+        log.debug("UPDATE by transaction {} of {}", transaction.getTransactionId(), newObject.getClass()
+                .getSimpleName());
 
         final String transactionId = transaction.getTransactionId();
         final Object objectId = cache.idField().get(newObject);
@@ -234,7 +259,8 @@ public final class XdStorageCacheMutator {
         // Перечитываем актуальное состояние ноды после прохождения барьера ожидания лока
         record = cache.records().get(objectId);
         if (record == null) {
-            throw new XdStorageException("object of " + cache.entityClass() + " with id " + objectId + " was deleted by another transaction");
+            throw new XdStorageException("object of " + cache.entityClass() + " with id " + objectId +
+                    " was deleted by another transaction");
         }
 
         final Map<Object, XdStorageCacheObjectChange> readObjects = cache.workspace().readObjectsOf(transaction);
@@ -254,7 +280,8 @@ public final class XdStorageCacheMutator {
             // BTreeEntityTest: дерево, видимое не существующим в БД, чужая tx не трогает).
             final boolean infraRelax = cache.isStructuralNodeCache()
                     || (cache.isInfrastructureCache()
-                        && !(record.isInsertChange() && !record.isCommittedState() && !record.isChangedByTransaction(transaction)));
+                        && !(record.isInsertChange() && !record.isCommittedState() && !record
+                                .isChangedByTransaction(transaction)));
             if (change != null) {
                 // LOSTUPD diagnostics: the accept/reject decision with its exact inputs —
                 // the read moment vs the record's version stamp.
@@ -266,29 +293,37 @@ public final class XdStorageCacheMutator {
                 if (!infraRelax && !record.canBeChangedByTransaction(transaction, change.readTimestamp)) {
                     // R-40: отказ обновления обязан оставлять в логе СОСТОЯНИЕ записи — без него
                     // отказ выглядит необъяснимым (владелец == сам апдейтер, но отказ).
-                    log.error("UPDATE refused (read-version check) object {} id {}: record[state={}, ownerTx={}, recordTs={}, txTs={}, readTs={}]",
-                            newObject.getClass().getSimpleName(), objectId, record.getState(), record.getOwnerTransactionId(),
+                    log.error("UPDATE refused (read-version check) object {} id {}: record[state={}, ownerTx={}, " +
+                            "recordTs={}, txTs={}, readTs={}]",
+                            newObject.getClass().getSimpleName(), objectId, record.getState(), record
+                                    .getOwnerTransactionId(),
                             record.getRecordTimestamp(), transaction.getTimestart(), change.readTimestamp);
                     record.unlock(transaction);
-                    throw new XdStorageException("object of " + newObject.getClass() + " with id " + objectId + " can not be updated by transaction " + transactionId);
+                    throw new XdStorageException("object of " + newObject.getClass() + " with id " + objectId +
+                            " can not be updated by transaction " + transactionId);
                 }
             } else if (!infraRelax && !record.canBeChangedByTransaction(transaction)) {
-                log.error("UPDATE refused (record check) object {} id {}: record[state={}, ownerTx={}, recordTs={}, txTs={}]",
-                        newObject.getClass().getSimpleName(), objectId, record.getState(), record.getOwnerTransactionId(),
+                log.error("UPDATE refused (record check) object {} id {}: record[state={}, ownerTx={}, recordTs={}, " +
+                        "txTs={}]",
+                        newObject.getClass().getSimpleName(), objectId, record.getState(), record
+                                .getOwnerTransactionId(),
                         record.getRecordTimestamp(), transaction.getTimestart());
                 record.unlock(transaction);
-                throw new XdStorageException("object of " + newObject.getClass() + " with id " + objectId + " can not be updated by transaction " + transactionId);
+                throw new XdStorageException("object of " + newObject.getClass() + " with id " + objectId +
+                        " can not be updated by transaction " + transactionId);
             }
 
             if (record.isReadChange()) {
                 record.setNewObject(cache.materializeForCache(newObject));
                 record.stageWriteReadTimestamp(change != null ? change.readTimestamp : transaction.getTimestart());
                 record.markUpdate(transaction);
-                readObjects.put(objectId, new XdStorageCacheObjectChange(newObject, XdStorageCacheChange.update, change != null ? change.readTimestamp : transaction.getTimestart()));
+                readObjects.put(objectId, new XdStorageCacheObjectChange(newObject, XdStorageCacheChange.update, change
+                        != null ? change.readTimestamp : transaction.getTimestart()));
             } else if (!record.isCommittedState() && record.isChangedByTransaction(transaction)) {
                 if (record.isUpdateChange() || record.isInsertChange()) {
                     record.setNewObject(cache.materializeForCache(newObject));
-                    readObjects.put(objectId, new XdStorageCacheObjectChange(newObject, XdStorageCacheChange.update, change != null ? change.readTimestamp : transaction.getTimestart()));
+                    readObjects.put(objectId, new XdStorageCacheObjectChange(newObject, XdStorageCacheChange.update,
+                            change != null ? change.readTimestamp : transaction.getTimestart()));
                 } else if (cache.isInfrastructureCache()) {
                     // MASSFILL (the purge family) / R-42: a STRUCTURE-owned record deleted by
                     // THIS transaction (the mass-delete collapse consumed the node) and then
@@ -296,22 +331,26 @@ public final class XdStorageCacheMutator {
                     // (R-42): the record update is meaningless — absorb silently instead of
                     // failing the whole caller subtree (the purge's per-element recovery used
                     // to skip live subtrees because of this throw).
-                    log.warn("UPDATE of infrastructure object {} id {} hit its own staged delete — absorbed (the structure moved on)",
+                    log.warn("UPDATE of infrastructure object {} id {} hit its own staged delete — absorbed (the " +
+                            "structure moved on)",
                             newObject.getClass().getSimpleName(), objectId);
                     record.unlock(transaction);
                     return;
                 } else {
                     record.unlock(transaction);
-                    throw new XdStorageException("object of " + newObject.getClass() + " with id " + objectId + " was deleted this transaction");
+                    throw new XdStorageException("object of " + newObject.getClass() + " with id " + objectId +
+                            " was deleted this transaction");
                 }
             } else if (infraRelax || record.canBeChangedByTransaction(transaction)) {
                 record.setNewObject(cache.materializeForCache(newObject));
                 record.stageWriteReadTimestamp(change != null ? change.readTimestamp : transaction.getTimestart());
                 record.markUpdate(transaction);
-                readObjects.put(objectId, new XdStorageCacheObjectChange(newObject, XdStorageCacheChange.update, change != null ? change.readTimestamp : transaction.getTimestart()));
+                readObjects.put(objectId, new XdStorageCacheObjectChange(newObject, XdStorageCacheChange.update, change
+                        != null ? change.readTimestamp : transaction.getTimestart()));
             } else {
                 record.unlock(transaction);
-                throw new XdStorageException("concurrent modification one object of " + newObject.getClass() + " with id " + objectId);
+                throw new XdStorageException("concurrent modification one object of " + newObject.getClass() +
+                        " with id " + objectId);
             }
         }
 
@@ -343,7 +382,8 @@ public final class XdStorageCacheMutator {
                         cache.entityClass().getSimpleName(), objectId);
                 return;
             }
-            throw new XdStorageException("object of " + cache.entityClass() + " with id " + objectId + " does not exists");
+            throw new XdStorageException("object of " + cache.entityClass() + " with id " + objectId +
+                    " does not exists");
         }
 
         // Запрашиваем лок ДО входа в глобальную критическую секцию транзакции!
@@ -358,7 +398,8 @@ public final class XdStorageCacheMutator {
         }
     }
 
-    private void deleteInternalAfterLock(final Object objectId, final XdStorageTransaction transaction, XdStorageCacheRecord record) throws XdStorageException {
+    private void deleteInternalAfterLock(final Object objectId, final XdStorageTransaction transaction,
+            XdStorageCacheRecord record) throws XdStorageException {
         log.debug("DELETE by transaction {} of id {}", transaction.getTransactionId(), objectId);
 
         final String transactionId = transaction.getTransactionId();
@@ -366,7 +407,8 @@ public final class XdStorageCacheMutator {
         // Перечитываем ноду из CHM, так как за время ожидания лока её могли подменить
         record = cache.records().get(objectId);
         if (record == null) {
-            throw new XdStorageException("object of " + cache.entityClass() + " with id " + objectId + " was deleted by another transaction");
+            throw new XdStorageException("object of " + cache.entityClass() + " with id " + objectId +
+                    " was deleted by another transaction");
         }
 
         final Map<Object, XdStorageCacheObjectChange> readObjects = cache.workspace().readObjectsOf(transaction);
@@ -380,15 +422,18 @@ public final class XdStorageCacheMutator {
             // BTreeEntityTest). Ноды удалению не подлежат контрактам — полная релаксация.
             final boolean infraRelax = cache.isStructuralNodeCache()
                     || (cache.isInfrastructureCache()
-                        && !(record.isInsertChange() && !record.isCommittedState() && !record.isChangedByTransaction(transaction)));
+                        && !(record.isInsertChange() && !record.isCommittedState() && !record
+                                .isChangedByTransaction(transaction)));
             if (change != null) {
                 if (!infraRelax && !record.canBeChangedByTransaction(transaction, change.readTimestamp)) {
                     record.unlock(transaction);
-                    throw new XdStorageException("object of " + cache.entityClass() + " with id " + objectId + " can not be deleted by transaction " + transactionId);
+                    throw new XdStorageException("object of " + cache.entityClass() + " with id " + objectId +
+                            " can not be deleted by transaction " + transactionId);
                 }
             } else if (!infraRelax && !record.canBeChangedByTransaction(transaction)) {
                 record.unlock(transaction);
-                throw new XdStorageException("object of " + cache.entityClass() + " with id " + objectId + " can not be deleted by transaction " + transactionId);
+                throw new XdStorageException("object of " + cache.entityClass() + " with id " + objectId +
+                        " can not be deleted by transaction " + transactionId);
             }
 
             if (record.isReadChange()) {
@@ -404,7 +449,8 @@ public final class XdStorageCacheMutator {
                         // R-40: инфра-вставка, удаленная в той же tx, остается обслуживаемой —
                         // живой инстанс может оставаться в структуре дерева.
                         record.setNewObject(null);
-                        record.stageDeleteReadTimestamp(change != null ? change.readTimestamp : transaction.getTimestart());
+                        record.stageDeleteReadTimestamp(change != null ? change.readTimestamp : transaction
+                                .getTimestart());
                 record.markDelete(transaction);
                     }
                     readObjects.remove(objectId);
@@ -415,7 +461,8 @@ public final class XdStorageCacheMutator {
                     readObjects.remove(objectId);
                 } else {
                     record.unlock(transaction);
-                    throw new XdStorageException("trying to double delete one object of " + cache.entityClass() + " with id " + objectId);
+                    throw new XdStorageException("trying to double delete one object of " + cache.entityClass() +
+                            " with id " + objectId);
                 }
             } else if (infraRelax || record.canBeChangedByTransaction(transaction)) {
                 record.setNewObject(null);
@@ -424,7 +471,8 @@ public final class XdStorageCacheMutator {
                 readObjects.remove(objectId);
             } else {
                 record.unlock(transaction);
-                throw new XdStorageException("concurrent modification one object of " + cache.entityClass() + " with id " + objectId);
+                throw new XdStorageException("concurrent modification one object of " + cache.entityClass() +
+                        " with id " + objectId);
             }
         }
 

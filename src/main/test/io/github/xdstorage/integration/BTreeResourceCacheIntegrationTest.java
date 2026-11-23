@@ -52,31 +52,38 @@ public class BTreeResourceCacheIntegrationTest {
         io.github.xdstorage.transaction.IXdStorageTransactionManager mockTxManager =
                 new io.github.xdstorage.transaction.IXdStorageTransactionManager() {
                     @Override
-                    public boolean isTransactionAlive(io.github.xdstorage.transaction.IXdStorageTransaction transaction) {
+                    public boolean isTransactionAlive(io.github.xdstorage.transaction.IXdStorageTransaction transaction)
+                            {
                         return true;
                     }
                     @Override
                     public IXdStorage getStorage() { return mockStorage; }
                     @Override
-                    public io.github.xdstorage.transaction.IXdStorageTransaction beginTransaction(long timeout) { return null; }
+                    public io.github.xdstorage.transaction.IXdStorageTransaction beginTransaction(long timeout) { return
+                            null; }
                     @Override
-                    public io.github.xdstorage.transaction.IXdStorageTransaction beginTransaction(io.github.xdstorage.transaction.IXdStorageTransaction transaction, long timeout) { return null; }
+                    public io.github.xdstorage.transaction.IXdStorageTransaction beginTransaction(io.github.xdstorage
+                            .transaction.IXdStorageTransaction transaction, long timeout) { return null; }
                     @Override
-                    public io.github.xdstorage.transaction.IXdStorageTransaction getTransaction(String transactionId) { return null; }
+                    public io.github.xdstorage.transaction.IXdStorageTransaction getTransaction(String transactionId) {
+                            return null; }
                     @Override
                     public void commitTransaction(io.github.xdstorage.transaction.IXdStorageTransaction transaction) {}
                     @Override
-                    public void rollbackTransaction(io.github.xdstorage.transaction.IXdStorageTransaction transaction) {}
+                    public void rollbackTransaction(io.github.xdstorage.transaction.IXdStorageTransaction transaction)
+                            {}
                     @Override
                     public XdStorageTransaction getCurrentTransaction() { return null; }
                     @Override
-                    public void registerRollbackOnlyTransaction(io.github.xdstorage.transaction.IXdStorageTransaction transaction) {}
+                    public void registerRollbackOnlyTransaction(io.github.xdstorage.transaction.IXdStorageTransaction
+                            transaction) {}
                 };
         when(mockServices.getTransactionsManager()).thenReturn(mockTxManager);
 
         // Настраиваем реальный или симулированный клонер ORM графа
         // (Остальной код метода оставляем без изменений)
-        IXdStorageCloner realCloner = new XdStorageSmartCloner(mock(io.github.xdstorage.factories.IXdStorageReferenceProvider.class));
+        IXdStorageCloner realCloner = new XdStorageSmartCloner(mock(io.github.xdstorage.factories
+                .IXdStorageReferenceProvider.class));
         when(mockServices.getCloner()).thenReturn(realCloner);
         when(mockServices.getStorage()).thenReturn(mockStorage);
 
@@ -213,7 +220,8 @@ public class BTreeResourceCacheIntegrationTest {
                         // Равномерно распределяем операции по 100 доступным бакетам метаданных
                         long targetId = ((workerId + j) % entitiesCount) + 1;
 
-                        // Выставляем промышленный таймаут в 15 000 мс для стабильного прохождения пиковой ForkJoin нагрузки
+                        // Выставляем промышленный таймаут в 15 000 мс для стабильного прохождения пиковой ForkJoin
+                        // нагрузки
                         // (RECIDENT: бюджет обязан соответствовать комментарию — 100 мс при 12-волновом
                         // столкновении на одном ключе ((workerId+j) % 100 == 12) истекают раньше,
                         // чем очередь на запись hot-записи успевает дрейнить, и lazy-насильство
@@ -252,8 +260,10 @@ public class BTreeResourceCacheIntegrationTest {
         // === ГЕНЕРАЛЬНАЯ ПРOВЕРКА СТАБИЛЬНOСТИ ЯДРА ===
         assertTrue(finishedCleanly, "🚨 СУБД заклинило! Потоки ушли в глухой дедлок блокировок кучи Java!");
         assertTrue(caughtExceptions.isEmpty(), "Фиксация падений по таймаутам или гонкам данных: " + caughtExceptions);
-        assertEquals(threadCount * operationsPerThread, successfulOperations.get(), "Не все транзакционные воркеры завершили циклы!");
-        log.info("Интеграционный стресс-тест успешно завершен. Выполнено атомарных операций: " + successfulOperations.get());
+        assertEquals(threadCount * operationsPerThread, successfulOperations.get(),
+                "Не все транзакционные воркеры завершили циклы!");
+        log.info("Интеграционный стресс-тест успешно завершен. Выполнено атомарных операций: " + successfulOperations
+                .get());
     }
 
     // Тестовый POJO JavaBeans класс, полностью совместимый с метаданными ORM ядра СУБД

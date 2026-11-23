@@ -332,8 +332,10 @@ public class ForeignKeyDifferentCollectionsTest extends AbstractForeignKeyBaseSp
         BTreeIndexParentManualId parent = new BTreeIndexParentManualId();
         parent.setChildren(new HashSet<>());
         parent.setId(10001L);
-        BTreeIndexChildManualId child1 = new BTreeIndexChildManualId(); child1.setId(20001L); child1.setParent(parent); parent.addChild(child1);
-        BTreeIndexChildManualId child2 = new BTreeIndexChildManualId(); child2.setId(20002L); child2.setParent(parent); parent.addChild(child2);
+        BTreeIndexChildManualId child1 = new BTreeIndexChildManualId(); child1.setId(20001L); child1.setParent(parent);
+                parent.addChild(child1);
+        BTreeIndexChildManualId child2 = new BTreeIndexChildManualId(); child2.setId(20002L); child2.setParent(parent);
+                parent.addChild(child2);
         storage.save(parent);
         assertDoesNotThrow(() -> storage.commitTransaction(tx));
     }
@@ -345,8 +347,10 @@ public class ForeignKeyDifferentCollectionsTest extends AbstractForeignKeyBaseSp
         BTreeIndexParentManualId parent = new BTreeIndexParentManualId();
         parent.setChildren(new HashSet<>());
         parent.setId(30001L);
-        BTreeIndexChildManualId child1 = new BTreeIndexChildManualId(); child1.setId(40001L); child1.setParent(parent); parent.addChild(child1);
-        BTreeIndexChildManualId child2 = new BTreeIndexChildManualId(); child2.setId(40002L); child2.setParent(parent); parent.addChild(child2);
+        BTreeIndexChildManualId child1 = new BTreeIndexChildManualId(); child1.setId(40001L); child1.setParent(parent);
+                parent.addChild(child1);
+        BTreeIndexChildManualId child2 = new BTreeIndexChildManualId(); child2.setId(40002L); child2.setParent(parent);
+                parent.addChild(child2);
         storage.save(child1);
         storage.save(child2);
         assertThrows(XdStorageRuntimeException.class, () -> storage.commitTransaction(tx));

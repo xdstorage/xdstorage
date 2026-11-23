@@ -49,7 +49,8 @@ public class XdStorageYamlTokenizerTest {
         assertNotNull(token);
         assertEquals(2, token.level);
         assertEquals("class", token.key);
-        assertEquals("io.github.xdstorage.entities.XdGalaxy", token.value, "Строковое значение класса искажено или потеряно!");
+        assertEquals("io.github.xdstorage.entities.XdGalaxy", token.value,
+                "Строковое значение класса искажено или потеряно!");
         assertFalse(token.isListItem);
 
         // 4. Строка: "\t\tname: 'MilkyWay'"

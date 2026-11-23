@@ -60,7 +60,8 @@ public class ForeignKeyChildFirstScenariosTest extends AbstractForeignKeyBaseSpe
     }
 
     @Test
-    @DisplayName("1b. Обновление child-ссылки на новый parent (не сохранён) ДО удаления из старого -> Успешно (FK-баг: engine не валидирует unsaved parent, Rule 2)")
+    @DisplayName("1b. Обновление child-ссылки на новый parent (не сохранён) ДО удаления из старого -> Успешно " +
+            "(FK-баг: engine не валидирует unsaved parent, Rule 2)")
     void testChildFirstUpdateToUnsavedParentSuccess() throws Exception {
         tx = storage.beginTransaction();
         BTreeIndexParentAutoId parent = new BTreeIndexParentAutoId();
@@ -228,7 +229,8 @@ public class ForeignKeyChildFirstScenariosTest extends AbstractForeignKeyBaseSpe
     }
 
     @Test
-    @DisplayName("2c. Множественное удаление children БЕЗ обновления parent -> Ошибка (parent ссылается на удалённые children)")
+    @DisplayName("2c. Множественное удаление children БЕЗ обновления parent -> Ошибка (parent ссылается на удалённые " +
+            "children)")
     void testChildFirstMultipleDeleteNoParentUpdateThrows() throws Exception {
         tx = storage.beginTransaction();
         BTreeIndexParentAutoId parent = new BTreeIndexParentAutoId();
@@ -261,7 +263,8 @@ public class ForeignKeyChildFirstScenariosTest extends AbstractForeignKeyBaseSpe
     }
 
     @Test
-    @DisplayName("2d. Удаление child, newParent ссылается на deleted child -> Успешно (FK-баг: engine не валидирует unsaved parent, Rule 2)")
+    @DisplayName("2d. Удаление child, newParent ссылается на deleted child -> Успешно (FK-баг: engine не валидирует " +
+            "unsaved parent, Rule 2)")
     void testChildFirstDeleteThenNewParentRefersSuccess() throws Exception {
         tx = storage.beginTransaction();
         BTreeIndexParentAutoId parent = new BTreeIndexParentAutoId();
@@ -324,7 +327,8 @@ public class ForeignKeyChildFirstScenariosTest extends AbstractForeignKeyBaseSpe
     }
 
     @Test
-    @DisplayName("3b. Сохранение child с parent-ref на не-существующий (unsaved) parent -> Ошибка, потому что parent не сохранен")
+    @DisplayName("3b. Сохранение child с parent-ref на не-существующий (unsaved) parent -> Ошибка, потому что parent " +
+            "не сохранен")
     void testChildFirstSaveWithUnsavedParentSuccess() throws Exception {
         tx = storage.beginTransaction();
         BTreeIndexParentAutoId parent = new BTreeIndexParentAutoId();
@@ -522,7 +526,8 @@ public class ForeignKeyChildFirstScenariosTest extends AbstractForeignKeyBaseSpe
     }
 
     @Test
-    @DisplayName("5c. Child-ссылка на manual-ID parent (не сохранён), parent не сохранён -> Успешно (FK-баг: engine не валидирует unsaved manual-ID parent, Rule 2)")
+    @DisplayName("5c. Child-ссылка на manual-ID parent (не сохранён), parent не сохранён -> Успешно (FK-баг: engine " +
+            "не валидирует unsaved manual-ID parent, Rule 2)")
     void testChildFirstManualIdParentNotPersistedSuccess() throws Exception {
         tx = storage.beginTransaction();
         BTreeIndexParentAutoId parent = new BTreeIndexParentAutoId();
@@ -586,7 +591,8 @@ public class ForeignKeyChildFirstScenariosTest extends AbstractForeignKeyBaseSpe
     }
 
     @Test
-    @DisplayName("6b. Child-First: save child с null parent -> TX2 parent добавляет child -> Успешно (rule 1: null parent ok)")
+    @DisplayName("6b. Child-First: save child с null parent -> TX2 parent добавляет child -> Успешно (rule 1: null " +
+            "parent ok)")
     void testChildFirstDeleteAcrossTxsSuccess() throws Exception {
         tx = storage.beginTransaction();
         BTreeIndexParentAutoId parent = new BTreeIndexParentAutoId();
@@ -618,7 +624,8 @@ public class ForeignKeyChildFirstScenariosTest extends AbstractForeignKeyBaseSpe
     // =========================================================================
 
     @Test
-    @DisplayName("7a. Save parent (auto-save children) -> children get IDs -> child-first save another child -> Успешно")
+    @DisplayName("7a. Save parent (auto-save children) -> children get IDs -> child-first save another child -> " +
+            "Успешно")
     void testChildFirstSaveAfterAutoSaveSuccess() throws Exception {
         tx = storage.beginTransaction();
         BTreeIndexParentAutoId parent = new BTreeIndexParentAutoId();

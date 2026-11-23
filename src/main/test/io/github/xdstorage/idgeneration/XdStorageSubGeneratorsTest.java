@@ -42,8 +42,10 @@ public class XdStorageSubGeneratorsTest {
 
         // Проверяем инварианты структуры сгенерированного Java-кода
         assertNotNull(generatedCode);
-        assertTrue(generatedCode.contains("public java.lang.Long getId()"), "Должен сгенерировать public-геттер для ID");
-        assertTrue(generatedCode.contains("return object.getId()"), "Должен перенаправлять вызов к оригинальному объекту");
+        assertTrue(generatedCode.contains("public java.lang.Long getId()"),
+                "Должен сгенерировать public-геттер для ID");
+        assertTrue(generatedCode.contains("return object.getId()"),
+                "Должен перенаправлять вызов к оригинальному объекту");
     }
 
     // === 2. ТЕСТИРОВАНИЕ XdStorageWrapperBlockSettersGenerator ===
@@ -58,7 +60,8 @@ public class XdStorageSubGeneratorsTest {
         XdStorageWrapperBlockSettersGenerator.generateSettersMethods(builder, ctx, simpleGenerator);
         String generatedCode = builder.toString();
 
-        assertTrue(generatedCode.contains("public void setName(java.lang.String var0)"), "Должен сгенерировать сеттер для Name");
+        assertTrue(generatedCode.contains("public void setName(java.lang.String var0)"),
+                "Должен сгенерировать сеттер для Name");
         assertTrue(generatedCode.contains("object.setName(var0)"), "Сеттер должен мутировать оригинальный объект");
     }
 
@@ -74,10 +77,12 @@ public class XdStorageSubGeneratorsTest {
         XdStorageUnmodifiableBlockGettersGenerator.generateLoadByGetGetters(builder, ctx, unmodifiableGenerator);
         String generatedCode = builder.toString();
 
-        // Проверяем защитные инварианты: unmodifiable-геттер обязан вызывать защиту транзакции markRollbackOnly при сбоях!
+        // Проверяем защитные инварианты: unmodifiable-геттер обязан вызывать защиту транзакции markRollbackOnly при
+        // сбоях!
         // RBCAUSE: the mark carries the first-cause site descriptor (field + entity class)
         assertTrue(generatedCode.contains("transaction.markRollbackOnly(\"lazy-load of field '"),
-                "Немодифицируемая обертка обязана метить транзакцию на откат при ошибках I/O ленивой загрузки (с дескриптором места)!");
+                "Немодифицируемая обертка обязана метить транзакцию на откат при ошибках I/O ленивой загрузки (с " +
+                        "дескриптором места)!");
         assertTrue(generatedCode.contains("storage.load"),
                 "Должен присутствовать вызов дискового движка хранения");
     }

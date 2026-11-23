@@ -135,7 +135,8 @@ public class XdStorageSearchEngineBenchmark {
         public void setUp() throws Exception {
             // R-50: уникальные имя и каталог на прогон - реестр провайдера и устаревший диск не мешают
             final String unique = Long.toString(System.nanoTime(), Character.MAX_RADIX);
-            storage = XdStorageProvider.newOrGetFileStorage("search-bench-" + unique, "./target/search_bench_" + unique, 512);
+            storage = XdStorageProvider.newOrGetFileStorage("search-bench-" + unique, "./target/search_bench_" + unique,
+                    512);
 
             // СЕРИАЛЬНАЯ предзагрузка всех диапазонов до старта рабочих потоков:
             // один транзакционный коммит на диапазон, нулевая конкуренция за Б+Деревья
@@ -155,7 +156,8 @@ public class XdStorageSearchEngineBenchmark {
             }
         }
 
-        private static SearchEngineShip newShip(final long id, final String name, final int tonnage, final long crewBase) {
+        private static SearchEngineShip newShip(final long id, final String name, final int tonnage, final long
+                crewBase) {
             final SearchEngineShip ship = new SearchEngineShip();
             ship.setId(id);
             ship.setName(name);
@@ -179,7 +181,8 @@ public class XdStorageSearchEngineBenchmark {
     // =========================================================================
 
     @Benchmark
-    public SearchEngineShip loadById_indexBaseline(final BenchmarkSharedState shared, final ThreadState ts) throws Exception {
+    public SearchEngineShip loadById_indexBaseline(final BenchmarkSharedState shared, final ThreadState ts) throws
+            Exception {
         final IXdStorageTransaction tx = shared.storage.beginTransaction(TX_TIMEOUT);
         try {
             final SearchEngineShip ship = shared.storage.load(SearchEngineShip.class, ts.sampleId(), tx);
@@ -192,7 +195,8 @@ public class XdStorageSearchEngineBenchmark {
     }
 
     @Benchmark
-    public java.util.Collection<SearchEngineShip> searchByPrimaryEquals(final BenchmarkSharedState shared, final ThreadState ts) throws Exception {
+    public java.util.Collection<SearchEngineShip> searchByPrimaryEquals(final BenchmarkSharedState shared, final
+            ThreadState ts) throws Exception {
         final XdStorageSearchQuery query = new XdStorageSearchQuery(
                 new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS, ts.sampleName()), null);
         final IXdStorageTransaction tx = shared.storage.beginTransaction(TX_TIMEOUT);
@@ -208,7 +212,8 @@ public class XdStorageSearchEngineBenchmark {
     }
 
     @Benchmark
-    public java.util.Collection<SearchEngineShip> searchByPrimaryEqualsWithFieldCriterion(final BenchmarkSharedState shared, final ThreadState ts) throws Exception {
+    public java.util.Collection<SearchEngineShip> searchByPrimaryEqualsWithFieldCriterion(final BenchmarkSharedState
+            shared, final ThreadState ts) throws Exception {
         // критерий согласован с выборкой: тоннаж выбранного корабля = его индекс % 50
         final String name = ts.sampleName();
         final XdStorageSearchQuery query = new XdStorageSearchQuery(
@@ -227,7 +232,8 @@ public class XdStorageSearchEngineBenchmark {
     }
 
     @Benchmark
-    public java.util.Collection<SearchEngineShip> searchByPrimaryEqualsWithChildCriterion(final BenchmarkSharedState shared, final ThreadState ts) throws Exception {
+    public java.util.Collection<SearchEngineShip> searchByPrimaryEqualsWithChildCriterion(final BenchmarkSharedState
+            shared, final ThreadState ts) throws Exception {
         final XdStorageSearchQuery query = new XdStorageSearchQuery(
                 new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS, ts.sampleName()),
                 new XdStorageChildCriterion("crew", SearchEngineCrewMember.class,
@@ -245,7 +251,8 @@ public class XdStorageSearchEngineBenchmark {
     }
 
     @Benchmark
-    public java.util.Collection<SearchEngineShip> searchByOrTwoPrimaries(final BenchmarkSharedState shared, final ThreadState ts) throws Exception {
+    public java.util.Collection<SearchEngineShip> searchByOrTwoPrimaries(final BenchmarkSharedState shared, final
+            ThreadState ts) throws Exception {
         final int i = ts.cursor % SHIPS_PER_THREAD;
         final int j = (i + 1) % SHIPS_PER_THREAD;
         final XdStorageSearchQuery query = new XdStorageSearchQuery(
@@ -265,7 +272,8 @@ public class XdStorageSearchEngineBenchmark {
 
     @Benchmark
     @Threads(1)
-    public java.util.Collection<SearchEngineShip> searchByScanNotEqualsPrimary(final BenchmarkSharedState shared, final ThreadState ts) throws Exception {
+    public java.util.Collection<SearchEngineShip> searchByScanNotEqualsPrimary(final BenchmarkSharedState shared, final
+            ThreadState ts) throws Exception {
         final XdStorageSearchQuery query = new XdStorageSearchQuery(
                 new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.NOT_EQUALS, "@@none@@"), null);
         final IXdStorageTransaction tx = shared.storage.beginTransaction(TX_TIMEOUT);
@@ -282,7 +290,8 @@ public class XdStorageSearchEngineBenchmark {
 
     @Benchmark
     @Threads(1)
-    public java.util.Collection<SearchEngineShip> searchByScanNullPrimaryFieldCriterion(final BenchmarkSharedState shared, final ThreadState ts) throws Exception {
+    public java.util.Collection<SearchEngineShip> searchByScanNullPrimaryFieldCriterion(final BenchmarkSharedState
+            shared, final ThreadState ts) throws Exception {
         final XdStorageSearchQuery query = new XdStorageSearchQuery(null,
                 new XdStorageCriterion("tonnage", IXdStorageCriterionOperator.EQUALS, 7));
         final IXdStorageTransaction tx = shared.storage.beginTransaction(TX_TIMEOUT);
@@ -309,7 +318,8 @@ public class XdStorageSearchEngineBenchmark {
     // =========================================================================
 
     @Benchmark
-    public java.util.Collection<SearchEngineShip> searchByPrimaryBetweenSelective(final BenchmarkSharedState shared, final ThreadState ts) throws Exception {
+    public java.util.Collection<SearchEngineShip> searchByPrimaryBetweenSelective(final BenchmarkSharedState shared,
+            final ThreadState ts) throws Exception {
         // lexicographic window [Ship-{t}-0 .. Ship-{t}-2]: a small prefix of the thread's
         // own 100 names; the walk aborts early past the upper bound
         final XdStorageSearchQuery query = new XdStorageSearchQuery(
@@ -328,7 +338,8 @@ public class XdStorageSearchEngineBenchmark {
     }
 
     @Benchmark
-    public java.util.Collection<SearchEngineShip> searchByPrimaryBetweenWide(final BenchmarkSharedState shared, final ThreadState ts) throws Exception {
+    public java.util.Collection<SearchEngineShip> searchByPrimaryBetweenWide(final BenchmarkSharedState shared, final
+            ThreadState ts) throws Exception {
         // nearly the thread's whole band: the upper bound sits at the end of the range,
         // so the walk cost approaches the scan — the honest "wide range" row
         final XdStorageSearchQuery query = new XdStorageSearchQuery(
@@ -347,7 +358,8 @@ public class XdStorageSearchEngineBenchmark {
     }
 
     @Benchmark
-    public java.util.Collection<SearchEngineShip> searchByPrimaryGT(final BenchmarkSharedState shared, final ThreadState ts) throws Exception {
+    public java.util.Collection<SearchEngineShip> searchByPrimaryGT(final BenchmarkSharedState shared, final ThreadState
+            ts) throws Exception {
         // lower bound only: no early termination — the honest "no-win without an upper
         // bound" row (cost equals the scan; the operator contract is what is exercised)
         final XdStorageSearchQuery query = new XdStorageSearchQuery(
@@ -365,7 +377,8 @@ public class XdStorageSearchEngineBenchmark {
     }
 
     @Benchmark
-    public java.util.Collection<SearchEngineShip> searchByPrimaryBetweenPagedLimit50(final BenchmarkSharedState shared, final ThreadState ts) throws Exception {
+    public java.util.Collection<SearchEngineShip> searchByPrimaryBetweenPagedLimit50(final BenchmarkSharedState shared,
+            final ThreadState ts) throws Exception {
         // FP-1b (docs/tasks/2.1.0/10): the SAME wide window as searchByPrimaryBetweenWide with
         // LIMIT 50 — the limit is pushed down into the ordered walk, which terminates as soon
         // as the page is complete: 50 objects fetched instead of 100, the walk-termination win
@@ -387,12 +400,14 @@ public class XdStorageSearchEngineBenchmark {
     }
 
     @Benchmark
-    public java.util.Collection<SearchEngineShip> searchByPrimaryIn(final BenchmarkSharedState shared, final ThreadState ts) throws Exception {
+    public java.util.Collection<SearchEngineShip> searchByPrimaryIn(final BenchmarkSharedState shared, final ThreadState
+            ts) throws Exception {
         // IN = ONE membership-filtered walk (not k point lookups)
         final XdStorageSearchQuery query = new XdStorageSearchQuery(
                 new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.IN,
                         java.util.Arrays.asList("Ship-" + ts.threadIdx + "-0", "Ship-" + ts.threadIdx + "-25",
-                                "Ship-" + ts.threadIdx + "-50", "Ship-" + ts.threadIdx + "-75", "Ship-" + ts.threadIdx + "-99")), null);
+                                "Ship-" + ts.threadIdx + "-50", "Ship-" + ts.threadIdx + "-75", "Ship-" + ts.threadIdx +
+                                        "-99")), null);
         final IXdStorageTransaction tx = shared.storage.beginTransaction(TX_TIMEOUT);
         try {
             final java.util.Collection<SearchEngineShip> found =
@@ -407,7 +422,8 @@ public class XdStorageSearchEngineBenchmark {
 
     @Benchmark
     @Threads(1)
-    public void saveAndDeleteIndexedShipWithCrew(final BenchmarkSharedState shared, final ThreadState ts) throws Exception {
+    public void saveAndDeleteIndexedShipWithCrew(final BenchmarkSharedState shared, final ThreadState ts) throws
+            Exception {
         final long freshId = ts.nextFreshId++;
         final SearchEngineShip ship = new SearchEngineShip();
         ship.setId(freshId);

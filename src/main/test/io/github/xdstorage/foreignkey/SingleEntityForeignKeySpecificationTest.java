@@ -62,7 +62,8 @@ public class SingleEntityForeignKeySpecificationTest extends AbstractForeignKeyS
         // Проверяем создание B+tree индекса front-направления
         XdStorageClassInfo parentMeta = XdStorageClassMetadataRegistry.getClassInfo(ModelParent.class);
         XdStorageClassInfo childMeta = XdStorageClassMetadataRegistry.getClassInfo(ModelChild.class);
-        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta, parentMeta.getFields().get("childRef"), transaction);
+        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta,
+                parentMeta.getFields().get("childRef"), transaction);
 
         Collection<Object> childIds = fkResource.readByParentObjectId(10L, transaction);
         assertEquals(1, childIds.size());
@@ -70,7 +71,8 @@ public class SingleEntityForeignKeySpecificationTest extends AbstractForeignKeyS
     }
 
     @Test
-    @DisplayName("Сценарий 2: Сохранение только ребенка с @XdStorageParentObject — Отказ на commit (родитель не сохранен)")
+    @DisplayName("Сценарий 2: Сохранение только ребенка с @XdStorageParentObject — Отказ на commit (родитель не " +
+            "сохранен)")
     void testSaveOnlyChildWithParentBackRefThrows() throws Exception {
         ModelParent parent = new ModelParent(); parent.setId(10L);
         ModelChild child = new ModelChild(); child.setId(99L);
@@ -115,7 +117,8 @@ public class SingleEntityForeignKeySpecificationTest extends AbstractForeignKeyS
 
         XdStorageClassInfo parentMeta = XdStorageClassMetadataRegistry.getClassInfo(ModelParent.class);
         XdStorageClassInfo childMeta = XdStorageClassMetadataRegistry.getClassInfo(ModelChild.class);
-        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta, parentMeta.getFields().get("childRef"), transaction);
+        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta,
+                parentMeta.getFields().get("childRef"), transaction);
 
         // Предустанавливаем связь в B+Tree индексе
         fkResource.insert(10L, 99L, transaction);
@@ -142,7 +145,8 @@ public class SingleEntityForeignKeySpecificationTest extends AbstractForeignKeyS
 
         XdStorageClassInfo parentMeta = XdStorageClassMetadataRegistry.getClassInfo(ModelParent.class);
         XdStorageClassInfo childMeta = XdStorageClassMetadataRegistry.getClassInfo(ModelChild.class);
-        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta, parentMeta.getFields().get("childRef"), transaction);
+        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta,
+                parentMeta.getFields().get("childRef"), transaction);
 
         fkResource.insert(10L, 99L, transaction);
 
@@ -164,7 +168,8 @@ public class SingleEntityForeignKeySpecificationTest extends AbstractForeignKeyS
 
         XdStorageClassInfo parentMeta = XdStorageClassMetadataRegistry.getClassInfo(ModelParent.class);
         XdStorageClassInfo childMeta = XdStorageClassMetadataRegistry.getClassInfo(ModelChild.class);
-        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta, parentMeta.getFields().get("childRef"), transaction);
+        IXdStorageForeignKeyResource fkResource = resourcesManager.lockForeignKeyResource(parentMeta, childMeta,
+                parentMeta.getFields().get("childRef"), transaction);
 
         // Первый раз сохраняем пару успешно
         fkResource.insert(10L, 99L, transaction);

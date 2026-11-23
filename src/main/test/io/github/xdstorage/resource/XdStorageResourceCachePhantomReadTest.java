@@ -235,7 +235,8 @@ public class XdStorageResourceCachePhantomReadTest extends AbstractXdStorageReso
     // =========================================================================
 
     private XdStorageTransactionResourceChanges mockResource() {
-        return new XdStorageTransactionResourceChanges(mock(io.github.xdstorage.resource.IXdStorageResourceObject.class));
+        return new XdStorageTransactionResourceChanges(mock(io.github.xdstorage.resource.IXdStorageResourceObject
+                .class));
     }
 
     private List<Long> ids(final Collection<TestEntity> entities) {

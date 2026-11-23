@@ -32,7 +32,8 @@ public class XdStorageSimpleWrapperClassCodeGenerator extends XdStorageAbstractC
      *         without id plumbing would silently degrade)
      */
     @Override
-    public Map<String, String> generate(final String classesPackage, final Class<?> cl, final Map<String, String> code) {
+    public Map<String, String> generate(final String classesPackage, final Class<?> cl, final Map<String, String> code)
+            {
         final GenerationContext ctx = collectMethodsAndClasses(cl);
 
         final StringBuilder builder = new StringBuilder();
@@ -59,7 +60,8 @@ public class XdStorageSimpleWrapperClassCodeGenerator extends XdStorageAbstractC
         return code;
     }
 
-    private void appendPackageAndClassHeader(final StringBuilder builder, final String classesPackage, final String className, final Class<?> cl) {
+    private void appendPackageAndClassHeader(final StringBuilder builder, final String classesPackage, final String
+            className, final Class<?> cl) {
         builder.append("package ").append(classesPackage).append(";\r\n\r\n");
         builder.append("public class ").append(className).append(" extends ").append(getSourceTypeName(cl));
         builder.append(" implements ").append(IXdStorageSimpleWrapper.class.getName()).append(" {\r\n");
@@ -70,7 +72,8 @@ public class XdStorageSimpleWrapperClassCodeGenerator extends XdStorageAbstractC
         builder.append("\r\n\tprivate ").append(Object.class.getName()).append(" parent;\r\n");
         builder.append("\r\n\tprivate ").append(IXdStorage.class.getName()).append(" storage;\r\n");
         builder.append("\r\n\tprivate volatile boolean reference__ = true;\r\n");
-        builder.append("\r\n\tprivate ").append(Lock.class.getName()).append(" lock__ = new ").append(ReentrantLock.class.getName()).append("();\r\n");
+        builder.append("\r\n\tprivate ").append(Lock.class.getName()).append(" lock__ = new ").append(ReentrantLock
+                .class.getName()).append("();\r\n");
     }
 
     private void appendConstructor(final StringBuilder builder, final String className, final Class<?> cl) {
@@ -136,7 +139,8 @@ public class XdStorageSimpleWrapperClassCodeGenerator extends XdStorageAbstractC
         // 1) Проверяем объект-параметр: является ли он SimpleWrapper?
         builder.append("\t\tif (obj instanceof ").append(IXdStorageSimpleWrapper.class.getName()).append(") {\r\n");
         // 1.1) Если да — вытаскиваем обёрнутый объект напрямую и сравниваем со своим
-        builder.append("\t\t\treturn this.object.equals(((").append(IXdStorageSimpleWrapper.class.getName()).append(") obj).getWrappedObject__());\r\n");
+        builder.append("\t\t\treturn this.object.equals(((").append(IXdStorageSimpleWrapper.class.getName())
+                .append(") obj).getWrappedObject__());\r\n");
         builder.append("\t\t}\r\n\r\n");
 
         // 1.2) Если нет (прилетел чистый объект или другой тип) — эти объекты НЕ равны!

@@ -147,7 +147,8 @@ public class XdStorageNestedTransactionIsolationStressTest {
                                 totalLockBackpressure.incrementAndGet();
                             } else {
                                 exceptions.add(new AssertionError(
-                                        String.format("🚨 Крах транзакционного контракта вложенности в потоке %d на шаге %d", workerId, localStep), t));
+                                        String.format("🚨 Крах транзакционного контракта вложенности в потоке %d на " +
+                                                "шаге %d", workerId, localStep), t));
                             }
                         }
                     }
@@ -175,18 +176,21 @@ public class XdStorageNestedTransactionIsolationStressTest {
         System.out.println("📊 ИТОГИ СТРЕСС-ТЕСТА ВЛОЖЕННЫХ ТРАНЗАКЦИЙ:");
         System.out.println("🔹 Успешных глобальных коммитов (Parent Commits): " + totalParentCommits.get());
         System.out.println("🔹 Зафиксированных вложенных сессий (Nested Commits): " + totalNestedCommits.get());
-        System.out.println("🔹 Изолированных откатов вложенных сессий (Nested Rollbacks): " + totalNestedRollbacks.get());
+        System.out.println("🔹 Изолированных откатов вложенных сессий (Nested Rollbacks): " + totalNestedRollbacks
+                .get());
         System.out.println("🔹 Штатное противодавление блокировок (Backpressure): " + totalLockBackpressure.get());
         System.out.println("=========================================================================");
 
         // Анализируем сбои
         if (!exceptions.isEmpty()) {
-            System.err.println("🚨 ОБНАРУЖЕНЫ АНОМАЛИИ ВЗАИМНЫХ БЛОКИРОВОК ИЛИ УТEЧEК ВEРСИЙ (" + exceptions.size() + " шт):");
+            System.err.println("🚨 ОБНАРУЖЕНЫ АНОМАЛИИ ВЗАИМНЫХ БЛОКИРОВОК ИЛИ УТEЧEК ВEРСИЙ (" + exceptions.size() +
+                    " шт):");
             exceptions.forEach(e -> {
                 System.err.println("---");
                 e.printStackTrace(System.err);
             });
-            fail("МВСС-ЯДРО СЛОМАЛОСЬ НА ВЛОЖЕННЫХ ТРАНЗАКЦИЯХ! Обнаружены дедлоки, NPE или просадки Snapshot Isolation.");
+            fail("МВСС-ЯДРО СЛОМАЛОСЬ НА ВЛОЖЕННЫХ ТРАНЗАКЦИЯХ! Обнаружены дедлоки, NPE или просадки Snapshot " +
+                    "Isolation.");
         } else {
             System.out.println("🎉 ИДЕАЛЬНО! Ни одной гонки данных, каскадные вложенные ролбэки изолированы на 100%.");
         }

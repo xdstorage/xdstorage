@@ -134,12 +134,14 @@ public class XdStorageLayout200UpgradeTest {
     // ────────────────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("walkthrough: реальный 2.0.0 → миграция → контент цел (загрузки, поиск, кириллица) → verify OK → save не затирает → reopen")
+    @DisplayName("walkthrough: реальный 2.0.0 → миграция → контент цел (загрузки, поиск, кириллица) → verify OK → " +
+            "save не затирает → reopen")
     public void walkthrough_GoldenFixture_MigrationContentVerifySave() throws Exception {
         // ── the pre-state: the exact 2.0.0 layout ──
         final Properties before = readMarker();
         assertEquals("2", before.getProperty("formatVersion"), "the fixture is stamped v2");
-        assertEquals("2.0.0", before.getProperty("libraryVersion"), "the fixture provenance: written by the released 2.0.0");
+        assertEquals("2.0.0", before.getProperty("libraryVersion"),
+                "the fixture provenance: written by the released 2.0.0");
         assertTrue(new File(FIXTURE_ROOT + "/data/Gal200Child/index.yaml").isFile(),
                 "the 2.0.0 id-index base at the legacy location (the core migration gap)");
         assertTrue(new File(FIXTURE_ROOT + "/data/Gal200Hash/index.yaml").isFile(),
@@ -151,7 +153,8 @@ public class XdStorageLayout200UpgradeTest {
                 "the stacked 2.0.0 journal (the data lives here)");
 
         // ── open with 2.1.0: the migration runs at open ──
-        final IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage("layout-mig-walkthrough", FIXTURE_ROOT, 64);
+        final IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage("layout-mig-walkthrough", FIXTURE_ROOT,
+                64);
 
         try {
             // the files moved
@@ -174,7 +177,8 @@ public class XdStorageLayout200UpgradeTest {
             // the marker upgraded to v3
             final Properties after = readMarker();
             assertEquals("3", after.getProperty("formatVersion"), "the marker rewritten v2 → v3 after the migration");
-            assertEquals(before.getProperty("createdAt"), after.getProperty("createdAt"), "createdAt preserved across the upgrade");
+            assertEquals(before.getProperty("createdAt"), after.getProperty("createdAt"),
+                    "createdAt preserved across the upgrade");
             assertEquals(io.github.xdstorage.XdStorageProvider.getVersion(), after.getProperty("libraryVersion"),
                     "libraryVersion refreshed: the last writer is the running library");
 
@@ -196,7 +200,8 @@ public class XdStorageLayout200UpgradeTest {
             assertEquals("значение-7", hash.getValue(), "hash-значение кириллицей intact");
             // the search index over the MIGRATED trees
             final Gal200Parent found = storage.load(Gal200Parent.class, "titleIdx", new XdStorageSearchQuery(
-                    new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS, "Система-альфа-6"), null), tx).iterator().next();
+                    new XdStoragePrimaryCriterion(IXdStorageCriterionOperator.EQUALS, "Система-альфа-6"), null), tx)
+                            .iterator().next();
             assertEquals("gal-6", found.getId(), "поиск по мигрированному поисковому индексу находит");
             tx.commit();
 
@@ -242,7 +247,8 @@ public class XdStorageLayout200UpgradeTest {
         assertTrue(report.files.size() > 10, "верификатор прошёл по всей папке");
 
         // ── reopen: idempotent + everything still there + the journals settled ──
-        final IXdFileStorage reopened = XdStorageProvider.newOrGetFileStorage("layout-mig-walkthrough", FIXTURE_ROOT, 64);
+        final IXdFileStorage reopened = XdStorageProvider.newOrGetFileStorage("layout-mig-walkthrough", FIXTURE_ROOT,
+                64);
         try {
             final IXdStorageTransaction tx = reopened.beginTransaction();
             final Gal200Child reopenedChild = reopened.load(Gal200Child.class, "gal-0-c0", tx);
@@ -276,7 +282,8 @@ public class XdStorageLayout200UpgradeTest {
     public void crashMatrix_InfraMovedBasesNot_CompletesOnNextOpen() throws Exception {
         // simulate the crash: the infra moved, the index bases still at the legacy location
         move(new File(FIXTURE_ROOT + "/data/XdStorageBTree"), new File(FIXTURE_ROOT + "/indexes/XdStorageBTree"));
-        move(new File(FIXTURE_ROOT + "/data/XdStorageBTreeNode"), new File(FIXTURE_ROOT + "/indexes/XdStorageBTreeNode"));
+        move(new File(FIXTURE_ROOT + "/data/XdStorageBTreeNode"), new File(FIXTURE_ROOT +
+                "/indexes/XdStorageBTreeNode"));
         // the marker still v2 (the crash happened before the marker rewrite)
         assertEquals("2", readMarker().getProperty("formatVersion"), "полумигрированное состояние: маркер ещё v2");
 
@@ -372,7 +379,8 @@ public class XdStorageLayout200UpgradeTest {
         final XdStorageRuntimeException refused = assertThrows(XdStorageRuntimeException.class,
                 () -> XdStorageProvider.newOrGetFileStorage("layout-mig-dg-2", FIXTURE_ROOT, 64),
                 "папка от «будущей» версии обязана отказать громко (2.0.0 делает то же с v3-маркером)");
-        assertTrue(refused.getMessage().contains("format v99"), "сообщение содержит поколение: " + refused.getMessage());
+        assertTrue(refused.getMessage().contains("format v99"), "сообщение содержит поколение: " + refused
+                .getMessage());
     }
 
     // ────────────────────────────────────────────────────────────────────────

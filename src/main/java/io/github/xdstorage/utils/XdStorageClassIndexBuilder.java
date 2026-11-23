@@ -27,14 +27,16 @@ public final class XdStorageClassIndexBuilder {
      * @param fields the class's scanned fields, by field name (source of the accessors)
      * @return the search indexes by index name (an empty map when none are declared)
      */
-    public static Map<String, XdStorageSearchIndex> buildIndexes(final Class<?> cl, final Map<String, XdStorageObjectField> fields) {
+    public static Map<String, XdStorageSearchIndex> buildIndexes(final Class<?> cl, final Map<String,
+            XdStorageObjectField> fields) {
         if (!cl.isAnnotationPresent(XdStorageObjectSearchIndex.class)) return Collections.emptyMap();
 
         final Map<String, XdStorageSearchIndex> indexes = new HashMap<>();
         final XdStorageObjectIdField idField = XdStorageClassMetadataRegistry.getClassIdField(cl);
 
         for (final XdStorageObjectSearchIndex annotation : cl.getAnnotationsByType(XdStorageObjectSearchIndex.class)) {
-            final XdStorageSearchIndex index = new XdStorageSearchIndex(idField, annotation.indexName(), annotation.t());
+            final XdStorageSearchIndex index = new XdStorageSearchIndex(idField, annotation.indexName(), annotation
+                    .t());
             indexes.put(index.getName(), index);
 
             int i = 0;
@@ -71,15 +73,18 @@ public final class XdStorageClassIndexBuilder {
     }
 
     private static void attachChildClassIndex(final String childFieldName, final Class<?> cl, final Class<?> fieldType,
-                                              final XdStorageObjectField accessor, final XdStorageSearchIndex index, final String childIndexName) {
+                                              final XdStorageObjectField accessor, final XdStorageSearchIndex index,
+                                                      final String childIndexName) {
         final XdStorageObjectIdField idField = XdStorageClassMetadataRegistry.getClassIdField(fieldType);
-        for (final XdStorageObjectSearchIndex annotation : fieldType.getAnnotationsByType(XdStorageObjectSearchIndex.class)) {
+        for (final XdStorageObjectSearchIndex annotation : fieldType.getAnnotationsByType(XdStorageObjectSearchIndex
+                .class)) {
             if (annotation.indexName().equals(childIndexName)) {
                 index.addChildIndex(childFieldName, childIndexName);
                 index.addChildAccessor(childFieldName, fieldType, accessor);
                 index.addChildIdField(fieldType, idField);
 
-                final Map<String, XdStorageObjectField> fields = XdStorageClassMetadataRegistry.getClassFields(fieldType);
+                final Map<String, XdStorageObjectField> fields = XdStorageClassMetadataRegistry
+                        .getClassFields(fieldType);
                 for (final String fieldName : annotation.indexFieldNames()) {
                     final XdStorageObjectField field = fields.get(fieldName);
                     if (XdStorageObjectUtils.isSimpleType(field.getFieldInfo().getClazz(), null)) {

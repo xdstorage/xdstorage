@@ -47,7 +47,8 @@ public class XdStorageYamlBlockObjectsWriterTest {
         planet.setName("Tatooine");
         planet.setWaterPercent(0);
 
-        XdStorageYamlBlockObjectsWriter.writeObjectData(planet, emitter, mockLocator, simpleTypeHelper, mockIdGenerator);
+        XdStorageYamlBlockObjectsWriter.writeObjectData(planet, emitter, mockLocator, simpleTypeHelper,
+                mockIdGenerator);
 
         String result = writer.toString();
 

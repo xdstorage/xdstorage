@@ -110,7 +110,8 @@ public class XdStorageObjectGraphPolicyAndIndexTest {
                     // ПРOВЕРКА ПОЛИТИКИ StoreWithParentObject:
                     // Объект Черной Дыры обязан был десериализоваться из тела родительской галактики!
                     XdBlackHole hole = galaxy.getHole();
-                    assertNotNull(hole, "Внедренный объект XdBlackHole (StoreWithParentObject) потерян при десериализации графа родителя!");
+                    assertNotNull(hole, "Внедренный объект XdBlackHole (StoreWithParentObject) потерян при " +
+                            "десериализации графа родителя!");
                     assertNotNull(hole.getId(), "Идентификатор внедренной черной дыры не должен быть null!");
                 }
             }
@@ -162,7 +163,9 @@ public class XdStorageObjectGraphPolicyAndIndexTest {
 
         // По правилам ACID-изоляции (Read Committed / Snapshot), грязная вставка не закоммичена,
         // и коллекция обязана остаться девственно пустой!
-        assertTrue(planets.isEmpty(), "Критический баг MVCC роллбэка! Грязный объект просочился в базу данных после отката транзакции вставки!");
+        assertTrue(planets.isEmpty(),
+                "Критический баг MVCC роллбэка! Грязный объект просочился в базу данных после отката транзакции " +
+                "вставки!");
         txVerify.commit();
     }
 }

@@ -21,7 +21,8 @@ public abstract class XdStorageAbstractClassCodeGenerator {
     /** Shared SLF4J logger for this generator and all its subclasses. */
     protected static final Logger log = LoggerFactory.getLogger(XdStorageAbstractClassCodeGenerator.class);
 
-    /** Whether strong getters whose backing field carries {@code XdStorageLoadByGetMethod} are generated as lazy-load accessors. */
+    /** Whether strong getters whose backing field carries {@code XdStorageLoadByGetMethod} are generated as
+     * lazy-load accessors. */
     protected final boolean generateLoadByGet;
 
     /**
@@ -33,7 +34,8 @@ public abstract class XdStorageAbstractClassCodeGenerator {
         protected GenerationContext() {
         }
 
-        /** The getter of the {@code XdStorageParentObject}-annotated field, or {@code null} when the class has no parent getter. */
+        /** The getter of the {@code XdStorageParentObject}-annotated field, or {@code null} when the class has no
+         * parent getter. */
         public Method parentGetter;
 
         /** Getters returning simple-typed fields (emitted as plain delegating accessors). */
@@ -45,10 +47,12 @@ public abstract class XdStorageAbstractClassCodeGenerator {
         /** All {@code set*} methods of the entity class. */
         public final List<Method> setters = new ArrayList<>();
 
-        /** Strong getters whose backing field carries {@code XdStorageLoadByGetMethod} (emitted as lazy-load accessors). */
+        /** Strong getters whose backing field carries {@code XdStorageLoadByGetMethod} (emitted as lazy-load
+         * accessors). */
         public final List<Method> strongLoadByGetGetters = new ArrayList<>();
 
-        /** Public methods that are neither accessors nor {@code equals}/{@code hashCode}/{@code toString} (emitted as closed/delegating methods). */
+        /** Public methods that are neither accessors nor {@code equals}/{@code hashCode}/{@code toString} (emitted
+         * as closed/delegating methods). */
         public final List<Method> toCloseMethods = new ArrayList<>();
     }
 
@@ -77,7 +81,8 @@ public abstract class XdStorageAbstractClassCodeGenerator {
      * @param code           accumulator map keyed by fully-qualified generated class name
      * @return the same accumulator map with the generated source added
      */
-    public abstract Map<String, String> generate(final String classesPackage, final Class<?> cl, final Map<String, String> code);
+    public abstract Map<String, String> generate(final String classesPackage, final Class<?> cl, final Map<String,
+            String> code);
 
     /**
      * Возвращает имя класса в форме, пригодной для подстановки в генерируемый исходный код Java.
@@ -114,8 +119,10 @@ public abstract class XdStorageAbstractClassCodeGenerator {
      * @param exceptionTypes    declared checked exceptions to re-emit
      * @return the method header source, without body
      */
-    protected String buildMethodDefinition(final int modifiers, final String name, final TypeVariable<Method>[] typeParameters, final Class<?> returnType,
-                                           final Type genReturnType, final Class<?>[] parameterTypes, final Type[] genParameterTypes,
+    protected String buildMethodDefinition(final int modifiers, final String name, final TypeVariable<Method>[]
+            typeParameters, final Class<?> returnType,
+                                           final Type genReturnType, final Class<?>[] parameterTypes, final Type[]
+                                                   genParameterTypes,
                                            final Class<?>[] exceptionTypes) {
         final StringBuilder builder = new StringBuilder();
         // MSGHYGIENE (docs/tasks/2.1.0/39): the modifiers parameter was ignored and the
@@ -140,7 +147,8 @@ public abstract class XdStorageAbstractClassCodeGenerator {
             }
             builder.append("> ");
         }
-        if (genReturnType != null && (genReturnType instanceof ParameterizedType || genReturnType instanceof TypeVariable)) {
+        if (genReturnType != null && (genReturnType instanceof ParameterizedType || genReturnType instanceof
+                TypeVariable)) {
             builder.append(genReturnType.toString());
         } else {
             builder.append(getSourceTypeName(returnType));

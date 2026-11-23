@@ -89,7 +89,9 @@ public class PropCrudRoundTripTest {
 
     @Property(tries = 60)
     void crudRoundTrip_RestoresEveryField_OnEveryPolicy(@ForAll final int seed,
-                                                       @ForAll @net.jqwik.api.constraints.IntRange(min = 0, max = 2) final int arm) throws XdStorageException, XdStorageConnectionException {
+                                                       @ForAll @net.jqwik.api.constraints.IntRange(min = 0, max = 2)
+                                                               final int arm) throws XdStorageException,
+                                                               XdStorageConnectionException {
         final PropWideLike original = entityFor(arm, seed);
         final Class<? extends PropWideLike> cl = classFor(arm);
         final File dir = folder(ARMS[arm]);
@@ -124,7 +126,9 @@ public class PropCrudRoundTripTest {
 
     @Property(tries = 30)
     void duplicateIdInsert_RefusesLoudly_CrossTransaction(@ForAll final int seed,
-                                                         @ForAll @net.jqwik.api.constraints.IntRange(min = 0, max = 2) final int arm) throws XdStorageException, XdStorageConnectionException {
+                                                         @ForAll @net.jqwik.api.constraints.IntRange(min = 0, max = 2)
+                                                                final int arm) throws XdStorageException,
+                                                                XdStorageConnectionException {
         final PropWideLike original = entityFor(arm, seed);
         final Class<? extends PropWideLike> cl = classFor(arm);
         final File dir = folder(ARMS[arm] + "-dup");
@@ -155,7 +159,9 @@ public class PropCrudRoundTripTest {
 
     @Property(tries = 20)
     void missingId_LoadsAsNull_AndUpdateOfMissingRefuses(@ForAll final int seed,
-                                                         @ForAll @net.jqwik.api.constraints.IntRange(min = 0, max = 2) final int arm) throws XdStorageException, XdStorageConnectionException {
+                                                         @ForAll @net.jqwik.api.constraints.IntRange(min = 0, max = 2)
+                                                                final int arm) throws XdStorageException,
+                                                                XdStorageConnectionException {
         final Class<? extends PropWideLike> cl = classFor(arm);
         final File dir = folder(ARMS[arm] + "-miss");
         final IXdFileStorage storage = openIn(dir, ARMS[arm] + "-miss");
@@ -170,7 +176,9 @@ public class PropCrudRoundTripTest {
 
     @Property(tries = 20)
     void update_TransfersChangedContent_RoundTrip(@ForAll final int seed,
-                                                  @ForAll @net.jqwik.api.constraints.IntRange(min = 0, max = 2) final int arm) throws XdStorageException, XdStorageConnectionException {
+                                                  @ForAll @net.jqwik.api.constraints.IntRange(min = 0, max = 2) final
+                                                          int arm) throws XdStorageException,
+                                                          XdStorageConnectionException {
         final PropWideLike v1 = entityFor(arm, seed);
         final PropWideLike v2 = entityFor(arm, seed + 100_000); // the different deterministic content
         final Class<? extends PropWideLike> cl = classFor(arm);

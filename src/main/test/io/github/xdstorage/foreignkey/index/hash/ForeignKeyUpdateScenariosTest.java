@@ -34,7 +34,8 @@ public class ForeignKeyUpdateScenariosTest extends AbstractForeignKeyBaseSpecifi
     }
 
     @Test
-    @DisplayName("1. Удаление ребенка из коллекции родителя и обновление только родителя -> Успешный commit (Правило 4: удаление из коллекции ≠ удаление объекта)")
+    @DisplayName("1. Удаление ребенка из коллекции родителя и обновление только родителя -> Успешный commit (Правило " +
+            "4: удаление из коллекции ≠ удаление объекта)")
     void testUpdateOnlyParentAfterRemovingChildSuccess() throws Exception {
         tx = storage.beginTransaction();
         HashIndexParentAutoId parent = storage.load(HashIndexParentAutoId.class, parentId);
@@ -49,7 +50,8 @@ public class ForeignKeyUpdateScenariosTest extends AbstractForeignKeyBaseSpecifi
     }
 
     @Test
-    @DisplayName("2. Удаление ребенка из коллекции родителя и удаление только ребенка (без апдейта родителя) -> Ошибка на commit")
+    @DisplayName("2. Удаление ребенка из коллекции родителя и удаление только ребенка (без апдейта родителя) -> " +
+            "Ошибка на commit")
     void testDeleteOnlyChildWithoutUpdatingParentThrows() throws Exception {
         tx = storage.beginTransaction();
         HashIndexParentAutoId parent = storage.load(HashIndexParentAutoId.class, parentId);
@@ -80,7 +82,8 @@ public class ForeignKeyUpdateScenariosTest extends AbstractForeignKeyBaseSpecifi
     }
 
     @Test
-    @DisplayName("4. Удаление всех детей из коллекции родителя и обновление только родителя -> Успешный commit (Правило 4: удаление из коллекции ≠ удаление объекта)")
+    @DisplayName("4. Удаление всех детей из коллекции родителя и обновление только родителя -> Успешный commit " +
+            "(Правило 4: удаление из коллекции ≠ удаление объекта)")
     void testUpdateOnlyParentAfterRemovingAllChildrenSuccess() throws Exception {
         tx = storage.beginTransaction();
         HashIndexParentAutoId parent = storage.load(HashIndexParentAutoId.class, parentId);
@@ -92,7 +95,8 @@ public class ForeignKeyUpdateScenariosTest extends AbstractForeignKeyBaseSpecifi
     }
 
     @Test
-    @DisplayName("5. Удаление всех детей из коллекции родителя, обновление родителя и удаление всех детей -> Успешный commit")
+    @DisplayName("5. Удаление всех детей из коллекции родителя, обновление родителя и удаление всех детей -> " +
+            "Успешный commit")
     void testUpdateParentAndDeleteAllChildrenSuccess() throws Exception {
         tx = storage.beginTransaction();
         HashIndexParentAutoId parent = storage.load(HashIndexParentAutoId.class, parentId);
@@ -109,7 +113,8 @@ public class ForeignKeyUpdateScenariosTest extends AbstractForeignKeyBaseSpecifi
     }
 
     @Test
-    @DisplayName("6. Удаление ребенка из коллекции родителя, обновление родителя и удаление другого ребенка (ссылка в родителе жива) -> ВЕТО: висячая ссылка")
+    @DisplayName("6. Удаление ребенка из коллекции родителя, обновление родителя и удаление другого ребенка (ссылка " +
+            "в родителе жива) -> ВЕТО: висячая ссылка")
     void testUpdateParentAndDeleteAnotherChildWithLiveReferenceThrows() throws Exception {
         tx = storage.beginTransaction();
         HashIndexParentAutoId parent = storage.load(HashIndexParentAutoId.class, parentId);
