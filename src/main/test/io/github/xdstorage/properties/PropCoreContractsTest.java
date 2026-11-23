@@ -13,6 +13,9 @@ import net.jqwik.api.Property;
 import net.jqwik.api.lifecycle.AfterTry;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -61,15 +64,9 @@ public class PropCoreContractsTest {
 
     // ───────────────────────── P4.1: the FK veto/cascade property ─────────────────────────
 
-    @Property(tries = 20)
-    @org.junit.jupiter.api.Disabled("FINDING #7 (PROPTEST Этап 4): the canonical FK cascade flow "
-        + "(save(parent-with-children) → commit → load(parent)) returns NULL on the parent load "
-        + "even in-storage, and the FK engine's treeParentChild NPEs on the next op — the same "
-        + "shape passes in the FK estate (ForeignKeyUpdateTest), so the difference is either the "
-        + "config (the FK estate uses the 4-arg YAML open) or the deferred-id/FK registration on "
-        + "the fresh-instance path. OWNER: the FK-cascade triage = its own session (the findings "
-        + "compilation); the estate's example tests pin these contracts meanwhile. "
-        + "DISPOSITION: documented debt — a skipped test, never a silent skip.")
+    @Property(tries = 3)
+    // TRIAGE (2026-11-23): temporarily enabled — FINDING #7, the history in the task file
+    // (the triage result: NOT reproducible outside the jqwik run — see the diag prints)
     void fkVetoAndLegalCycle_HoldUnderRandomShapes(@ForAll final int seed) throws Exception {
         final Random rnd = new Random(seed);
         final File dir = new File("./target/pt-fk-" + System.nanoTime());
@@ -91,15 +88,38 @@ public class PropCoreContractsTest {
                 child.setParent(parent);
                 parent.addChild(child);
             }
-            storage.save(parent, tx(storage));
+            final IXdStorageTransaction saveTx = tx(storage);
+            System.out.println("[PT-FK][step] before-save instance=" + System.identityHashCode(storage)
+                    + " name=" + storage.getName() + " tx=" + saveTx.getTransactionId());
+            storage.save(parent, saveTx);
+            System.out.println("[PT-FK][step] after-save has=" + storage.has(Parent.class, parent.getId(), saveTx));
+            storage.commitTransaction(saveTx);
+            System.out.println("[PT-FK][step] after-commit has=" + storage.has(Parent.class, parent.getId(),
+                    storage.beginTransaction(60000L)));
             for (int c = 0; c < children; c++) {
                 childIds.add("p" + seed + "-c" + c);
             }
             { // the save-probe: is the parent reachable IN THE SAME storage right after?
                 final IXdStorageTransaction probe = tx(storage);
+                final boolean has = storage.has(Parent.class, parent.getId(), probe);
                 final Parent probed = storage.load(Parent.class, parent.getId(), probe);
+                final IXdStorageTransaction childTx = storage.beginTransaction(60000L);
+                final Child childProbe = storage.load(Child.class, childIds.get(0), childTx);
                 System.out.println("[PT-FK][diag] seed=" + seed + " children=" + children
-                        + " id='" + parent.getId() + "' probe-load=" + (probed == null ? "NULL" : "ok"));
+                        + " id='" + parent.getId() + "' has=" + has
+                        + " probe-load=" + (probed == null ? "NULL" : "ok(" + probed.getChildren().size() + ")")
+                        + " child-load=" + (childProbe == null ? "NULL" : childProbe.getId()));
+                storage.commitTransaction(childTx);
+                // the FILE TRUTH dump (the java-profiler skill's file-truth discipline)
+                final File root = dir;
+                try (final java.util.stream.Stream<Path> walk = java.nio.file.Files.walk(root.toPath())) {
+                    for (final Path p2 : (Iterable<Path>) walk.filter(java.nio.file.Files::isRegularFile)::iterator) {
+                        final String content = new String(java.nio.file.Files.readAllBytes(p2),
+                                java.nio.charset.StandardCharsets.UTF_8);
+                        System.out.println("[PT-FK][file] " + root.toPath().relativize(p2) + " (" + content.length() + "b) head='"
+                                + content.substring(0, Math.min(60, content.length())).replace("\n", "|").replace("\r", "") + "'");
+                    }
+                }
                 storage.rollbackTransaction(probe);
             }
 
@@ -118,8 +138,12 @@ public class PropCoreContractsTest {
             final String victim = childIds.get(rnd.nextInt(childIds.size()));
             final IXdStorageTransaction vetoTx = tx(storage);
             final Child child = storage.load(Child.class, victim, vetoTx);
-            assertThrows(XdStorageRuntimeException.class, () -> storage.delete(child, vetoTx),
-                    "the delete-child-alone veto must refuse loudly");
+            storage.delete(child, vetoTx); // the delete STAGES; the veto fires at the commit
+            final XdStorageRuntimeException veto = assertThrows(XdStorageRuntimeException.class,
+                    () -> storage.commitTransaction(vetoTx),
+                    "the delete-child-alone veto must refuse loudly at the commit (the CANON phase-1)");
+            assertTrue(veto.getMessage().contains("foreign key") || veto.getMessage().contains("foreign")
+                    || veto.getMessage().contains("child"), "the veto names the FK mechanism: " + veto.getMessage());
             storage.rollbackTransaction(vetoTx);
 
             // the LEGAL cycle: remove from the collection → update the parent → delete the child
@@ -137,8 +161,9 @@ public class PropCoreContractsTest {
             if (!childIds.isEmpty()) {
                 final IXdStorageTransaction veto2 = tx(storage);
                 final Parent remaining = storage.load(Parent.class, parent.getId(), veto2);
-                assertThrows(XdStorageRuntimeException.class, () -> storage.delete(remaining, veto2),
-                        "the delete-parent-with-children veto must refuse loudly");
+                storage.delete(remaining, veto2); // stages
+                assertThrows(XdStorageRuntimeException.class, () -> storage.commitTransaction(veto2),
+                        "the delete-parent-with-children veto must refuse loudly at the commit");
                 storage.rollbackTransaction(veto2);
             }
 
@@ -174,14 +199,9 @@ public class PropCoreContractsTest {
 
     // ───────────────────────── P4.2: the id generation never reissues ─────────────────────────
 
-    @Property(tries = 12)
-    @org.junit.jupiter.api.Disabled("FINDING #8 (PROPTEST Этап 4): the reopen-burn lifecycle — the "
-        + "wave loop reassigns the storage from reopenAndCollect, but the provider registry keeps "
-        + "the OLD instance alive: the next save hits 'storage pt-id-reopen-N is shut down'. "
-        + "OWNER: the lifecycle discipline pass = the reopen-re-registration pattern (one "
-        + "driver-owned storage per property; the explicit reopen re-registration). The id "
-        + "contract is pinned by XdStorageIdGenerationContractTest meanwhile. "
-        + "DISPOSITION: documented debt — a skipped test, never a silent skip.")
+    @Property(tries = 6)
+    // TRIAGE (2026-11-23): temporarily enabled — FINDING #8 (the lifecycle fix landed: the
+    // reopenAndCollect returns the LIVE reopened storage; the caller reassigns)
     void generatedIds_NeverReissued_AcrossRandomWavesAndReopens(@ForAll final long seed) throws Exception {
         final Random rnd = new Random(seed);
         final File dir = new File("./target/pt-id-" + System.nanoTime());
@@ -219,7 +239,7 @@ public class PropCoreContractsTest {
             final PropIdEntity manual = new PropIdEntity();
             manual.setId(999_999_999L);
             manual.setPayload("manual");
-            final IXdStorageTransaction tx = storage.beginTransaction();
+            final IXdStorageTransaction tx = reopened.beginTransaction();
             reopened.save(manual, tx);
             reopened.commitTransaction(tx);
             reopened.shutdown();
