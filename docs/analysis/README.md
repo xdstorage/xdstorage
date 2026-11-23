@@ -14,22 +14,24 @@ as items land.
 | [DURABILITY_ANALYSIS.md](DURABILITY_ANALYSIS.md) | The durability analysis (journal, checkpoint, fsync, recovery across all main code) | 2.2.0 tasks 48/49/05 + 15 | the analysis baseline |
 | [DURABILITY_IMPLEMENTATION_PLAN.md](DURABILITY_IMPLEMENTATION_PLAN.md) | The step-by-step durability plan (P0→P3, ~13–14 dev-days) | 2.2.0 tasks 48/49 (done) + 05/15/16 | P0 shipped; P1–P3 open |
 | [FOREIGN_KEYS.md](FOREIGN_KEYS.md) | The FK subsystem — the consolidated subsystem document (architecture, the 2PC write-set + the 8 POINTS, waiters, the manual-ID mechanism, the honest limitations ledger; supersedes the six deleted FOREIGN_KEY_*.md docs) | 2.1.0 tasks 42/50, 2.2.0 tasks 01/02 | current (verified 2026-11-16) |
+| [COMMIT_ATOMICITY_DESIGN.md](COMMIT_ATOMICITY_DESIGN.md) | The cross-resource crash atomicity of a commit: the hole PROVEN on real crash folders, the protocol as it is, five options with the rejected ones, the recommendation (one durable point of no return behind a flag) | 2.2.0 task 50 (+ the task-06 batch trailer it builds on) | design round 2026-11-24; implementation open |
 
 ## The reconciliation (plan item → train task)
 
 | Plan item | Priority | Train task | State |
 |---|---|---|---|
-| Consistency-core rebuild (j.u.c primitives + enable the disabled B+Tree tests) | P0 | [2.2.0/01](../2.2.0/01-consistency-core-standard-primitives.md) | open |
-| Loud-failures inventory (silent-recovery → LOUD/KEEP+count) | P0 | [2.2.0/02](../2.2.0/02-loud-failures-no-quiet-self-heals.md) | open |
-| Journal/WAL TX-ID hardening (sentinel v3) | P1 | [2.2.0/06](../2.2.0/06-journal-wal-txid.md) | open |
-| W-4d memory train (disk-anchored scans + eviction + retention) | P1 | [2.2.0/05](../2.2.0/05-w4d-memory-train.md) | open |
-| Property-based tests (jqwik over the engine invariants) | P1 | [2.2.0/03](../2.2.0/03-property-based-tests.md) | open |
+| Consistency-core rebuild (j.u.c primitives + enable the disabled B+Tree tests) | P0 | [2.2.0/01](../tasks/2.2.0/01-consistency-core-standard-primitives.md) | open |
+| Loud-failures inventory (silent-recovery → LOUD/KEEP+count) | P0 | [2.2.0/02](../tasks/2.2.0/02-loud-failures-no-quiet-self-heals.md) | open |
+| Journal/WAL TX-ID hardening (sentinel v3) | P1 | [2.2.0/06](../tasks/2.2.0/06-journal-wal-txid.md) | LANDED 2026-11-24 (the batch trailer + the loud mid-file corruption; the cross-resource marker → [2.2.0/50](../tasks/2.2.0/50-commit-marker-cross-resource-atomicity.md)) |
+| Cross-resource crash atomicity (the commit marker) | P0 | [2.2.0/50](../tasks/2.2.0/50-commit-marker-cross-resource-atomicity.md) | open (the design round done) |
+| W-4d memory train (disk-anchored scans + eviction + retention) | P1 | [2.2.0/05](../tasks/2.2.0/05-w4d-memory-train.md) | open |
+| Property-based tests (jqwik over the engine invariants) | P1 | [2.2.0/03](../tasks/2.2.0/03-property-based-tests.md) | open |
 | Checkpoint-on-clean-shutdown (W-4c) | — | **DONE** (2.1.0 task 48, commit `06007c9`) | closed |
 | W-4b search-key logical-op journal | — | **DONE** (2.1.0 task 49, commit `64d33f5`) | closed |
-| Backup API `backupTo(Path)` (FP-5 core) | P1 | [2.2.0/15](../2.2.0/15-backup-api.md) | open |
-| Recovery recipe automation (`verify` recipe steps + the `recover` command) | P2 | [2.2.0/19](../2.2.0/19-recovery-recipe-automation.md) | open |
-| Cross-process consistency/fsync coordination (HA) | P3 | [2.2.0/20](../2.2.0/20-cross-process-coordination.md) | open |
-| No-sentinel auto-repair for legacy folders | P3 | folded into [2.2.0/17](../2.2.0/17-migration-schema-diff.md) (the migrate command's legacy-recipe mode) | folded |
+| Backup API `backupTo(Path)` (FP-5 core) | P1 | [2.2.0/15](../tasks/2.2.0/15-backup-api.md) | open |
+| Recovery recipe automation (`verify` recipe steps + the `recover` command) | P2 | [2.2.0/19](../tasks/2.2.0/19-recovery-recipe-automation.md) | open |
+| Cross-process consistency/fsync coordination (HA) | P3 | [2.2.0/20](../tasks/2.2.0/20-cross-process-coordination.md) | open |
+| No-sentinel auto-repair for legacy folders | P3 | folded into [2.2.0/17](../tasks/2.2.0/17-migration-schema-diff.md) (the migrate command's legacy-recipe mode) | folded |
 | The consistency-core/durableWrites tradeoff documentation | P2 | folded into 2.1.0 task 44 (the tech-writer pass) + the EMBEDDING/BENCHMARKS notes (already partially landed) | folded |
 
 ## Reading order

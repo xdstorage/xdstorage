@@ -133,6 +133,7 @@ BTREE_MUTATION_OVERLAY.md §6).
 | **Infra visibility** | "stayed invisible past the wait budget (3000 ms) — serving absent" | infra READ COMMITTED: own uncommitted writes invisible for 3s | by design; never wait inside the phases |
 | **Rollback-only early-return** | the applied-undo never runs | the manager: isRollbackOnly → return before rollbackInternal | closed in the overlay prototype (the undo in commitInternal's error paths) |
 | **Commit-lock convoy** | lockForCommit "Timeout Ns expired" on the shared trees | **RESOLVED 2026-11-21**: the root was an ACQUISITION DEADLOCK — the intra-band tie order of the commit-order values was arbitrary per transaction (the opposing holds on the shared nodes); the fix = the TOTAL acquisition order (the tie-break by the resource id) | **fixed** — the FKBENCH 121–158 tx/s at t=10 (was 0.8–1.2), the ≥100 target met |
+| **Cross-resource crash atomicity** | a transaction HALF applied after a kill mid-commit: one row of it readable, the other not — or a record's body durable in its data journal and unreachable because its id-index append did not land | phase 1 appends one sentinel-terminated batch per resource and nothing records that the commit as a whole reached its point of no return; each journal replays on its own | **open** — PROVEN 2026-11-24 on real crash folders (`XdStorageCrashAtomicityCharacterizationTest`: whichever of the four appends is missing, exactly one row survives); the design round in [COMMIT_ATOMICITY_DESIGN.md](COMMIT_ATOMICITY_DESIGN.md), the fix = task 50 |
 
 ## 6. Interconnections with the other subsystems
 
@@ -140,9 +141,11 @@ BTREE_MUTATION_OVERLAY.md §6).
   FK resource's phase-1; with the overlay engine the apply runs before the
   phases → the veto path must perform the overlay undo (closed in the
   prototype; see the "Rollback-only early-return" family).
-- **The R-45 commit serial**: one serial — the atomic visibility; the recovery
-  replays only the COMMITTED serials (an uncommitted apply is discarded — the
-  disk converges to the committed state).
+- **The R-45 commit serial**: one serial — the atomic IN-MEMORY visibility.
+  On disk it is not a decision: a journal replays every batch a sentinel closes, whether
+  or not its commit completed (the cross-resource crash atomicity family above). A
+  rollback in the running process discards its own apply; a crash between two of a
+  commit's journal appends does not.
 - **The sweeper**: the incremental rollback-only marker; "a late/racing
   rollback inverted a committed insert" (R-58: the rollback of a COMMITTED
   record is ignored).

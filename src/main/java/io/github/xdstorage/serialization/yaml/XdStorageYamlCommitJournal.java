@@ -48,6 +48,22 @@ import java.util.List;
  * in file order wins (appends are serialized by the resource commit lock, so file order is
  * commit order).</p>
  *
+ * <p>WAL (docs/tasks/2.2.0/06) — the batch trailer and the two failure cases. Every batch is
+ * followed by a trailer comment naming its commit serial and its transaction
+ * ({@code # xdstorage-meta serial=17 tx=<id>}) and then by the plain sentinel; the tokenizer
+ * hands the trailer to the reader with the sentinel, and a reader that predates it skips the
+ * line as a comment. The reader tells two failures apart that used to share one silent
+ * answer:</p>
+ * <ul>
+ *   <li><b>A torn tail</b> — a physical truncation: the last batch has no sentinel after it,
+ *       whether the file simply ends or a value inside it fails to parse. Discarded, as
+ *       before — now reporting the exact commit serials lost and their count.</li>
+ *   <li><b>A corruption in the middle</b> — a record fails to parse while further complete
+ *       batches follow it in the file. This is damage, not an interrupted commit: the replay
+ *       REFUSES, naming what was read and what was not. (It used to be swallowed as a torn
+ *       tail, dropping every later commit in the journal with one WARN.)</li>
+ * </ul>
+ *
  * <p>Checkpoint (size threshold): full base rewrite via the existing writer + journal file
  * deletion. No checkpoint marker: replay over an already-checkpointed base is idempotent,
  * so every crash window between "base rewritten" and "journal deleted" is safe.</p>
@@ -401,6 +417,32 @@ public final class XdStorageYamlCommitJournal {
                                   final XdStorageYamlIOFactory factory,
                                   final boolean durable) throws IOException, io.github.xdstorage.exceptions
                                           .XdStorageException {
+        appendRedo(file, commitSerial, null, changes, services, factory, durable);
+    }
+
+    /**
+     * Appends REDO records for a successfully prepared commit, naming the transaction the
+     * batch belongs to in its trailer (WAL, task 06).
+     *
+     * @param file         the journal file to append to (created with its parent directory)
+     * @param commitSerial the serial of the commit being journaled
+     * @param transactionId the id of the committing transaction, written to the batch trailer
+     *                      ({@code null} for a batch without a transaction identity)
+     * @param changes      the commit's object changes (entries without an id are skipped)
+     * @param services     the storage services locator (used by the object body encoder)
+     * @param factory      the YAML I/O factory supplying the simple-type helper and id generator
+     * @param durable      {@code true} to fsync the append ({@code FileDescriptor.sync}) — the
+     *                     journal is the durability point while it holds the commit
+     * @throws IOException        when the file cannot be appended to
+     * @throws io.github.xdstorage.exceptions.XdStorageException when id generation fails while
+     *         encoding an object body
+     */
+    public static void appendRedo(final Path file, final long commitSerial, final String transactionId,
+                                  final Collection<XdStorageObjectChange> changes,
+                                  final XdStorageServicesLocator services,
+                                  final XdStorageYamlIOFactory factory,
+                                  final boolean durable) throws IOException, io.github.xdstorage.exceptions
+                                          .XdStorageException {
         final List<Record> records = new ArrayList<>();
         for (final XdStorageObjectChange change : changes) {
             if (change.id == null) {
@@ -412,7 +454,7 @@ public final class XdStorageYamlCommitJournal {
                 records.add(new Record(commitSerial, false, change.id, change.newObject));
             }
         }
-        append(file, records, services, factory, durable);
+        append(file, records, transactionId, services, factory, durable);
     }
 
     /**
@@ -445,7 +487,7 @@ public final class XdStorageYamlCommitJournal {
                 records.add(new Record(0, true, change.id, null));
             }
         }
-        append(file, records, services, factory, durable);
+        append(file, records, null, services, factory, durable);
     }
 
     /**
@@ -474,8 +516,8 @@ public final class XdStorageYamlCommitJournal {
         }
     }
 
-    /** One locked append: records + trailing sentinel, O(delta) bytes. */
-    private static void append(final Path file, final List<Record> records,
+    /** One locked append: records, the batch trailer and the trailing sentinel — O(delta) bytes. */
+    private static void append(final Path file, final List<Record> records, final String transactionId,
                                             final XdStorageServicesLocator services,
                                             final XdStorageYamlIOFactory factory,
                                             final boolean durable) throws IOException, io.github.xdstorage.exceptions
@@ -487,6 +529,7 @@ public final class XdStorageYamlCommitJournal {
         final XdStorageYamlEmitter emitter = new XdStorageYamlEmitter(out);
         final IXdStorageSimpleTypeHelper helper = factory.simpleTypeHelper();
         final IXdStorageIdGenerator idGenerator = factory.idGenerator();
+        long maxSerial = 0L;
         for (final Record record : records) {
             emitter.openBlock("- record");
             emitter.writeKey("serial");
@@ -501,8 +544,9 @@ public final class XdStorageYamlCommitJournal {
                 emitter.closeBlock();
             }
             emitter.closeBlock();
+            maxSerial = Math.max(maxSerial, record.serial);
         }
-        emitter.writeEofSentinel();
+        emitter.writeEofSentinel(trailer(maxSerial, transactionId));
 
         // task 51: pinned cross-OS
         final byte[] bytes = out.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
@@ -539,21 +583,80 @@ public final class XdStorageYamlCommitJournal {
         /** How many trailing records were discarded as a torn tail (crash mid-append);
          * {@code 0} for a clean journal. */
         public int discardedTailRecords = 0;
+        /** WAL (task 06): the exact commit serials lost with the torn tail — the lowest serial
+         * among the discarded redo records. {@code 0} when nothing was discarded or only
+         * compensation records were. */
+        public long discardedSerialFrom = 0L;
+        /** WAL (task 06): the highest serial among the discarded redo records — the other end
+         * of {@link #discardedSerialFrom}. */
+        public long discardedSerialTo = 0L;
+        /** WAL (task 06): how many of the discarded records were compensation records (serial
+         * {@code 0} — the undo of a failed phase 1, never a reported commit). */
+        public int discardedCompensationRecords = 0;
+        /** WAL (task 06): how many of the discarded records were cut before their serial line
+         * could be read — their commit cannot be named. */
+        public int discardedUnnumberedRecords = 0;
+        /** WAL (task 06): the complete batches (sentinels) the journal held. */
+        public int replayedBatches = 0;
+        /** WAL (task 06): the highest commit serial of a replayed batch — the journal's durable
+         * high-water mark; {@code 0} when no redo batch was replayed. */
+        public long lastReplayedSerial = 0L;
+        /** WAL (task 06): the transactions the replayed redo batches belong to, in file order. */
+        public final List<String> replayedTransactions = new ArrayList<>();
+    }
+
+    /** One parsed record of the batch being read, before its sentinel says it is complete. */
+    private static final class Pending {
+        final boolean delete;
+        /** The record's commit serial ({@code 0} for compensation), or {@code null} when the
+         * record was cut before its serial line could be read. */
+        final Long serial;
+        /** The materialized DELETE id, or the UPSERT body. */
+        final Object idOrObject;
+
+        Pending(final boolean delete, final Long serial, final Object idOrObject) {
+            this.delete = delete;
+            this.serial = serial;
+            this.idOrObject = idOrObject;
+        }
+    }
+
+    /** A record whose body could not be read — it still belongs to the count of what was lost. */
+    private static final class UnreadableRecord extends Exception {
+        private static final long serialVersionUID = 1L;
+        /** The record's serial when its line was read, else {@code null}. */
+        final Long serial;
+
+        UnreadableRecord(final Long serial, final Throwable cause) {
+            super(cause);
+            this.serial = serial;
+        }
+    }
+
+    /** A damage this reader diagnosed itself — never mistaken for a plain parse failure. */
+    private static final class Corruption extends XdStorageIOException {
+        private static final long serialVersionUID = 1L;
+
+        Corruption(final String message, final Throwable cause) {
+            super(message, cause);
+        }
     }
 
     /**
-     * Reads the journal for recovery replay. Records after the last sentinel (a torn tail
-     * from a crash mid-append) are DISCARDED with a loud WARN — unlike a truncated base
-     * file (S-1: loud failure), the journal tail is by-design discardable because the
-     * interrupted commit was never reported durable. Replay itself is idempotent: records
-     * are returned in file order (commit order), last write per id wins at the call site.
+     * Reads the journal for recovery replay. Complete batches (a sentinel after them) are
+     * returned in file (commit) order. A torn tail — the last batch has no sentinel after it —
+     * is DISCARDED with a loud WARN, now naming the exact commit serials lost: the interrupted
+     * commit was never reported durable. A failure with further complete batches after it is
+     * damage in the middle of the file, not an interrupted append: the read throws
+     * {@code XdStorageIOException} and nothing of the journal is applied. Replay itself is
+     * idempotent: last write per id wins at the call site.
      *
      * @param file    the journal file to read (a missing file yields an empty replay)
      * @param idType  the id class of the resource, used to materialize DELETE record ids
      * @param factory the YAML I/O factory supplying the simple-type helper and the object
      *                body reader
-     * @return the parsed replay: in-order upsert bodies, delete ids, and the count of
-     *         discarded torn-tail records
+     * @return the parsed replay: in-order upsert bodies, delete ids, the torn-tail record
+     *         count and the exact serials lost
      * @throws IOException when the file exists but cannot be read
      */
     public static Replay readForReplay(final Path file, final Class<?> idType,
@@ -571,77 +674,252 @@ public final class XdStorageYamlCommitJournal {
         try (BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(new java.io.FileInputStream(file
                 .toFile()), java.nio.charset.StandardCharsets.UTF_8), 1 << 16)) {
             final XdStorageYamlTokenizer tokenizer = new XdStorageYamlTokenizer(reader);
-            final List<Object[]> pending = new ArrayList<>();   // [Boolean delete, Object idOrObject]
-            boolean tornTail = false;
+            final List<Pending> pending = new ArrayList<>();   // the batch since the last sentinel
             try {
                 YamlLineToken token;
                 while ((token = tokenizer.nextToken()) != null) {
                     if (XdStorageYamlTokenizer.EOF_SENTINEL_KEY.equals(token.key)) {
-                        for (final Object[] entry : pending) {
-                            if ((Boolean) entry[0]) {
-                                replay.deletes.add(entry[1]);
-                            } else {
-                                replay.upserts.add(entry[1]);
-                            }
-                        }
-                        pending.clear();
+                        commitBatch(replay, pending, token.value, file);
                         continue;
                     }
                     if (token.level == 0 && token.isListItem && "record".equals(token.key)) {
                         pending.add(readRecordBody(tokenizer, idType, helper));
                     }
                 }
-                tornTail = !pending.isEmpty();
+            } catch (final Corruption diagnosed) {
+                throw diagnosed;   // already named — a batch disagreed with its own trailer
             } catch (final Exception parseFailure) {
-                // обрыв внутри тела записи (обрезанный блок) — остаток после последнего сентинела отбрасываем
-                tornTail = true;
+                // WAL (docs/tasks/2.2.0/06): the old code answered every failure with "torn
+                // tail" and dropped the rest of the file unseen. A sentinel further on means
+                // later complete batches exist: this is damage in the middle, not an
+                // interrupted append.
+                final XdStorageYamlTokenizer.Remainder rest = scanRest(tokenizer, file, parseFailure);
+                if (rest.sentinels > 0) {
+                    throw new Corruption(corruptionMessage(file, replay, pending, rest, parseFailure), parseFailure);
+                }
+                discardTail(replay, pending, file, parseFailure,
+                        parseFailure instanceof UnreadableRecord ? ((UnreadableRecord) parseFailure).serial : null,
+                        parseFailure instanceof UnreadableRecord);
+                return replay;
             }
-            if (tornTail) {
-                replay.discardedTailRecords = pending.size();
-                log.warn("commit journal {} has a TORN TAIL (crash mid-append): discarding {} record(s) after the last "
-                        + "EOF sentinel — the interrupted commit was never reported durable", file, pending.size());
-            }
+            discardTail(replay, pending, file, null, null, false);
         }
         return replay;
     }
 
+    /** Moves the batch before a sentinel into the replay, after checking it against its trailer. */
+    private static void commitBatch(final Replay replay, final List<Pending> pending, final String trailer,
+                                    final Path file) {
+        long maxSerial = 0L;
+        for (final Pending record : pending) {
+            if (record.serial != null) {
+                maxSerial = Math.max(maxSerial, record.serial);
+            }
+        }
+        final Trailer parsed = Trailer.parse(trailer);
+        if (parsed != null && parsed.serial != null && parsed.serial != maxSerial) {
+            throw new Corruption("commit journal " + file + " is corrupt in batch "
+                    + (replay.replayedBatches + 1) + ": its trailer declares serial=" + parsed.serial
+                    + " but the batch's records carry up to serial " + maxSerial + " (a trailer and its records "
+                    + "are written by one append — they cannot disagree unless the file was altered)", null);
+        }
+        for (final Pending record : pending) {
+            if (record.delete) {
+                replay.deletes.add(record.idOrObject);
+            } else {
+                replay.upserts.add(record.idOrObject);
+            }
+        }
+        replay.replayedBatches++;
+        replay.lastReplayedSerial = Math.max(replay.lastReplayedSerial, maxSerial);
+        if (parsed != null && parsed.transaction != null && maxSerial > 0L) {
+            replay.replayedTransactions.add(parsed.transaction);
+        }
+        pending.clear();
+    }
+
+    /** Counts what is left of the file after a failure; an unreadable rest is itself damage. */
+    private static XdStorageYamlTokenizer.Remainder scanRest(final XdStorageYamlTokenizer tokenizer, final Path file,
+                                                              final Exception parseFailure) throws IOException {
+        try {
+            return tokenizer.scanRemainder();
+        } catch (final IOException unreadable) {
+            throw new Corruption("commit journal " + file + " cannot be classified after a parse failure ("
+                    + parseFailure + "): the rest of the file is unreadable (" + unreadable + ")", unreadable);
+        }
+    }
+
+    private static String corruptionMessage(final Path file, final Replay replay, final List<Pending> pending,
+                                            final XdStorageYamlTokenizer.Remainder rest, final Exception cause) {
+        final String batch = rest.trailer == null ? "" : " [" + rest.trailer + "]";
+        final boolean cutRecord = cause instanceof UnreadableRecord;
+        return "commit journal " + file + " is CORRUPT in batch " + (replay.replayedBatches + 1) + batch + " (after "
+                + replay.replayedBatches + " complete batch(es)): " + cause + ". This is not a torn tail — the "
+                + "damaged batch is closed by its own sentinel and " + (rest.sentinels - 1) + " later batch(es) with "
+                + rest.records + " further record(s) follow. Refusing to replay the journal — the "
+                + (pending.size() + (cutRecord ? 1 : 0)) + " record(s) of the damaged batch and the "
+                + replay.upserts.size() + " upsert(s) / " + replay.deletes.size() + " delete(s) read before it "
+                + "are not applied. Restore the folder from a backup, or rebuild this resource's journal from "
+                + "its base file knowingly";
+    }
+
+    /**
+     * The torn tail: nothing after the failure (or the file simply ended) — discard, and say
+     * exactly what was lost, including a record cut before it could be read.
+     *
+     * @param unreadable       the serial of the record whose body failed to parse, when one did
+     * @param recordWasCut     whether such a record exists
+     */
+    private static void discardTail(final Replay replay, final List<Pending> pending, final Path file,
+                                    final Exception cause, final Long unreadable, final boolean recordWasCut) {
+        if (pending.isEmpty() && !recordWasCut) {
+            return;
+        }
+        final List<Long> lost = new ArrayList<>();
+        int compensation = 0;
+        int unnumbered = 0;
+        for (final Pending record : pending) {
+            if (record.serial == null) {
+                unnumbered++;
+            } else if (record.serial == 0L) {
+                compensation++;
+            } else {
+                lost.add(record.serial);
+            }
+        }
+        if (recordWasCut) {
+            if (unreadable == null) {
+                unnumbered++;
+            } else if (unreadable == 0L) {
+                compensation++;
+            } else {
+                lost.add(unreadable);
+            }
+        }
+        replay.discardedTailRecords = pending.size() + (recordWasCut ? 1 : 0);
+        replay.discardedCompensationRecords = compensation;
+        replay.discardedUnnumberedRecords = unnumbered;
+        for (final long serial : lost) {
+            if (serial < replay.discardedSerialFrom || replay.discardedSerialFrom == 0L) {
+                replay.discardedSerialFrom = serial;
+            }
+            replay.discardedSerialTo = Math.max(replay.discardedSerialTo, serial);
+        }
+        log.warn("commit journal {} has a TORN TAIL (crash mid-append): discarding {} record(s) after the last "
+                + "EOF sentinel — lost: {} — the interrupted commit was never reported durable{}", file,
+                replay.discardedTailRecords, lostText(replay), cause == null ? ""
+                        : " (a record inside the uncompleted tail does not parse: " + cause + ")");
+    }
+
+    private static String lostText(final Replay replay) {
+        final List<String> parts = new ArrayList<>();
+        if (replay.discardedSerialFrom == 0L) {
+            parts.add("no redo record");
+        } else {
+            parts.add(replay.discardedSerialFrom == replay.discardedSerialTo
+                    ? "commit serial " + replay.discardedSerialFrom
+                    : "commit serials " + replay.discardedSerialFrom + ".." + replay.discardedSerialTo);
+        }
+        if (replay.discardedCompensationRecords > 0) {
+            parts.add(replay.discardedCompensationRecords + " compensation record(s)");
+        }
+        if (replay.discardedUnnumberedRecords > 0) {
+            parts.add(replay.discardedUnnumberedRecords + " record(s) cut before their serial line");
+        }
+        return String.join(" + ", parts);
+    }
+
+    /** The batch trailer's two fields, either of which may be absent on an older journal. */
+    private static final class Trailer {
+        final Long serial;
+        final String transaction;
+
+        private Trailer(final Long serial, final String transaction) {
+            this.serial = serial;
+            this.transaction = transaction;
+        }
+
+        /** Parses {@code serial=<n> tx=<id>}; unknown fields are ignored, a missing trailer is {@code null}. */
+        static Trailer parse(final String trailer) {
+            if (trailer == null) {
+                return null;
+            }
+            Long serial = null;
+            String transaction = null;
+            for (final String field : trailer.split("\\s+")) {
+                final int equals = field.indexOf('=');
+                if (equals <= 0) {
+                    continue;
+                }
+                final String value = field.substring(equals + 1);
+                if (field.startsWith("serial=") && !value.isEmpty()) {
+                    try {
+                        serial = Long.valueOf(value);
+                    } catch (final NumberFormatException notANumber) {
+                        // an unreadable serial is the same as none: the batch's own records decide
+                    }
+                } else if (field.startsWith("tx=") && !value.isEmpty()) {
+                    transaction = value.startsWith("'") && value.endsWith("'") && value.length() >= 2
+                            ? value.substring(1, value.length() - 1).replace("''", "'") : value;
+                }
+            }
+            return new Trailer(serial, transaction);
+        }
+    }
+
+    /** The trailer of one appended batch: its highest serial, and its transaction when it has one. */
+    private static String trailer(final long maxSerial, final String transactionId) {
+        if (transactionId == null || transactionId.isEmpty()) {
+            return "serial=" + maxSerial;
+        }
+        final boolean plain = transactionId.matches("[A-Za-z0-9._-]+");
+        return "serial=" + maxSerial + " tx=" + (plain ? transactionId
+                : XdStorageYamlScalar.singleQuoted(transactionId));
+    }
+
     /** Reads one `- record` body; the record token itself is already consumed. */
-    private static Object[] readRecordBody(final XdStorageYamlTokenizer tokenizer,
-                                           final Class<?> idType,
-                                           final IXdStorageSimpleTypeHelper helper) throws Exception {
-        long serial = 0;
-        boolean delete = false;
-        String idScalar = null;
-        Object payload = null;
-        YamlLineToken token;
-        while ((token = tokenizer.peekToken()) != null && token.level >= 1) {
-            token = tokenizer.nextToken();
-            if (token.level != 1) {
-                continue;   // глубже уровня записи (не должен встречаться вне object-блока)
+    private static Pending readRecordBody(final XdStorageYamlTokenizer tokenizer,
+                                          final Class<?> idType,
+                                          final IXdStorageSimpleTypeHelper helper) throws UnreadableRecord {
+        Long serial = null;
+        try {
+            boolean delete = false;
+            String idScalar = null;
+            Object payload = null;
+            YamlLineToken token;
+            while ((token = tokenizer.peekToken()) != null && token.level >= 1) {
+                token = tokenizer.nextToken();
+                if (token.level != 1) {
+                    continue;   // глубже уровня записи (не должен встречаться вне object-блока)
+                }
+                if (XdStorageYamlTokenizer.EOF_SENTINEL_KEY.equals(token.key)) {
+                    throw new XdStorageIOException("record block cut before its body");
+                }
+                if ("serial".equals(token.key)) {
+                    serial = token.value != null ? Long.parseLong(token.value) : 0L;
+                } else if ("op".equals(token.key)) {
+                    delete = "DELETE".equals(token.value);
+                } else if ("id".equals(token.key)) {
+                    idScalar = token.value;
+                } else if ("object".equals(token.key) && token.value == null) {
+                    payload = XdStorageYamlBlockObjectsReader.readObject(tokenizer, token.level, helper);
+                }
             }
-            if (XdStorageYamlTokenizer.EOF_SENTINEL_KEY.equals(token.key)) {
-                throw new XdStorageIOException("record block cut before its body");
+            if (idScalar == null) {
+                throw new XdStorageIOException("journal record without id");
             }
-            if ("serial".equals(token.key)) {
-                serial = token.value != null ? Long.parseLong(token.value) : 0;
-            } else if ("op".equals(token.key)) {
-                delete = "DELETE".equals(token.value);
-            } else if ("id".equals(token.key)) {
-                idScalar = token.value;
-            } else if ("object".equals(token.key) && token.value == null) {
-                payload = XdStorageYamlBlockObjectsReader.readObject(tokenizer, token.level, helper);
+            if (delete) {
+                return new Pending(true, serial, helper.simpleTypeFromString(idType, idScalar));
             }
+            if (payload == null) {
+                throw new XdStorageIOException("UPSERT record without object body");
+            }
+            return new Pending(false, serial, payload);
+        } catch (final Exception failure) {
+            // WAL (task 06): the caller must still count this record as lost, and name its
+            // commit when the serial line was read before the failure
+            throw new UnreadableRecord(serial, failure);
         }
-        if (idScalar == null) {
-            throw new XdStorageIOException("journal record without id");
-        }
-        if (delete) {
-            return new Object[]{true, helper.simpleTypeFromString(idType, idScalar)};
-        }
-        if (payload == null) {
-            throw new XdStorageIOException("UPSERT record without object body");
-        }
-        return new Object[]{false, payload};
     }
 
     /** Checkpoint: the journal is dropped after the base file rewrite has been written atomically.

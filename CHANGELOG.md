@@ -124,6 +124,12 @@
   first save. The infra-visibility wait no longer caps at 3 s — it follows the
   transaction's own timeout. Disclosed config-default change; pass an explicit
   timeout to keep the old behavior.
+- **Every commit-journal batch carries its commit serial and its transaction**
+  ([06](docs/tasks/2.2.0/06-journal-wal-txid.md)) — one comment line before each sentinel
+  (`# xdstorage-meta serial=17 tx=<id>`). Additive: the sentinel line is unchanged, journals
+  written by earlier versions read unchanged, and an earlier library skips the line and
+  replays a 2.2.0 journal as before. The replay reports what it read up to, and a trailer that
+  disagrees with its own batch refuses the journal.
 
 ### Fixed
 
@@ -174,6 +180,15 @@
   search-index journal store their strings through the same rule. Pinned by
   `XdStorageYamlStringScalarRoundTripTest`, `XdStorageYamlScalarTest`,
   `XdStorageMultiLineStringReopenTest` and the widened property model.
+- **A commit journal damaged in its middle is refused instead of silently emptied**
+  ([06](docs/tasks/2.2.0/06-journal-wal-txid.md)) — a record that failed to parse was treated
+  as a torn tail: one warning, and every later commit in that journal was dropped unseen. On
+  the code before the fix a journal with a damaged first batch and two complete ones after it
+  logged `discarding 0 record(s)` and then served none of the three records. A torn tail — a
+  crash mid-append, no sentinel after the last batch — is still discarded, and the warning now
+  names the exact commit serials lost and counts a record cut before its serial line. A
+  failure with further complete batches after it makes the resource refuse to open:
+  `… is CORRUPT in batch N [serial=… tx=…] … Refusing to replay the journal …`.
 
 - **Null map VALUES were silently dropped from persistence** — the unwrap-and-clone
   path dropped the entry before the writer; the YAML writer/reader both encode null
