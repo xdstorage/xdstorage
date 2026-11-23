@@ -75,7 +75,7 @@ public interface IXdStorage {
 
     /**
      * Begins a transaction with the storage's configured default timeout
-     * ({@code defaultTransactionTimeoutMillis}, 3000&nbsp;ms by default) and binds it to the
+     * ({@code defaultTransactionTimeoutMillis}, 15000&nbsp;ms by default) and binds it to the
      * current thread.
      *
      * <p>Timeouts are enforced lazily: a timed-out transaction is rolled back when a lock
@@ -96,7 +96,7 @@ public interface IXdStorage {
 
     /**
      * Begins a <b>nested</b> transaction inside the given parent and binds it to the
-     * current thread. The nested transaction uses the default timeout (3000&nbsp;ms).
+     * current thread. The nested transaction uses the default timeout (15000&nbsp;ms).
      * A nested rollback does not poison the parent (the rollback-only cascade is
      * downward-only); the parent's commit waits for open nested transactions.
      *

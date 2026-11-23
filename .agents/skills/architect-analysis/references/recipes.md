@@ -150,7 +150,7 @@ superseded, never double-announce/double-plan).
 
 ---
 
-## R5. Automation failure forensics — "sync broke again"
+## R5. Automation failure forensics — "sync broke again" (ARCHIVED-WATCH: the failure class is structurally fixed — the labels auto-ensure + the per-file isolation landed 2026-11-21; kept for the OTHER automations and as the set -e forensics reference)
 
 **Trigger:** a repo automation fails (issues-sync, a build script, a workflow).
 
@@ -183,3 +183,52 @@ part — the reported "last file processed" is the ABORT SITE, not the cause; `c
 action` is safe under set -e (the failure is inside the && list) — do not "fix" that
 pattern; `gh` availability differs local vs CI — test logic locally, live-verify on
 push.
+
+
+## R6. Release cut & hotfix — "выпускаем релиз / нужен хотфикс"
+
+**Trigger:** "выпускаем релиз", "нужен 2.1.x", a post-release defect on the published line.
+
+**Inputs:** RELEASE-PLAN.md (§2 the recurring procedure, §2.8 the hotfix flow), the
+train README's open-work table, FLAKY.md (every OPEN row must be named in the release
+notes), the pom (`<version>` + `project.build.outputTimestamp`), the CHANGELOG
+`[Unreleased]`.
+
+**The release-cut steps (owner split per the house agreement — commits/mine, push/tag/theirs):**
+1. **The RELEASE commit** (mine): `CHANGELOG [Unreleased]` → `## [<version>] — <date>`
+   (the release workflow greps exactly this header and refuses without it); sweep the
+   draft artifacts ("(planned)"); add the release-time disclosures (every OPEN FLAKY
+   row named; the format-generation note if the marker bumped); bump `outputTimestamp`;
+   verify `mvn -Prelease -Dgpg.skip=true verify` produces the artifact set.
+2. **The RC protocol on the exact release commit** (mine): the full suite ×3 (BUILD
+   SUCCESS verdicts), the kill-9 recovery walk, the `durableWrites` spot benchmark vs
+   BENCHMARKS, the migration walkthroughs (the golden fixtures in-suite + one manual),
+   the fresh-clone README walkthrough, the JMH smoke (the row-count assertion).
+3. **The user**: push main; tag `v<version>` + push the tag; watch the pipeline
+   (smoke rows → version sanity tag==pom → signed non-stress deploy → the GitHub
+   Release from the CHANGELOG section).
+4. **Post-release** (mine at delegation): the Central stranger test
+   (`mvn dependency:get -Dartifact=...`), the README dependency snippet → the released
+   version, the MASTER-PLAN SHIPPED marker, the FLAKY RC annotations, the milestone
+   close (the user — gh is local-absent), the announcement (the user).
+
+**The hotfix sub-mode (§2.8):** branch `release/<x.y>` FROM THE TAG (not main);
+cherry-pick/fix; the FULL gate (the recovery family only if the write path moved);
+bump the patch version + the CHANGELOG section; the user tags `v<x.y+1>`; **merge back
+to main** (the fix must not be lost in the next train); two hotfixes on one tag = the
+next minor is due.
+
+**Traps:**
+- **THE VERSION-BUMP SWEEP — three sites, only two gate-covered:** the root pom + the
+  examples/quickstart pin (both covered by XdStorageAdoptionDocsContractTest's
+  version-agreement row) + the README latest-release dependency snippet (NO gate — a
+  manual checklist item; missed once, caught by eye). A bump is never one line.
+- **The javadoc release gate** (`doclint=missing,syntax` + failOnWarnings): the
+  `-Xmaxwarns` cap HIDES layers — the first failing run reports ~100 and the next run
+  surfaces more; iterate `mvn -Prelease javadoc:jar -Dgpg.skip=true` (fast, ~40 s)
+  until zero, THEN the full verify. The implicit constructors need explicit no-arg
+  declarations to carry javadoc (API-identical).
+- RC tags are immutable; a failed pipeline on the FINAL tag = fix-forward + re-tag.
+- The default-config changes ride MINOR and are disclosed in the release notes
+  (a patch-carried default raise happens only on the maintainer's explicit order —
+  disclose it loudly in the notes).

@@ -1055,7 +1055,10 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
      * (ТОЛЬКО инфраструктурные кэши — вызовы скоупятся флагом infrastructureCache).
      * Ждем пока запись остается невидимой незакоммиченной вставкой/апдейтом ЖИВОЙ
      * чужой транзакции. Возвращает true, если ждали и запись могла смениться
-     * (вызывающий обязан перечитать cache.get). Бюджет — таймаут транзакции (до 3 с):
+     * (вызывающий обязан перечитать cache.get). Бюджет — СОБСТВЕННЫЙ таймаут транзакции
+     * (абсолютный кап 3000 убран: холодная первая транзакция держит ленивое дерево
+     * незакоммиченным дольше кодогенерации обёрток — javac на холодной JVM превышал
+     * старый бюджет, читатель уходил в "serving absent").
      * создатель ленивого дерева держит его незакоммиченным весь СВОЙ tx — под
      * конкуренцией lockForCommit это секунды, и короткий бюджет давал конкурентное
      * ВТОРОЕ дерево (createTreeLock double-check) и "does not exists" у апдейтеров.
@@ -1065,7 +1068,7 @@ public class XdStorageResourceCache implements XdStorageCacheContext {
         if (!isInvisibleUncommittedMutation(initialRecord, transaction)) {
             return false;
         }
-        final long timeout = Math.min(transaction.getTimeout() > 0 ? transaction.getTimeout() : 100L, 3000L);
+        final long timeout = transaction.getTimeout() > 0 ? transaction.getTimeout() : 15000L;
         final long deadlineNano = System.nanoTime() + timeout * 1_000_000L;
         XdStorageCacheRecord record = initialRecord;
 

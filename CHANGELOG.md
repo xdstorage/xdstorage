@@ -34,6 +34,16 @@ see `XdStorageFormatMeta`):
   without a transaction (the plan is static index metadata; GUIDE § Query plans +
   EMBEDDING), pinned by the property estate.
 
+### Changed
+
+- **The default transaction timeout raised `3000` -> `15000` ms**
+  (`defaultTransactionTimeoutMillis`, the no-arg `beginTransaction()`): the first
+  transaction on a cold JVM pays the runtime wrapper-codegen (a javac invocation),
+  which exceeded the old 3-second budget and produced timeout rollbacks on the very
+  first save. The infra-visibility wait no longer caps at 3 s — it follows the
+  transaction's own timeout. Disclosed config-default change; pass an explicit
+  timeout to keep the old behavior.
+
 ### Fixed
 
 - **Null map VALUES were silently dropped from persistence** — the unwrap-and-clone

@@ -28,6 +28,7 @@ common requests:
 | "обнови документацию / сверь changelog" | R3 docs-facts consistency sync |
 | "подготовь задачи / что взять в 2.x / proposal → issues" | R4 evidence-to-task intake |
 | "sync broke again" (any repo automation) | R5 automation failure forensics |
+| "выпускаем релиз / нужен хотфикс" | R6 release cut & hotfix |
 
 The sections below are the always-true backbone (state survey, analysis, doc sync,
 tasks, reporting, train planning); a recipe overrides section detail where they

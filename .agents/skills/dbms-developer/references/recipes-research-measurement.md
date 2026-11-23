@@ -108,7 +108,7 @@ because the matrix held the relations constant at one point).
 
 ---
 
-## R-D. The upgrade/migration hardening — "2.0.0 → 2.1.0 должно переехать"
+## R-D. (MOSTLY OBSOLETE post-2.1.0: the layout migration exists and is hardened — LAYOUTMIG task 51 + the marker v3; consult only for a FUTURE format/layout change)  The upgrade/migration hardening — "2.0.0 → 2.1.0 должно переехать"
 
 For any on-disk layout/format change that existing user folders must survive.
 

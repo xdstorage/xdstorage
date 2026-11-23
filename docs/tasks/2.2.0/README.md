@@ -29,6 +29,7 @@ as the 2.1.0 train.
 | 28 | [fk-cascade-fresh-instance](fk-cascade-fresh-instance.md) | the PROPTEST finding #7: on a fresh instance the FK cascade commit reports success but load(parent) NULLs, the FK tree NPEs next — triage (engine vs harness), the fix rides both lines | P1, engine, bug | 1 sess + fix |
 | 29 | [explain-tx-contract](explain-tx-contract.md) | the PROPTEST finding #5: explain() is the only tx-bound method that works without a transaction — the ruling + the alignment + the pin | P2, engine, docs | 0.5 sess |
 | 30 | [property-lifecycle-discipline](property-lifecycle-discipline.md) | the PROPTEST finding #8: the property-harness reopen/re-registration pattern codified; the id never-reissue pin un-reds | P3, testing | 0.5 sess |
+| 31 | [visibility-budget-redesign](visibility-budget-redesign.md) | the infra-visibility wait: poll-and-deadline → commit-notification (the incident: the cold-first-tx codegen exceeded the 3 s cap → serving absent; the interim = the timeout default raised to 15 s) | P2, engine, design | 1–2 sess |
 
 Gates: the design rounds before 01/05 (the house rule); property tests grow as the core
 changes (03 protects 01); nightly ×3 green is the train's continuous gate.
