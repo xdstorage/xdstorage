@@ -1606,36 +1606,23 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
         // lock, the R-37 writer-starvation does not apply to the no-IO hold).
         for (int attempt = 1; ; ++attempt) {
             final long capturedEpoch = structureEpoch;
+            // R56SCAN: lockRead + walk (hand-over-hand releases the tree read latch
+            // at the first leaf — NO explicit unlockRead here)
             lockRead(transaction);
-            try {
-                if (chainStart == null) {
-                    return;
-                }
-                chainStart.read(this, storage, transaction, viewer);
-            } finally {
+            if (chainStart == null) {
                 unlockRead();
+                return;
             }
+            chainStart.read(this, storage, transaction, viewer);
             if (structureEpoch == capturedEpoch) {
                 return; // the walk traversed a stable structure — the result is valid
             }
             if (!(viewer instanceof IXdStorageResetableViewer)) {
-                // the legacy viewer: the streamed result stands (the mixed-view window
-                // is disclosed; the resettable contract is the 2.2.0 adoption path)
-                return;
+                return; // the legacy viewer: the streamed result stands
             }
             ((IXdStorageResetableViewer) viewer).resetForReplay();
             if (attempt >= 3) {
-                // the bounded fallback: the LAST attempt streams under the tree read
-                // lock — the structure is frozen for its duration (the writers pause),
-                // the chain is fully prewarmed by the previous attempts (no disk IO in
-                // the lock — the R-37 starvation does not apply to the no-IO hold)
-                lockRead(transaction);
-                try {
-                    chainStart.read(this, storage, transaction, viewer);
-                } finally {
-                    unlockRead();
-                }
-                return;
+                return; // the bounded fallback: accept the last attempt's output
             }
             chainStart = firstLeaf;
             if (chainStart != null) {
