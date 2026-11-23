@@ -320,6 +320,11 @@ grouping is tags, not layout.
     the user tagged/pushed `v2.1.1` (Central-verified, the stranger test green) → merged
     back to main (`e2b0495`). The LESSON: a version bump is never one line — the
     version-pin contract tests fire by design; budget a fix round.
+    **CONTINUED 2026-11-23 — 2.1.2 SHIPPED:** the property campaign's 4 serialization
+    fixes + the tx-timeout default raise (15000, the interim VISBUDGET) accumulated on
+    `release/2.1` per the maintainer's "no patched release now" call, then shipped as
+    `v2.1.2` on the maintainer's word (the accumulation model worked: the branch held
+    the fixes, the bump/tag only at ship). Merged back (`ac57bd8`; main keeps 2.2.0).
 
 **2.1.0 exit (2026-11-22 status): everything landed, all 54 work packages closed
 (44 DOCSWRITER landed 2026-11-22: the glossary, the FK story, the canonical numbers on
