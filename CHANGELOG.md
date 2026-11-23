@@ -96,6 +96,16 @@
   (the R-54 pattern) so honest splitting survives parallel hot-key storms. The two
   duplicate-invariant tests disabled for years because of the overflow («переполнение
   ноды») are re-enabled with their full structural scans green.
+- **Lazy fields declared as `Set`, `ArrayList`, `HashMap` or any other collection/map
+  subtype stayed unfilled after the first getter access**
+  ([35](docs/tasks/2.2.0/35-lazy-getter-collection-check.md)) — the
+  `@XdStorageLoadByGetMethod` codegen asked the type question backwards
+  (`returnType.isAssignableFrom(Collection.class)`), so only a `Collection`-, `List`- or
+  exactly-`Map`-declared field took the per-element load; every other declaration fell
+  into the single-object branch, loaded nothing and set the loaded flag — the children
+  read as bare reference stubs (every field `null`). A null lazy map no longer throws
+  either. Pinned by `XdStorageLazyGetterTypeDispatchTest` (the per-element load pins +
+  the cold-reopen real-storage pin).
 
 - **Null map VALUES were silently dropped from persistence** — the unwrap-and-clone
   path dropped the entry before the writer; the YAML writer/reader both encode null

@@ -8,7 +8,6 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -117,7 +116,7 @@ public class XdStorageWrapperBlockGettersGenerator {
                         "toLoadObject : toLoadCollection) {\r\n\t\t\t\t\t\t\t\tif (toLoadObject != null) " +
                         "{\r\n\t\t\t\t\t\t\t\t\tstorage.load(toLoadObject, " +
                         "transaction);\r\n\t\t\t\t\t\t\t\t}\r\n\t\t\t\t\t\t\t}\r\n\t\t\t\t\t\t}\r\n");
-            } else if (returnType.isAssignableFrom(Collection.class) || returnType.isAssignableFrom(List.class)) {
+            } else if (isCollectionType(returnType)) {
                 builder.append("\t\t\t\t\t\t").append(XdStorageAbstractClassCodeGenerator.getSourceTypeName(returnType))
                         .append("<? extends Object> toLoadCollection = object.").append(gen.buildMethodCalling(name,
                         getter.getParameterTypes())).append(";\r\n");
@@ -133,10 +132,15 @@ public class XdStorageWrapperBlockGettersGenerator {
                         "the visible graph " +
                         "version\r\n\t\t\t\t\t\t\t\t\t\ttoLoadIterator.remove();\r\n\t\t\t\t\t\t\t\t\t}\r\n\t\t\t\t\t" +
                         "\t\t\t}\r\n\t\t\t\t\t\t\t}\r\n\t\t\t\t\t\t}\r\n");
-            } else if (returnType.isAssignableFrom(Map.class)) {
+            } else if (isMapType(returnType)) {
+                // the null guard: an empty lazy map must stay null — a bare .values() on it would
+                // throw, and the catch below would turn that into a rollback-only transaction
+                builder.append("\t\t\t\t\t\t").append(Map.class.getName())
+                        .append("<?, ?> toLoadMap = object.").append(gen.buildMethodCalling(name,
+                        getter.getParameterTypes())).append(";\r\n");
                 builder.append("\t\t\t\t\t\t").append(Collection.class.getName())
-                        .append("<? extends Object> toLoadCollection = object.").append(gen.buildMethodCalling(name,
-                        getter.getParameterTypes())).append(".values();\r\n");
+                        .append("<? extends Object> toLoadCollection = toLoadMap == null ? null : ")
+                        .append("toLoadMap.values();\r\n");
                 builder.append("\t\t\t\t\t\tif (toLoadCollection != null) {\r\n\t\t\t\t\t\t\tfor " +
                         "(java.util.Iterator<?> toLoadIterator = toLoadCollection.iterator(); " +
                         "toLoadIterator.hasNext(); ) {\r\n\t\t\t\t\t\t\t\tObject toLoadObject = " +
@@ -186,6 +190,31 @@ public class XdStorageWrapperBlockGettersGenerator {
             }
             builder.append("\t}\r\n");
         }
+    }
+
+    /**
+     * Whether a lazy field's declared type is a collection whose elements the getter loads one by
+     * one: {@code Iterable} or any of its subtypes ({@code Collection}, {@code List}, {@code Set},
+     * {@code Queue}, the concrete classes). The question is asked in THIS direction on purpose —
+     * {@code type.isAssignableFrom(Collection.class)} answers the opposite one and is true only
+     * for {@code Collection}, {@code Iterable} and {@code Object} themselves.
+     *
+     * @param type the getter's declared return type
+     * @return {@code true} when the elements are loaded through the collection iteration
+     */
+    static boolean isCollectionType(final Class<?> type) {
+        return Iterable.class.isAssignableFrom(type);
+    }
+
+    /**
+     * Whether a lazy field's declared type is a map whose values the getter loads one by one:
+     * {@code Map} or any of its subtypes.
+     *
+     * @param type the getter's declared return type
+     * @return {@code true} when the values are loaded through the map's {@code values()} view
+     */
+    static boolean isMapType(final Class<?> type) {
+        return Map.class.isAssignableFrom(type);
     }
 
     private static void buildTypeCast(StringBuilder builder, Type genReturnType, Class<?> returnType) {
