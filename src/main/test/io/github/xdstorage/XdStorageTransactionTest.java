@@ -1,5 +1,6 @@
 package io.github.xdstorage;
 
+import io.github.xdstorage.XdStorageConfig;
 import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,7 +23,8 @@ public class XdStorageTransactionTest extends AbstractXdStorageTest {
     @DisplayName("Метод beginTransaction() обязан делегировать вызовы в TransactionsManager")
     public void testTransaction_Begin_ShouldForwardToManager() {
         storage.beginTransaction();
-        verify(mockTxManager, times(1)).beginTransaction(3000L);
+        verify(mockTxManager, times(1)).beginTransaction(
+                io.github.xdstorage.XdStorageConfig.defaults().getDefaultTransactionTimeoutMillis());
 
         storage.beginTransaction(100L);
         verify(mockTxManager, times(1)).beginTransaction(100L);
