@@ -28,7 +28,9 @@ current code, stated so embedding surprises are design-time, not production-time
 
 - **Transactions are bound to the owning thread** (`getCurrentTransaction()` by thread identity).
   Every CRUD call without an explicit transaction uses the current thread's binding and throws
-  `"method must be executed in transaction"` when absent.
+  `"method must be executed in transaction"` when absent. The deliberate exception: `explain`
+  works without a transaction **by design** (the plan is static index metadata — no snapshot
+  needed; the internal probe transaction is rolled back immediately).
 - **Thread pools inherit bindings:** a pool thread that abandons its transaction leaves it attached —
   the next task on that thread sees it as "current". Always commit/rollback in a `finally`, or pass
   transactions explicitly.

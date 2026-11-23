@@ -48,7 +48,9 @@ One name per concept, used across README, GUIDE, DECISION-GUIDE, EMBEDDING and C
   `count()` without materializing the result.
 - **Query plans** — `explain(Class, indexName, query)` shows the path the engine would take
   (`INDEX_SEEK` / `INDEX_RANGE_WALK` / `SCAN`, the bound shape, the degradation reason) before
-  running the query, without executing it.
+  running the query, without executing it. **`explain` works without a transaction, by design**
+  (the plan is static index metadata — no snapshot is needed; the internal probe transaction
+  is rolled back immediately), unlike the CRUD/search reads which refuse without one.
 - **Concurrent writers** — index mutations stage per-transaction (the overlay) and apply at
   commit under a total acquisition order: 10 concurrent writers measure 121–158 tx/s
   (p99 84–113 ms) on the heavy indexed shape where 2.0.x collapsed to ~1 tx/s.
@@ -548,7 +550,10 @@ query.or(primaryCriterion2, criterion2);   // additional OR branches
   secondary criteria that ride as post-filters, the degradation reason, and the active
   `ORDER BY`/`LIMIT`/`OFFSET` shaping. The plan is built from the same routing classification the
   execution lives by — it cannot disagree with it — and it is read-only: no records are
-  materialized and no transaction is required.
+  materialized and no transaction is required. This is tx-free **by design** (the plan is static
+  index metadata — no snapshot is needed; the internal probe transaction is rolled back
+  immediately) — `explain` is the one facade method that works without a transaction, pinned by
+  the property estate.
 
 Examples:
 

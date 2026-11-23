@@ -17,7 +17,40 @@ see `XdStorageFormatMeta`):
 
 ## [Unreleased] — the 2.2.0 train
 
-Nothing yet; items land here as they merge.
+### Added
+
+- **The property-based testing estate** ([03](docs/tasks/2.2.0/03-property-based-tests.md)):
+  7 jqwik classes / 13 properties over the engine invariants — CRUD round-trips ×3
+  storage policies, B+Tree random operation sequences (the observable contract + the
+  structural invariant walk per sequence), the journal replay equivalence (the
+  copy-replay = the checkpoint = the direct path), the MVCC two-thread snapshot/FCW
+  choreography, the container jungle (the nested lists/maps/arrays with null cells),
+  the scalar matrix (BigDecimal scale-exact, Date, enum, Class, the honest nulls), the
+  no-tx facade sweep (16 tx-bound methods), count ≡ load.size, the plan/exec
+  agreement, the verify/reopen integrity net. The seed-model pattern: every case is a
+  pure function of its integer seed (the failing seed reproduces exactly; jqwik
+  shrinks). ~13 s in the quick-gate.
+- **`explain` is tx-free by design, documented** — the one facade method that works
+  without a transaction (the plan is static index metadata; GUIDE § Query plans +
+  EMBEDDING), pinned by the property estate.
+
+### Fixed
+
+- **Null map VALUES were silently dropped from persistence** — the unwrap-and-clone
+  path dropped the entry before the writer; the YAML writer/reader both encode null
+  values. Found by the property campaign, pinned by the CRUD round-trip property.
+- **Primitive-typed arrays (`int[]`, `long[]`, ...) made the resource UNREADABLE
+  after reopen** (`ClassNotFoundException: int` — the raw component name resolved via
+  the class registry). Found by the property campaign, pinned by the container-jungle
+  property.
+- **Nested generic collections (`List<List<T>>`, `List<Map<K,V>>`) were silently
+  DROPPED from persistence** (the metadata scan's silent catch swallowed the
+  ClassCastException on the nested generic element). Found by the property campaign,
+  pinned by the container-jungle property.
+- **Nested-container ITEMS were written as empty object blocks** (the reader restored
+  empty containers — the write side did not recurse into nested collection/map/array
+  blocks). Found by the property campaign, pinned by the container-jungle property +
+  the file-truth probe.
 
 ## [2.1.1] — 2026-11-22
 
