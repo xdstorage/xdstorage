@@ -325,6 +325,9 @@ grouping is tags, not layout.
     `release/2.1` per the maintainer's "no patched release now" call, then shipped as
     `v2.1.2` on the maintainer's word (the accumulation model worked: the branch held
     the fixes, the bump/tag only at ship). Merged back (`ac57bd8`; main keeps 2.2.0).
+    **CONTINUED 2026-11-23 — 2.1.3 SHIPPED:** the DUPRACE targeted-delete retry + the
+    R56SCAN epoch-validated walk retry accumulated on `release/2.1` and shipped as
+    `v2.1.3` (Central-verified). Merged back (`e0f35e5`; main keeps 2.2.0).
 
 **2.1.0 exit (2026-11-22 status): everything landed, all 54 work packages closed
 (44 DOCSWRITER landed 2026-11-22: the glossary, the FK story, the canonical numbers on

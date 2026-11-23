@@ -87,7 +87,7 @@ no logging backend ships, bind your own):
 <dependency>
     <groupId>io.github.xdstorage</groupId>
     <artifactId>xdstorage</artifactId>
-    <version>2.1.2</version>
+    <version>2.1.3</version>
 </dependency>
 ```
 
