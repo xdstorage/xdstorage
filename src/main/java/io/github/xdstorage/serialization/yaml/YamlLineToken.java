@@ -15,7 +15,9 @@ public class YamlLineToken {
      * or {@code null} for a flat scalar list item. */
     public final String key;       // Ключ поля (например, "class", "name", "id")
     /** The raw (unquoted) scalar value after the {@code ':'}, or {@code null} when the
-     * line is a bare block name or the value is absent/empty. */
+     * line is a bare block name or the value is absent/empty. On the EOF-sentinel token it
+     * carries the batch trailer written before the sentinel ({@code serial=… tx=…}), when
+     * there is one (docs/tasks/2.2.0/06). */
     public final String value;     // Сырое строковое значение (null, если это имя блока)
     /** Whether the line starts with the {@code "- "} collection-item marker. */
     public final boolean isListItem; // Флаг, начинается ли строка с "- "

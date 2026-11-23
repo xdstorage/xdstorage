@@ -413,7 +413,7 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
                 cache.prepareCommit(transaction, record);
                 try {
                     io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.appendRedo(indexJournalFile,
-                            transaction.getCommitSerial(), record.getChangesObjects(),
+                            transaction.getCommitSerial(), transaction.getTransactionId(), record.getChangesObjects(),
                             services, yamlJournalFactory, services.getStorageConfig().isDurableWrites());
                 } catch (final Throwable e) {
                     throw new XdStorageConnectionException("I/O error appending commit journal of index resource " +
@@ -505,9 +505,11 @@ public class XdStorageHashIndexResource extends XdStorageAbstractHashIndexResour
                 cache.applyCommittedJournalDelete(id);
             }
             if (!replay.upserts.isEmpty() || !replay.deletes.isEmpty()) {
-                log.debug("index resource {} replayed commit journal: {} upsert(s), {} delete(s), {} discarded tail " +
-                        "record(s)",
-                        getFileName(), replay.upserts.size(), replay.deletes.size(), replay.discardedTailRecords);
+                log.debug("index resource {} replayed commit journal: {} batch(es), {} upsert(s), {} delete(s), " +
+                        "up to serial {}, {} discarded tail record(s) (serials {}..{}, {} compensation)",
+                        getFileName(), replay.replayedBatches, replay.upserts.size(), replay.deletes.size(),
+                        replay.lastReplayedSerial, replay.discardedTailRecords, replay.discardedSerialFrom,
+                        replay.discardedSerialTo, replay.discardedCompensationRecords);
             }
             // W-4c (docs/tasks/2.1.0/48): open-time guard for index journals — silently
             // checkpoint if too big after replay

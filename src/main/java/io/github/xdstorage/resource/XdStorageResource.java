@@ -381,10 +381,13 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
             for (final Object id : replay.deletes) {
                 cache.applyCommittedJournalDelete(id);
             }
-            if (!replay.upserts.isEmpty() || !replay.deletes.isEmpty()) {
-                log.debug("resource {} replayed commit journal: {} upsert(s), {} delete(s), {} discarded tail " +
-                        "record(s)",
-                        getFileName(), replay.upserts.size(), replay.deletes.size(), replay.discardedTailRecords);
+            if (!replay.upserts.isEmpty() || !replay.deletes.isEmpty() || replay.discardedTailRecords > 0) {
+                // WAL (docs/tasks/2.2.0/06): the torn tail is reported with the exact serials lost
+                log.debug("resource {} replayed commit journal: {} batch(es), {} upsert(s), {} delete(s), up to " +
+                        "serial {}, {} discarded tail record(s) (serials {}..{}, {} compensation)",
+                        getFileName(), replay.replayedBatches, replay.upserts.size(), replay.deletes.size(),
+                        replay.lastReplayedSerial, replay.discardedTailRecords, replay.discardedSerialFrom,
+                        replay.discardedSerialTo, replay.discardedCompensationRecords);
             }
             // W-4c (docs/tasks/2.1.0/48): open-time guard — if the journal is too big after
             // replay, checkpoint silently (no WARN) to keep the folder clean
@@ -434,8 +437,9 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
                 cache.prepareCommit(transaction, record);
                 try {
                     io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.appendRedo(journalFile,
-                            transaction.getCommitSerial(), record.getChangesObjects(),
-                            services, yamlJournalFactory, services.getStorageConfig().isDurableWrites());
+                            transaction.getCommitSerial(), transaction.getTransactionId(),
+                            record.getChangesObjects(), services, yamlJournalFactory,
+                            services.getStorageConfig().isDurableWrites());
                 } catch (final Throwable e) {
                     throw new XdStorageRuntimeException("invalid state of database: error by appending commit " +
                             "journal of resource " + resourceId, e);

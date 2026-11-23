@@ -18,8 +18,19 @@ The full algorithms and the failure families:
    fix). Also: the READ-ONLY resources (no write changes) skip the locks and
    the phases; the FK resource always stays (the veto validations).**
 5. Phase-1 loop (execution order: DATA → INDEX → FK): journal/write per
-   resource; failure → hasError → break → the failure path: overlay-undo +
-   discard → rethrow.
+   resource — ONE sentinel-terminated batch PER RESOURCE, each its own
+   durability unit; failure → hasError → break → the failure path:
+   overlay-undo + discard → rethrow. Every batch carries a trailer naming
+   its commit serial and transaction (task 06: `# xdstorage-meta serial=N
+   tx=<id>` BEFORE the unchanged `# xdstorage-eof` — a comment, so an older
+   reader skips it; never enrich the sentinel line itself: older readers
+   would see no sentinel and discard the batch). A damaged journal with
+   later complete batches after the damage is REFUSED at replay (was: one
+   WARN + every later commit dropped); only "no sentinel after the failure"
+   is a torn tail. **No commit point spans the resources** — a kill between
+   two appends leaves the transaction half applied (PROVEN:
+   XdStorageCrashAtomicityCharacterizationTest; COMMIT_ATOMICITY_DESIGN.md;
+   the fix = task 50).
 6. RBCOMMIT gate ×1: rollback-only mid-commit → overlay-undo + discard +
    buildRollbackOnlyFailure.
 7. Phase-2 loop: publish the caches.
@@ -56,7 +67,10 @@ the compensation first ✓ — verify on any change).
   3s visibility budget → "serving absent").
 - The B+tree in-memory instance: READ UNCOMMITTED across txs (the canonical
   graph is shared and mutated in place — the W-4 domain).
-- R-45 commit serial: one serial per tx — the readers see all or none.
+- R-45 commit serial: one serial per tx — the IN-MEMORY readers see
+  all or none. On disk each journal replays on its own (the cross-resource
+  crash hole above); a commit that RETURNED is safe after a restart, one
+  that was in flight is not.
 - R-58: the rollback of a COMMITTED record is ignored (the late/racing
   rollback suppression — no zombie records).
 

@@ -105,6 +105,24 @@ public class XdStorageYamlEmitter {
      * @throws IOException when the underlying writer fails
      */
     public void writeEofSentinel() throws IOException {
-        writer.append("\r\n").append(XdStorageYamlTokenizer.EOF_SENTINEL_LINE).append("\r\n");
+        writeEofSentinel(null);
+    }
+
+    /**
+     * S-1 sentinel preceded by the BATCH TRAILER (WAL, docs/tasks/2.2.0/06): a comment line
+     * naming the commit serial and the transaction of the batch just written. The sentinel
+     * line itself stays the plain one, so a reader that predates the trailer skips the extra
+     * line and still sees the sentinel.
+     *
+     * @param trailer the trailer text after {@link XdStorageYamlTokenizer#TRAILER_PREFIX}
+     *                ({@code serial=17 tx=<id>}), or {@code null} for a bare sentinel
+     * @throws IOException when the underlying writer fails
+     */
+    public void writeEofSentinel(final String trailer) throws IOException {
+        writer.append("\r\n");
+        if (trailer != null && !trailer.isEmpty()) {
+            writer.append(XdStorageYamlTokenizer.TRAILER_PREFIX).append(trailer).append("\r\n");
+        }
+        writer.append(XdStorageYamlTokenizer.EOF_SENTINEL_LINE).append("\r\n");
     }
 }
