@@ -79,3 +79,41 @@ Estimate: ~2 sessions (the repro design is the hard half — the same lesson as 
 - [FLAKY.md](../../FLAKY.md) — the new row (1 CI occurrence, 0/3 local)
 - docs/perf/PROPTEST-FINDINGS.md — the harness patterns (the seed-model, the
   staged choreography)
+
+
+---
+
+## PROGRESS (2026-11-23): the mechanism named, the fix landed, the CI watch pending
+
+**The mechanism (the hypothesis #1 confirmed by the code):** the targeted delete's
+descent descends level-by-level releasing the parent lock at each hop; a concurrent
+sibling delete's borrow/merge can MOVE the pair (or the descent's whole window) after
+the descent committed to its path. The descent lands in a leaf that no longer holds the
+pair → `deletePairFromThisNode` threw "does not exists" — **without setting the
+retryDelete flag** (the only retried case was the local tombstone "was deleted this
+transaction"), so the tree-level do-while retry loop never re-descended. The insert
+path has the retry-on-miss pattern (retryInsert); the delete path lacked its twin.
+
+**The fix (XdStorageBTreeNode.deletePairFromThisNode):** the miss runs the SOUND
+PREDICATE first — `tree.find(key).contains(value)`:
+- the pair the tree still holds = a stale descent → `retryDelete.set(true)` → the
+  tree-level do-while re-descends from the root (the insert-path pattern);
+- the pair nowhere = the honest refusal (the genuine "does not exists").
+
+The find is paid only on the miss — zero cost on the happy path. The `retryDelete`
+parameter is now threaded into `deletePairFromThisNode` (the flag was already flowing
+through the whole call chain — only the leaf scanner didn't receive it).
+
+**The gates:**
+- [x] The class ×3 locally GREEN (4 tests ×3 runs, 0 failures).
+- [ ] The class ×3 on the CI runner (the nightly watch — the CI 2-vCPU scheduling was
+      the trigger; the local red-before is NOT reproducible: the class is green ×3 on
+      the pre-fix code too, per the task's own note and the 0/3 FLAKY row — the fix is
+      sound by construction: the throw-for-a-verified-existing-pair path is eliminated
+      by the sound predicate, and the CI watch is the empirical confirmation).
+- [x] The quick-gate GREEN (1358/0f/0e/9s, BUILD SUCCESS).
+- [x] The invariant walk per the DUPKEYS suite (the test's own structural checks).
+
+**The status stays open until the CI ×3 confirms.** The 2.1.3 hotfix note stands (the
+fixes ride both lines per the standing directive — the cherry-pick is this one method's
+diff).
