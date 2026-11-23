@@ -31,10 +31,23 @@ public class XdStorageYamlTokenizer {
      * clean EOF explicitly. */
     public static final String EOF_SENTINEL_KEY = "xdstorage-eof";
 
+    /**
+     * WAL (docs/tasks/2.2.0/06): the prefix of the BATCH TRAILER — a comment line a commit
+     * journal writes immediately before its sentinel, naming the commit serial and the
+     * transaction the batch belongs to ({@code # xdstorage-meta serial=17 tx=<id>}). It is a
+     * comment on purpose: a reader that predates it skips the line and still finds the plain
+     * sentinel, so a journal written by this version replays under an older one unchanged.
+     * The tokenizer attaches it to the sentinel token's {@code value}.
+     */
+    public static final String TRAILER_PREFIX = "# xdstorage-meta ";
+
     private final BufferedReader reader;
 
     // Внутренний буфер для реализации заглядывания вперёд (Look-Ahead Barrier)
     private YamlLineToken peekedToken = null;
+
+    /** The trailer line read last, when nothing but blank and comment lines followed it. */
+    private String pendingTrailer = null;
 
     /**
      * Creates the tokenizer over the given stream, wrapping a non-buffered reader into a
@@ -93,10 +106,19 @@ public class XdStorageYamlTokenizer {
                 // S-1: сентинел конца файла НЕ пропускается — возвращается как токен уровня 0,
                 // чтобы высокий ридер мог отличить честный конец файла от обрыва
                 if (EOF_SENTINEL_LINE.equals(trimmed)) {
-                    return new YamlLineToken(0, EOF_SENTINEL_KEY, null, false);
+                    return sentinelToken(pendingTrailer);
+                }
+                // WAL (task 06): the enriched spelling on the sentinel line itself — read, never
+                // written by this version (the trailer line is the forward-safe form)
+                if (trimmed.startsWith(EOF_SENTINEL_LINE + " ")) {
+                    return sentinelToken(trimmed.substring(EOF_SENTINEL_LINE.length()).trim());
+                }
+                if (trimmed.startsWith(TRAILER_PREFIX)) {
+                    pendingTrailer = trimmed.substring(TRAILER_PREFIX.length()).trim();
                 }
                 continue;
             }
+            pendingTrailer = null;   // a content line ends the trailer's reach
 
             // 2. МOЛНИЕНОСНЫЙ ПОДСЧЁТ ВЛОЖЕННОСТИ:
             // Считаем количество префиксных '\t' в начале физической строки
@@ -137,6 +159,73 @@ public class XdStorageYamlTokenizer {
             return new YamlLineToken(level, key, value, isListItem);
         }
         return null; // Конец файла (EOF)
+    }
+
+    /** The sentinel pseudo-token; {@code trailer} is the batch trailer before it, when there is one. */
+    private static YamlLineToken sentinelToken(final String trailer) {
+        return new YamlLineToken(0, EOF_SENTINEL_KEY, trailer == null || trailer.isEmpty() ? null : trailer, false);
+    }
+
+    /**
+     * After a parse failure: what the rest of the stream still holds, counted on the RAW lines
+     * (nothing is tokenized, so a second bad value cannot mask the first). The buffered
+     * look-ahead token counts first. Used to tell a torn tail from a corruption in the middle
+     * of a journal: a sentinel further on means later batches exist.
+     *
+     * @return the record starts ({@code - record} lines), the EOF sentinels — the first of
+     *         them closes the batch the failure sits in — and the first batch trailer further on
+     * @throws IOException when the underlying stream cannot be read
+     */
+    public Remainder scanRemainder() throws IOException {
+        int records = 0;
+        int sentinels = 0;
+        String trailer = null;
+        final YamlLineToken buffered = peekedToken;
+        peekedToken = null;
+        if (buffered != null) {
+            if (EOF_SENTINEL_KEY.equals(buffered.key)) {
+                sentinels++;
+            } else if (buffered.level == 0 && buffered.isListItem) {
+                records++;
+            }
+        }
+        String line;
+        while ((line = reader.readLine()) != null) {
+            final String trimmed = line.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            final boolean sentinel = trimmed.equals(EOF_SENTINEL_LINE)
+                    || trimmed.startsWith(EOF_SENTINEL_LINE + " ");
+            if (sentinel) {
+                sentinels++;
+            } else if (trimmed.startsWith(TRAILER_PREFIX)) {
+                if (trailer == null) {
+                    trailer = trimmed.substring(TRAILER_PREFIX.length()).trim();
+                }
+            } else if (trimmed.startsWith("#")) {
+                continue;
+            } else if (line.startsWith("- ")) {
+                records++;   // a record start sits at level 0
+            }
+        }
+        return new Remainder(records, sentinels, trailer);
+    }
+
+    /** What a {@link #scanRemainder()} found after a parse failure. */
+    public static final class Remainder {
+        /** Record starts ({@code - record} lines) left in the stream. */
+        public final int records;
+        /** EOF sentinels left in the stream; at least one means the damaged batch is closed. */
+        public final int sentinels;
+        /** The first batch trailer further on, or {@code null} when none precedes a sentinel. */
+        public final String trailer;
+
+        Remainder(final int records, final int sentinels, final String trailer) {
+            this.records = records;
+            this.sentinels = sentinels;
+            this.trailer = trailer;
+        }
     }
 
     /**

@@ -116,6 +116,20 @@ current code, stated so embedding surprises are design-time, not production-time
   is a **layout discovery** — not a format break — the format version stays the same.
 - Default write-out is process-crash-safe (atomic rename), NOT power-loss-safe. Enable
   `XdStorageConfig.builder().durableWrites(true)` for fsync-per-commit power-loss safety.
+- **A crash DURING a commit can leave the transaction half applied.** One commit is appended to
+  several journals in a row — the data journal and the id-index journal of every class it
+  touches — and nothing yet records that the commit as a whole reached its point of no return
+  ([50](tasks/2.2.0/50-commit-marker-cross-resource-atomicity.md)). Commits that RETURNED are
+  safe after a restart; a process killed while a commit was in flight is not guaranteed to be
+  either fully there or fully absent. One resource at a time (one class, one commit) is not
+  exempt: its data and its id-index are two journals.
+- **A commit journal damaged in its middle is refused, not skipped** (WAL, docs/tasks/2.2.0/06).
+  A truncated tail — a crash mid-append — is discarded as before, and the warning names the
+  exact commit serials lost. But a record that cannot be parsed while further complete batches
+  follow it in the same file is damage: the storage refuses to open that resource with
+  `… is CORRUPT in batch N …`, instead of silently dropping every later commit in the journal
+  (the behavior before 2.2.0). Restore the folder from a backup, or rebuild the journal from
+  the base file knowingly.
 - Resource files carry an EOF sentinel; a truncated file fails loudly at open. Pre-sentinel legacy
   storages: open once with `acceptMissingEofSentinel(true)` and let the first commit rewrite the files.
 - Stale `*.tmp` files from a previous crash are swept at open.
@@ -320,6 +334,14 @@ and the escapes as literal text), everything else intact. The marker is unchange
 (`formatVersion=3`), so 2.1.x does not refuse on its own; do not downgrade such a folder, or
 back it up first (§ Backup and restore). Before 2.2.0 a line break inside a string could not
 be stored at all — it corrupted the record.
+
+**Commit-journal batch trailers (2.2.0, docs/tasks/2.2.0/06).** Every batch a 2.2.0 library
+appends to a commit journal is followed by one comment line naming its commit serial and its
+transaction (`# xdstorage-meta serial=17 tx=<id>`) and then by the usual `# xdstorage-eof`.
+Additive: nothing migrates, the sentinel line is unchanged, and a 2.1.x library skips the
+trailer as a comment and replays such a journal exactly as before. A 2.2.0 library reads
+journals without trailers (every version before it) unchanged. The reader checks each trailer
+against its batch and refuses the journal when the two disagree.
 
 The folder is single-writer (exclusive lock); a folder may be read concurrently only by the
 owning process. There is no multi-process write access and no down-level writer after a
