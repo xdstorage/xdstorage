@@ -21,7 +21,6 @@ import io.github.xdstorage.search.IXdStorageSearchManager;
 import io.github.xdstorage.search.XdStorageSearchManager;
 import io.github.xdstorage.serialization.FilesFormat;
 import io.github.xdstorage.serialization.IXdStorageIOFactory;
-import io.github.xdstorage.serialization.XdStorageDefaultIOFactory;
 import io.github.xdstorage.serialization.XdStorageIOFactory;
 import io.github.xdstorage.structure.XdStorageStructureManager;
 import io.github.xdstorage.transaction.IXdStorageTransactionManager;

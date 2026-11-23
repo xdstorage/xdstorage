@@ -1,14 +1,9 @@
 package io.github.xdstorage.factories;
 
 import io.github.xdstorage.IXdStorage;
-import io.github.xdstorage.transaction.IXdStorageTransaction;
 import io.github.xdstorage.transaction.XdStorageTransaction;
-import io.github.xdstorage.utils.XdStorageClassInfo;
-import io.github.xdstorage.utils.XdStorageObjectField;
 import org.junit.jupiter.api.BeforeEach;
 
-import java.util.HashMap;
-import java.util.Map;
 
 import static org.mockito.Mockito.*;
 

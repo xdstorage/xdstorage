@@ -2,9 +2,7 @@ package io.github.xdstorage.reliability;
 
 import io.github.xdstorage.BenchmarkEntity;
 import io.github.xdstorage.IXdFileStorage;
-import io.github.xdstorage.XdStorageConfig;
 import io.github.xdstorage.XdStorageProvider;
-import io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,9 +13,7 @@ import java.io.InputStream;
 import java.util.Properties;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;

@@ -1,7 +1,6 @@
 package io.github.xdstorage.transaction;
 
 import io.github.xdstorage.IXdStorage;
-import io.github.xdstorage.exceptions.XdStorageException;
 
 /** One storage transaction: the unit of atomicity for every CRUD operation. Obtained
  * from {@code IXdStorage.beginTransaction(...)}; transactions are bound to the creating

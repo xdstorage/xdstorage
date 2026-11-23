@@ -1,7 +1,6 @@
 package io.github.xdstorage.trigger;
 
 import io.github.xdstorage.transaction.IXdStorageTransaction;
-import io.github.xdstorage.transaction.XdStorageTransaction;
 
 /**
  * Base class for insert triggers: implements the two-object {@code IXdStorageTrigger} contract

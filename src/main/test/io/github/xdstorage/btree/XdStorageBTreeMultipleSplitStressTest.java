@@ -1,13 +1,11 @@
 package io.github.xdstorage.btree;
 
 import io.github.xdstorage.IXdStorage;
-import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 import java.util.Collection;
 import java.util.List;

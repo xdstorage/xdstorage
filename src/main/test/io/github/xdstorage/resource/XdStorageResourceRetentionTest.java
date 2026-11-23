@@ -8,8 +8,6 @@ import io.github.xdstorage.annotations.XdStorageObjectIdIndexType;
 import io.github.xdstorage.annotations.XdStorageObjectPolicy;
 import io.github.xdstorage.index.XdStorageIndexType;
 import io.github.xdstorage.XdStoragePolicy;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -21,7 +19,6 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * R-55: ресурсы УДЕРЖИВАЮТСЯ после обнуления счетчика ссылок (ретеншн).

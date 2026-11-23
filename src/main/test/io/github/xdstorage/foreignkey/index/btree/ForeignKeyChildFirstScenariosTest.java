@@ -2,13 +2,10 @@ package io.github.xdstorage.foreignkey.index.btree;
 
 import io.github.xdstorage.entities.foreignkeys.index.btree.BTreeIndexChildAutoId;
 import io.github.xdstorage.entities.foreignkeys.index.btree.BTreeIndexParentAutoId;
-import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 

@@ -1,7 +1,6 @@
 package io.github.xdstorage.resource;
 
 import io.github.xdstorage.exceptions.XdStorageException;
-import io.github.xdstorage.observing.XdStorageAbstractIdObserver;
 import io.github.xdstorage.transaction.XdStorageTransaction;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

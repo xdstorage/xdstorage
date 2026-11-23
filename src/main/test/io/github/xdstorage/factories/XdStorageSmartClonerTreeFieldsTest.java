@@ -6,7 +6,6 @@ import io.github.xdstorage.btree.XdStorageBTreeNode;
 import io.github.xdstorage.btree.XdStorageBTreeId;
 import io.github.xdstorage.services.XdStorageServicesLocator;
 import io.github.xdstorage.transaction.IXdStorageTransactionManager;
-import io.github.xdstorage.transaction.MockTransaction;
 import io.github.xdstorage.transaction.XdStorageTransaction;
 
 import static org.mockito.ArgumentMatchers.any;

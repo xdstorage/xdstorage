@@ -1,6 +1,5 @@
 package io.github.xdstorage.observing;
 
-import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 
 /**

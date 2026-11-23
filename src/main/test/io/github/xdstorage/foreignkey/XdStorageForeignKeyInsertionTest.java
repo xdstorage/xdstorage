@@ -4,7 +4,6 @@ import io.github.xdstorage.IXdFileStorage;
 import io.github.xdstorage.XdStorageProvider;
 import io.github.xdstorage.entities.foreignkeys.Child;
 import io.github.xdstorage.entities.foreignkeys.Parent;
-import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.serialization.FilesFormat;
 import io.github.xdstorage.transaction.IXdStorageTransaction;

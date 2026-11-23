@@ -3,7 +3,6 @@ package io.github.xdstorage;
 import io.github.xdstorage.annotations.XdStorageObjectId;
 import io.github.xdstorage.annotations.XdStorageObjectIdIndexType;
 import io.github.xdstorage.annotations.XdStorageObjectPolicy;
-import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.index.XdStorageIndexType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;

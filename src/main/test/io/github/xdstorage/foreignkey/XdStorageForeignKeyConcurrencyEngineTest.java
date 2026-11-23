@@ -1,8 +1,5 @@
 package io.github.xdstorage.foreignkey;
 
-import io.github.xdstorage.annotations.XdStorageAutoSave;
-import io.github.xdstorage.annotations.XdStorageObjectId;
-import io.github.xdstorage.annotations.XdStorageObjectPolicy;
 import io.github.xdstorage.transaction.XdStorageTransaction;
 import io.github.xdstorage.utils.XdStorageClassInfo;
 import io.github.xdstorage.utils.XdStorageClassMetadataRegistry;

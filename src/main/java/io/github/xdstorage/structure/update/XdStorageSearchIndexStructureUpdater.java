@@ -6,7 +6,6 @@ import io.github.xdstorage.exceptions.XdStorageConnectionException;
 import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.index.IXdStorageIndexDaoResource;
-import io.github.xdstorage.object.XdStorageIdentifiableObject;
 import io.github.xdstorage.resource.IXdStorageDaoResource;
 import io.github.xdstorage.resource.XdStorageAbstractResourcesManager;
 import io.github.xdstorage.search.IXdStorageSearchManager;

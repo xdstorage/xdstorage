@@ -2,8 +2,6 @@ package io.github.xdstorage;
 
 import io.github.xdstorage.serialization.XdStorageSearchIndexJournalRecord;
 import io.github.xdstorage.serialization.search.XdStorageSearchIndexJournal;
-import io.github.xdstorage.search.key.XdStorageSearchIndexKey;
-import io.github.xdstorage.search.key.XdStorageSearchIndexOperationType;
 import io.github.xdstorage.btree.XdStorageBTree;
 import io.github.xdstorage.btree.XdStorageBTreeId;
 import io.github.xdstorage.transaction.IXdStorageTransaction;

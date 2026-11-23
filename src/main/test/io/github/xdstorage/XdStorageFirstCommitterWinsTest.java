@@ -1,18 +1,14 @@
 package io.github.xdstorage;
 
 import io.github.xdstorage.annotations.XdStorageObjectId;
-import io.github.xdstorage.annotations.XdStorageObjectIdIndexType;
 import io.github.xdstorage.annotations.XdStorageObjectPolicy;
 import io.github.xdstorage.exceptions.XdStorageException;
-import io.github.xdstorage.index.XdStorageIndexType;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 

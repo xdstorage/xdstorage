@@ -4,8 +4,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import io.github.xdstorage.IXdStorage;
 import io.github.xdstorage.entities.XdUniverse;
-import io.github.xdstorage.exceptions.XdStorageConnectionException;
-import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 
 import java.util.Collection;

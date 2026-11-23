@@ -1,6 +1,5 @@
 package io.github.xdstorage.foreignkey;
 
-import io.github.xdstorage.btree.XdStorageBTree;
 import io.github.xdstorage.btree.XdStorageBTreeId;
 import io.github.xdstorage.utils.XdStorageClassInfo;
 import io.github.xdstorage.utils.XdStorageObjectField;

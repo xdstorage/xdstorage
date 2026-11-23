@@ -7,7 +7,6 @@ import io.github.xdstorage.annotations.XdStorageObjectPolicy;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.utils.XdStorageClassMetadataRegistry;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

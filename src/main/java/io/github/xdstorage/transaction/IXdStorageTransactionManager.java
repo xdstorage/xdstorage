@@ -1,7 +1,6 @@
 package io.github.xdstorage.transaction;
 
 import io.github.xdstorage.IXdStorage;
-import io.github.xdstorage.exceptions.XdStorageException;
 
 /** The transaction factory and registry of one storage: begins transactions (also the
  * thread-binding authority for {@code getCurrentTransaction()}), commits/rolls back,

@@ -1,6 +1,5 @@
 package io.github.xdstorage.index.hash;
 
-import java.nio.file.Path;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 
@@ -10,7 +9,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.Set;
 import io.github.xdstorage.exceptions.XdStorageIOException;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
-import io.github.xdstorage.helpers.XdStorageDefaultSimpleTypeHelper;
 import io.github.xdstorage.idgeneration.IXdStorageIdGenerator;
 import io.github.xdstorage.idgeneration.XdStorageIdGeneratorType;
 import io.github.xdstorage.object.XdStorageIdentifiableObject;

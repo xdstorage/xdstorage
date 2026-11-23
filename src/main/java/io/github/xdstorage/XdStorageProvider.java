@@ -10,7 +10,6 @@ import io.github.xdstorage.utils.XdStorageFormatMeta;
 import io.github.xdstorage.utils.XdStorageVersion;
 
 import java.io.File;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;

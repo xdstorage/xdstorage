@@ -5,7 +5,6 @@ import io.github.xdstorage.annotations.XdStorageAutoSave;
 import io.github.xdstorage.annotations.XdStorageObjectId;
 import io.github.xdstorage.annotations.XdStorageObjectPolicy;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 /** MAP-shape fixture: the annotated Map's VALUES are the cascade candidates (keys are not). */

@@ -1,6 +1,5 @@
 package io.github.xdstorage.resource;
 
-import io.github.xdstorage.IXdStorage;
 import io.github.xdstorage.IXdStoragePredicate;
 import io.github.xdstorage.factories.IXdStorageReferenceProvider;
 import io.github.xdstorage.factories.XdStorageDefaultReferenceProvider;
@@ -12,9 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;

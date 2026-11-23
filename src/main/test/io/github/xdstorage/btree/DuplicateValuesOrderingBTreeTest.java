@@ -1,6 +1,5 @@
 package io.github.xdstorage.btree;
 
-import io.github.xdstorage.exceptions.XdStorageException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

@@ -2,7 +2,6 @@ package io.github.xdstorage.resource;
 
 import io.github.xdstorage.exceptions.XdStorageConnectionException;
 import io.github.xdstorage.exceptions.XdStorageException;
-import io.github.xdstorage.transaction.IXdStorageTransaction;
 import io.github.xdstorage.transaction.XdStorageTransaction;
 import io.github.xdstorage.transaction.XdStorageTransactionResourceChanges;
 

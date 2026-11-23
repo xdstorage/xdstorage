@@ -3,7 +3,6 @@ package io.github.xdstorage.utils;
 import io.github.xdstorage.XdStoragePolicy;
 import io.github.xdstorage.annotations.*;
 import io.github.xdstorage.index.XdStorageIndexType;
-import io.github.xdstorage.search.XdStorageSearchIndex;
 import io.github.xdstorage.code.IXdStorageUnmodifiableWrapper;
 import java.lang.reflect.*;
 import java.util.*;

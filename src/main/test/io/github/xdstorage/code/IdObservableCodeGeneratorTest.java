@@ -1,7 +1,6 @@
 package io.github.xdstorage.code;
 
 import io.github.xdstorage.performance.entities.XdPlanetAutoSave;
-import io.github.xdstorage.performance.entities.XdSatelliteAutoSave;
 
 import java.util.HashMap;
 import java.util.Map;

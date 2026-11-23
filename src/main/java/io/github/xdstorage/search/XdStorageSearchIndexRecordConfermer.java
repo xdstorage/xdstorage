@@ -1,8 +1,5 @@
 package io.github.xdstorage.search;
 
-import io.github.xdstorage.utils.XdStorageClassInfo;
-import io.github.xdstorage.utils.XdStorageObjectIdField;
-import io.github.xdstorage.utils.XdStorageObjectUtils;
 
 import java.util.*;
 

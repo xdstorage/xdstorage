@@ -2,7 +2,6 @@ package io.github.xdstorage.btree;
 
 import io.github.xdstorage.IXdStorage;
 import io.github.xdstorage.MockStorage;
-import io.github.xdstorage.transaction.IXdStorageTransaction;
 import io.github.xdstorage.transaction.MockTransaction;
 import org.junit.jupiter.api.BeforeEach;
 

@@ -5,7 +5,6 @@ import io.github.xdstorage.exceptions.XdStorageConnectionException;
 import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.transaction.XdStorageTransaction;
 
-import java.util.List;
 
 /** The DAO face of one persisted search-index resource: insert, update and delete of the
  * assembled {@code XdStorageSearchIndexRecord}s inside a caller's transaction, plus a

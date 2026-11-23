@@ -5,7 +5,6 @@ import io.github.xdstorage.index.hash.XdStorageHashIndexResource;
 import io.github.xdstorage.index.btree.XdStorageBTreeIndexResource;
 import io.github.xdstorage.resource.IXdStorageDaoResource;
 import io.github.xdstorage.resource.IXdStorageResourceNamingService;
-import io.github.xdstorage.search.data.XdStorageSearchIndexRecord;
 import io.github.xdstorage.serialization.IXdStorageIOFactory;
 import io.github.xdstorage.serialization.IXdStorageObjectsReader;
 import io.github.xdstorage.serialization.IXdStorageObjectsWriter;
@@ -22,12 +21,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;

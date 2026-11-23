@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.ref.WeakReference;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;

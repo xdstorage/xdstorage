@@ -5,7 +5,6 @@ import io.github.xdstorage.factories.IXdStorageCloner;
 import io.github.xdstorage.factories.IXdStorageReferenceProvider;
 import io.github.xdstorage.factories.XdStorageDefaultReferenceProvider;
 import io.github.xdstorage.factories.XdStorageSmartCloner;
-import io.github.xdstorage.resource.IXdStorageResourceObject;
 import io.github.xdstorage.utils.XdStorageObjectUtils;
 import io.github.xdstorage.transaction.XdStorageTransaction;
 import io.github.xdstorage.transaction.XdStorageTransactionResourceChanges;

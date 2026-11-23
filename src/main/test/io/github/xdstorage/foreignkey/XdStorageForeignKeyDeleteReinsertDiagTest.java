@@ -2,7 +2,6 @@ package io.github.xdstorage.foreignkey;
 
 import io.github.xdstorage.IXdFileStorage;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
-import io.github.xdstorage.XdStorageConfig;
 import io.github.xdstorage.XdStorageProvider;
 import io.github.xdstorage.serialization.FilesFormat;
 import io.github.xdstorage.performance.entities.FkBenchChild;

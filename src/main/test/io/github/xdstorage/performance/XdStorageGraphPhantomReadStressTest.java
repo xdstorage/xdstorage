@@ -3,7 +3,6 @@ package io.github.xdstorage.performance;
 import io.github.xdstorage.IXdStorage;
 import io.github.xdstorage.XdStorageProvider;
 import io.github.xdstorage.entities.*;
-import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import org.junit.jupiter.api.*;
 

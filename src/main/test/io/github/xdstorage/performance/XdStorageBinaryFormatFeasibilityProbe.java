@@ -14,7 +14,6 @@ import io.github.xdstorage.utils.XdStorageObjectIdField;
 import java.io.Reader;
 import java.io.Writer;
 import java.lang.reflect.Field;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -28,7 +27,6 @@ import java.util.zip.GZIPOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.InputStream;
 
 /**

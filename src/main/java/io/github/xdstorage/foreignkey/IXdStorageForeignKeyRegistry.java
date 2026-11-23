@@ -1,6 +1,5 @@
 package io.github.xdstorage.foreignkey;
 
-import io.github.xdstorage.exceptions.XdStorageConnectionException;
 import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import io.github.xdstorage.utils.XdStorageClassInfo;

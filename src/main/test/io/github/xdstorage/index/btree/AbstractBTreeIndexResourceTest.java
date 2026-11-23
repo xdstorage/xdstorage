@@ -1,13 +1,9 @@
 package io.github.xdstorage.index.btree;
 
 import io.github.xdstorage.IXdStorage;
-import io.github.xdstorage.btree.XdStorageBTree;
 import io.github.xdstorage.idgeneration.IXdStorageIdGenerator;
-import io.github.xdstorage.index.IXdStorageIndexResourceObject;
 import io.github.xdstorage.resource.IXdStorageDaoResource;
-import io.github.xdstorage.resource.IXdStorageResourceObject;
 import io.github.xdstorage.resource.XdStorageAbstractResourcesManager;
-import io.github.xdstorage.search.IXdStorageSearchIndexResourceObject;
 import io.github.xdstorage.serialization.IXdStorageIOFactory;
 import io.github.xdstorage.serialization.IXdStorageObjectsReader;
 import io.github.xdstorage.serialization.IXdStorageObjectsWriter;
@@ -21,7 +17,6 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.nio.file.Path;
-import java.util.Collection;
 
 import static org.mockito.Mockito.*;
 

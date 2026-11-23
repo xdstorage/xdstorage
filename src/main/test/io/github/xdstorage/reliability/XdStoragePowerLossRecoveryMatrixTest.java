@@ -5,7 +5,6 @@ import io.github.xdstorage.XdStorageConfig;
 import io.github.xdstorage.XdStorageProvider;
 import io.github.xdstorage.search.query.IXdStorageCriterionOperator;
 import io.github.xdstorage.search.query.XdStoragePrimaryCriterion;
-import io.github.xdstorage.search.query.XdStorageRange;
 import io.github.xdstorage.search.query.XdStorageSearchQuery;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import org.junit.jupiter.api.DisplayName;
@@ -18,7 +17,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 

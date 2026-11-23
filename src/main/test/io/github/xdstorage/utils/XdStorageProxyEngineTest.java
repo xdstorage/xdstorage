@@ -1,6 +1,5 @@
 package io.github.xdstorage.utils;
 
-import io.github.xdstorage.code.IXdStorageSimpleWrapper;
 import io.github.xdstorage.code.IXdStorageUnmodifiableWrapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

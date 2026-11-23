@@ -14,7 +14,6 @@ import io.github.xdstorage.utils.XdStorageObjectUtils;
 
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
-import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
 import java.lang.reflect.Array;

@@ -5,8 +5,6 @@ import io.github.xdstorage.annotations.*;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
 
 @XdStorageObjectPolicy(policy = XdStoragePolicy.StoreAsClassObjects)
 @XdStorageObjectSearchIndex(indexName = "star_system_idx", indexFieldNames = {"newName"}, t = 50,

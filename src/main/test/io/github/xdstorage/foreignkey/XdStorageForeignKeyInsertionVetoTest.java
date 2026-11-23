@@ -2,10 +2,6 @@ package io.github.xdstorage.foreignkey;
 
 import io.github.xdstorage.IXdFileStorage;
 import io.github.xdstorage.XdStorageProvider;
-import io.github.xdstorage.annotations.XdStorageAutoSave;
-import io.github.xdstorage.annotations.XdStorageObjectId;
-import io.github.xdstorage.annotations.XdStorageObjectPolicy;
-import io.github.xdstorage.annotations.XdStorageParentObject;
 import io.github.xdstorage.entities.foreignkeys.Child;
 import io.github.xdstorage.entities.foreignkeys.Parent;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;

@@ -5,8 +5,6 @@ import org.apache.logging.log4j.Logger;
 import io.github.xdstorage.IXdStorage;
 import io.github.xdstorage.btree.XdStorageBTree;
 import io.github.xdstorage.btree.XdStorageBTreeId;
-import io.github.xdstorage.exceptions.XdStorageConnectionException;
-import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.factories.IXdStorageCloner;
 import io.github.xdstorage.factories.XdStorageSmartCloner;
 import io.github.xdstorage.resource.XdStorageResourceCache;

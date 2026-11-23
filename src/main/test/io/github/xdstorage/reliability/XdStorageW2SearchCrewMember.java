@@ -2,7 +2,6 @@ package io.github.xdstorage.reliability;
 
 import io.github.xdstorage.XdStoragePolicy;
 import io.github.xdstorage.annotations.XdStorageObjectId;
-import io.github.xdstorage.annotations.XdStorageObjectChildSearchIndex;
 import io.github.xdstorage.annotations.XdStorageObjectPolicy;
 import io.github.xdstorage.annotations.XdStorageObjectSearchIndex;
 

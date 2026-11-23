@@ -1,6 +1,5 @@
 package io.github.xdstorage.resource.cache;
 
-import io.github.xdstorage.resource.XdStorageObjectOperationType;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import io.github.xdstorage.exceptions.XdStorageException;

@@ -2,13 +2,10 @@ package io.github.xdstorage.performance;
 
 import io.github.xdstorage.serialization.yaml.XdStorageYamlObjectsReader;
 import io.github.xdstorage.serialization.yaml.XdStorageYamlObjectsWriter;
-import io.github.xdstorage.utils.XdStorageObjectIdField;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.nio.file.Files;

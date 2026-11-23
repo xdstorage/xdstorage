@@ -1,7 +1,6 @@
 package io.github.xdstorage.code;
 
 import io.github.xdstorage.IXdStorage;
-import io.github.xdstorage.transaction.IXdStorageTransaction;
 import java.util.Map;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;

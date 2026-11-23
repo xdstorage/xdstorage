@@ -4,14 +4,12 @@ import io.github.xdstorage.XdStoragePolicy;
 import io.github.xdstorage.annotations.XdStorageAutoSave;
 import io.github.xdstorage.annotations.XdStorageObjectId;
 import io.github.xdstorage.annotations.XdStorageObjectPolicy;
-import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.utils.XdStorageClassInfo;
 import io.github.xdstorage.utils.XdStorageClassMetadataRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.Collection;
 
 import static org.junit.jupiter.api.Assertions.*;
 

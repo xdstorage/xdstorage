@@ -1,7 +1,6 @@
 package io.github.xdstorage.performance;
 
 import io.github.xdstorage.entities.XdPlanet;
-import io.github.xdstorage.helpers.XdStorageDefaultSimpleTypeHelper;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -9,7 +8,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;

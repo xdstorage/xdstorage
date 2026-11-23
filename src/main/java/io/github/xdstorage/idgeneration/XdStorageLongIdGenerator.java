@@ -4,7 +4,6 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 
 import io.github.xdstorage.IXdStorage;
-import io.github.xdstorage.exceptions.XdStorageConnectionException;
 import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.resource.IXdStorageDaoResource;
 import io.github.xdstorage.resource.XdStorageAbstractResourcesManager;

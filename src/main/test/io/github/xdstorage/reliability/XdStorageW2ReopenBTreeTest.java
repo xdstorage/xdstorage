@@ -1,7 +1,6 @@
 package io.github.xdstorage.reliability;
 
 import io.github.xdstorage.IXdFileStorage;
-import io.github.xdstorage.IXdStorage;
 import io.github.xdstorage.XdStorageConfig;
 import io.github.xdstorage.XdStorageProvider;
 import io.github.xdstorage.search.query.IXdStorageCriterionOperator;

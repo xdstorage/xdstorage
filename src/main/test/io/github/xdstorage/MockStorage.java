@@ -2,7 +2,6 @@ package io.github.xdstorage;
 
 import io.github.xdstorage.exceptions.XdStorageConnectionException;
 import io.github.xdstorage.exceptions.XdStorageException;
-import io.github.xdstorage.search.query.XdStorageSearchQuery;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import io.github.xdstorage.transaction.IXdStorageTransactionManager;
 import io.github.xdstorage.trigger.IXdStorageTrigger;

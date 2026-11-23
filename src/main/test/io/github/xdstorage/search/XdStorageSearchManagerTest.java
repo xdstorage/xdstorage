@@ -12,7 +12,6 @@ import io.github.xdstorage.observing.XdStorageObserverService;
 import io.github.xdstorage.resource.IXdStorageDaoResource;
 import io.github.xdstorage.search.data.XdStorageSearchIndexRecord;
 import io.github.xdstorage.search.key.XdStorageSearchIndexKey;
-import io.github.xdstorage.search.query.IXdStorageCriterion;
 import io.github.xdstorage.search.query.IXdStorageCriterionOperator;
 import io.github.xdstorage.search.query.XdStoragePrimaryCriterion;
 import io.github.xdstorage.search.query.XdStorageSearchQuery;

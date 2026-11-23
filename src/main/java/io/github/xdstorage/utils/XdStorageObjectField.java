@@ -9,9 +9,6 @@ import io.github.xdstorage.annotations.XdStorageParentObject;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.Type;
-import java.util.Collection;
-import java.util.Map;
 
 /**
  * A persistence field accessor of an entity: the reflection field bound with its getter and

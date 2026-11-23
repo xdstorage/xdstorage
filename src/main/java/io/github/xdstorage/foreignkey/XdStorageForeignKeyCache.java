@@ -1,6 +1,5 @@
 package io.github.xdstorage.foreignkey;
 
-import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.observing.IXdStorageIdObservableWrapper;
 import io.github.xdstorage.observing.XdStorageAbstractIdObserver;

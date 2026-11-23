@@ -4,7 +4,6 @@ import io.github.xdstorage.btree.XdStorageBTree;
 import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.transaction.XdStorageTransaction;
-import io.github.xdstorage.utils.XdStorageClassInfo;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

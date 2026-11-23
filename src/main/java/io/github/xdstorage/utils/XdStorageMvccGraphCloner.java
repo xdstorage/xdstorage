@@ -1,8 +1,6 @@
 package io.github.xdstorage.utils;
 
 import io.github.xdstorage.code.IXdStorageUnmodifiableWrapper;
-import io.github.xdstorage.code.IXdStorageSimpleWrapper;
-import io.github.xdstorage.observing.IXdStorageIdObservableWrapper;
 import io.github.xdstorage.object.XdStorageIdentifiableObject;
 import io.github.xdstorage.object.XdStorageObjectConverter;
 import java.lang.reflect.Field;

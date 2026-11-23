@@ -4,7 +4,6 @@ import io.github.xdstorage.XdStoragePolicy;
 import io.github.xdstorage.annotations.XdStorageObjectId;
 import io.github.xdstorage.annotations.XdStorageObjectPolicy;
 
-import java.io.Serializable;
 
 // Детерминированный составной POJO-объект для проверки маршалинга полей СУБД
 @XdStorageObjectPolicy(policy = XdStoragePolicy.StoreAsClassObjects)

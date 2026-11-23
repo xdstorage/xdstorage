@@ -2,7 +2,6 @@ package io.github.xdstorage.factories;
 
 import io.github.xdstorage.IXdStorage;
 import io.github.xdstorage.code.IXdStorageSimpleWrapper;
-import io.github.xdstorage.code.XdStorageDummySimpleWrapper;
 import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import io.github.xdstorage.transaction.XdStorageTransaction;

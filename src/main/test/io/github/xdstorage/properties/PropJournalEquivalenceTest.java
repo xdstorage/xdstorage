@@ -4,7 +4,6 @@ import io.github.xdstorage.BinFeasEntity;
 import io.github.xdstorage.IXdFileStorage;
 import io.github.xdstorage.IXdStoragePredicate;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
-import io.github.xdstorage.transaction.IXdStorageTransaction;
 import io.github.xdstorage.XdStorageProvider;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
@@ -22,7 +21,6 @@ import java.util.Map;
 import java.util.Random;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * PROPTEST P1.3 (docs/tasks/2.2.0/03): the JOURNAL REPLAY EQUIVALENCE — after a random

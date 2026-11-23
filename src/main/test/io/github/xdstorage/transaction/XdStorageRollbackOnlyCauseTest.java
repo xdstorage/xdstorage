@@ -8,7 +8,6 @@ import io.github.xdstorage.annotations.XdStorageObjectPolicy;
 import io.github.xdstorage.annotations.XdStorageObjectSearchIndex;
 import io.github.xdstorage.code.XdStorageSimpleWrapperClassCodeGenerator;
 import io.github.xdstorage.code.XdStorageUnmodifiableWrapperClassCodeGenerator;
-import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.search.query.IXdStorageCriterionOperator;
 import io.github.xdstorage.search.query.XdStoragePrimaryCriterion;

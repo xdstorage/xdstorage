@@ -1,6 +1,5 @@
 package io.github.xdstorage.helpers;
 
-import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import java.util.Date;

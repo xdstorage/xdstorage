@@ -1,9 +1,6 @@
 package io.github.xdstorage.btree;
 
 import io.github.xdstorage.IXdStorage;
-import io.github.xdstorage.btree.XdStorageBTree;
-import io.github.xdstorage.btree.XdStorageBTreeId;
-import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import io.github.xdstorage.transaction.IXdStorageTransactionManager;
 import io.github.xdstorage.transaction.XdStorageTransaction;
@@ -12,8 +9,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;

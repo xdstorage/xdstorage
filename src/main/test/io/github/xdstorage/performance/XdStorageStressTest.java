@@ -1,7 +1,6 @@
 package io.github.xdstorage.performance;
 
 import io.github.xdstorage.*;
-import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;

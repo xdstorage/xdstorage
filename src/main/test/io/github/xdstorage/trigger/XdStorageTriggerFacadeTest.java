@@ -1,7 +1,6 @@
 package io.github.xdstorage.trigger;
 
 import io.github.xdstorage.IXdFileStorage;
-import io.github.xdstorage.IXdStorage;
 import io.github.xdstorage.XdStorageProvider;
 import io.github.xdstorage.resource.XdStorageObjectChange;
 import io.github.xdstorage.resource.XdStorageObjectOperationType;

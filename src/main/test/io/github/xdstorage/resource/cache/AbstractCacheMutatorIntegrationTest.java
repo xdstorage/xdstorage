@@ -2,11 +2,9 @@ package io.github.xdstorage.resource.cache;
 
 import io.github.xdstorage.btree.XdStorageBTreeNode;
 import io.github.xdstorage.exceptions.XdStorageException;
-import io.github.xdstorage.resource.IXdStorageInternalListener;
 import io.github.xdstorage.resource.XdStorageIsolationLevel;
 import io.github.xdstorage.resource.XdStorageObjectOperationType;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
-import io.github.xdstorage.transaction.IXdStorageTransactionManager;
 import io.github.xdstorage.transaction.XdStorageTransaction;
 import io.github.xdstorage.utils.XdStorageObjectIdField;
 import org.junit.jupiter.api.BeforeEach;

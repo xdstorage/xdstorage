@@ -10,7 +10,6 @@ import io.github.xdstorage.IXdStoragePredicate;
 import io.github.xdstorage.IXdStorageWatcher;
 import io.github.xdstorage.btree.IXdStorageBTreeViewer;
 import io.github.xdstorage.btree.XdStorageBTree;
-import io.github.xdstorage.btree.XdStorageBTreeNode;
 import io.github.xdstorage.btree.XdStorageBTreeId;
 import io.github.xdstorage.exceptions.XdStorageConnectionException;
 import io.github.xdstorage.exceptions.XdStorageException;

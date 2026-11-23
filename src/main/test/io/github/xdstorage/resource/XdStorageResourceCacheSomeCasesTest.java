@@ -1,7 +1,6 @@
 package io.github.xdstorage.resource;
 
 import io.github.xdstorage.IXdStorage;
-import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.factories.IXdStorageCloner;
 import io.github.xdstorage.services.XdStorageServicesLocator;

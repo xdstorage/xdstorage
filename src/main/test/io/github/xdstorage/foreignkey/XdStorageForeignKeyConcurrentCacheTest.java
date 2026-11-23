@@ -1,7 +1,6 @@
 package io.github.xdstorage.foreignkey;
 
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
-import io.github.xdstorage.resource.cache.XdStorageCacheCommitPhase;
 import io.github.xdstorage.transaction.XdStorageTransaction;
 import io.github.xdstorage.utils.XdStorageClassInfo;
 import io.github.xdstorage.utils.XdStorageObjectField;
@@ -10,7 +9,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;

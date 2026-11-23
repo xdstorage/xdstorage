@@ -7,7 +7,6 @@ import io.github.xdstorage.metrics.XdStorageMetrics;
 import io.github.xdstorage.search.query.IXdStorageChildCriterionOperator;
 import io.github.xdstorage.search.query.IXdStorageCriterionOperator;
 import io.github.xdstorage.search.query.XdStorageChildCriterion;
-import io.github.xdstorage.search.query.XdStorageCriterion;
 import io.github.xdstorage.search.query.XdStoragePrimaryCriterion;
 import io.github.xdstorage.search.query.XdStorageSearchQuery;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
