@@ -19,3 +19,13 @@ cold-start first-save measured before/after, loud startup failure when neither p
 available) + the annotation-drift risk controls (generation fingerprint checked at load).
 
 Estimate: ~3–4 sessions.
+
+## External cross-reference (2026-11-23, the evaluation intake)
+
+The external evaluation (§3.3.10) independently confirms the JDK requirement and adds
+a design constraint for the AOT path: `./gencode` resolves against the PROCESS CWD
+(`XdStorageClassGenerator.java:37/47`), so a container with a read-only or relocated
+working directory breaks wrapper generation silently (the JRE log.error barrier
+catches only the no-compiler case). The build-time generation path must not inherit
+the CWD coupling; the runtime fallback keeps it only with the loud startup failure
+this task already demands.

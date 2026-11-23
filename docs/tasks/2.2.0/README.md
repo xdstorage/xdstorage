@@ -1,4 +1,4 @@
-# 2.2.0 train — two parallel road maps (compiled from docs/tasks/discovery.md, 2026-10-26)
+# 2.2.0 train — road maps: discovery (2026-10-26) + the external-evaluation intake (2026-11-23)
 
 Compiled from the maintainer's discovery directions. One markdown file = one GitHub issue
 (`scripts/sync-issues.sh` scans every `docs/tasks/<version>/` directory; the milestone =
@@ -46,6 +46,57 @@ changes (03 protects 01); nightly ×3 green is the train's continuous gate.
 | 16 | [tools-cli](tools-cli.md) | xdstorage-tools CLI: verify / backup / inspect / migrate (FP-6 pulled forward; PRODUCT_REVIEW high-priority) | P1, engine, feature | 2 sess |
 | 17 | [migration-schema-diff](migration-schema-diff.md) | schema diff + the migration command (PRODUCT_REVIEW #3/#5) | P2, engine, feature | 1–2 sess |
 | 18 | [agent-integration-surface](agent-integration-surface.md) | the agent memory store: JSON output + read-only inspection + the documented story | P2, engine, docs, feature | 1–2 sess |
+
+## External-evaluation intake (2026-11-23 — tasks 34–49)
+
+Compiled from the external evaluation of 2026-11-23 (a static third-party review of
+commit `49f54be`). EVERY finding was re-verified against main @ `fec923d` before
+filing — several were already fixed (the disabled B+tree invariants → task 33; the FK
+chain-scan → task 21) or covered (the commit atomicity → task 06 amended; the polling
+locks → task 01 confirmed; the JDK/CWD coupling → task 08 confirmed). The evaluation
+document itself stays OUT of the repo: its §5 analyzes the developer personally
+(weekend/timezone stats), which does not belong in a public archive.
+
+| # | File | Task | Labels | Est. |
+|---|---|---|---|---|
+| 34 | [checkstyle-build-gate](34-checkstyle-build-gate.md) | Checkstyle in the build: the bounded ruleset, the committed baseline, the ratchet gate (+ the exec-bit sweep: 138 files) | P2, build, tech-debt | 1–2 sess |
+| 35 | [lazy-getter-collection-check](35-lazy-getter-collection-check.md) | WRAPGEN: the lazy-getter codegen asks the type question backwards — List/Set/Map-typed lazy fields load as single objects (silent wrong reads) | P1, engine, bug, codegen | 1 sess + fix |
+| 36 | [xml-reader-xxe-hardening](36-xml-reader-xxe-hardening.md) | XXE: the four StAX sites parse DTDs/external entities bare — harden + the loud pin (CWE-611; the 2.1.4 hotfix candidate) | P1, security, bug | 0.5–1 sess |
+| 37 | [data-folder-trust-boundary](37-data-folder-trust-boundary.md) | TRUSTBDY: opening a foreign folder instantiates attacker-named classes — the trust boundary doc + the registry whitelist decision | P2, security, design | 1–2 sess |
+| 38 | [find-readlock-leak](38-find-readlock-leak.md) | LKLEAK: the find leaks the tree read latch when the descent throws before the coupling point (R-35, live at BTree:1497–1500) | P1, engine, bug | 1–2 sess |
+| 39 | [multi-index-point-search](39-multi-index-point-search.md) | IDXPT: the MULTI-tree point search scans the whole leaf chain (the R-46 ban) — revisit with the task-32 walk machinery; the N50k row 5219→110 ops/s is the gate | P2, engine, performance | 2–3 sess |
+| 40 | [yaml-string-newline-null](40-yaml-string-newline-null.md) | YAMLSTR: the newline-in-string corrupts the record (only `'` escaped) + the literal "null" reads back as null — silent corruption; PropModel un-avoidance | P1, engine, bug | 1–2 sess |
+| 41 | [simple-types-uuid-java-time](41-simple-types-uuid-java-time.md) | SIMPLETYPES: UUID + java.time are not simple types (persist as child references, degrade) — the built-ins + the extension-surface answer | P2, engine, feature | 1–2 sess |
+| 42 | [audit-claims-triage](42-audit-claims-triage.md) | AUDCLAIMS: verify the three unverified audit claims (the XML end marker; the short-class-name folder collisions; the never-evicting metadata caches) | P2, engine, testing | 1 sess |
+| 43 | [verify-report-api](43-verify-report-api.md) | VERIFYAPI: verify() prints to stderr unconditionally (11 sites incl. tools/Compact) — the structured report (the task-16 CLI's input) | P2, engine, tech-debt | 1 sess |
+| 44 | [deprecated-newinstance-sweep](44-deprecated-newinstance-sweep.md) | REFLECT: the deprecated Class.newInstance() ×34 — getDeclaredConstructor().newInstance() with the cause-preserving unwrap (per-catch-site audited) | P3, engine, tech-debt | 0.5–1 sess |
+| 45 | [docs-factual-drift](45-docs-factual-drift.md) | DOCSDRIFT: the fsync cost 8× vs 95× across docs; the lock timeout 5 s (javadoc) vs 100 ms (code); the GUIDE's stale "3 s default" — one truth + one source each | P2, docs, tech-debt | 1 sess |
+| 46 | [degradation-paths-audit](46-degradation-paths-audit.md) | DEGPATHS: catch(Throwable) ×69 / catch(Exception) ×235 / Thread.sleep ×8 — the per-site DELIBERATE/SWALLOW/BUG ledger (read-only; the fixes spin) | P3, engine, tech-debt | 1–2 sess |
+| 47 | [ci-red-rate-triage](47-ci-red-rate-triage.md) | CISTAB: pushes 17/66 red, nightlies 8/11, releases 4/8 — the failure-family census and elimination (the task-10 policy input; the re-census <5%) | P1, ci, tech-debt | 1–2 sess + watch |
+| 48 | [search-index-journal-durability](48-search-index-journal-durability.md) | SRCHJNL: the search-index journal never flushes in any mode — the durability contract + the flush-vs-rebuild decision | P2, engine, durability | 1 sess + impl |
+| 49 | [process-posture](49-process-posture.md) | PROCESS: the commit subjects ≤72+body (the journal moves to the body); the direct-commit posture recorded; the self-authored review docs honestly labeled | P3, chore | 0.5 sess |
+
+The evaluation-finding mapping (what went where):
+
+- §3.3.1 the commit non-atomicity → task 06 (amended: the mid-file replay corruption
+  is NOT a torn tail — loud per task 02 + the remainder counter).
+- §3.3.2 durability off by default → stays a documented product decision; the search
+  journal's never-flush → task 48.
+- §3.3.3 the polling locks → task 01 (independent confirmation; the javadoc mismatch → 45).
+- §3.3.4 the MULTI point-search chain scan → task 39.
+- §3.3.5 the read-lock leak → task 38 (R-35, confirmed live).
+- §3.3.6 the YAML dialect edges → task 40.
+- §3.3.7 the serialization defects → already fixed 23.11 (2.1.2; the evaluation acknowledges).
+- §3.3.8 UUID/java.time → task 41.
+- §3.3.9 the trust boundary + XXE → tasks 36/37.
+- §3.3.10 the JDK/CWD coupling → task 08 (confirmed + the CWD design constraint).
+- §3.3.11 the journal replay → task 06 (amended).
+- §3.3.12 the inverted lazy-getter checks → task 35.
+- §3.3.13 the stderr in verify() → task 43 (+ 34's ban unblocked).
+- §3.3.14 the unverified claims → task 42.
+- §3.4/§3.5 the code/test metrics → tasks 34/44/46 (the disabled invariants of §3.5 —
+  already un-disabled by task 33, no task).
+- §4.3 the process critiques → tasks 47/49 (the CI red rate; the convention/labeling).
 
 ## Train-level tasks
 

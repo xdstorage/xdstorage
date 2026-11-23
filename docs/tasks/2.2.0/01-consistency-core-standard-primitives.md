@@ -36,3 +36,12 @@ fail. The disabled multi-tree tests are the acceptance targets.
 
 Estimate: ~5–8 sessions (the largest task of the train). Risk: HIGH — mitigated by the
 flag-gated rollout (old/new lock behind a config flag through the soak).
+
+## External cross-reference (2026-11-23, the evaluation intake)
+
+The external evaluation (§3.3.3) independently confirms the polling core — the 15 ms
+sleep-step loop, no queue/fairness (`XdStorageReadWriteLock.java:171–190`) — and names
+it the cause of the 121–158 tx/s ceiling at 10 parallel writers. No scope change. Its
+javadoc-vs-code finding ("default 5 s" in the javadoc, `100L` ms in the code) is filed
+in task 45 DOCSDRIFT — if the 100 ms no-transaction default is the bug, the behavior
+decision lands HERE with the migration.
