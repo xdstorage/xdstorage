@@ -125,7 +125,17 @@ public class XdStorageYamlBlockContainersReader {
             return null;
         }
 
-        final Class<?> component = XdStorageClassMetadataRegistry.resolveOrThrow(classToken.value);
+        // PROPTEST (docs/tasks/2.2.0/03): the writer stores the array's component type as
+        // the RAW name — for a primitive-typed array that is 'int'/'long'/..., which
+        // resolveOrThrow cannot resolve (ClassNotFoundException: int → the resource
+        // unreadable after the reopen). Resolve the primitive Class object directly.
+        final Class<?> component;
+        final Class<?> primitive = primitiveClassOrNull(classToken.value);
+        if (primitive != null) {
+            component = primitive;
+        } else {
+            component = XdStorageClassMetadataRegistry.resolveOrThrow(normalizePrimitiveName(classToken.value));
+        }
         final List<Object> items = new ArrayList<>();
 
         YamlLineToken token;
@@ -276,6 +286,16 @@ public class XdStorageYamlBlockContainersReader {
             } else if ("array".equals(complexBlock.key)) {
                 tokenizer.nextToken(); // Честно потребляем 'array:' перед входом
                 return readArray(tokenizer, complexBlock.level, simpleTypeHelper);
+            } else if ("collection".equals(complexBlock.key)) {
+                // PROPTEST (docs/tasks/2.2.0/03): a NESTED container inside a value node —
+                // the writer now emits collection/map blocks for the container items (the
+                // write side recurses), so the read side recurses too; without these branches
+                // a nested container read as null (a silent loss).
+                tokenizer.nextToken(); // Потребляем 'collection:' перед входом
+                return readCollection(tokenizer, complexBlock.level, simpleTypeHelper);
+            } else if ("map".equals(complexBlock.key)) {
+                tokenizer.nextToken(); // Потребляем 'map:' перед входом
+                return readMap(tokenizer, simpleTypeHelper, complexBlock.level);
             }
         }
 
@@ -313,6 +333,19 @@ public class XdStorageYamlBlockContainersReader {
     public static Object readObjectDataMap(final XdStorageYamlTokenizer tokenizer, IXdStorageSimpleTypeHelper simpleTypeHelper,
                                            final int parentLevel) throws Exception {
         return readMap(tokenizer, simpleTypeHelper, parentLevel);
+    }
+
+    /** The primitive Class for a primitive type name, or null for anything else. */
+    private static Class<?> primitiveClassOrNull(final String name) {
+        if ("int".equals(name)) return int.class;
+        if ("long".equals(name)) return long.class;
+        if ("boolean".equals(name)) return boolean.class;
+        if ("double".equals(name)) return double.class;
+        if ("float".equals(name)) return float.class;
+        if ("short".equals(name)) return short.class;
+        if ("byte".equals(name)) return byte.class;
+        if ("char".equals(name)) return char.class;
+        return null;
     }
 
     private static String normalizePrimitiveName(String name) {
