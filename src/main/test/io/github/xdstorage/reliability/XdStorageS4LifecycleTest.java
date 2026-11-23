@@ -95,10 +95,10 @@ public class XdStorageS4LifecycleTest {
     }
 
     @Test
-    @DisplayName("Конфиг по умолчанию воспроизводит прежние константы (таймаут 3000, пул 15, SNAPSHOT)")
+    @DisplayName("Конфиг по умолчанию (таймаут 15000 — raised 2026-11-22, the cold-first-tx codegen; пул 15, SNAPSHOT)")
     public void testDefaultsMatchPreConfigBehavior() {
         final XdStorageConfig defaults = XdStorageConfig.defaults();
-        assertEquals(3000L, defaults.getDefaultTransactionTimeoutMillis());
+        assertEquals(15000L, defaults.getDefaultTransactionTimeoutMillis());
         assertEquals(15, defaults.getWorkerPoolSize());
         assertFalse(defaults.isDurableWrites());
         assertFalse(defaults.isAcceptMissingEofSentinel());
