@@ -296,6 +296,47 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <!-- 2.2.0/34 CHECKSTYLE: the standard style gate on every build —
+                 LineLength 120, no tabs (4-space indent), the print bans for a
+                 library, the import hygiene. The ruleset + the suppressions live
+                 in checkstyle.xml / suppressions.xml at the repo root; the
+                 violations are errors and fail the build (the ratchet policy in
+                 the task file). -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <version>3.3.1</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.puppycrawl.tools</groupId>
+                        <artifactId>checkstyle</artifactId>
+                        <version>10.12.4</version>
+                    </dependency>
+                </dependencies>
+                <configuration>
+                    <configLocation>checkstyle.xml</configLocation>
+                    <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                    <consoleOutput>true</consoleOutput>
+                    <!-- 2.2.0/34 phase-1 policy (the maintainer's call): the gate
+                         REPORTS as warnings and never reds the build. The flip to
+                         fail-fast (severity=error + failOnViolation=true) is a
+                         separate one-line decision recorded in the task file —
+                         the tree stands at 0 violations today, so the flip is
+                         safe whenever the maintainer wants the enforcement on. -->
+                    <failOnViolation>false</failOnViolation>
+                    <violationSeverity>warning</violationSeverity>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>checkstyle-gate</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 

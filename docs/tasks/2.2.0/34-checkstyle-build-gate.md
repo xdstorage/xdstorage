@@ -54,6 +54,58 @@ phase-2 candidates only).
 
 Estimate: ~1–2 sessions.
 
+## PROGRESS (2026-11-24): LANDED — the gate is live in warnings mode
+
+**What landed (three commits):**
+1. `9beaba8` STYLE — the formatting-only pass: 1 956 code lines wrapped, 63 comment
+   lines reflowed, the 12 comment-tab characters → spaces, trailing whitespace
+   stripped, the missing final newlines appended. 326 files. **Mechanically proven
+   semantics-free**: the code-token stream identical to HEAD (after folding the
+   constant literal concatenations the wraps introduce), every string literal
+   byte-equal (a char-lexer comparison), every comment word-equal. Listed in
+   `.git-blame-ignore-revs` (this file's neighbor at the repo root) — blame stays
+   usable in the hot engine files.
+2. `b875b3c` IMPORTS — 294 dead import lines removed (62 main + 232 test
+   unused/redundant/duplicate), flagged by the ruleset; compile-verified.
+3. The gate commit (this one) — `checkstyle.xml` + `suppressions.xml` at the repo
+   root + the maven-checkstyle-plugin 3.3.1 (checkstyle 10.12.4) bound to the
+   `validate` phase with `includeTestSourceDirectory=true`.
+
+**The ruleset v1 (the standard, objective subset):** LineLength 120 (UTF-16 units —
+the javac metric), FileTabCharacter, the print bans (`System.out/err`, 
+`printStackTrace` — a library must not own the application's streams),
+UnusedImports (processJavadoc=true: a javadoc-referenced import is USED — the
+release doclint gate stays intact), RedundantImport.
+
+**Phase-1 policy (the maintainer's call, 2026-11-24): WARNINGS ONLY.**
+`severity=warning` + `failOnViolation=false` — the gate reports and never reds the
+build. **The flip to fail-fast is a one-line change** (severity=error +
+failOnViolation=true) — and the tree stands at ZERO violations today, so the flip
+is safe whenever the maintainer wants enforcement on; the decision is recorded
+here rather than silently made.
+
+**The suppressions (the honest debt, each owned by a task):**
+- `XdStorageFolderVerifier` + `Compact` — the print bans only (43 VERIFYAPI owns
+  the structured report; 11 stderr sites).
+- `src/main/test/**` — the print bans only: the suites' `System.out` diagnostics
+  are the test corpus's own reporting style, not the artifact (403 sites).
+
+**The measurements:** the pre-wave census (char-based, the eval's own method
+validated: >160 = 246 ≈ the eval's 240): 1 232 code + 36 comment lines over 120 in
+main, 830 + 34 in tests, 461 star imports, 138 files with the exec bit, 0 tabs in
+main (the house norm held), 24 files without the final newline. The gotchas the
+round surfaced: awk `length()` counts BYTES in a C locale (the first census was
+2× inflated on the Cyrillic files — the char recount matched the eval); an emoji
+is 2 UTF-16 units (9 test lines sat at exactly 121); a bare `mvn javadoc:jar`
+outside the release profile fails on HEAD too (the 4 pre-existing doclint errors —
+not this wave's doing).
+
+**Phase-2 ratchet candidates (each its own decision, not this task):** AvoidStarImport
+(461 sites — the expansion is an IDE-grade sweep), the Indentation module (brittle
+on legacy), MethodLength/FileLength, naming, the JaCoCo coverage floor, PMD/SpotBugs,
+the exec-bit normalization sweep (138 files, zero-risk, still pending), the CI
+checkstyle-report upload.
+
 ## References
 
 - The external evaluation 2026-11-23, §3.4 (the metrics table) and §4.3 (the process

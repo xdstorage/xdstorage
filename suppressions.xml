@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+        "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+        "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+
+<suppressions>
+    <!-- Task 2.2.0/43 VERIFYAPI owns the real fix (the structured verify()
+         report; the tool-vs-library print decision for Compact). Until it
+         lands, the existing stderr sites are exempt from the PRINT BANS only —
+         every other check applies to these files in full. -->
+    <suppress checks="RegexpSingleline" files="[\\/]XdStorageFolderVerifier\.java$"/>
+    <suppress checks="RegexpSingleline" files="[\\/]Compact\.java$"/>
+    <!-- The print bans protect the SHIPPED library only: test diagnostics
+         (System.out in the suites) are the test corpus's own reporting style,
+         not part of the artifact. -->
+    <suppress checks="RegexpSingleline" files="[\\/]src[\\/]main[\\/]test[\\/].*"/>
+</suppressions>

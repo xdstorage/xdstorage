@@ -1,0 +1,10 @@
+# Commits to ignore in git blame — mechanical, semantics-free mass changes.
+#
+# Usage:   git blame --ignore-rev-file .git-blame-ignore-revs
+# GitHub:  set the file in Settings -> Repository ("Ignore commits in the
+#          blame view") once; the web UI applies it automatically.
+# Tip:     git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# 2026-11-24: the 120-column formatting pass (task 2.2.0/34) — wraps, tabs,
+# whitespace and EOL only; proven token/literal/comment-identical to HEAD.
+9beaba82349bddb909745badc6e9f6e7604435b0

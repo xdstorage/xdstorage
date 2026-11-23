@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+        "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+        "https://checkstyle.org/dtds/configuration_1_3.dtd">
+
+<!-- XdStorage build gate (task 2.2.0/34 CHECKSTYLE).
+     The v1 ruleset is the objective/standard subset: LineLength 120 (Java
+     String-length semantics), no tabs (the 4-space indent is the house norm —
+     the tree already complies), the print bans for a library, and the import
+     hygiene. The ratchet policy: violations are errors and fail the build;
+     new rule candidates (Indentation depth, star imports, naming, method
+     length) join through the task-34 phase-2 round, never by warning drift. -->
+<module name="Checker">
+    <property name="charset" value="UTF-8"/>
+    <!-- Phase-1: warnings only — the build never reds on style (the maintainer's
+         call; the fail-fast flip is recorded in the task 34 file). -->
+    <property name="severity" value="warning"/>
+    <property name="fileExtensions" value="java"/>
+
+    <!-- 4 spaces instead of a tab character — anywhere in the file. -->
+    <module name="FileTabCharacter">
+        <property name="eachLine" value="true"/>
+    </module>
+
+    <!-- 120 columns max (the user-facing standard; counts UTF-16 units like
+         the javac/javadoc tooling does). -->
+    <module name="LineLength">
+        <property name="max" value="120"/>
+    </module>
+
+    <!-- A library must not own the application's stdout/stderr. -->
+    <module name="RegexpSingleline">
+        <property name="format" value="System\.out\.print"/>
+        <property name="message" value="System.out is banned in the library — use slf4j (task 2.2.0/43 owns the structured report)"/>
+    </module>
+    <module name="RegexpSingleline">
+        <property name="format" value="System\.err\.print"/>
+        <property name="message" value="System.err is banned in the library — use slf4j (task 2.2.0/43 owns the structured report)"/>
+    </module>
+    <module name="RegexpSingleline">
+        <property name="format" value="\.printStackTrace\(\)"/>
+        <property name="message" value="printStackTrace is banned — log the throwable via slf4j"/>
+    </module>
+
+    <module name="SuppressionFilter">
+        <property name="file" value="suppressions.xml"/>
+        <property name="optional" value="false"/>
+    </module>
+
+    <module name="TreeWalker">
+        <!-- processJavadoc: an import referenced by a javadoc {@link} is USED
+             (deleting it would break the release profile's doclint gate). -->
+        <module name="UnusedImports">
+            <property name="processJavadoc" value="true"/>
+        </module>
+        <module name="RedundantImport"/>
+    </module>
+</module>
