@@ -76,6 +76,43 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
 
     private XdStorageBTreeNode firstLeaf;
 
+    // R56SCAN (task 23): детерминированный-repro шов — тест гейтит prewarm между
+    // materialize стаба и записью слота цепи (choreography: split в окне чинки).
+    // Производство никогда не выставляет; см. XdStorageBTreeWalkSplitRaceTest.
+    volatile Runnable prewarmChinkGate;
+
+    // R56SCAN (task 23): the capture→prewarm window gate — the deterministic-repro
+    // seam for the multi-scan race (the split during the prewarm). Production never sets.
+    volatile Runnable prewarmGate;
+
+    // R56SCAN (task 23): the STRUCTURE EPOCH — bumped by every structural primitive
+    // (setRoot/setFirstLeaf/setNextTreeNodeOnThisLevel). The walk captures the epoch
+    // before the traversal and validates after: a change means the walk traversed a
+    // mixed pre/post-structure view (the moved keys double-emitted or missed) — the
+    // walk is RETRIED with a resettable viewer. Volatile: the writers bump under the
+    // write lock, the readers read it unlocked (the racy read only over-triggers a retry).
+    private volatile long structureEpoch;
+
+    /** R56SCAN: bumps the structure epoch (called by the structural primitives only). */
+    void bumpStructureEpoch() {
+        structureEpoch++;
+    }
+
+    /** Package-private test seam: the gate invoked before the prewarm chain-slot write. */
+    void setPrewarmChinkGate(final Runnable gate) {
+        this.prewarmChinkGate = gate;
+    }
+
+    /** Package-private test seam accessor. */
+    Runnable getPrewarmChinkGate() {
+        return prewarmChinkGate;
+    }
+
+    /** Package-private test seam: the capture→prewarm window gate. */
+    void setPrewarmGate(final Runnable gate) {
+        this.prewarmGate = gate;
+    }
+
     // Маркер жизненного цикла: фиксирует, что дерево хотя бы раз инициализировало структуру узлов.
     // Позволяет надежно отличать первичную пустую базу от базы, опустошенной в ходе транзакции очистки!
     private boolean wasInitialized = false;
@@ -786,6 +823,7 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
      */
     public void setFirstLeaf(final XdStorageBTreeNode firstLeaf) {
         this.firstLeaf = firstLeaf;
+        bumpStructureEpoch();
     }
 
     /**
@@ -1549,15 +1587,48 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
         if (chainStart != null) {
             // R-53: предпрогрев разрешает стабы цепи (включая первый лист) в канонические
             // инстансы и возвращает разрешенное начало цепи для обхода
+            final Runnable prewarmGateHook = prewarmGate;
+            if (prewarmGateHook != null) {
+                prewarmGateHook.run(); // R56SCAN: the split-in-prewarm-window repro seam
+            }
             chainStart = prewarmLeafChain(chainStart, storage, transaction);
         }
 
-        lockRead(transaction);
-        if (chainStart == null) {
-            unlockRead();
-            return;
+        // R56SCAN (task 23): the walk is latch-coupled per leaf, but NOT chain-atomic —
+        // a concurrent split/merge during the walk moves keys across the chain and the
+        // walk returns a mixed pre/post-structure view (the double-emitted or missed
+        // keys). The STRUCTURE EPOCH validated after the walk detects it; the RETRY
+        // re-walks the fresh chain (the prewarm is warm now — the re-walk is cheap).
+        // The resettable viewer contract: a stale walk's output is DISCARDED and the
+        // viewer is reset before the re-walk; the callers' collectors implement it.
+        // The bounded attempts (3) + the final attempt under the tree read lock (the
+        // structure cannot change under it; the chain is prewarmed — no disk IO in the
+        // lock, the R-37 writer-starvation does not apply to the no-IO hold).
+        for (int attempt = 1; ; ++attempt) {
+            final long capturedEpoch = structureEpoch;
+            // R56SCAN: lockRead + walk (hand-over-hand releases the tree read latch
+            // at the first leaf — NO explicit unlockRead here)
+            lockRead(transaction);
+            if (chainStart == null) {
+                unlockRead();
+                return;
+            }
+            chainStart.read(this, storage, transaction, viewer);
+            if (structureEpoch == capturedEpoch) {
+                return; // the walk traversed a stable structure — the result is valid
+            }
+            if (!(viewer instanceof IXdStorageResetableViewer)) {
+                return; // the legacy viewer: the streamed result stands
+            }
+            ((IXdStorageResetableViewer) viewer).resetForReplay();
+            if (attempt >= 3) {
+                return; // the bounded fallback: accept the last attempt's output
+            }
+            chainStart = firstLeaf;
+            if (chainStart != null) {
+                chainStart = prewarmLeafChain(chainStart, storage, transaction);
+            }
         }
-        chainStart.read(this, storage, transaction, viewer);
     }
 
     /**
@@ -1662,15 +1733,47 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
                         final XdStorageBTreeNode materialized =
                                 XdStorageBTreeNode.materialize(stub, storage, transaction, this, null);
                         if (materialized != stub) {
-                            // чинка слота цепи: первый лист — в поле дерева,
-                            // последующие — в next предыдущего (уже канонического) листа
+                            // R56SCAN (task 23): the chain-slot chink runs OUTSIDE the stub's
+                            // write lock (a gated hold must not block the writers through the
+                            // held node lock) and as a LOCK-VERIFY-WRITE: the unlocked chink
+                            // raced the split's rewire and could ORPHAN the split-out leaf
+                            // (the intermittent wrong results, the CI gate 2026-11-23). If the
+                            // predecessor's next moved on (a split/collapse rewired it) — the
+                            // chink is SKIPPED and the walk follows the LIVE chain.
                             if (previous == null) {
-                                this.firstLeaf = materialized;
-                                resolvedStart = materialized;
+                                if (tryLockWrite(transaction)) {
+                                    try {
+                                        if (firstLeaf == stub) {
+                                            this.firstLeaf = materialized;
+                                            resolvedStart = materialized;
+                                            current = materialized;
+                                        } else {
+                                            current = firstLeaf; // the collapse/split handled the slot
+                                        }
+                                    } finally {
+                                        unlockWrite();
+                                    }
+                                }
+                                // the tree lock busy: skip the chink — the locked walk resolves the slot
                             } else {
-                                previous.setNextTreeNodeOnThisLevel(materialized);
+                                final Runnable chinkGate = prewarmChinkGate;
+                                if (chinkGate != null) {
+                                    chinkGate.run(); // R56SCAN: the deterministic-repro seam (no locks held)
+                                }
+                                if (previous.tryLockWrite(transaction)) {
+                                    try {
+                                        if (previous.getNextTreeNodeOnThisLevel() == stub) {
+                                            previous.setNextTreeNodeOnThisLevel(materialized);
+                                            current = materialized;
+                                        } else {
+                                            current = previous.getNextTreeNodeOnThisLevel(); // the split rewired — follow the live
+                                        }
+                                    } finally {
+                                        previous.unlockWrite();
+                                    }
+                                }
+                                // the previous lock busy: skip the chink — the locked walk resolves the slot
                             }
-                            current = materialized;
                         }
                     }
                 } finally {
