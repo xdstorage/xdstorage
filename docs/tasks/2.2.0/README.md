@@ -22,6 +22,13 @@ as the 2.1.0 train.
 | 21 | [fk-write-path](21-fk-write-path.md) | the FK O(relations) write-path scan → point lookups (the FKBENCH 23–160× verdict must land in a stated band) | P1, engine, performance, w4-design | 2–3 sess |
 | 22 | [lazy-read-snapshot](lazy-read-snapshot.md) | lazy prevSnapshot capture (read-only txs stop paying the 10–33% task-40 net; the collection-getter bypass decided inside) | P2, engine, performance, codegen | 2–3 sess |
 | 23 | [r56-multiscan-race](r56-multiscan-race.md) | the multi-scan walk race (intermittent wrong EMPTY reads under concurrent writes): the deterministic repro + the version-validated retry (the latch-held experiment is rejected with evidence) | P1, engine, bug, testing | 2–3 sess |
+| 24 | [journal-append-syscalls](journal-append-syscalls.md) | the PROFILE ledger cut: the journal-append metadata syscalls (~34% of write) — the in-memory size/existence cache, mkdirs once | P2, engine, performance | 0.5 d |
+| 25 | [parse-allocation-reduction](parse-allocation-reduction.md) | the PROFILE ledger cut: the cold-path parse garbage (the regex machinery + trim + UTF-8 ~10% of scan_cold) — the hand-rolled scalar handling; the FP-9 interim/fallback | P2, engine, performance | 1 d |
+| 26 | [contention-probe-scale](contention-probe-scale.md) | the PROFILE ledger cut (feeds task 01): the lock-wait distribution at t=25/50/100 — the park-vs-conflict table | P2, engine, performance | 0.5 d |
+| 27 | [profiling-end-of-train](profiling-end-of-train.md) | the end-of-train matrix re-run vs the 2026-11-23 ledger — the before/after gate for every landed 2.2.0 optimization claim (the task-43 attribution method) | P1, engine, performance | 1 sess |
+| 28 | [fk-cascade-fresh-instance](fk-cascade-fresh-instance.md) | the PROPTEST finding #7: on a fresh instance the FK cascade commit reports success but load(parent) NULLs, the FK tree NPEs next — triage (engine vs harness), the fix rides both lines | P1, engine, bug | 1 sess + fix |
+| 29 | [explain-tx-contract](explain-tx-contract.md) | the PROPTEST finding #5: explain() is the only tx-bound method that works without a transaction — the ruling + the alignment + the pin | P2, engine, docs | 0.5 sess |
+| 30 | [property-lifecycle-discipline](property-lifecycle-discipline.md) | the PROPTEST finding #8: the property-harness reopen/re-registration pattern codified; the id never-reissue pin un-reds | P3, testing | 0.5 sess |
 
 Gates: the design rounds before 01/05 (the house rule); property tests grow as the core
 changes (03 protects 01); nightly ×3 green is the train's continuous gate.
