@@ -12,7 +12,9 @@ reading tests backwards — what a test asserts reveals what the code promises.
 Compile coverage reports that answer the exact questions the maintainer asks
 ("what's covered?", "what's missing?", "is it green?"). This skill compiles the
 patterns proven across the 2.1.0 FK release (4 policy combinations × 2 indexes ×
-14 scenarios = 112 policy tests + 251 total FK tests).
+14 scenarios = 112 policy tests + 251 total FK tests) AND the 2026-11-23
+property-based/diagnostic wave (the jqwik seed-model estate, the red-pin triage
+ladders, the honest-pin format).
 
 Read [references/test-patterns.md](references/test-patterns.md) before writing any
 new test. Read [references/coverage-methodology.md](references/coverage-methodology.md)
@@ -20,7 +22,10 @@ before compiling a coverage report. Read [references/house-rules.md](references/
 for the hard-won gotchas. Read
 [references/general-recommendations.md](references/general-recommendations.md) for the
 abstract, project-portable principles (R1–R12) behind all of these — reason from it
-whenever the situation is not covered by the house-specific files.
+whenever the situation is not covered by the house-specific files. For the
+property-based tests (jqwik), the red-pin triage ladders, the honest-pin format, and
+the harness lifecycle patterns, read
+[references/property-and-harness-patterns.md](references/property-and-harness-patterns.md).
 
 ## 0. Ground rules
 
@@ -181,6 +186,14 @@ storage.save(child) → XdStorageTriggerManager.fire()
 If any link in this chain is missing or miswired, the veto fails silently.
 
 ## 4. Test writing patterns
+
+The example-based patterns below are complemented by the PROPERTY patterns
+(the jqwik seed-model estate, the integrity comparators) and the DIAGNOSTIC patterns
+(the red-pin triage ladders, the honest pins, the one-driver-owned-storage loop) —
+[references/property-and-harness-patterns.md](references/property-and-harness-patterns.md).
+The rule of thumb: the example-based tests pin the KNOWN contracts; the property tests
+GENERATE the unknown shapes; the diagnostic ladders turn a red pin into a named
+mechanism. All three layers feed each other.
 
 ### 4.1 Real-storage test template
 
