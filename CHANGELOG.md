@@ -1,5 +1,24 @@
 
 
+## [2.1.3] — 2026-11-23
+
+### Fixed
+
+- **The concurrent targeted delete of a duplicate pair no longer throws "does not
+  exists" for an existing pair** (the DUPRACE race: the targeted-delete descent vs a
+  concurrent sibling's borrow/merge — the miss now re-descends via the retry loop when
+  the tree still holds the pair, the sound predicate paid only on the miss). Found by
+  the property-campaign-era concurrent suite on the CI 2-vCPU runner.
+- **The multi-scan chain walk is now chain-atomic (the R56SCAN race)**: a concurrent
+  split/merge during a scan no longer produces a mixed pre/post-structure view (the
+  double-emitted or missed keys). The STRUCTURE EPOCH (bumped by every structural
+  primitive) is captured before the walk and validated after — a mismatch triggers a
+  retry with a resettable viewer (the discard + the re-walk on the fresh chain,
+  bounded 3 attempts, the final attempt without the retry). Found by the code audit,
+  filed from the CI gate run 2026-11-23 (the jdk21 leg passed simultaneously = the
+  race evidence). Pinned by the gated choreography test
+  `XdStorageBTreeWalkSplitRaceTest`.
+
 ## [2.1.2] — 2026-11-23
 
 ### Fixed
