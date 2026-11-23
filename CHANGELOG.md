@@ -1,19 +1,34 @@
-# Changelog
 
-All notable changes to XdStorage are documented in this file. The format follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows
-[SemVer](https://semver.org/). The release procedure itself lives in
-[RELEASE-PLAN.md](docs/RELEASE-PLAN.md).
 
-**On-disk format generations** (recorded per storage folder in `.xdstorage.meta`,
-see `XdStorageFormatMeta`):
+## [2.1.2] — 2026-11-23
 
-- **v1** — the 1.x era: YAML files without an end-of-file sentinel, no commit journal.
-- **v2** — the 2.0 era: YAML EOF sentinel (S-1), optional per-transaction commit journal
-  (W-1, `journalWrites` ON by default since W-3).
-- **v3** — the 2.1.0 era: the `indexes/` subdirectory layout; the marker is stamped at the
-  automatic migration (a 2.1.0 folder cannot be opened by 2.0.0 — see the Breaking entry
-  below).
+### Fixed
+
+- **Null map VALUES were silently dropped from persistence** — the unwrap-and-clone
+  path dropped the entry before the writer; the YAML writer/reader both encode null
+  values. Found by the property campaign, pinned by the CRUD round-trip property.
+- **Primitive-typed arrays (`int[]`, `long[]`, ...) made the resource UNREADABLE
+  after reopen** (`ClassNotFoundException: int` — the raw component name resolved via
+  the class registry). Found by the property campaign, pinned by the container-jungle
+  property.
+- **Nested generic collections (`List<List<T>>`, `List<Map<K,V>>`) were silently
+  DROPPED from persistence** (the metadata scan's silent catch swallowed the
+  ClassCastException on the nested generic element). Found by the property campaign,
+  pinned by the container-jungle property.
+- **Nested-container ITEMS were written as empty object blocks** (the reader restored
+  empty containers — the write side did not recurse into nested collection/map/array
+  blocks). Found by the property campaign, pinned by the container-jungle property +
+  the file-truth probe.
+
+### Changed
+
+- **The default transaction timeout raised `3000` -> `15000` ms**
+  (`defaultTransactionTimeoutMillis`, the no-arg `beginTransaction()`): the first
+  transaction on a cold JVM pays the runtime wrapper-codegen (a javac invocation),
+  which exceeded the old 3-second budget and produced timeout rollbacks on the very
+  first save. The infra-visibility wait no longer caps at 3 s — it follows the
+  transaction's own timeout. Disclosed config-default change; pass an explicit
+  timeout to keep the old behavior.
 
 ## [Unreleased] — the 2.2.0 train
 
