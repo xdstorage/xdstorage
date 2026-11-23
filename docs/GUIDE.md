@@ -770,6 +770,13 @@ format, implement the factory/writer/reader triple and wire it into `XdStorageSe
 The physical naming of resource files is handled by `IXdStorageResourceNamingService` (default:
 `XdStorageResourceNamingService`, which derives file names from the storage folder, format and resource ids).
 
+**A storage folder is data you can trust only as far as its author.** The files carry class names the
+engine instantiates, so open a folder your application wrote — or one whose author you trust. The
+XML reader processes no DTD: a `<!DOCTYPE>` (the route for external-entity, or XXE, attacks — reading
+local files, calling remote addresses) is refused with a clear error instead of being obeyed
+([36](tasks/2.2.0/36-xml-reader-xxe-hardening.md)). What opening a folder from someone else may and
+may not do is the subject of [37](tasks/2.2.0/37-data-folder-trust-boundary.md).
+
 ### The readable-on-disk story: fixtures, review, and machine-readable storage
 
 A storage folder is plain YAML — the same file a transaction writes is the file you can
