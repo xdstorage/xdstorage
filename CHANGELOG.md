@@ -1,5 +1,15 @@
 
 
+## [2.1.3] — unreleased (accumulating)
+
+### Fixed
+
+- **The concurrent targeted delete of a duplicate pair no longer throws "does not
+  exists" for an existing pair** (the DUPRACE race: the targeted-delete descent vs a
+  concurrent sibling's borrow/merge — the miss now re-descends via the retry loop when
+  the tree still holds the pair, the sound predicate paid only on the miss). Found by
+  the property-campaign-era concurrent suite on the CI 2-vCPU runner.
+
 ## [2.1.2] — 2026-11-23
 
 ### Fixed

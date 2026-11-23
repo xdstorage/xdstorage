@@ -1742,7 +1742,7 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                 // holds the link — re-descends via the retryDelete loop instead of
                 // failing the worker.
                 try {
-                    deletePairFromThisNode(key, value, storage, transaction);
+                    deletePairFromThisNode(key, value, storage, transaction, retryDelete);
                 } catch (final XdStorageException staleDescent) {
                     if (staleDescent.getMessage() != null && staleDescent.getMessage().contains("was deleted this transaction")) {
                         retryDelete.set(true);
@@ -1872,7 +1872,7 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
     /**
      * Исполнитель точечной мутации листа: удаляет элемент только при совпадении И ключа, И значения.
      */
-    private void deletePairFromThisNode(final Comparable key, final Comparable value, final IXdStorage storage, final IXdStorageTransaction transaction)
+    private void deletePairFromThisNode(final Comparable key, final Comparable value, final IXdStorage storage, final IXdStorageTransaction transaction, final AtomicBoolean retryDelete)
             throws XdStorageException, XdStorageConnectionException {
         final ListIterator<Comparable> keyIterator = getKeys().listIterator();
         final ListIterator<Object> objectIterator = getObjects().listIterator();
@@ -1897,6 +1897,17 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         }
 
         if (!deleted) {
+            // DUPRACE (docs/tasks/2.2.0/32): a targeted delete can MISS in its locked leaf —
+            // a concurrent sibling delete's borrow/merge MOVES the pair (or the whole leaf's
+            // window) after this descent chose its path, and this descent holds a stale view.
+            // The sound predicate: the pair the tree still holds = a stale descent → set the
+            // retry flag (the tree-level do-while re-descends from the root, exactly the
+            // insert-path pattern); the pair nowhere = the honest refusal. The find is paid
+            // only on the miss — zero cost on the happy path.
+            if (retryDelete != null && tree.find(key, storage, transaction).contains(value)) {
+                retryDelete.set(true);
+                return;
+            }
             throw new XdStorageException("object of " + tree.getId() + " with key " + key + " and value " + value + " does not exists");
         }
 
