@@ -130,6 +130,10 @@ current code, stated so embedding surprises are design-time, not production-time
 - Resource files carry an EOF sentinel; a truncated file fails loudly at open. Pre-sentinel legacy
   storages: open once with `acceptMissingEofSentinel(true)` and let the first commit rewrite the files.
 - Stale `*.tmp` files from a previous crash are swept at open.
+- **Trust boundary:** the files carry class names the engine instantiates — open only a folder
+  your application wrote, or one whose author you trust. The XML reader processes no DTD: a
+  `<!DOCTYPE>` in an XML-format folder is refused loudly (the external-entity hardening,
+  docs/tasks/2.2.0/36); what a foreign folder may do is designed in docs/tasks/2.2.0/37.
 
 ### Cascade save, foreign keys, and transactions
 
