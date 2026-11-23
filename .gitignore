@@ -19,3 +19,4 @@ facade_stress_db/
 __pycache__/
 *.pyc
 tools/layout200-fixture/golden-2000/
+.jqwik-database/

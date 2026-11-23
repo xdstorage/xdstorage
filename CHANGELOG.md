@@ -1,10 +1,24 @@
 
 
-## [2.1.2] — unreleased
+## [2.1.2] — 2026-11-23
 
 ### Fixed
 
-- **commons-lang3 CVE-2025-48924** — see [2.1.1].
+- **Null map VALUES were silently dropped from persistence** — the unwrap-and-clone
+  path dropped the entry before the writer; the YAML writer/reader both encode null
+  values. Found by the property campaign, pinned by the CRUD round-trip property.
+- **Primitive-typed arrays (`int[]`, `long[]`, ...) made the resource UNREADABLE
+  after reopen** (`ClassNotFoundException: int` — the raw component name resolved via
+  the class registry). Found by the property campaign, pinned by the container-jungle
+  property.
+- **Nested generic collections (`List<List<T>>`, `List<Map<K,V>>`) were silently
+  DROPPED from persistence** (the metadata scan's silent catch swallowed the
+  ClassCastException on the nested generic element). Found by the property campaign,
+  pinned by the container-jungle property.
+- **Nested-container ITEMS were written as empty object blocks** (the reader restored
+  empty containers — the write side did not recurse into nested collection/map/array
+  blocks). Found by the property campaign, pinned by the container-jungle property +
+  the file-truth probe.
 
 ### Changed
 
