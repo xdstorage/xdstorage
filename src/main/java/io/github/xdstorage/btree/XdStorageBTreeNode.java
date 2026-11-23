@@ -233,6 +233,13 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
      */
     public void setNextTreeNodeOnThisLevel(final XdStorageBTreeNode nextTreeNodeOnThisLevel) {
         this.nextTreeNodeOnThisLevel = nextTreeNodeOnThisLevel;
+        // R56SCAN (task 23): the structural primitive bumps the tree's epoch — the
+        // chain-shape changed, the concurrent walks must re-validate and re-walk.
+        // The persistence-layer nodes (the parser stubs) may carry a null tree.
+        final XdStorageBTree owner = getTree();
+        if (owner != null) {
+            owner.bumpStructureEpoch();
+        }
     }
 
     /**
