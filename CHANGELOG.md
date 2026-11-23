@@ -80,6 +80,23 @@
 
 ### Fixed
 
+- **The FK/multi-index lookups no longer scan the whole tree** — `find` on a
+  multiple-key B+tree ran a full leaf-chain walk (O(all pairs)) per lookup; the keyed
+  descent (`O(log n + d)`: the first separator `>= key` lands at the leftmost subtree
+  that can hold the key, the sorted-chain walk stops at the first greater key)
+  replaces it. The FK write degradation is now FLAT in the tree size: cascadeSave at
+  100k relations is 8× faster (160× → 20× vs FK off), parentUpdate is inside the ≤2×
+  band at every size, the FK reads stay free (BENCHMARKS § FK A/B, the post-fix set
+  2026-11-23).
+- **Terminal leaves of duplicate ranges no longer grow unbounded** — a multi-index
+  insert that walked the leaf chain to the duplicate range's terminal leaf added
+  pairs with no split check (the only split ran on the descent's landing leaf), so a
+  leaf could hold 27+ keys at a maximum of 2t−1. The split now fires on the leaf the
+  chain branch mutated, and the insert retry loop adopts the deadline+backoff budget
+  (the R-54 pattern) so honest splitting survives parallel hot-key storms. The two
+  duplicate-invariant tests disabled for years because of the overflow («переполнение
+  ноды») are re-enabled with their full structural scans green.
+
 - **Null map VALUES were silently dropped from persistence** — the unwrap-and-clone
   path dropped the entry before the writer; the YAML writer/reader both encode null
   values. Found by the property campaign, pinned by the CRUD round-trip property.

@@ -1120,7 +1120,30 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                         return false;
                     }
                     try {
-                        nextLeaf.insertIntoThisNode(key, object, storage, transaction, retryInsert);
+                        if (nextLeaf.insertIntoThisNode(key, object, storage, transaction, retryInsert)
+                                && nextLeaf.getKeys().size() >= 2 * getTree().getT()) {
+                            // OVERFLOW (docs/tasks/2.2.0/33): рекурсия chain-ветки мутирует
+                            // NEXTLEAF, но единственная сплит-проверка жила в листовом кадре
+                            // insert() — на ЛИСТЕ ПРИЗЕМЛЕНИЯ. Терминальный лист диапазона
+                            // дубликатов получал getKeys().add() вообще без проверки и рос
+                            // безгранично (проба: 27 ключей при 2t-1=9; то самое
+                            // «переполнение ноды», за которым лежали @Disabled
+                            // duplicate-инварианты). Сплит запускается ЗДЕСЬ — на ноде,
+                            // которую мутировал этот кадр, под глубоким локом, который
+                            // tryDeepLockForInsert уже захватил (предки включены —
+                            // родительская механика сплита безопасна). ВНИМАНИЕ: методы
+                            // сплита работают на РЕИВЕРЕ (this), deepLockedNode — только
+                            // регистрация локов, поэтому receiver = nextLeaf, arg =
+                            // nextLeaf (зеркало insert()'овского split(this, ...)).
+                            // Более глубокий хоп накрывает себя на своём кадре: когда
+                            // вставка ушла глубже, nextLeaf этого кадра не изменился и
+                            // проверка — no-op.
+                            if (nextLeaf.getParent() == null) {
+                                nextLeaf.splitAndCreateNewRoot(nextLeaf, storage, transaction);
+                            } else {
+                                nextLeaf.splitAndInsertIntoParent(nextLeaf, storage, transaction);
+                            }
+                        }
                     } finally {
                         nextLeaf.deepUnlock();
                     }
@@ -1904,13 +1927,60 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
         }
 
         if (!deleted) {
-            // DUPRACE (docs/tasks/2.2.0/32): a targeted delete can MISS in its locked leaf —
-            // a concurrent sibling delete's borrow/merge MOVES the pair (or the whole leaf's
-            // window) after this descent chose its path, and this descent holds a stale view.
-            // The sound predicate: the pair the tree still holds = a stale descent → set the
-            // retry flag (the tree-level do-while re-descends from the root, exactly the
-            // insert-path pattern); the pair nowhere = the honest refusal. The find is paid
-            // only on the miss — zero cost on the happy path.
+            // DUPRACE (docs/tasks/2.2.0/32): duplicates of one key span MULTIPLE leaves of the
+            // leaf chain — the single-leaf scan misses pairs living in the later leaves of the
+            // key's range (the CI "does not exists" for a pair verified to exist by find).
+            // The walk continues along the chain — the exact mirror of the insert path's chain
+            // peek: the next leaf STARTS with the same key → deep-lock it (tryDeepLockForDelete:
+            // its pre-size <= T ancestor rule exactly covers the post-delete <= T-1 rebalance
+            // depth) and scan it recursively. The locks ACCUMULATE in this node's lockedNodes —
+            // the caller's finally deepUnlock releases the whole set, and the walked leaves'
+            // locks block any concurrent split/merge from re-linking the chain mid-walk (a
+            // split of a walked leaf needs that leaf's write lock — held; the walk is
+            // chain-atomic). The rebalance for a NON-landing leaf runs HERE (the caller
+            // rebalances only the descent's landing leaf), safe because the ancestors are
+            // still deep-locked inside this frame.
+            if (tree.isMultiple()) {
+                final XdStorageBTreeNode nextLeaf = this.getNextTreeNodeOnThisLevel();
+                if (nextLeaf != null && !nextLeaf.getKeys().isEmpty()
+                        && compareMixedKeys(nextLeaf.getKeys().get(0), key) == 0) {
+                    if (!nextLeaf.tryDeepLockForDelete(transaction)) {
+                        // the chain is contended — the tree-level do-while re-descends
+                        if (retryDelete != null) {
+                            retryDelete.set(true);
+                            return;
+                        }
+                        throw new XdStorageException("object of " + tree.getId() + " with key " + key + " and value " + value + " does not exists");
+                    }
+                    try {
+                        nextLeaf.deletePairFromThisNode(key, value, storage, transaction, retryDelete);
+                        try {
+                            if (nextLeaf.getKeys().size() <= getTree().getT() - 1 && nextLeaf.getParent() != null) {
+                                if (!nextLeaf.tryToMoveKeyFromNeightbor(nextLeaf, storage, transaction)) {
+                                    nextLeaf.joinWithNeightbor(nextLeaf, storage, transaction);
+                                }
+                            }
+                        } catch (final XdStorageException staleRebalance) {
+                            // RECIDENT: the mirror of the caller's catch — the borrow/join peer
+                            // was tombstoned by this transaction's own earlier mutation
+                            if (staleRebalance.getMessage() != null && staleRebalance.getMessage().contains("was deleted this transaction")) {
+                                retryDelete.set(true);
+                                return;
+                            }
+                            throw staleRebalance;
+                        }
+                    } finally {
+                        nextLeaf.deepUnlock();
+                    }
+                    return;
+                }
+            }
+            // DUPRACE: the range ended without the pair — a concurrent sibling delete's
+            // borrow/merge may still have MOVED it after this descent chose its path (a stale
+            // view). The sound predicate: the pair the tree still holds = a stale descent →
+            // set the retry flag (the tree-level do-while re-descends from the root, exactly
+            // the insert-path pattern); the pair nowhere = the honest refusal. The find is
+            // paid only on the miss — zero cost on the happy path.
             if (retryDelete != null && tree.find(key, storage, transaction).contains(value)) {
                 retryDelete.set(true);
                 return;
@@ -2048,7 +2118,19 @@ public class XdStorageBTreeNode implements IXdStorageBTreeNode, io.github.xdstor
                 }
 
                 for (int i = 0; i < snapshotKeys.size(); ++i) {
-                    if (compareMixedKeys(key, snapshotKeys.get(i)) < 0) {
+                    // FKWRITE (docs/tasks/2.2.0/21): канон спуска точечного поиска —
+                    // «ПЕРВЫЙ разделитель >= ключа → ЛЕВЫЙ ребенок»: приземляемся в самое
+                    // левое поддерево, которое вообще может держать ключ. Прежнее строгое
+                    // «> ключа» уводило ==разделителю ВПРАВО и промахивалось мимо
+                    // дубликатов, живущих СЛЕВА от ==разделителя: сплит идентичных
+                    // ключей оставляет их в левой половине (разделитель = первый ключ
+                    // правой), а заимствование кладет ключ разделителя в левый лист —
+                    // равный ключу разделитель может держать дубликаты на ОБЕИХ
+                    // сторонах. Цепной проход от приземления (ниже) пересекает границу
+                    // ==key в обе стороны, поэтому левое приземление собирает все
+                    // дубликаты, где бы они ни лежали: O(log + d) вместо полного
+                    // сквозного обхода цепи (MultiSplitStress routing-symmetry пин).
+                    if (compareMixedKeys(key, snapshotKeys.get(i)) <= 0) {
                         if (i < snapshotChildren.size()) {
                             child = current.loadChildOfThisNode(i, storage, transaction);
                             isFound = true;

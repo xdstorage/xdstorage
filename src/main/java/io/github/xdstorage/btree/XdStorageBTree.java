@@ -886,26 +886,19 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
             unlockWrite();
         }
 
-        final AtomicLong counter = new AtomicLong(0);
         final AtomicBoolean retryInsert = new AtomicBoolean();
-        int attempts = 0;
+        // OVERFLOW (docs/tasks/2.2.0/33): корректные вставки дубликатов теперь СПЛЯТ
+        // терминальные листья chain-диапазона, и параллельный шторм на горячих ключах
+        // выжигал ПОПЫТОЧНЫЙ бюджет тем же способом, каким R-54 выжигал его у поисков:
+        // каждый retry заново захватывает write-лок дерева и проигрывает следующему
+        // держателю глубокого лока. Паттерн R-54 портирован сюда: ДЕДЛАЙН (3/4 таймаута
+        // транзакции, минимум 500 мс, потолок 10 с) + экспоненциальный backoff — ожидание
+        // ограничено ВРЕМЕНЕМ: шторму — терпение, вечному клину — громкий отказ.
+        final long txTimeoutMs = transaction != null ? transaction.getTimeout() : 100L;
+        final long insertBudgetMs = Math.min(Math.max(txTimeoutMs * 3 / 4, 500L), FIND_RETRY_BUDGET_CAP_MS);
+        final long insertDeadlineNanos = System.nanoTime() + insertBudgetMs * 1_000_000L;
+        long backoffMillis = 1L;
         do {
-            synchronized (counter) {
-                if (counter.incrementAndGet() % 5 == 0) {
-                    try {
-                        counter.wait(50);
-                    } catch (InterruptedException e) {
-                        throw new XdStorageException("interrupted", e);
-                    }
-                }
-            }
-            if (++attempts > REBALANCE_RETRY_BUDGET) {
-                log.warn("B+Tree rebalance retry budget exhausted for insert of key {} in tree {} — sustained rebalance lock contention (operation failed loudly)", key,
-                        id);
-                throw new XdStorageException("retry budget exhausted by insert of idgeneration " + key
-                        + " into " + id + ": устойчивая конкуренция за блокировки ребалансировки");
-            }
-
             retryInsert.set(false);
             lockWrite(transaction);
             try {
@@ -931,6 +924,25 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
                 if (isWriteLocked()) {
                     unlockWrite();
                 }
+            }
+            if (retryInsert.get()) {
+                if (System.nanoTime() - insertDeadlineNanos >= 0) {
+                    log.warn("B+Tree insert retry budget exhausted for key {} in tree {} — sustained rebalance lock contention (operation failed loudly)", key,
+                            id);
+                    throw new XdStorageException("retry budget exhausted by insert of idgeneration " + key
+                            + " into " + id + ": устойчивая конкуренция за блокировки ребалансировки");
+                }
+
+                // R-42/R-54: экспоненциальный backoff — без паузы ретраящий молотит
+                // tryLock, мешая сплитам/джойнам завершиться; растущая пауза дает
+                // мутаторам окно и создает safepoint для диагностики.
+                try {
+                    Thread.sleep(backoffMillis);
+                } catch (final InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new XdStorageException("interrupted during insert retry backoff", e);
+                }
+                backoffMillis = Math.min(backoffMillis * 2, FIND_RETRY_BACKOFF_MAX_MILLIS);
             }
         } while (retryInsert.get());
     }
@@ -1425,25 +1437,27 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
         }
 
         // =========================================================================
-        // АЛГОРИТМИЧЕСКОЕ ИСПРАВЛЕНИЕ НА ДЕБАГЕ (Монолитная синхронизация B+Tree):
-        // Если индекс поддерживает дубликаты (isMultiple == true), мы КАТЕГОРИЧЕСКИ запрещаем
-        // осуществлять вертикальный спуск по не-листовым этажам, так как сплиты разрывают дубликаты
-        // между левой и правой ветками! Мы запускаем канонический сквозной горизонтальный обход
-        // листьев по указателям nextTreeNodeOnThisLevel, начиная с firstLeaf!
-        // Это гарантирует 100% сбор всех элементов без нарушения знаков < 0 в навигаторах мутаций!
+        // FKWRITE (docs/tasks/2.2.0/21, 2026-11-23): прежняя ветка multi-деревьев
+        // («КАТЕГОРИЧЕСКИ запрещаем вертикальный спуск — сплиты разрывают дубликаты
+        // между ветками») запускала сквозной горизонтальный обход ВСЕЙ цепи листьев
+        // от firstLeaf с фильтром == key — O(все пары) НА КАЖДЫЙ поиск. Профиль
+        // fk-write-100k (docs/perf/profile-2026-11-23): 46% cascadeSave — эти обходы
+        // (registerForeignKey/readByChildObjectId → find → BTreeNode.read +
+        // LinkedList.toArray) — источник измеренных 23–160× деградации FK.
+        //
+        // Звуковой канон точечного поиска по ключу (спуск + цепь):
+        // 1) спуск «первый разделитель СТРОГО больше ключа → левый ребенок» приземляется
+        //    в САМОЕ ЛЕВОЕ поддерево, которое вообще может держать ключ: у всех левых
+        //    поддеревьев разделители < ключа, их ключи ≤ разделителям → < ключа;
+        //    дубликаты ЛЕВЕЕ приземления невозможны независимо от того, на какой ветке
+        //    оказались дубликаты при сплитах/заимствованиях;
+        // 2) цепь листьев отсортирована (инвариант, на котором стоит ранняя остановка
+        //    readRange) → все ==key пары идут подряд; проход от приземления с остановкой
+        //    на первом ключе > key собирает их все — O(log + d);
+        // 3) multi-щит в XdStorageBTreeNode.find (лист с совпадением продолжает проход)
+        //    держит переходные формы между мутациями.
+        // Итог: multi-поиск идет через тот же спуск, что и уникальный (ниже), O(log + d).
         // =========================================================================
-        if (this.multiple) {
-            final List<Object> multiResult = new ArrayList<>();
-            this.read(storage, transaction, new IXdStorageBTreeViewer() {
-                @Override
-                public void look(final Comparable objectId, final Object value) {
-                    if (objectId != null && XdStorageBTreeNode.compareMixedKeys(objectId, key) == 0) {
-                        multiResult.add(value);
-                    }
-                }
-            });
-            return multiResult;
-        }
 
         if (root != null && XdStorageObjectUtils.isReference(root)) {
             // R-38: СТАБ-УЗЕЛ корня грузится ТОЛЬКО под write-локом самого узла.

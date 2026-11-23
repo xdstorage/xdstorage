@@ -2,7 +2,6 @@ package io.github.xdstorage.btree;
 
 import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.transaction.XdStorageTransaction;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -163,7 +162,10 @@ public class XdStorageBTreeDuplicateInvariantTest extends AbstractBTreeIntegrati
 
     @Test
     @DisplayName("Инвариант 1: структура и мультимножество серий дубликатов через сплиты и join-ы (t=5)")
-    @Disabled("Известная проблема с переполнением ноды")
+    // TRIAGE (2026-11-23): ENABLED — «переполнение ноды» исправлено (OVERFLOW,
+    // docs/tasks/2.2.0/33): chain-ветка вставки мутировала терминальный лист диапазона
+    // дубликатов без сплит-проверки, лист рос безгранично; сплит теперь запускается
+    // на nextLeaf в кадре chain-ветки. Инвариант 5 держит полный структурный гейт.
     public void testDuplicateSeriesStructuralInvariantsAcrossSplitsAndJoins() throws Exception {
         final Map<String, Integer> expected = new HashMap<>();
 
@@ -244,7 +246,8 @@ public class XdStorageBTreeDuplicateInvariantTest extends AbstractBTreeIntegrati
 
     @Test
     @DisplayName("Инвариант 3: 20 ключей по 9 дубликатов, полный пурдж без нод-призраков")
-    @Disabled("Известная проблема с переполнением ноды")
+    // TRIAGE (2026-11-23): ENABLED — «переполнение ноды» исправлено (OVERFLOW,
+    // docs/tasks/2.2.0/33): см. triage-комментарий Инварианта 1.
     public void testManyKeysEachWithDuplicatesFullPurge() throws Exception {
         final int keysCount = 20;
         final int duplicatesPerKey = 9; // 2t-1: ровно на границе сплита
@@ -321,6 +324,100 @@ public class XdStorageBTreeDuplicateInvariantTest extends AbstractBTreeIntegrati
                     "после конкурентного пурджа серия hot_" + k + " не пуста");
         }
         verifyFullyCollapsed("после конкурентного полного пурджа");
+    }
+
+    /** Контент-скан цепи листьев: мультимножество пар + сортировка вдоль цепи + паритет keys/objects. */
+    private Map<String, Integer> scanChainMultiset(final String context) {
+        final Map<String, Integer> actual = new LinkedHashMap<>();
+        XdStorageBTreeNode cur = btree.getFirstLeaf();
+        int guard = 0;
+        String prevPair = null;
+        while (cur != null) {
+            final List<Comparable> keys = cur.getKeys();
+            final List<Object> objects = cur.getObjects();
+            assertEquals(keys.size(), objects.size(),
+                    context + ": лист " + cur.getId() + " рассинхронизирован (keys != objects)");
+            for (int i = 0; i < keys.size(); ++i) {
+                final String pair = keys.get(i) + "#" + objects.get(i);
+                if (prevPair != null) {
+                    final String prevKey = prevPair.substring(0, prevPair.indexOf('#'));
+                    assertTrue(prevKey.compareTo((String) keys.get(i)) <= 0,
+                            context + ": нарушение сортировки вдоль цепи: " + prevKey + " > " + keys.get(i));
+                }
+                actual.merge(pair, 1, Integer::sum);
+                prevPair = pair;
+            }
+            cur = cur.getNextTreeNodeOnThisLevel();
+            assertTrue(++guard < 100_000, context + ": бесконечная цепочка листьев");
+        }
+        return actual;
+    }
+
+    /** Контент-гейт DUPRACE-прохода: мультимножество пар цепи. */
+    private void verifyChainContent(final Map<String, Integer> expected, final String context) {
+        assertEquals(expected, scanChainMultiset(context),
+                context + ": мультимножество пар в цепи не равно ожидаемому (потеря/лишняя пара)");
+    }
+
+    @Test
+    @DisplayName("Инвариант 5 (DUPRACE): серия ключа через несколько листьев — точечное удаление находит пару в ЛЮБОМ листе диапазона")
+    public void testTargetedDeleteFindsPairAcrossMultiLeafDuplicateSpan() throws Exception {
+        final String targetKey = "span_a";
+        final String neighborKey = "span_b";
+        final int perKey = 30; // t=5 → лист держит до 2t-1=9 пар; 30 пар → диапазон ключа из ≥4 листьев
+
+        final List<String[]> plan = new ArrayList<>();
+        for (int i = 1; i <= perKey; ++i) {
+            plan.add(new String[]{targetKey, "a_" + i});
+            plan.add(new String[]{neighborKey, "b_" + i});
+        }
+        Collections.shuffle(plan, new Random(21));
+        for (final String[] kv : plan) {
+            btree.insert(kv[0], kv[1], storageFacade, transaction);
+        }
+        assertEquals(perKey, btree.find(targetKey, storageFacade, transaction).size(),
+                "серия target потеряла пары при вставке");
+        assertEquals(perKey, btree.find(neighborKey, storageFacade, transaction).size(),
+                "соседняя серия потеряла пары при вставке");
+
+        final Map<String, Integer> expected = new HashMap<>();
+        for (final String[] kv : plan) {
+            expected.merge(pairId(kv[0], kv[1]), 1, Integer::sum);
+        }
+
+        // ПОЛНЫЙ структурный гейт (verifyMultiset = deepScan: баланс, occupancy [t-1..2t-1],
+        // children == keys + 1, паритет, сортировка цепи): переполнение листов серийными
+        // дубликатами исправлено (OVERFLOW, docs/tasks/2.2.0/33 — сплит терминального листа
+        // chain-ветки), поэтому гейт контента поднят обратно до структурного скана.
+
+        // ОБРАТНЫЙ порядок вставки: значения серии отсортированы по листьям (вставка сортирует
+        // дубликаты по значению), a_30 живёт в ХВОСТОВОМ листе диапазона, а спуск приземляется
+        // в ПЕРВЫЙ лист — каждая добыча требует прохода по цепи листьев (DUPRACE fix), включая
+        // ребаланс дренируемых хвостовых листьев внутри прохода.
+        for (int i = perKey; i >= 1; --i) {
+            btree.delete(targetKey, "a_" + i, storageFacade, transaction);
+            removeExpected(expected, pairId(targetKey, "a_" + i));
+            assertEquals(i - 1, btree.find(targetKey, storageFacade, transaction).size(),
+                    "после удаления a_" + i + " в серии осталось не " + (i - 1));
+        }
+        verifyMultiset(expected, "после снятия серии target: соседняя серия не тронута, структура валидна");
+        assertEquals(perKey, btree.find(neighborKey, storageFacade, transaction).size(),
+                "соседняя серия потеряла пары при проходе по диапазону target");
+
+        // Честный отказ на отсутствующей паре очищенного диапазона (проход по цепи должен
+        // остановиться на границе диапазона и громко отказаться — не зациклиться и не ретраить)
+        assertThrows(XdStorageException.class,
+                () -> btree.delete(targetKey, "a_1", storageFacade, transaction),
+                "удаление отсутствующей пары очищенного диапазона обязано громко падать");
+        verifyMultiset(expected, "после попытки удаления отсутствующей пары");
+
+        // Полная зачистка соседней серии — тоже обратный порядок, её диапазон тоже многолистовой
+        for (int i = perKey; i >= 1; --i) {
+            btree.delete(neighborKey, "b_" + i, storageFacade, transaction);
+            removeExpected(expected, pairId(neighborKey, "b_" + i));
+        }
+        verifyMultiset(new HashMap<>(), "после полного пурджа");
+        verifyFullyCollapsed("после полного пурджа");
     }
 
     /** Рабочая транзакция потока — по образцу харнесса, уникальный id на воркера. */

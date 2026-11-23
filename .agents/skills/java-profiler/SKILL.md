@@ -105,6 +105,15 @@ the release discussion for the compatibility notes on every bump.
   EXCLUSIVE by the leaf frame (sums to ~100%) — an inclusive per-frame attribution
   sums to N×100% and reads as nonsense. The ready parser:
   scripts/render-profile-ledger.py.
+- **THE LEAF BUCKET CANNOT SEPARATE THE CALL SITES** (the FKWRITE mis-attribution,
+  2026-11-23): a hot leaf frame serving MULTIPLE call paths (e.g. `BTreeNode.read`
+  fired under both the tree finds AND the commit write-out) lands in ONE bucket —
+  the bucket-level view tells the WHAT (the node deserialization dominates) but not
+  the WHERE (which path owns it). Before designing a fix from a bucket share, do the
+  STACK-LEVEL decomposition on the raw collapsed file: `grep "<the-path-frame>;"`
+  and sum the counts per candidate ancestor chain (the real case: "the commit
+  write-out is THE cost" 46/17 flipped to "the finds are 46%, the commit is 17%" —
+  the journal design was aimed at the secondary path until the stack re-read).
 - **The contention scenarios must RETRY the designed conflicts**: a worker that dies
   on the engine's first-committer-wins refusal kills the whole run AND loses the
   contention evidence; the retry loop's CONFLICT COUNTER is itself the contention

@@ -117,3 +117,53 @@ through the whole call chain — only the leaf scanner didn't receive it).
 **The status stays open until the CI ×3 confirms.** The 2.1.3 hotfix note stands (the
 fixes ride both lines per the standing directive — the cherry-pick is this one method's
 diff).
+
+## PROGRESS 2 (2026-11-23): the SECOND mechanism — the duplicate SPAN (no concurrency needed)
+
+The deterministic test written for the fix (Инвариант 5) exposed that the CI race was
+only ONE trigger of the miss. The other is structural and needs no concurrency at all:
+**duplicates of one key span MULTIPLE leaves of the leaf chain** (30 pairs at t=5 → a
+≥4-leaf range), and the descent always lands in the FIRST leaf of the key's range —
+the single-leaf scan misses every pair living in the later leaves. Deleting a_30
+(= the tail leaf) threw "does not exists" deterministically on a quiet tree. The
+sound predicate alone does NOT fix this case: `find(key).contains(value)` stays TRUE
+forever → the retry loop re-descends to the same landing leaf and misses again → the
+retry budget exhausts loudly. A chain walk is required.
+
+**The fix upgrade (the same method):** the miss branch walks the leaf chain — the exact
+mirror of the insert path's chain peek:
+- the walk continues while the next leaf STARTS with the same key
+  (`compareMixedKeys(next.getKeys().get(0), key) == 0`, the insert-path idiom);
+- the walked leaf is deep-locked with `tryDeepLockForDelete` (its pre-size `<= t`
+  ancestor rule exactly covers the post-delete `<= t-1` rebalance depth) and registered
+  in the landing leaf's `lockedNodes` — the caller's `finally deepUnlock` releases the
+  whole accumulated set; the walked leaves' locks make the walk chain-atomic (a split
+  of a walked leaf needs that leaf's write lock — held);
+- a delete landing in a NON-landing leaf rebalances THAT leaf inside the walk frame
+  (the caller rebalances only the descent's landing leaf), safe because the ancestors
+  are still deep-locked; the RECIDENT tombstone catch is mirrored;
+- the range ended without the pair → the sound predicate (the stale descent → retry;
+  nowhere → the honest refusal) — unchanged;
+- the `tree.isMultiple()` gate mirrors the insert path.
+
+**The probe evidence (the throwaway chain-dump probe, deleted after):** the occupancy
+overflow (a 13-key and a 27-key leaf > 2t-1=9) exists AFTER THE INSERT PHASE — the
+multi-index duplicate insert path builds oversized leaves; this is the pre-existing
+«переполнение ноды» issue that keeps Инварианты 1/3 @Disabled. The walk phase drains
+and compacts correctly (the content exact at every step, the chain sorted throughout).
+The walk test therefore gates the CONTENT (the chain multiset + the sort + the leaf
+parity + the honest refusal + the full collapse), not the occupancy — the
+«Инвариант 5» comment names this decision at the gate site.
+
+**The gates:**
+- [x] The class ×4 locally GREEN (5 tests, 0 failures; ×3 green rounds after the
+      content-gate switch).
+- [x] The FK estate + the btree package + the property tests ×3 GREEN; MassFill
+      First+Second ×2 GREEN (the ERROR log lines in the MassFill output = the designed
+      FCW refusals, not failures).
+- [x] The honest-refusal path pinned: the delete of a purged range's pair throws
+      loudly (no livelock, no retry-spin) and the tree stays intact.
+- [ ] The class ×3 on the CI runner (the nightly watch — unchanged from PROGRESS 1).
+
+**The status stays open until the CI ×3 confirms.** The 2.1.3 hotfix note stands (the
+cherry-pick diff = deletePairFromThisNode + the Инвариант 5 test).
