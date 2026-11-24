@@ -67,6 +67,12 @@
 - **`explain` is tx-free by design, documented** — the one facade method that works
   without a transaction (the plan is static index metadata; GUIDE § Query plans +
   EMBEDDING), pinned by the property estate.
+- **`schema-diff` and `migrate` CLI tools** ([17](docs/tasks/2.2.0/17-migration-schema-diff.md)):
+  `XdStorageSchemaDiff` compares two storage folders' structure metadata (or one folder
+  against live Java classes) and reports per-class field/index diffs (ADDED/REMOVED/CHANGED,
+  FIELD/IDX/CLASS) with `--json` output for pipelines. `XdStorageMigrate` applies the
+  builtin `v1-to-v2` recipe (acceptMissingEofSentinel + EOF sentinel rewrite + JSON→XML
+  rename + format marker upgrade) with `--dry-run` support. Pinned by `XdStorageSchemaDiffTest` (8 tests: added/removed fields, type change, class addition/removal, no-diff identity, JSON output, dry-run byte-identical, v1→v2 migration).
 
 ### Changed
 

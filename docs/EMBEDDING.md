@@ -366,6 +366,54 @@ find ./data/db -name '*.json' -exec bash -c 'mv "$1" "${1%.json}.xml"' _ {} \;
 
 then open with `FilesFormat.XML`. (For YAML-era folders there is nothing to rename.)
 
+### Schema migration — the `schema-diff` and `migrate` tooling (task 17)
+
+For operational workflow, XdStorage ships two CLI tools over the engine's structure
+metadata:
+
+#### `schema-diff` — compare two folders or a folder against live classes
+
+```bash
+# Compare two folders:
+java -cp xdstorage.jar io.github.xdstorage.tools.XdStorageSchemaDiff ./old-db ./new-db
+
+# Compare a folder against live Java classes (useful before deploy):
+java -cp xdstorage.jar io.github.xdstorage.tools.XdStorageSchemaDiff ./my-db --against-classes com.example.EntityA com.example.EntityB
+
+# JSON output for pipelines (exit 0 = no diffs, 1 = diffs found):
+java -cp xdstorage.jar io.github.xdstorage.tools.XdStorageSchemaDiff ./old ./new --json
+```
+
+Output is one line per change: `<class> <FIELD/IDX/CLASS> <ADDED/REMOVED/CHANGED> <details>`.
+For example: `com.example.User FIELD CHANGED name String->varchar(255)`.
+The `--json` output is a `[{"class":"...","kind":"FIELD","action":"CHANGED","details":"..."}]` array.
+
+**What it compares:**
+- **Fields**: name, declared type (e.g. `String`, `Integer`, `Long`). ADDED / REMOVED / CHANGED.
+- **Search indexes**: index name, indexed field names + types, child-class routing. ADDED / REMOVED / CHANGED.
+- **Classes**: present in one folder but not the other (ADDED / REMOVED).
+- **Format version**: from `.xdstorage.meta` (v1 = no marker, v2 = YAML sentinel, v3 = `indexes/` layout).
+
+#### `migrate` — apply the v1→v2 recipe
+
+```bash
+# Preview what would change (folder stays byte-identical):
+java -cp xdstorage.jar io.github.xdstorage.tools.XdStorageMigrate ./my-db --dry-run
+
+# Apply the full v1→v2 migration:
+java -cp xdstorage.jar io.github.xdstorage.tools.XdStorageMigrate ./my-db --script builtin:v1-to-v2
+```
+
+The `builtin:v1-to-v2` recipe (idempotent, safe to re-run):
+1. Opens the folder with `acceptMissingEofSentinel(true)` — the legacy YAML reader
+   (EMBEDDING S-1: a truncated file is normally rejected, this flag allows reading it).
+2. The first `checkpoint()` + `tx.commit()` rewrites all touched data files with the
+   S-1 EOF sentinel (per EMBEDDING § After a power loss). No manual sentinel needed.
+3. Renames all `*.json` → `*.xml` (the 1.x JSON→XML recipe from this section).
+4. Upgrades `.xdstorage.meta` to `formatVersion=3` (the task 51 LAYOUTMIG stamp).
+
+After migration the folder opens cleanly under 2.2.0 (no `acceptMissingEofSentinel` needed).
+
 ### Support and deprecation policy
 
 - **Semver**: MAJOR = API or on-disk format break; MINOR = features, config-default changes,
