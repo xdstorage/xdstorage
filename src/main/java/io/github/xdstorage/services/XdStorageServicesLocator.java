@@ -82,6 +82,13 @@ public class XdStorageServicesLocator {
     private IXdStorageForeignKeyEngine foreignKeyEngine;
 
     /**
+     * FP-5: checkpoint lock — synchronizes checkpoint() and beginTransaction().
+     * checkpoint() holds this to block new txns + drain in-flight; beginTransaction()
+     * waits here (spins) until the lock is free.
+     */
+    private final Object checkpointLock = new Object();
+
+    /**
      * Wires a file-backed storage with the default engine configuration.
      *
      * @param storage       the owning storage facade
@@ -289,6 +296,14 @@ public class XdStorageServicesLocator {
      */
     public IXdStorageForeignKeyEngine getForeignKeyEngine() {
         return foreignKeyEngine;
+    }
+
+    /**
+     * FP-5: returns the checkpoint lock used to coordinate checkpoint() and beginTransaction().
+     * @return the checkpoint lock
+     */
+    public Object getCheckpointLock() {
+        return checkpointLock;
     }
 
     /**
