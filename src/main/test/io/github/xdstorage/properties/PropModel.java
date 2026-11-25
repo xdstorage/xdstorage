@@ -1,12 +1,17 @@
 package io.github.xdstorage.properties;
 
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.UUID;
 
 /**
  * PROPTEST: the SEED-BASED model — every entity is a pure function of its integer seed
@@ -57,6 +62,13 @@ public final class PropModel {
         e.setTags(listOfStrings(rnd, rnd.nextInt(5)));
         e.setMeta(mapOfStrings(rnd, rnd.nextInt(4)));
         e.setLabels(stringArray(rnd, rnd.nextInt(4)));
+        e.setUuid(UUID.fromString(uuidString(rnd)));
+        final long epoch = Math.abs(rnd.nextLong() % 4_000_000_000_000L);
+        e.setInstant(Instant.ofEpochMilli(epoch));
+        e.setLocalDate(LocalDate.ofEpochDay(Math.abs(rnd.nextLong() % 50_000) - 25_000));
+        e.setLocalDateTime(LocalDateTime.ofEpochSecond(epoch, 0, java.time.ZoneOffset.UTC));
+        final long dur = Math.abs(rnd.nextLong() % 10_000_000_000L) + 1L; // at least 1ns
+        e.setDuration(Duration.ofMillis(dur));
         if (rnd.nextBoolean()) {
             e.setNested(new PropNested(string(rnd, "nested"), rnd.nextLong(), longList(rnd, rnd.nextInt(4))));
         }
@@ -108,6 +120,19 @@ public final class PropModel {
             arr[i] = string(rnd, "lbl");
         }
         return arr;
+    }
+
+    /** Generate a valid UUID string from the seed. */
+    private static String uuidString(final Random rnd) {
+        final StringBuilder sb = new StringBuilder(36);
+        for (int i = 0; i < 36; i++) {
+            if (i == 8 || i == 13 || i == 18 || i == 23) {
+                sb.append('-');
+            } else {
+                sb.append("0123456789abcdef".charAt(rnd.nextInt(16)));
+            }
+        }
+        return sb.toString();
     }
 
     /** The field-by-field integrity gate: both sides are built from the same seed. */
@@ -166,6 +191,22 @@ public final class PropModel {
                 problems.add("nested.flags: " + expected.getNested().getFlags() + " vs " + actual.getNested()
                         .getFlags());
             }
+        }
+        // Simple types: UUID + java.time — must round-trip via canonical string forms
+        if (!eq(expected.getUuid(), actual.getUuid())) {
+            problems.add("uuid: " + expected.getUuid() + " vs " + actual.getUuid());
+        }
+        if (!eq(expected.getInstant(), actual.getInstant())) {
+            problems.add("instant: " + expected.getInstant() + " vs " + actual.getInstant());
+        }
+        if (!eq(expected.getLocalDate(), actual.getLocalDate())) {
+            problems.add("localDate: " + expected.getLocalDate() + " vs " + actual.getLocalDate());
+        }
+        if (!eq(expected.getLocalDateTime(), actual.getLocalDateTime())) {
+            problems.add("localDateTime: " + expected.getLocalDateTime() + " vs " + actual.getLocalDateTime());
+        }
+        if (!eq(expected.getDuration(), actual.getDuration())) {
+            problems.add("duration: " + expected.getDuration() + " vs " + actual.getDuration());
         }
         if (!problems.isEmpty()) {
             throw new AssertionError(what + " diverges on seed " + expected.getId() + ": " + problems);

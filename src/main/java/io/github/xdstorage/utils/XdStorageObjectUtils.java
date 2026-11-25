@@ -11,8 +11,13 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.Collections;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * The engine's central object helper facade: deep MVCC cloning, wrapper (proxy) creation and
@@ -276,7 +281,15 @@ public final class XdStorageObjectUtils {
      */
     public static boolean isSimpleType(final Class<?> cl, final Object object) {
         return cl.isPrimitive() || Number.class.isAssignableFrom(cl) || cl == Boolean.class || cl == Character.class ||
-                cl == String.class;
+                cl == String.class || cl == UUID.class || isJavaTimeSimple(cl);
+    }
+
+    /** UUID + the decided java.time set — the engine's core predicate uses this too. */
+    private static boolean isJavaTimeSimple(final Class<?> cl) {
+        return Instant.class.isAssignableFrom(cl)
+                || LocalDate.class.isAssignableFrom(cl)
+                || LocalDateTime.class.isAssignableFrom(cl)
+                || Duration.class.isAssignableFrom(cl);
     }
 
     /**
