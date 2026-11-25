@@ -36,7 +36,7 @@ tests (20 classes × 10 consecutive surefire passes, 2026-10-19 night).
 
 | Test class | Signature | Decision |
 |------------|-----------|----------|
-| `XdStorageNestedTransactionIsolationStressTest` (@Tag stress) | the nested commit/rollback machinery is critical under load (latch cascades, zombie sweeps) | excluded from the gate/release profiles **and the nightly** (ci.yml `-Dtest='!…'`); rework is OPTIONAL 2.2.0 task 12 (fix or deprecate); the feature is documented NOT RECOMMENDED (EMBEDDING/GUIDE/CHANGELOG) |
+| `XdStorageNestedTransactionIsolationStressTest` (@Tag stress) | the nested commit/rollback machinery is critical under load (latch cascades, zombie sweeps) | excluded from the gate/release profiles **and the nightly** (ci.yml `-Dtest='!…'`); task 12 fixed the cross-thread abandon gap (`CROSS_THREAD_ABANDON_MILLIS=5000` + force-sweep), the remaining reds are throughput-bound (per-record YAML floor ~20–50 ms); the feature is documented NOT RECOMMENDED (EMBEDDING/GUIDE/CHANGELOG) |
 | `XdStorageFacadeStressTest` (@Tag stress) | the facade load flow: the historical families (hot-node latches, retry budgets, validator divergence) | excluded from the gate/release profiles **and the nightly**; 2.2.0 task 13 = the failure-cause investigation + the performance improvement plan |
 
 ## Conventions

@@ -381,10 +381,12 @@ try {
 ```
 
 > **Nested transactions (`beginTransaction(parentTx, timeout)`) are NOT RECOMMENDED for
-> load-heavy use.** A nested rollback correctly does not poison the parent, but the nested
-> commit/rollback machinery is a known critical-under-load path (abandoned-nested latch
-> cascades, zombie sweeps, mid-commit poisoning). Prefer flat transactions with explicit
-> compensating code; the rework is scheduled for 2.2.0.
+> load-heavy use.** A nested rollback correctly does not poison the parent (downward-only
+> cascade), the cross-thread abandon sweep gap is fixed (2.2.0, task 12: 5-second sweep),
+> and mid-commit poisoning is guarded (2.1.0, task 45). The remaining throughput envelope
+> (per-record YAML floor ~20–50 ms, commit-lock queue) is an architectural limitation of
+> the suspension model, not a correctness defect. Prefer flat transactions with explicit
+> compensating code.
 
 Semantics:
 
