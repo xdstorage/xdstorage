@@ -1,9 +1,14 @@
 package io.github.xdstorage.properties;
 
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * PROPTEST (docs/tasks/2.2.0/03): the shared shape of the three policy variants —
@@ -60,4 +65,24 @@ public interface PropWideLike {
     PropNested getNested();
 
     void setNested(PropNested nested);
+
+    /** UUID — stored as its canonical ISO-8601 string. */
+    UUID getUuid();
+    void setUuid(UUID uuid);
+
+    /** Instant — stored as ISO-8601. */
+    Instant getInstant();
+    void setInstant(Instant instant);
+
+    /** LocalDate — stored as ISO-8601. */
+    LocalDate getLocalDate();
+    void setLocalDate(LocalDate localDate);
+
+    /** LocalDateTime — stored as ISO-8601. */
+    LocalDateTime getLocalDateTime();
+    void setLocalDateTime(LocalDateTime localDateTime);
+
+    /** Duration — stored as ISO-8601 (ISO-8601 duration format, e.g. "PT1H30M"). */
+    Duration getDuration();
+    void setDuration(Duration duration);
 }

@@ -203,6 +203,11 @@ public class PropCrudRoundTripTest {
             loaded.setMeta(v2.getMeta());
             loaded.setLabels(v2.getLabels());
             loaded.setNested(v2.getNested());
+            loaded.setUuid(v2.getUuid());
+            loaded.setInstant(v2.getInstant());
+            loaded.setLocalDate(v2.getLocalDate());
+            loaded.setLocalDateTime(v2.getLocalDateTime());
+            loaded.setDuration(v2.getDuration());
             storage.update(loaded, updTx);
             storage.commitTransaction(updTx);
 

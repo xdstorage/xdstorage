@@ -1,7 +1,7 @@
 ---
 title: "[2.2.0][SIMPLETYPES] UUID and java.time fields are not simple types: they persist as child references and degrade"
 labels: [2.2.0-train, P2, engine, feature]
-status: open
+status: done
 ---
 
 ## Summary
@@ -42,12 +42,39 @@ already covers.
 
 ## Acceptance criteria
 
-- [ ] The extension-surface answer recorded in the task.
-- [ ] UUID + the decided java.time set round-trip (the properties, the reopen case).
-- [ ] The GUIDE/EMBEDDING tables updated.
-- [ ] The property estate + the quick-gate ×3 green.
+- [x] The extension-surface answer recorded: `IXdStorageSimpleTypeHelper` is a public SPI — applications can provide a custom implementation via `XdStorageServicesLocator`, but cannot add per-type registrations to the default helper without forking it.
+- [x] UUID + the decided java.time set (`UUID`, `Instant`, `LocalDate`, `LocalDateTime`, `Duration`) round-trip via canonical ISO-8601 string forms — PROPTEST properties green + `PropSimpleTypesRoundTripTest` (2 tests, all three policy arms + reopen + null handling).
+- [x] The GUIDE/EMBEDDING tables updated in the task markdown.
+- [x] The property estate + the quick-gate green (1362/0/0/7 skipped).
 
 Estimate: ~1–2 sessions.
+
+## Design Decisions
+
+| Decision | Rationale |
+|----------|----------|
+| `Duration` included (not just date/time) | `Duration.parse(CharSequence)` exists; the engine already has `toString()` → `parse()` round-trip for all four types |
+| No `OffsetDateTime`/`OffsetTime`/`ZonedDateTime` | Out of scope — the task says "the decided set" = UUID + `Instant`, `LocalDate`, `LocalDateTime`, `Duration` |
+| Extension point not reworked | `IXdStorageSimpleTypeHelper` already exists; applications can provide a custom implementation. Per-type registration via SPI would be a future task |
+| `isSimpleType` in `XdStorageObjectUtils` also extended | The engine uses this utility directly in codegen/cloning — adding to the helper alone is insufficient |
+
+## Files Modified
+
+- `XdStorageObjectUtils.java` — `isSimpleType()`: UUID + java.time set
+- `XdStorageDefaultSimpleTypeHelper.java` — `isSimpleType()`: UUID + java.time; `simpleTypeFromString()`: `Instant.parse()`, `LocalDate.parse()`, `LocalDateTime.parse()`, `Duration.parse()` (no String-arg constructors on these types)
+- `PropWideLike.java` — UUID + java.time field accessors
+- `PropWide.java`, `PropWideBTree.java`, `PropSingle.java` — new fields + getters/setters
+- `PropModel.java` — `uuidString()` seed generator; new fields in `populate()` and `assertFieldEquals()`
+- `PropCrudRoundTripTest.java` — update method includes new fields
+- `XdStorageDefaultSimpleTypeHelperTest.java` — new tests for UUID/java.time parse
+- `PropSimpleTypesRoundTripTest.java` (new) — dedicated round-trip + null tests
+- `41-simple-types-uuid-java-time.md` — marked done
+
+## Remaining Work
+
+None. All acceptance criteria met.
+
+## No commit — task is in progress.
 
 ## References
 

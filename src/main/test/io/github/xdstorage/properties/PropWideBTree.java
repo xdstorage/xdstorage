@@ -7,11 +7,16 @@ import io.github.xdstorage.XdStoragePolicy;
 import io.github.xdstorage.index.XdStorageIndexType;
 
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * PROPTEST: the StoreAsClassObjects + HASH id-index arm of the shared shape.
@@ -34,6 +39,12 @@ public class PropWideBTree implements PropWideLike {
     private Map<String, String> meta = new HashMap<>();
     private String[] labels = new String[0];
     private PropNested nested;
+
+    private UUID uuid;
+    private Instant instant;
+    private LocalDate localDate;
+    private LocalDateTime localDateTime;
+    private Duration duration;
 
     @Override
     public String getId() {
@@ -154,4 +165,24 @@ public class PropWideBTree implements PropWideLike {
     public void setNested(PropNested nested) {
         this.nested = nested;
     }
+
+    @Override
+    public UUID getUuid() { return uuid; }
+    @Override public void setUuid(UUID uuid) { this.uuid = uuid; }
+
+    @Override
+    public Instant getInstant() { return instant; }
+    @Override public void setInstant(Instant instant) { this.instant = instant; }
+
+    @Override
+    public LocalDate getLocalDate() { return localDate; }
+    @Override public void setLocalDate(LocalDate localDate) { this.localDate = localDate; }
+
+    @Override
+    public LocalDateTime getLocalDateTime() { return localDateTime; }
+    @Override public void setLocalDateTime(LocalDateTime localDateTime) { this.localDateTime = localDateTime; }
+
+    @Override
+    public Duration getDuration() { return duration; }
+    @Override public void setDuration(Duration duration) { this.duration = duration; }
 }
