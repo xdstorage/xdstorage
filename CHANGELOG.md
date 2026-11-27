@@ -34,6 +34,13 @@
 
 ### Fixed
 
+- **Nested-transaction cross-thread abandon gap (task 12):** a parent `commitTransaction`
+  could wait forever (`skipOrWaitForInternalTransactions` infinite loop) on a nested tx
+  that was "running" on another thread but never finished (exception didn't reach scope
+  exit, timeout far in the future). Added `CROSS_THREAD_ABANDON_MILLIS = 5000` + force-sweep
+  in `skipOrWaitForInternalTransactions`: abandoned nested txs on other threads older than
+  5 seconds are marked rollback-only and swept, unblocking the parent. Tested by the new
+  `XdStorageNestedTransactionLoadSafetyTest` (10 scenarios).
 - **The concurrent targeted delete of a duplicate pair no longer throws "does not
   exists" for an existing pair** (the DUPRACE race: the targeted-delete descent vs a
   concurrent sibling's borrow/merge — the miss now re-descends via the retry loop when

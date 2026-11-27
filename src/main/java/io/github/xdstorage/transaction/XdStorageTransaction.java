@@ -133,6 +133,14 @@ public class XdStorageTransaction implements IXdStorageTransaction {
     /** R-40: запас сверх таймаута внутренней tx, после которого родитель принудительно ее sweeping-откатывает. */
     private static final long INTERNAL_SWEEP_GRACE_MILLIS = 500;
 
+    /** R-40 (task 12 fix): grace сверх таймаута parent-а, после которого родитель
+     * принудительно sweep-ит внутреннюю tx на ДРУГОМ потоке (которая не истекла, не
+     * брошена на текущем потоке, но уже 5+ секунд — значит, скорее всего, stuck/abandoned).
+     * Это закрывает gap: parent вызвал commit, а nested на другом воркере всё ещё «running»
+     * (timeout=60s, exception не дошёл до scope exit) → parent ждёт вечно без этого.
+     */
+    private static final long CROSS_THREAD_ABANDON_MILLIS = 5000;
+
     /**
      * R-45: serial коммита ЭТОЙ транзакции (0 = не коммитится). Резервируется ОДИН на всю
      * транзакцию ДО начала фаз коммита: все ее записи получают один и тот же номер, поэтому
@@ -330,6 +338,21 @@ public class XdStorageTransaction implements IXdStorageTransaction {
                                 internal.markRollbackOnly(sweepSite, null);
                             }
                             manager.registerRollbackOnlyTransaction(internal);
+                            swept = true;
+                        }
+                        // R-40 (task 12 fix): cross-thread + not-expired + too old → force-sweep.
+                        // Закрывает gap: parent вызвал commit, а nested на другом потоке всё ещё
+                        // «running» (timeout=60s, exception не дошёл до scope exit) → parent ждёт
+                        // вечно. С threshold 5s: если nested > 5s — считаем abandoned.
+                        // (ageMillis уже объявлена выше, используем ту же)
+                        final long crossAgeMillis = (System.nanoTime() - internal.getTimestart()) / 1_000_000;
+                        if (ageMillis > CROSS_THREAD_ABANDON_MILLIS && !internal.isRollbackOnly()) {
+                            log.warn("Parent transaction {} force-sweeps abandoned internal transaction {} " +
+                                    "(cross-thread, age {} ms > {} ms) — no timeout, no current-thread binding",
+                                    transactionId, internalId, ageMillis, CROSS_THREAD_ABANDON_MILLIS);
+                            internal.markSelfAndChildrenRollbackOnlyCascaded(
+                                    "parent force-sweep of abandoned cross-thread internal tx " + internalId,
+                                    null, this.transactionId);
                             swept = true;
                         }
                     }

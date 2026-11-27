@@ -56,8 +56,11 @@ current code, stated so embedding surprises are design-time, not production-time
   parent (downward-only rollback-only cascade). **NOT RECOMMENDED for load-heavy use**: the
   nested commit/rollback machinery is a known critical-under-load path (abandoned-nested
   latch cascades, zombie sweeps, mid-commit poisoning — see the transaction-failure
-  diagnostics). Scheduled for rework in 2.2.0 (optional task); until then, prefer flat
-  transactions with explicit compensating code.
+  diagnostics). The cross-thread abandoned-nested sweep gap was fixed in 2.2.0
+  (task 12: `CROSS_THREAD_ABANDON_MILLIS = 5000` + force-sweep in `skipOrWaitForInternalTransactions`).
+  The remaining throughput envelope (per-record YAML floor ~20–50 ms, commit-lock queue depth)
+  is an architectural limitation of the suspension model, not a correctness defect.
+  Prefer flat transactions with explicit compensating code.
 - **Abandoned top-level transactions are NOT force-swept at `beginTransaction`** (the
   ZOMBIELATCH decision, docs/tasks/2.1.0/36-zombie-latch-purge): a worker that swallows a
   failure without commit/rollback leaves its transaction latched until the lazy timeout
