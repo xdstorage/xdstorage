@@ -58,4 +58,51 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- FP-3 (docs/tasks/2.2.0/08): the wrappers generated at BUILD time — the way to run
+             on a JRE and from a read-only working directory (README § Run it on a JRE). The
+             plugin carries the engine's version and must be in the Maven repository the build
+             uses: from Maven Central once published, or built from the repository —
+             mvn install -DskipTests            (repository root)
+             mvn -f tools/xdstorage-codegen-maven-plugin/pom.xml install
+             Everything the demo needs at runtime is assembled under target/jre-app/. -->
+        <profile>
+            <id>jre</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>io.github.xdstorage</groupId>
+                        <artifactId>xdstorage-codegen-maven-plugin</artifactId>
+                        <version>${xdstorage.version}</version>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>generate-wrappers</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <version>3.6.1</version>
+                        <executions>
+                            <execution>
+                                <id>runtime-libraries</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>copy-dependencies</goal>
+                                </goals>
+                                <configuration>
+                                    <outputDirectory>${project.build.directory}/jre-app/lib</outputDirectory>
+                                    <includeScope>runtime</includeScope>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

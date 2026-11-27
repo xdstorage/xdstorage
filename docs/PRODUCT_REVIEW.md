@@ -90,6 +90,11 @@ There are no production references. No customer logos. No adoption story. The RE
 
 ### 2.2 The JDK requirement. No JRE. No AOT.
 
+> *Resolved in 2.2.0 ([task 2.2.0/08](tasks/2.2.0/08-fp3-jre-aot.md))*: the wrapper classes
+> can be generated at build time (the `xdstorage-codegen-maven-plugin`), after which a JRE
+> and a read-only working directory are enough — [EMBEDDING.md § Running on a JRE](EMBEDDING.md#running-on-a-jre).
+> The text below is the 2.1.0 state this review looked at.
+
 The engine generates wrapper classes at runtime via the system Java compiler. **"A JRE silently degrades to broken wrappers."** The codegen target `./gencode/` must be writable. Entity classes must be top-level. The AOT fix (FP-3) is on the roadmap but not implemented.
 
 For a product that claims *"zero dependencies, zero native, Java 8 bytecode"* — requiring a JDK at runtime and a writable working directory is a real constraint. AOT (Java 8 bytecode, no codegen) is the roadmap item. Without it, containers must ship a JDK (which defeats the "zero dependencies" claim in practice).

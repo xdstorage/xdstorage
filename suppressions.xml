@@ -15,6 +15,12 @@
          print decision stays with task 43. -->
     <suppress checks="RegexpSingleline" files="[\\/]XdStorageMigrate\.java$"/>
     <suppress checks="RegexpSingleline" files="[\\/]XdStorageSchemaDiff\.java$"/>
+    <!-- FP-3 (2.2.0/08): the build-time wrapper generation is a TOOL like
+         Compact — its stdout line is the build tool's feedback, its exit
+         status is the build's. PRINT BANS only; the generator it drives
+         (XdStorageAotWrapperGenerator) logs through slf4j. The tool-vs-library
+         print decision stays with task 43. -->
+    <suppress checks="RegexpSingleline" files="[\\/]GenerateWrappers\.java$"/>
     <!-- The print bans protect the SHIPPED library only: test diagnostics
          (System.out in the suites) are the test corpus's own reporting style,
          not part of the artifact. -->

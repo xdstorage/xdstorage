@@ -16,8 +16,9 @@ import java.lang.annotation.Target;
  *       field through the thread-bound transaction;</li>
  *   <li>a failed lazy load marks the transaction rollback-only and throws
  *       {@code XdStorageRuntimeException};</li>
- *   <li>requires the runtime codegen wrappers (a JDK at runtime; a JRE degrades to
- *       dummy wrappers with no lazy loading).</li>
+ *   <li>the laziness lives in the entity's generated wrapper: with build-time wrappers
+ *       (docs/EMBEDDING.md &sect; Running on a JRE) it works on a JRE too; without them
+ *       the wrapper is compiled when the class is first used, which takes a JDK.</li>
  * </ul>
  */
 @Target(value = ElementType.FIELD)

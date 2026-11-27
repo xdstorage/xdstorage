@@ -337,7 +337,7 @@ grouping is tags, not layout.
     into a deadlock (a save with a generated id racing a `checkpoint()`: 5 runs of 5);
     17's two tools never touched a folder's content (`migrate` changed no file,
     `schema-diff` read every folder as empty). 40's fix corrupted old data and was
-    replaced by the `9e51a4f` implementation (cherry-picked from the top-5 wave); 12 and
+    replaced by the top-5 wave's implementation, cherry-picked as `e106648`; 12 and
     41 had rewritten their acceptance criteria after the fact; 04's Windows leg could
     never have run (PowerShell against `/tmp`, and a JVM does not start with a `-Xlog`
     file whose directory is missing). Merged — five merges and the cherry-pick — then one
@@ -362,9 +362,55 @@ grouping is tags, not layout.
     Gate on `parallel-work`:
     `clean test -Pquick-gate` **1746/0f/0e/7 skipped ×3, consecutive**, BUILD SUCCESS, 0
     checkstyle violations (`main`: 1360). The push and the pull request are the maintainer's.
+23. **THE 2.2.0 TOP-5 EXECUTION WAVE (2026-11-24 → 11-27, branch `feature/2.2.0-top5`,
+    one commit per task; the push and the merge are the maintainer's):** the maintainer's
+    order — "build and run the project, the full suite on my machine is the baseline, then
+    the first five tasks, each its own commit with a laconic message". The baseline:
+    `mvn clean test` on `d1f36d1` (task 34 CHECKSTYLE, warnings-first) = **1360/0f/0e/7**.
+    Then — each red-before-proven on the engine as it was, each gated `clean test
+    -Pquick-gate` ×3 consecutive on a quiet box, in a copy of the tree:
+    **35 WRAPGEN `211672f`** (the lazy getter asked the type question backwards — a
+    `Set`/`List`/`Map`-typed lazy field loaded as ONE object; 19 pins; 1379),
+    **36 XXE `9e4d890`** (the four StAX sites parsed DTDs and external entities bare — the
+    DTD event refused in all four loops + a hardened factory; 12 pins; 1391),
+    **40 YAMLSTR `9e51a4f`** (a newline in a string corrupted the record, the literal
+    "null" read back as null — 340 pins, the PropModel widened; 1731),
+    **06 WAL `850ab69`** (the batch trailer, the exact torn-tail loss, the loud mid-file
+    corruption; 24 pins; 1755 — the cross-resource hole PROVEN and re-homed as task 50:
+    designed, not implemented),
+    **08 FP-3 JRE/AOT** (build-time wrappers through the standalone
+    `xdstorage-codegen-maven-plugin` + the command line; the compile-free refusal at open;
+    22 pins + the plugin's 7; 1777 — three consecutive greens after one red in
+    `XdStorageCrashAndPurgeStressTest`, ledgered in FLAKY.md as NOT attributed).
+    **Measured on the way (BENCHMARKS § Cold start):** the first save does not pay the
+    runtime codegen — the first load does; a save-and-read-once process is 2.0× faster with
+    build-time wrappers (491 → 246 ms).
+    **Open after the wave, stated plainly:** the cross-resource commit marker (task 50, P0);
+    task 08's container IMAGE and native-image leg (not run — no Docker/GraalVM on the box);
+    the codegen plugin's publishing (a second artifact — the maintainer's release-process
+    decision); `v2.1.3` lacks all of this branch — the 2.1.4 question stays with the
+    maintainer; task 39's premise went stale (the generic find rides the keyed descent since
+    `fec923d`).
+    **Rebased onto `main` (2026-11-28, twice, for the pull request).** The first time `main` had
+    moved 20 commits ahead — the parallel-work wave, merged as PR #111 (`22ce727`), and the second
+    Windows triage; task 40 was already there, as the cherry-pick `e106648` (code and tests
+    byte-identical to `9e51a4f`), so its commit was not replayed. The other four were replayed
+    then, and once more when `main` had taken the shutdown-checkpoint fix (`b3be20a`, `18bef1e`).
+    The hashes of the wave as it now stands: 35 `5f56707`, 36 `88ac264`, 06 `e043d64`, and this
+    one. The hashes quoted above and in the task files of the wave name the PRE-rebase commits;
+    they are kept in the branch `backup/feature-2.2.0-top5-pre-rebase`. The conflicts of the two
+    rounds were CHANGELOG, FLAKY, the task index, this item's number (22 → 23) and
+    `suppressions.xml` — all unions of both sides; EMBEDDING, GUIDE and the Java files both
+    sides touched merged on their own and were read. Gate on the rebased tree:
+    `clean test -Pquick-gate` **1826/0f/0e/7 skipped ×3, consecutive, BUILD SUCCESS** — the 1749
+    of `main` plus the 77 of the four replayed tasks — and `clean verify` once green, 0
+    checkstyle violations; the quickstart and the codegen plugin were built against it in a
+    throwaway copy of the local repository (the plugin's 7 tests, the quickstart's test,
+    `run-on-jre.sh`: 39 wrappers in the jar, the demo from a read-only directory and from a
+    read-only root).
 24. **SHUTCKPT — the shutdown checkpoint cut a commit between its phases (2026-11-28,
-    [51](tasks/2.2.0/51-shutdown-checkpoint-commit-race.md); numbered 24 because 23 is the
-    top-5 wave's, waiting in its pull request):** found by the third run of the Windows
+    [51](tasks/2.2.0/51-shutdown-checkpoint-commit-race.md); numbered 24: 23 is the
+    top-5 wave's, rebased onto this fix):** found by the third run of the Windows
     leg on `main` `8d34020` — `XdStorageBackupUnderLoadStressTest`, one committed pair of
     sixteen missing from a backup copy. The data resource's shutdown checkpoint folded its
     journal under the append lock only; a commit of another thread between its phases was
@@ -412,7 +458,15 @@ torn-journal recovery, JMH vs the refreshed 2026-11-21 baseline, fresh-clone +
    failure when neither path is available (kills the silent-JRE degradation). Unlocks JRE-only
    containers, app-server redeploys, Graal native-image, and removes the cold-start javac cost
    (supersedes Track C). Acceptance: JRE-only container runs the demo without `./gencode`;
-   cold-start first-save measured before/after in BENCHMARKS.md.
+   cold-start first-save measured before/after in BENCHMARKS.md. **LANDED 2026-11-27 in the 2.2.0 train
+   ([2.2.0/08](tasks/2.2.0/08-fp3-jre-aot.md), pulled forward per the maintainer's demand —
+   item 22):** build-time wrappers through `xdstorage-codegen-maven-plugin` (a standalone
+   module: Maven 3 refuses `<modules>` in a `jar` project) and the command line; the loud
+   failure is a compile-free check when a storage is opened; the demo proven on a jlink
+   image from a read-only working directory and inside a read-only-root sandbox. NOT run:
+   the container image, the native-image leg. The cold-start measurement, read honestly:
+   the first save is flat (176 vs 175 ms) — the javac bill sits on the first *load* (+231
+   ms); a save-and-read-once process is 2.0× faster with build-time wrappers.
 2. **FP-5 — backup & verify API**: `storage.backupTo(folder)` (consistent point-in-time copy —
    MVCC freeze-copy) + `verify()` integrity walk (sentinels, index-vs-data consistency).
 3. **FP-6 — admin/inspection CLI** (`xdstorage-tools.jar`): `inspect` / `dump` / `verify` /
