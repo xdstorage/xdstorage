@@ -74,13 +74,16 @@
   The copy passes `XdStorageProvider.verify(destination)` verdict OK and answers the same
   queries as the source. Pinned by `XdStorageBackupToTest` (reliability suite, 4 tests).
   Out of scope: incremental/delta backups, compression/encryption, scheduled backups.
-- **`schema-diff` and `migrate` CLI tools** ([17](docs/tasks/2.2.0/17-migration-schema-diff.md)):
-  `XdStorageSchemaDiff` compares two storage folders' structure metadata (or one folder
-  against live Java classes) and reports per-class field/index diffs (ADDED/REMOVED/CHANGED,
-  FIELD/IDX/CLASS) with `--json` output for pipelines. `XdStorageMigrate` applies the
-  builtin `v1-to-v2` recipe (acceptMissingEofSentinel + EOF sentinel rewrite + JSON→XML
-  rename + format marker upgrade) with `--dry-run` support. Pinned by `XdStorageSchemaDiffTest` (8 tests: added/removed fields, type change, class addition/removal, no-diff identity, JSON output, dry-run byte-identical, v1→v2 migration).
-
+- **`schema-diff` and `migrate` — two command-line tools for the operator**
+  ([17](docs/tasks/2.2.0/17-migration-schema-diff.md)). `XdStorageSchemaDiff` compares the
+  structure two folders store — or a folder's and the live classes — field by field and
+  index by index, as text or `--json`; a folder that stores no structure has nothing to
+  compare, and the tool says so instead of listing its classes as new. `XdStorageMigrate`
+  brings a 1.x folder to the form this library opens by default: `*.json` files (XML under
+  the 1.x name) are renamed to `*.xml` at any depth, every YAML file gets its end-of-file
+  sentinel, and the result is opened with the default configuration and verified;
+  `--dry-run` changes nothing. Both give their verdict as the exit status. EMBEDDING §
+  Schema migration has the contracts.
 ### Changed
 
 - **Supported platforms are stated by what has been run, and Windows joined CI**

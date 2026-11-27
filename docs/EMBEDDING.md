@@ -445,55 +445,78 @@ The 1.x `JSON` constant actually wrote **XML content** into `.json`-named files.
 find ./data/db -name '*.json' -exec bash -c 'mv "$1" "${1%.json}.xml"' _ {} \;
 ```
 
-then open with `FilesFormat.XML`. (For YAML-era folders there is nothing to rename.)
+then open with `FilesFormat.XML`. (For YAML-era folders there is nothing to rename.) Both
+steps — this rename at any depth, and the EOF sentinel for YAML-era files — are what
+`XdStorageMigrate --script builtin:v1-to-v2` does (§ Schema migration).
 
-### Schema migration — the `schema-diff` and `migrate` tooling (task 17)
+### Schema migration — the `schema-diff` and `migrate` tools (task 17)
 
-For operational workflow, XdStorage ships two CLI tools over the engine's structure
-metadata:
+Two command-line tools for an operator. Both print their report to stdout and give their
+verdict as the exit status.
 
-#### `schema-diff` — compare two folders or a folder against live classes
-
-```bash
-# Compare two folders:
-java -cp xdstorage.jar io.github.xdstorage.tools.XdStorageSchemaDiff ./old-db ./new-db
-
-# Compare a folder against live Java classes (useful before deploy):
-java -cp xdstorage.jar io.github.xdstorage.tools.XdStorageSchemaDiff ./my-db --against-classes com.example.EntityA com.example.EntityB
-
-# JSON output for pipelines (exit 0 = no diffs, 1 = diffs found):
-java -cp xdstorage.jar io.github.xdstorage.tools.XdStorageSchemaDiff ./old ./new --json
-```
-
-Output is one line per change: `<class> <FIELD/IDX/CLASS> <ADDED/REMOVED/CHANGED> <details>`.
-For example: `com.example.User FIELD CHANGED name String->varchar(255)`.
-The `--json` output is a `[{"class":"...","kind":"FIELD","action":"CHANGED","details":"..."}]` array.
-
-**What it compares:**
-- **Fields**: name, declared type (e.g. `String`, `Integer`, `Long`). ADDED / REMOVED / CHANGED.
-- **Search indexes**: index name, indexed field names + types, child-class routing. ADDED / REMOVED / CHANGED.
-- **Classes**: present in one folder but not the other (ADDED / REMOVED).
-- **Format version**: from `.xdstorage.meta` (v1 = no marker, v2 = YAML sentinel, v3 = `indexes/` layout).
-
-#### `migrate` — apply the v1→v2 recipe
+#### `schema-diff` — compare what two folders store, or a folder and the live classes
 
 ```bash
-# Preview what would change (folder stays byte-identical):
-java -cp xdstorage.jar io.github.xdstorage.tools.XdStorageMigrate ./my-db --dry-run
+# two folders:
+java -cp <xdstorage.jar> io.github.xdstorage.tools.XdStorageSchemaDiff ./old-db ./new-db
 
-# Apply the full v1→v2 migration:
-java -cp xdstorage.jar io.github.xdstorage.tools.XdStorageMigrate ./my-db --script builtin:v1-to-v2
+# a folder against the live classes (the classes must be on the tool's classpath):
+java -cp <xdstorage.jar:the application's classes> io.github.xdstorage.tools.XdStorageSchemaDiff ./my-db \
+    --against-classes com.example.Order com.example.Customer
+
+# JSON for pipelines:
+java -cp <xdstorage.jar> io.github.xdstorage.tools.XdStorageSchemaDiff ./old-db ./new-db --json
 ```
 
-The `builtin:v1-to-v2` recipe (idempotent, safe to re-run):
-1. Opens the folder with `acceptMissingEofSentinel(true)` — the legacy YAML reader
-   (EMBEDDING S-1: a truncated file is normally rejected, this flag allows reading it).
-2. The first `checkpoint()` + `tx.commit()` rewrites all touched data files with the
-   S-1 EOF sentinel (per EMBEDDING § After a power loss). No manual sentinel needed.
-3. Renames all `*.json` → `*.xml` (the 1.x JSON→XML recipe from this section).
-4. Upgrades `.xdstorage.meta` to `formatVersion=3` (the task 51 LAYOUTMIG stamp).
+**What a folder stores — and what it does not.** The engine keeps no schema apart from its
+records. A class's structure — fields with their types, the search indexes, the storage
+policy — is written only when the application ran `executeStructureUpdate(Class)` for that
+class, as one record in `structure/XdStorageClassStructure.yaml`. `schema-diff` compares
+those records and nothing else. A folder without that file has nothing to compare: the tool
+says so on stderr, prints `nothing to compare` and exits 0 — it does not report classes as
+added or removed on that account. Classes whose data is in the folder without a stored
+structure are named in the note.
 
-After migration the folder opens cleanly under 2.2.0 (no `acceptMissingEofSentinel` needed).
+Output, one line per change: `<class> <CLASS|FIELD|IDX|POLICY> <ADDED|REMOVED|CHANGED> <details>`
+— for example `com.example.Order FIELD ADDED status String` or
+`com.example.Customer IDX ADDED byName/active Boolean`. `--json` prints the same as a JSON
+array (notes go to stderr).
+
+Exit codes: 0 no differences, or nothing to compare; 1 differences found; 2 usage; 3 a folder
+cannot be read — missing, unreadable, or XML-format (YAML folders only).
+
+#### `migrate` — bring a 1.x folder to the form this library opens by default
+
+```bash
+java -cp <xdstorage.jar> io.github.xdstorage.tools.XdStorageMigrate ./my-db --dry-run
+java -cp <xdstorage.jar> io.github.xdstorage.tools.XdStorageMigrate ./my-db [--script builtin:v1-to-v2]
+```
+
+The only script, `builtin:v1-to-v2`, works on the folder's files; no entity class is needed
+on the classpath. It:
+
+1. renames every `*.json` file, at any depth, to `*.xml` — the 1.x `JSON` constant wrote XML
+   under that name (§ Migrating a 1.x folder that used `FilesFormat.JSON`);
+2. appends the end-of-file sentinel `# xdstorage-eof` to every YAML file that lacks it. Every
+   file the engine writes ends with that line, and the default configuration refuses a file
+   without it as truncated (§ Files and durability);
+3. opens the folder with the default configuration — for an XML folder without journaling,
+   since that format does not journal — which also runs the 2.0.0 layout migration when the
+   marker says `formatVersion=2`; closes it; and runs `XdStorageProvider.verify`.
+
+The result opens with the default configuration. A 1.x folder stays without a format marker,
+as the engine keeps it, so `verify` reports WARNINGS for the marker alone.
+
+**It cannot tell a truncated 1.x file from a whole one:** the sentinel is appended on the
+same reading the lenient open gives the file — complete. Keep a copy of the folder until the
+result is verified. `--dry-run` prints the plan and leaves the folder byte for byte; a second
+run finds nothing to do.
+
+Exit codes: 0 migrated or nothing to migrate (`--dry-run` with nothing to do); 1 `--dry-run`
+found work; 2 usage; 3 the folder is in use, a step failed, or the result does not verify.
+
+**What it does not do:** transform record content or run structure updates — those stay with
+the application (`executeStructureUpdate`, GUIDE § Structure updates).
 
 ### Support and deprecation policy
 

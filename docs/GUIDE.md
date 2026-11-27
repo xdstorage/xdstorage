@@ -827,9 +827,16 @@ When the declared structure of a class changes (for example a search index got n
 structures need to be rebuilt. XdStorage does this through pluggable updaters:
 
 ```java
-// register a custom updater and run all pending updates for the class
+// register a custom updater and run all pending updates for the class — inside a transaction
 storage.registerStructureUpdater(new MyStructureUpdater());
-List<IXdStorageStructureUpdater> executed = storage.executeStructureUpdate(MyEntity.class);
+IXdStorageTransaction tx = storage.beginTransaction();
+try {
+    List<IXdStorageStructureUpdater> executed = storage.executeStructureUpdate(MyEntity.class);
+    tx.commit();
+} catch (RuntimeException e) {
+    tx.rollback();
+    throw e;
+}
 ```
 
 - An updater implements `IXdStorageStructureUpdater<T>` (`getDataClass()`, `getUpdateName()`,
@@ -839,74 +846,28 @@ List<IXdStorageStructureUpdater> executed = storage.executeStructureUpdate(MyEnt
   structure manager detects that the persisted index no longer matches the class annotations; it is
   registered automatically during the structure check.
 
-#### `schema-diff` — CLI for comparing stored structures against live classes or another folder
+#### The command-line tools — `schema-diff` and `migrate`
 
-The engine's structure metadata lives in `<folder>/structure/<Class>.yaml` (YAML, the same
-format the engine reads). The `XdStorageSchemaDiff` CLI tool compares two such folders (or
-one folder against live Java classes) and reports per-class diffs:
-
-```bash
-# Compare two folders (e.g. before/after a schema change):
-java -cp xdstorage.jar io.github.xdstorage.tools.XdStorageSchemaDiff ./db-old ./db-new
-
-# Output:
-# User FIELD ADDED status String
-# User IDX CHANGED byName/active String->boolean
-# Order CLASS REMOVED
-
-# Compare a folder against live Java classes (useful before deploy):
-java -cp xdstorage.jar io.github.xdstorage.tools.XdStorageSchemaDiff ./my-db --against-classes com.example.User com.example.Order
-
-# Pipeline-friendly JSON output:
-java -cp xdstorage.jar io.github.xdstorage.tools.XdStorageSchemaDiff ./old ./new --json
-# Output: [{"class":"User","kind":"FIELD","action":"ADDED","details":"status String"}, ...]
-```
-
-**Output format** (one line per change):
-- `CLASS ADDED <FQCN>` — class present in target but not in source
-- `CLASS REMOVED <FQCN>` — class present in source but not in target
-- `FIELD ADDED <name> <type>` — new field
-- `FIELD REMOVED <name> <type>` — field disappeared
-- `FIELD CHANGED <name> <old>-><new>` — type changed
-- `IDX ADDED <name> [fields...]` — new search index
-- `IDX REMOVED <name>` — index dropped
-- `IDX CHANGED <name>/field <old>-><new>` — indexed field type changed
-- `IDX ADDED <name>/<field> <type>` — new field in an existing index
-
-Exit codes: `0` = no differences, `1` = differences found, `2` = usage error, `3` = I/O error.
-
-**How it works:** `readFolder()` reads `structure/*.yaml` via the engine's `XdStorageYamlObjectsReader`
-(the same reader that loads stored objects). `buildLiveMap()` introspects Java classes via
-`XStorageObjectUtils.getClassInfo(cl)` — the same logic as the engine's structure check.
-The diff is a structural comparison: fields (name + declared type), search indexes (name + indexed fields + child-class routing), format version (from `.xdstorage.meta`).
-
-#### `migrate` — CLI for applying the v1→v2 format migration
-
-The `XdStorageMigrate` tool mechanizes the v1→v2 recipe (EMBEDDING § Migrating a 1.x folder):
+XdStorage ships two tools for the operator side of this section
+([EMBEDDING § Schema migration](EMBEDDING.md#schema-migration--the-schema-diff-and-migrate-tools-task-17)):
 
 ```bash
-# Preview what would change (folder is NOT modified):
-java -cp xdstorage.jar io.github.xdstorage.tools.XdStorageMigrate ./my-db --dry-run
-# Output:
-# Migration plan for: ./my-db
-#   format version: v1
-#   JSON->XML rename: 42 file(s) to rename
-#     Foo.yaml.json
-#     Bar.yaml.json
-#   layout migration: indexes/ directory needs to be created
+# what two folders store for their classes — or a folder and the live classes
+java -cp <xdstorage.jar> io.github.xdstorage.tools.XdStorageSchemaDiff ./db-old ./db-new
+java -cp <xdstorage.jar:your classes> io.github.xdstorage.tools.XdStorageSchemaDiff ./my-db \
+    --against-classes com.example.Order com.example.Customer
 
-# Apply the migration:
-java -cp xdstorage.jar io.github.xdstorage.tools.XdStorageMigrate ./my-db --script builtin:v1-to-v2
-# Output: Migration completed for: ./my-db
+# a 1.x folder to the form this library opens by default
+java -cp <xdstorage.jar> io.github.xdstorage.tools.XdStorageMigrate ./my-db --dry-run
+java -cp <xdstorage.jar> io.github.xdstorage.tools.XdStorageMigrate ./my-db
 ```
 
-The `builtin:v1-to-v2` recipe is idempotent and safe to re-run:
-1. Opens with `acceptMissingEofSentinel(true)` — reads files without the EOF sentinel.
-2. First `checkpoint()` + commit rewrites all touched resources with the S-1 EOF sentinel.
-3. Renames `*.json` → `*.xml` (the 1.x JSON→XML recipe).
-4. Upgrades `.xdstorage.meta` to `formatVersion=3` (the task 51 LAYOUTMIG stamp).
-
-After migration the folder opens cleanly under 2.2.0 without any legacy flags.
+Two facts decide what `schema-diff` can tell you. The engine keeps no schema apart from its
+records: a class's structure is stored only after the application ran
+`executeStructureUpdate(Class)` for it — so a folder where that never ran has nothing to
+compare, and the tool says so instead of listing every class as new. And the structure it
+then stores is what the comparison sees: fields with their types, the search indexes, the
+storage policy.
 
 ## Operability: verify, backups, and after a power loss
 
