@@ -206,7 +206,10 @@
                          2g покрывает кумулятивный след полного прогона.
                          @{argLine} — late evaluation so the JaCoCo agent (T-1) is prepended;
                          without it the literal argLine would silently drop the -javaagent switch. -->
-                    <argLine>@{argLine} -Xmx2g -Xlog:gc:file=/tmp/gc-fork.log:time,uptime,level,tags:filecount=2,filesize=50m</argLine>
+                    <!-- 2.2.0/04 OSPATH: the GC log goes under target/ (relative to the fork's working
+                         directory) — an -Xlog file path whose directory does not exist stops the JVM
+                         from starting, and /tmp is not a Windows path. -->
+                    <argLine>@{argLine} -Xmx2g -Xlog:gc:file=target/gc-fork.log:time,uptime,level,tags:filecount=2,filesize=50m</argLine>
                     <includes>
                         <include>**/*Test.java</include>
                     </includes>
@@ -361,7 +364,7 @@
                         <version>3.0.0-M4</version>
                         <configuration>
                             <forkCount>1</forkCount>
-                            <argLine>@{argLine} -Xmx2g -Xlog:gc:file=/tmp/gc-fork.log:time,uptime,level,tags:filecount=2,filesize=50m</argLine>
+                            <argLine>@{argLine} -Xmx2g -Xlog:gc:file=target/gc-fork.log:time,uptime,level,tags:filecount=2,filesize=50m</argLine>
                             <includes>
                                 <include>**/*Test.java</include>
                             </includes>
@@ -388,7 +391,7 @@
                         <version>3.0.0-M4</version>
                         <configuration>
                             <forkCount>1</forkCount>
-                            <argLine>@{argLine} -Xmx2g -Xlog:gc:file=/tmp/gc-fork.log:time,uptime,level,tags:filecount=2,filesize=50m</argLine>
+                            <argLine>@{argLine} -Xmx2g -Xlog:gc:file=target/gc-fork.log:time,uptime,level,tags:filecount=2,filesize=50m</argLine>
                             <includes>
                                 <include>**/*Test.java</include>
                             </includes>

@@ -145,9 +145,11 @@ public class XdStorageClassGenerator {
             if (Boolean.getBoolean("xdstorage.dump.gencode")) {
                 generatedCode.forEach((name, source) -> {
                     try {
-                        java.nio.file.Files.write(java.nio.file.Paths.get("/tmp/gencode-dump-" + name
-                                .replaceAll("[^A-Za-z0-9.$]", "_") + ".java"),
-                                source.getBytes());
+                        // OS-independent: the temp directory, UTF-8 — not /tmp and the platform charset
+                        java.nio.file.Files.write(java.nio.file.Paths.get(
+                                System.getProperty("java.io.tmpdir"), "gencode-dump-"
+                                        + name.replaceAll("[^A-Za-z0-9.$]", "_") + ".java"),
+                                source.getBytes(java.nio.charset.StandardCharsets.UTF_8));
                     } catch (final Exception dumpError) {
                         log.error("gencode dump failed for {}", name, dumpError);
                     }

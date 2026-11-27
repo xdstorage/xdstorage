@@ -325,21 +325,25 @@ E-6: what "supported" means, stated up front so upgrades are design-time decisio
 
 ### Supported platforms
 
-The library **bytecode** is `release=8` and uses only the Java 8 platform API (H-5);
-it works on any JRE/JDK 8+ that provides the platform APIs (JDK 8, Temurin, Zulu, etc.).
-The on-disk layout is **POSIX-compatible** (forward-slash `/` paths, `.`-prefixed lock
-file, UTF-8 charset for all content). On Windows the engine uses `File.separatorChar`
-only for classpath splitting (correct on all platforms); all storage paths are `Path`
-objects that resolve through `Files` which normalise per-OS. The folder-lock uses
-`FileLock.tryLock()` (POSIX + Windows alike). The `ATOMIC_MOVE` NIO preference falls
-back to `REPLACE_EXISTING` on filesystems that do not support it (Windows `ntfs` does,
-but `exfat`/`FAT32` do not).
+Stated as what has been **run**, not what is expected to work.
 
-**Explicitly supported:** Linux (x86_64, arm64), macOS (x86_64, arm64), Windows (x86_64, arm64).
-Windows CI runs the full non-stress suite nightly via the `windows-latest` leg (ci.yml).
-Known divergence: `StandardCopyOption.ATOMIC_MOVE` on Windows FAT/exfat — the fallback
-(`REPLACE_EXISTING`) is non-atomic but crash-tolerant (the engine's crash-safety contract
-stops at process boundary for non-durable writes; `durable = true` extends to fsync).
+| Platform | Status |
+|---|---|
+| Linux x86_64 | **Tested.** The full-suite gate and the nightly ×3 run on it (`ubuntu-latest`), on Temurin 17 and 21; the benchmark figures in BENCHMARKS.md come from a Linux box. |
+| Windows x86_64 | **A CI leg runs the non-stress suite on `windows-latest`** (`ci.yml`, job `windows`, since 2.2.0). Until its result is green and triaged ([task 04](tasks/2.2.0/04-os-dependent-paths.md)), treat Windows as *expected to work, not verified*. |
+| macOS | **Not tested.** No CI leg runs there. |
+| Java 8–11 runtimes | **Not tested by CI.** The bytecode is `release=8` and uses only the Java 8 platform API (H-5), but the suite runs on 17 and 21 only. |
+
+What the 2.2.0 audit ([task 04](tasks/2.2.0/04-os-dependent-paths.md), 88 file, charset and
+lock sites) established about the engine's portability: storage paths go through `Path` and
+`Files` (the classpath is the only place the separator is spelled out); every write names
+its charset — UTF-8, or ISO-8859-1 where `Properties.store` fixes it for the format marker;
+the folder lock is a `FileLock`, the same NIO call on POSIX and Windows; and the write-out
+asks for an atomic rename and logs one WARN when the filesystem cannot deliver it
+(`AtomicMoveNotSupportedException`) — the move is then a plain replace, and a crash during
+the swap may lose that file. Filesystems without rename support (FAT, exFAT) therefore trade
+the crash-safety contract of § Files and durability for portability; keep the storage folder
+on one that supports it (NTFS, ext4, APFS).
 
 ### On-disk format compatibility
 
