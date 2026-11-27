@@ -14,6 +14,10 @@ import io.github.xdstorage.search.query.XdStorageSearchQuery;
 import io.github.xdstorage.serialization.FilesFormat;
 import io.github.xdstorage.services.XdStorageServicesLocator;
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.stream.Stream;
 
 import io.github.xdstorage.structure.update.IXdStorageStructureUpdater;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
@@ -21,6 +25,7 @@ import io.github.xdstorage.transaction.IXdStorageTransactionManager;
 import io.github.xdstorage.transaction.XdStorageTransaction;
 import io.github.xdstorage.transaction.XdStorageTransactionManager;
 import io.github.xdstorage.trigger.IXdStorageTrigger;
+import io.github.xdstorage.utils.FilesCopy;
 import io.github.xdstorage.utils.XdStorageClassInfo;
 import io.github.xdstorage.utils.XdStorageFolderLock;
 import io.github.xdstorage.utils.XdStorageAutoSaveCascadeEngine;
@@ -53,6 +58,9 @@ class XdStorage implements IXdFileStorage {
 
     private final Object shutdownLock = new Object();
 
+    /** The on-disk folder — used by FP-5 backupTo(). */
+    private final String folder;
+
     private XdStorageFolderLock folderLock;
 
     private Thread shutdownHook;
@@ -78,6 +86,7 @@ class XdStorage implements IXdFileStorage {
     XdStorage(final String name, final String folder, final int fragmentSize, final FilesFormat format, final
             XdStorageConfig config) {
         this.name = name;
+        this.folder = folder;
         this.config = config == null ? XdStorageConfig.defaults() : config;
         if (this.config.isJournalWrites() && format != FilesFormat.YAML) {
             // W-1: журнал коммитов реализован для YAML-формата; остальное — громкий отказ при открытии
@@ -1584,6 +1593,50 @@ class XdStorage implements IXdFileStorage {
         if (folderLock != null) {
             folderLock.close();
             folderLock = null;
+        }
+    }
+
+    // ---- FP-5: backupTo (docs/tasks/2.2.0/15) ----
+
+    @Override
+    public void backupTo(final Path destination) throws XdStorageConnectionException, XdStorageException {
+        ensureOpen();
+        final File source = new File(folder).getAbsoluteFile();
+        final Path target = destination.toAbsolutePath().normalize();
+        if (target.startsWith(source.toPath().toAbsolutePath().normalize())) {
+            throw new XdStorageRuntimeException("the backup destination " + destination + " is inside the storage"
+                    + " folder " + folder + " — the copy would copy itself");
+        }
+        final boolean fresh = !Files.exists(target);
+        if (!fresh) {
+            if (!Files.isDirectory(target)) {
+                throw new XdStorageRuntimeException("the backup destination " + destination + " exists and is not"
+                        + " a directory");
+            }
+            try (Stream<Path> entries = Files.list(target)) {
+                if (entries.findAny().isPresent()) {
+                    throw new XdStorageRuntimeException("the backup destination " + destination + " exists and is"
+                            + " not empty — a backup goes into a new or an empty directory");
+                }
+            } catch (final IOException e) {
+                throw new XdStorageConnectionException("the backup destination " + destination + " cannot be read",
+                        e);
+            }
+        }
+        // The quiesced copy — the consistency contract task 15 chose. Closing the storage is
+        // what makes it a point in time: the shutdown checkpoint moves every committed change
+        // into the base files, and nothing writes to the folder afterwards. A commit that was
+        // in flight is cut the way a crash cuts it — its journal replays at the next open.
+        shutdown();
+        try {
+            final int copied = FilesCopy.copyStorage(source.toPath(), target, folder, target.toString());
+            log.info("storage '{}': backup into {} ({} file(s))", name, target, copied);
+        } catch (final IOException | RuntimeException failure) {
+            if (fresh) {
+                FilesCopy.deleteRecursively(target);
+            }
+            throw new XdStorageConnectionException("backup of storage '" + name + "' into " + destination + " failed:"
+                    + " " + failure.getMessage(), failure);
         }
     }
 

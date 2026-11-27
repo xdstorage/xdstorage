@@ -87,6 +87,46 @@ jobs:
           path: target/surefire-reports/
           if-no-files-found: ignore
 
+  windows:
+    # OSPATH (docs/tasks/2.2.0/04): the non-stress suite on Windows (GitHub windows-latest).
+    # The leg is the evidence for EMBEDDING § Supported platforms; its failures get triaged
+    # into fixes or documented divergences (task 04, scope 2). Until that first triage has
+    # landed the leg REPORTS and does not fail the run (continue-on-error below) — drop
+    # that line once the Windows result is green and understood.
+    # The Maven step runs under bash (Git Bash on the Windows runner): the default shell
+    # there is PowerShell, and a /tmp path does not exist — logs go under $RUNNER_TEMP.
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Non-stress suite on Windows (task 04 — OSPATH)
+        shell: bash
+        run: |
+          LOG="$RUNNER_TEMP/mvn-windows.log"
+          mvn clean test -Pquick-gate > "$LOG" 2>&1 || { tail -100 "$LOG"; exit 1; }
+          grep -E "BUILD (SUCCESS|FAILURE)" "$LOG"
+          grep -q "BUILD SUCCESS" "$LOG" || { echo "BUILD FAILURE detected"; exit 1; }
+          grep -E "Tests run: [0-9]+, Failures" "$LOG" | tail -1
+      - name: Upload the Maven log (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mvn-log-windows
+          path: ${{ runner.temp }}/mvn-windows.log
+          if-no-files-found: ignore
+      - name: Archive surefire reports (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports-windows
+          path: target/surefire-reports/
+          if-no-files-found: ignore
+
   nightly:
     # C-2: flake-rate tracking (full suite x3) + JMH smoke with an assertion on the
     # table row count (JMH silently SKIPS failed trials — the row count is the check,
@@ -102,10 +142,10 @@ jobs:
           cache: maven
       - name: Full suite x3 (flake-rate tracking)
         run: |
-          # 2026-10-26: XdStorageNestedTransactionIsolationStressTest (nested tx = NOT
-          # RECOMMENDED, 2.2.0 task 12) and XdStorageFacadeStressTest (2.2.0 task 13, the
-          # load investigation) are excluded per the maintainer's decision — the surefire
-          # '!' prefix is an EXCLUSION (everything else runs).
+          # The full suite as the pom defines it. XdStorageNestedTransactionIsolationStressTest
+          # and XdStorageFacadeStressTest were excluded from 2026-11-08 (2c43b8c) and are
+          # back in since 2026-11-21 (59ff544) — the default surefire config has no exclusion
+          # for them; docs/FLAKY.md "Excluded by decision" carries the record.
           for i in 1 2 3; do
             mvn clean test > /tmp/mvn-nightly-$i.log 2>&1 || { tail -100 /tmp/mvn-nightly-$i.log; exit 1; }
             grep -E "Tests run: [0-9]+, Failures" /tmp/mvn-nightly-$i.log | tail -1

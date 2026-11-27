@@ -5,11 +5,16 @@ import io.github.xdstorage.annotations.XdStorageObjectPolicy;
 import io.github.xdstorage.XdStoragePolicy;
 
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * PROPTEST: the StoreAsClassObjects + HASH id-index arm of the shared shape.
@@ -31,6 +36,21 @@ public class PropWide implements PropWideLike {
     private Map<String, String> meta = new HashMap<>();
     private String[] labels = new String[0];
     private PropNested nested;
+
+    /** UUID — stored as its canonical ISO-8601 string. */
+    private UUID uuid;
+
+    /** Instant — stored as ISO-8601. */
+    private Instant instant;
+
+    /** LocalDate — stored as ISO-8601. */
+    private LocalDate localDate;
+
+    /** LocalDateTime — stored as ISO-8601. */
+    private LocalDateTime localDateTime;
+
+    /** Duration — stored as ISO-8601 (ISO-8601 duration format, e.g. "PT1H30M"). */
+    private Duration duration;
 
     @Override
     public String getId() {
@@ -151,4 +171,24 @@ public class PropWide implements PropWideLike {
     public void setNested(PropNested nested) {
         this.nested = nested;
     }
+
+    @Override
+    public UUID getUuid() { return uuid; }
+    @Override public void setUuid(UUID uuid) { this.uuid = uuid; }
+
+    @Override
+    public Instant getInstant() { return instant; }
+    @Override public void setInstant(Instant instant) { this.instant = instant; }
+
+    @Override
+    public LocalDate getLocalDate() { return localDate; }
+    @Override public void setLocalDate(LocalDate localDate) { this.localDate = localDate; }
+
+    @Override
+    public LocalDateTime getLocalDateTime() { return localDateTime; }
+    @Override public void setLocalDateTime(LocalDateTime localDateTime) { this.localDateTime = localDateTime; }
+
+    @Override
+    public Duration getDuration() { return duration; }
+    @Override public void setDuration(Duration duration) { this.duration = duration; }
 }

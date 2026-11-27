@@ -12,11 +12,13 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import io.github.xdstorage.helpers.StorageFolderCopy;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -98,18 +100,9 @@ public class XdStorageJournalNamingTest {
         }
     }
 
+    /** A copy of a storage folder, open or closed; the folder lock's file stays behind. */
     private static void copyTree(final Path from, final Path to) throws Exception {
-        try (Stream<Path> walk = Files.walk(from)) {
-            for (final Path src : walk.collect(Collectors.toList())) {
-                final Path dest = to.resolve(from.relativize(src).toString());
-                if (src.toFile().isDirectory()) {
-                    Files.createDirectories(dest);
-                } else {
-                    Files.createDirectories(dest.getParent());
-                    Files.copy(src, dest, StandardCopyOption.REPLACE_EXISTING);
-                }
-            }
-        }
+        StorageFolderCopy.copy(from, to);
     }
 
     /** Moves every journal-directory file out to the base's dir under the 2.0.0-era stacked name. */
@@ -424,7 +417,8 @@ public class XdStorageJournalNamingTest {
         // XML-format storages refuse journalWrites loudly at open (the W-1 scope guard), so no
         // XML journal exists in practice — but the naming rule is a pure function of the base
         // name: the journal rides the extension-less base with the content-matched .yaml suffix.
-        final Path forYaml = XdStorageYamlCommitJournal.journalFileFor("/db/data/Order/Order-1.yaml");
+        final String base = "/db/data/Order/Order-1.yaml";
+        final Path forYaml = XdStorageYamlCommitJournal.journalFileFor(base);
         assertEquals("Order-1" + XdStorageYamlCommitJournal.JOURNAL_SUFFIX, forYaml.getFileName().toString(),
                 "a .yaml base keeps its name, the journal rides as a suffix");
         assertEquals(XdStorageYamlCommitJournal.JOURNAL_DIR, forYaml.getParent().getFileName().toString(),
@@ -432,11 +426,13 @@ public class XdStorageJournalNamingTest {
         assertEquals("Order" + XdStorageYamlCommitJournal.JOURNAL_SUFFIX,
                 XdStorageYamlCommitJournal.journalFileFor("/db/data/Order/Order.xml").getFileName().toString(),
                 "an .xml base is stripped: no Order.xml.journal.yaml triple-mixed name");
-        assertEquals("/db/data/Order/Order-1" + XdStorageYamlCommitJournal.JOURNAL_SUFFIX,
-                XdStorageYamlCommitJournal.siblingJournalFileFor("/db/data/Order/Order-1.yaml").toString(),
+        // the expectations are built the way the engine builds them — as paths, so that the
+        // test says the same thing where the separator is a backslash
+        assertEquals(Paths.get("/db/data/Order/Order-1" + XdStorageYamlCommitJournal.JOURNAL_SUFFIX),
+                XdStorageYamlCommitJournal.siblingJournalFileFor(base),
                 "the sibling spelling stays next to the base (read-compatible migration source)");
-        assertEquals("/db/data/Order/Order-1.yaml" + XdStorageYamlCommitJournal.LEGACY_JOURNAL_SUFFIX,
-                XdStorageYamlCommitJournal.legacyJournalFileFor("/db/data/Order/Order-1.yaml").toString(),
+        assertEquals(Paths.get(base + XdStorageYamlCommitJournal.LEGACY_JOURNAL_SUFFIX),
+                XdStorageYamlCommitJournal.legacyJournalFileFor(base),
                 "the stacked spelling stays exactly the 2.0.0 name (read-compatible migration source)");
         assertEquals("Order", XdStorageYamlCommitJournal.stripFormatExtension("Order.xml"));
         assertEquals("Order-1", XdStorageYamlCommitJournal.stripFormatExtension("Order-1.yaml"));

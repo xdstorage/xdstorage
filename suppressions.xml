@@ -10,6 +10,11 @@
          every other check applies to these files in full. -->
     <suppress checks="RegexpSingleline" files="[\\/]XdStorageFolderVerifier\.java$"/>
     <suppress checks="RegexpSingleline" files="[\\/]Compact\.java$"/>
+    <!-- 2.2.0/17: the migration tools are TOOLS like Compact — their stdout is the
+         report, their exit status the verdict. PRINT BANS only; the tool-vs-library
+         print decision stays with task 43. -->
+    <suppress checks="RegexpSingleline" files="[\\/]XdStorageMigrate\.java$"/>
+    <suppress checks="RegexpSingleline" files="[\\/]XdStorageSchemaDiff\.java$"/>
     <!-- The print bans protect the SHIPPED library only: test diagnostics
          (System.out in the suites) are the test corpus's own reporting style,
          not part of the artifact. -->

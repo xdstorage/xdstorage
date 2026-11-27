@@ -100,7 +100,7 @@ public class XdStorageYamlBlockObjectsWriter {
             // Запись контента уходит строго внутрь узла value:
             if (simpleTypeHelper.isSimpleType(c, value)) {
                 emitter.writeKey("value");
-                emitter.writeScalar("'" + encode(simpleTypeHelper.simpleTypeToString(value)) + "'");
+                emitter.writeScalar(XdStorageYamlScalar.token(simpleTypeHelper.simpleTypeToString(value)));
             } else if (c.isEnum()) {
                 emitter.openBlock("value");
                 XdStorageYamlBlockContainersWriter.writeEnumInline(c, value, emitter);
@@ -175,7 +175,7 @@ public class XdStorageYamlBlockObjectsWriter {
                     emitter.writeScalar("'" + ((Class<?>) targetId).getName() + "'");
                 } else if (XdStorageObjectUtils.isSimpleType(idClass, null)) {
                     emitter.writeKey("objectId");
-                    emitter.writeScalar("'" + targetId + "'");
+                    emitter.writeScalar(XdStorageYamlScalar.token(String.valueOf(targetId)));
                 } else {
                     // Составной идентификатор пишется вложенным объектом — симметрично readReference;
                     // openBlock, а не writeKey: ключ блочного значения обязан занимать свою строку
@@ -221,7 +221,7 @@ public class XdStorageYamlBlockObjectsWriter {
             emitter.writeScalar("'" + ((Class<?>) value).getName() + "'");
         } else if (XdStorageObjectUtils.isSimpleType(valueClass, null)) {
             emitter.writeKey("objectId");
-            emitter.writeScalar("'" + value + "'");
+            emitter.writeScalar(XdStorageYamlScalar.token(String.valueOf(value)));
         } else {
             // Составной идентификатор (например XdStorageBTreeId): скалярный toString() невосстановим,
             // пишется вложенным объектом и читается симметричной веткой readReference.
@@ -237,6 +237,8 @@ public class XdStorageYamlBlockObjectsWriter {
     /**
      * Encodes a scalar for safe storage between single quotes: each {@code '} becomes the
      * YAML escape pair {@code ''}. The inverse is {@link XdStorageYamlBlockObjectsReader#decode}.
+     * The single-line form only — a string with a line break goes through
+     * {@link XdStorageYamlScalar#token(String)}, which picks the form.
      *
      * @param value the raw scalar (may be {@code null})
      * @return the quoted-form-safe scalar, or {@code null} when {@code value} is {@code null}

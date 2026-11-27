@@ -53,11 +53,16 @@ current code, stated so embedding surprises are design-time, not production-time
   the stored data intact; the retry pattern is a fresh read in a new transaction. Staged-but-
   aborted foreign work does not trigger false conflicts (the semantics are content-based).
 - Nested transactions: `beginTransaction(parentTx, timeout)`; a nested rollback does not poison the
-  parent (downward-only rollback-only cascade). **NOT RECOMMENDED for load-heavy use**: the
-  nested commit/rollback machinery is a known critical-under-load path (abandoned-nested
-  latch cascades, zombie sweeps, mid-commit poisoning — see the transaction-failure
-  diagnostics). Scheduled for rework in 2.2.0 (optional task); until then, prefer flat
-  transactions with explicit compensating code.
+  parent (downward-only rollback-only cascade). **NOT RECOMMENDED for load-heavy use** — the
+  status decision of 2026-10-26 stands until [task 12](tasks/2.2.0/12-nested-transactions-load-safety.md)
+  is closed (lifted or deprecated); see the transaction-failure diagnostics for the failure
+  families. Two rules a caller meets: a nested transaction is bound to the thread that began
+  it, and a parent's commit does not wait out a nested transaction left running on ANOTHER
+  thread — after 5 seconds that transaction is rolled back, and the parent with it (2.2.0; a
+  nested transaction abandoned on its own thread, or past its timeout, is swept as before).
+  The isolation stress test of the machinery (`XdStorageNestedTransactionIsolationStressTest`,
+  8 workers with 100 ms budgets) runs in the default suite. Prefer flat transactions with
+  explicit compensating code.
 - **Abandoned top-level transactions are NOT force-swept at `beginTransaction`** (the
   ZOMBIELATCH decision, docs/tasks/2.1.0/36-zombie-latch-purge): a worker that swallows a
   failure without commit/rollback leaves its transaction latched until the lazy timeout
@@ -231,14 +236,52 @@ plain file operations, open the copy** under a new storage name. Every read answ
 copy: object counts, load-by-id, indexed EQUALS and range queries across all storage policies
 (the executable proof: `XdStorageBackupRestoreWalkthroughTest` in the reliability suite).
 
+- **A copy made by hand is tied to the original's PATH.** The id index names the file of
+  every record by the path the storage's folder was opened with. Restoring a copy to the SAME
+  path is a full restore. Opening a copy at ANOTHER path while the original still exists reads
+  the ORIGINAL's files; with the original gone, it answers `null` for records that sit in its
+  own `data/`. (The executable proof above restores next to the original — which is why it
+  passes.) For a copy that stands anywhere, use `backupTo` below.
 - The `.xdstorage.lock` FILE travels with the backup and is harmless — a clean `shutdown()`
   releases the OS file lock; the copy re-acquires its own. (A stale lock file from an unclean
   shutdown is equally harmless — also pinned by the test.) What must NOT be copied is an
-  **open** folder: the exclusive OS lock blocks same-machine copies, and a copied-while-open
-  folder has no defined content state.
+  **open** folder: a copied-while-open folder has no defined content state, and on Windows
+  the copy does not even complete — the lock on `.xdstorage.lock` is mandatory there, and no
+  other handle reads that file until the storage is closed. On Linux and macOS the lock is
+  advisory and such a copy succeeds, which makes the undefined state easier to miss.
 - No export/import step, no format conversion — the copy IS a restorable backup. For
   scheduled backups: close (or snapshot from a second machine while the first is closed),
   `cp -r`, reopen.
+
+- **Programmatic backup** (FP-5, 2.2.0, docs/tasks/2.2.0/15):
+  `IXdFileStorage.backupTo(Path)` — a copy that stands on its own and holds what was committed
+  when it was taken.
+
+  ```java
+  storage.backupTo(Paths.get("/data/backups/snapshot-2026-11-27"));   // closes `storage`
+  XdStorageProvider.verify(Paths.get("/data/backups/snapshot-2026-11-27"));  // OK
+  IXdFileStorage copy = XdStorageProvider.newOrGetFileStorage("snapshot",
+          "/data/backups/snapshot-2026-11-27", 128);
+  IXdFileStorage live = XdStorageProvider.newOrGetFileStorage("live", "/data/live-db", 128);  // keep working
+  ```
+
+  **The contract.** The call closes the source — its shutdown checkpoint puts every committed
+  change into the base files — then copies the folder, without the lock file, and rewrites the
+  record paths inside the copy to the copy's own location. So the copy answers the same
+  queries whether or not the original exists, and passes `XdStorageProvider.verify`. Reopen
+  the source to keep working. The destination must be a new or an empty directory outside the
+  storage folder; one the call created is removed again if the copy fails. A commit that was
+  in flight when the copy was taken is cut between its journal appends — the state a crash at
+  that instant leaves, with the same limits for a commit spanning several classes.
+
+  The executable proofs: `XdStorageBackupToTest` (every policy and index kind answered from
+  the copy with the source moved away; a relative source folder; the refusals) and
+  `XdStorageBackupUnderLoadStressTest` (the copy taken while four threads commit — no
+  transaction is cut in half). Out of scope: incremental or scheduled backups, compression,
+  encryption.
+
+- `verify(folder)` (task 26) is the acceptance instrument — run it against every produced
+  backup folder before trusting its content.
 
 ## Observability
 
@@ -293,6 +336,44 @@ E-6: what "supported" means, stated up front so upgrades are design-time decisio
 | Building XdStorage itself | JDK **17+**, Maven **3.6.3+** (enforced) |
 | CI / tested runtimes | Temurin **17** (the full-suite gate + the nightly ×3) and Temurin **21** (the quick-gate profile on pushes/PRs + the full suite nightly — JDK21, task 27); 21 is also the canonical-baseline runtime. Bytecode stays `release=8` either way |
 
+### Supported platforms
+
+Stated as what has been **run**, not what is expected to work.
+
+| Platform | Status |
+|---|---|
+| Linux x86_64 | **Tested.** The full-suite gate and the nightly ×3 run on it (`ubuntu-latest`), on Temurin 17 and 21; the benchmark figures in BENCHMARKS.md come from a Linux box. |
+| Windows x86_64 | **A CI leg runs the non-stress suite on `windows-latest`** (`ci.yml`, job `windows`, since 2.2.0). Its first run (2026-11-27) came back 1746 run, 25 failed — every failure in the tests themselves: the folder lock's file copied while the storage was open, `/` spelled as the separator, a thread check over the whole JVM ([the triage](tasks/2.2.0/04-os-dependent-paths.md)). The engine showed no Windows defect in that run. The fixes are in; until a run with them is green, treat Windows as *expected to work, not verified*. |
+| macOS | **Not tested.** No CI leg runs there. |
+| Java 8–11 runtimes | **Not tested by CI.** The bytecode is `release=8` and uses only the Java 8 platform API (H-5), but the suite runs on 17 and 21 only. |
+
+What the 2.2.0 audit ([task 04](tasks/2.2.0/04-os-dependent-paths.md), 88 file, charset and
+lock sites) established about the engine's portability: storage paths go through `Path` and
+`Files` (the classpath is the only place the separator is spelled out); every write names
+its charset — UTF-8, or ISO-8859-1 where `Properties.store` fixes it for the format marker;
+the folder lock is a `FileLock`, the same NIO call on POSIX and Windows; and the write-out
+asks for an atomic rename and logs one WARN when the filesystem cannot deliver it
+(`AtomicMoveNotSupportedException`) — the move is then a plain replace, and a crash during
+the swap may lose that file. Filesystems without rename support (FAT, exFAT) therefore trade
+the crash-safety contract of § Files and durability for portability; keep the storage folder
+on one that supports it (NTFS, ext4, APFS).
+
+### Field types and their stored form
+
+GUIDE § Field types lists what a field may hold; this is the same list as it meets the disk
+and an upgrade.
+
+| Type | Stored as | A folder written before 2.2.0 |
+|---|---|---|
+| primitives and wrappers, `Number` (`BigDecimal`, `BigInteger`, …), `String`, `Character`, `Boolean` | text | reads as before |
+| `java.util.Date`, `java.lang.Class`, enums | epoch milliseconds, class name, constant name | reads as before |
+| `UUID`, `Instant`, `LocalDate`, `LocalDateTime`, `Duration` | their `toString()` forms (canonical UUID; ISO-8601) | **the field was not written at all** — a save dropped it silently; it reads `null`, as it did before |
+| an index over one of the five | — | **the search tree is unreadable** (`invalid state of database`), before and after the upgrade. With the storage closed, remove the index's two tree files (`indexes/XdStorageBTree/XdStorageBTree-<Class>-<index>.yaml`, `…-key_<index>.yaml`); the index answers empty from then on — `executeStructureUpdate` does not repair it. Run `verify` afterwards. |
+| any other class | a child object or a reference | reads as before |
+
+Adding a simple type is an engine change (`XdStorageObjectUtils.isSimpleType` and
+`XdStorageDefaultSimpleTypeHelper`); applications cannot register one.
+
 ### On-disk format compatibility
 
 The format generation is recorded per storage folder in `.xdstorage.meta`
@@ -305,6 +386,17 @@ The format generation is recorded per storage folder in `.xdstorage.meta`
 | 1.x (no marker, files present) | opens with a legacy INFO; **YAML** content additionally requires `acceptMissingEofSentinel(true)` until the first commit rewrites the files; **XML** content opens as-is |
 | a **newer** library (marker `formatVersion` > 3) | loud `XdStorageRuntimeException` before any engine state is built — upgrade the library |
 | fresh/empty folder | marker `formatVersion=3` written at open |
+
+**Strings with line breaks (2.2.0).** A string that contains a line break is stored in a
+line-safe form — double quotes with the escapes `\n`, `\r`, `\"`, `\\` — instead of the
+single-quoted form every other string keeps. Nothing else changed: a folder written by any
+earlier version opens and reads identically (no earlier version ever wrote a value that
+starts with a double quote). The rule goes one way only: **a 2.1.x library must not open a
+2.2.0 folder that contains such a string** — it returns that one value mangled (the quotes
+and the escapes as literal text), everything else intact. The marker is unchanged
+(`formatVersion=3`), so 2.1.x does not refuse on its own; do not downgrade such a folder, or
+back it up first (§ Backup and restore). Before 2.2.0 a line break inside a string could not
+be stored at all — it corrupted the record.
 
 The folder is single-writer (exclusive lock); a folder may be read concurrently only by the
 owning process. There is no multi-process write access and no down-level writer after a
@@ -364,7 +456,78 @@ The 1.x `JSON` constant actually wrote **XML content** into `.json`-named files.
 find ./data/db -name '*.json' -exec bash -c 'mv "$1" "${1%.json}.xml"' _ {} \;
 ```
 
-then open with `FilesFormat.XML`. (For YAML-era folders there is nothing to rename.)
+then open with `FilesFormat.XML`. (For YAML-era folders there is nothing to rename.) Both
+steps — this rename at any depth, and the EOF sentinel for YAML-era files — are what
+`XdStorageMigrate --script builtin:v1-to-v2` does (§ Schema migration).
+
+### Schema migration — the `schema-diff` and `migrate` tools (task 17)
+
+Two command-line tools for an operator. Both print their report to stdout and give their
+verdict as the exit status.
+
+#### `schema-diff` — compare what two folders store, or a folder and the live classes
+
+```bash
+# two folders:
+java -cp <xdstorage.jar> io.github.xdstorage.tools.XdStorageSchemaDiff ./old-db ./new-db
+
+# a folder against the live classes (the classes must be on the tool's classpath):
+java -cp <xdstorage.jar:the application's classes> io.github.xdstorage.tools.XdStorageSchemaDiff ./my-db \
+    --against-classes com.example.Order com.example.Customer
+
+# JSON for pipelines:
+java -cp <xdstorage.jar> io.github.xdstorage.tools.XdStorageSchemaDiff ./old-db ./new-db --json
+```
+
+**What a folder stores — and what it does not.** The engine keeps no schema apart from its
+records. A class's structure — fields with their types, the search indexes, the storage
+policy — is written only when the application ran `executeStructureUpdate(Class)` for that
+class, as one record in `structure/XdStorageClassStructure.yaml`. `schema-diff` compares
+those records and nothing else. A folder without that file has nothing to compare: the tool
+says so on stderr, prints `nothing to compare` and exits 0 — it does not report classes as
+added or removed on that account. Classes whose data is in the folder without a stored
+structure are named in the note.
+
+Output, one line per change: `<class> <CLASS|FIELD|IDX|POLICY> <ADDED|REMOVED|CHANGED> <details>`
+— for example `com.example.Order FIELD ADDED status String` or
+`com.example.Customer IDX ADDED byName/active Boolean`. `--json` prints the same as a JSON
+array (notes go to stderr).
+
+Exit codes: 0 no differences, or nothing to compare; 1 differences found; 2 usage; 3 a folder
+cannot be read — missing, unreadable, or XML-format (YAML folders only).
+
+#### `migrate` — bring a 1.x folder to the form this library opens by default
+
+```bash
+java -cp <xdstorage.jar> io.github.xdstorage.tools.XdStorageMigrate ./my-db --dry-run
+java -cp <xdstorage.jar> io.github.xdstorage.tools.XdStorageMigrate ./my-db [--script builtin:v1-to-v2]
+```
+
+The only script, `builtin:v1-to-v2`, works on the folder's files; no entity class is needed
+on the classpath. It:
+
+1. renames every `*.json` file, at any depth, to `*.xml` — the 1.x `JSON` constant wrote XML
+   under that name (§ Migrating a 1.x folder that used `FilesFormat.JSON`);
+2. appends the end-of-file sentinel `# xdstorage-eof` to every YAML file that lacks it. Every
+   file the engine writes ends with that line, and the default configuration refuses a file
+   without it as truncated (§ Files and durability);
+3. opens the folder with the default configuration — for an XML folder without journaling,
+   since that format does not journal — which also runs the 2.0.0 layout migration when the
+   marker says `formatVersion=2`; closes it; and runs `XdStorageProvider.verify`.
+
+The result opens with the default configuration. A 1.x folder stays without a format marker,
+as the engine keeps it, so `verify` reports WARNINGS for the marker alone.
+
+**It cannot tell a truncated 1.x file from a whole one:** the sentinel is appended on the
+same reading the lenient open gives the file — complete. Keep a copy of the folder until the
+result is verified. `--dry-run` prints the plan and leaves the folder byte for byte; a second
+run finds nothing to do.
+
+Exit codes: 0 migrated or nothing to migrate (`--dry-run` with nothing to do); 1 `--dry-run`
+found work; 2 usage; 3 the folder is in use, a step failed, or the result does not verify.
+
+**What it does not do:** transform record content or run structure updates — those stay with
+the application (`executeStructureUpdate`, GUIDE § Structure updates).
 
 ### Support and deprecation policy
 

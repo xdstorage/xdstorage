@@ -98,6 +98,53 @@ runtime wrapper classes per entity (see [Concurrency model](#concurrency-model-a
   `String` ids (see [Identifier generation](#identifier-generation-and-observers)).
 - Child objects referenced by fields follow their **own** class policy.
 
+### Field types — what a field may hold
+
+A field is stored in one of three ways, decided by its declared type:
+
+| The field's type | Stored as |
+|---|---|
+| A **simple type** (the table below) | one scalar value, in its text form |
+| A collection or map of simple types (`List`, `Set`, `Collection`, `Map`, arrays) | a list / map of those scalars |
+| Anything else — another entity class | a child object or a reference, by that class's own policy (§ Storage policies) |
+
+**Simple types** and the text form they take on disk:
+
+| Type | Text form on disk | Since |
+|---|---|---|
+| `String`, `char` / `Character`, `boolean` / `Boolean` | as is | |
+| `byte`, `short`, `int`, `long`, `float`, `double` and their wrappers; `BigDecimal`, `BigInteger` and any other `Number` | decimal text | |
+| `java.util.Date` | epoch milliseconds | |
+| `java.lang.Class` | the class name | |
+| an `enum` | the constant's name — a renamed constant no longer resolves | |
+| `java.util.UUID` | the canonical form, `a1b2c3d4-e5f6-7890-abcd-ef1234567890` | 2.2.0 |
+| `java.time.Instant` | ISO-8601 in UTC, `2026-01-01T00:00:00Z` (the fraction of a second only when it is not zero) | 2.2.0 |
+| `java.time.LocalDate`, `java.time.LocalDateTime` | ISO-8601, `2026-01-01`, `2026-01-01T00:00:00` | 2.2.0 |
+| `java.time.Duration` | ISO-8601, `PT1H30M` | 2.2.0 |
+
+A field of one of these types can carry a search index, and the index compares by value:
+a range over `Instant`s follows time and a range over `Duration`s follows length, not the
+order of their text forms.
+
+**Not simple types** — `LocalTime`, `OffsetTime`, `OffsetDateTime`, `ZonedDateTime`, `Year`
+and the rest of `java.time` are beans to the engine and do not round-trip as fields. Store
+them as `String`, `Instant` or `LocalDateTime` until they are added.
+
+**Folders written before 2.2.0.** `UUID` and `java.time` fields were not simple types then:
+a save wrote the record **without them** — no error, the value was lost — and an index over
+such a field produced a search tree that could not be read back (`invalid state of database`).
+Nothing in such a folder needs converting, because the values were never written; the fields
+read as `null`, as they did before. An index over one of these fields in an old folder stays
+unreadable until you remove its two tree files with the storage closed
+(`indexes/XdStorageBTree/XdStorageBTree-<Class>-<index>.yaml` and the matching
+`…-key_<index>.yaml`); the engine then answers from an empty index, and `executeStructureUpdate`
+does **not** do this for you — it finds nothing to update.
+
+**Your own types.** There is no supported way to add a simple type from an application: the
+predicate the engine uses (`XdStorageObjectUtils.isSimpleType`) is fixed, and the
+`IXdStorageSimpleTypeHelper` that turns a value into text and back is engine-internal. A type
+you need belongs in the table above — ask for it, or store the field as `String`.
+
 ### Storage policies — `@XdStorageObjectPolicy`
 
 | Policy | Meaning |
@@ -381,10 +428,12 @@ try {
 ```
 
 > **Nested transactions (`beginTransaction(parentTx, timeout)`) are NOT RECOMMENDED for
-> load-heavy use.** A nested rollback correctly does not poison the parent, but the nested
-> commit/rollback machinery is a known critical-under-load path (abandoned-nested latch
-> cascades, zombie sweeps, mid-commit poisoning). Prefer flat transactions with explicit
-> compensating code; the rework is scheduled for 2.2.0.
+> load-heavy use** — a status decision that stands until [task 12](tasks/2.2.0/12-nested-transactions-load-safety.md)
+> is closed. A nested rollback does not poison the parent (downward-only cascade), and
+> mid-commit poisoning is guarded (2.1.0, task 45). A nested transaction is bound to the
+> thread that began it: a parent's commit does not wait longer than 5 seconds for one left
+> running on another thread — it is rolled back, and the parent with it (2.2.0). Prefer
+> flat transactions with explicit compensating code.
 
 Semantics:
 
@@ -765,15 +814,29 @@ fixture is a reviewable diff, not a database migration script —
 fixtures by running code, or by editing a closed folder's copy. The full layout:
 [EMBEDDING.md](EMBEDDING.md) § Files and durability.)
 
+Strings are stored single-quoted, an apostrophe doubled (`'it''s'`). The one exception is a
+string with a line break: it takes double quotes and the escapes `\n` / `\r`
+(`"first line\nsecond line"`), so that a value always stays on one physical line — the
+property the tab-indented layout and the EOF sentinel are built on. A folder written by an
+earlier version reads identically; see [EMBEDDING.md](EMBEDDING.md) § On-disk format
+compatibility for the one downgrade rule.
+
 ## Structure updates (schema migration)
 
 When the declared structure of a class changes (for example a search index got new fields), persisted
 structures need to be rebuilt. XdStorage does this through pluggable updaters:
 
 ```java
-// register a custom updater and run all pending updates for the class
+// register a custom updater and run all pending updates for the class — inside a transaction
 storage.registerStructureUpdater(new MyStructureUpdater());
-List<IXdStorageStructureUpdater> executed = storage.executeStructureUpdate(MyEntity.class);
+IXdStorageTransaction tx = storage.beginTransaction();
+try {
+    List<IXdStorageStructureUpdater> executed = storage.executeStructureUpdate(MyEntity.class);
+    tx.commit();
+} catch (RuntimeException e) {
+    tx.rollback();
+    throw e;
+}
 ```
 
 - An updater implements `IXdStorageStructureUpdater<T>` (`getDataClass()`, `getUpdateName()`,
@@ -782,6 +845,29 @@ List<IXdStorageStructureUpdater> executed = storage.executeStructureUpdate(MyEnt
 - The built-in `XdStorageSearchIndexStructureUpdater` re-builds a search index record set when the
   structure manager detects that the persisted index no longer matches the class annotations; it is
   registered automatically during the structure check.
+
+#### The command-line tools — `schema-diff` and `migrate`
+
+XdStorage ships two tools for the operator side of this section
+([EMBEDDING § Schema migration](EMBEDDING.md#schema-migration--the-schema-diff-and-migrate-tools-task-17)):
+
+```bash
+# what two folders store for their classes — or a folder and the live classes
+java -cp <xdstorage.jar> io.github.xdstorage.tools.XdStorageSchemaDiff ./db-old ./db-new
+java -cp <xdstorage.jar:your classes> io.github.xdstorage.tools.XdStorageSchemaDiff ./my-db \
+    --against-classes com.example.Order com.example.Customer
+
+# a 1.x folder to the form this library opens by default
+java -cp <xdstorage.jar> io.github.xdstorage.tools.XdStorageMigrate ./my-db --dry-run
+java -cp <xdstorage.jar> io.github.xdstorage.tools.XdStorageMigrate ./my-db
+```
+
+Two facts decide what `schema-diff` can tell you. The engine keeps no schema apart from its
+records: a class's structure is stored only after the application ran
+`executeStructureUpdate(Class)` for it — so a folder where that never ran has nothing to
+compare, and the tool says so instead of listing every class as new. And the structure it
+then stores is what the comparison sees: fields with their types, the search indexes, the
+storage policy.
 
 ## Operability: verify, backups, and after a power loss
 

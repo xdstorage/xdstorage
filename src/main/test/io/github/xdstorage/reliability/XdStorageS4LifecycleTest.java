@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -60,16 +59,16 @@ public class XdStorageS4LifecycleTest {
                 final Object services = readField(storage, "services");
                 final java.util.concurrent.ExecutorService executor =
                         (java.util.concurrent.ExecutorService) readField(services, "executor");
-                executor.submit(() -> { }).get(5, java.util.concurrent.TimeUnit.SECONDS);
+                // The thread judged is the one that ran THIS storage's task — not every thread of the
+                // JVM. The names are per storage ("xdstorage-worker-1" in each of them), and a storage
+                // another test left open keeps its own, non-daemon workers alive: the first Windows run
+                // of the suite (2026-11-27) failed on one of those, in a class order Linux never produced.
+                final Boolean ownWorkerIsDaemon = executor.submit(() -> Thread.currentThread().isDaemon()
+                        && Thread.currentThread().getName().startsWith("xdstorage-worker-"))
+                        .get(5, java.util.concurrent.TimeUnit.SECONDS);
 
-                boolean workerSeen = false;
-                for (final Map.Entry<Thread, StackTraceElement[]> e : Thread.getAllStackTraces().entrySet()) {
-                    if (e.getKey().getName().startsWith("xdstorage-worker-")) {
-                        workerSeen = true;
-                        assertTrue(e.getKey().isDaemon(), "worker threads must be daemon in daemon mode");
-                    }
-                }
-                assertTrue(workerSeen, "at least one named worker thread must exist after submitting a task");
+                assertTrue(ownWorkerIsDaemon,
+                        "the thread that ran this storage's task must be a daemon worker in daemon mode");
             } finally {
                 storage.shutdown();
             }

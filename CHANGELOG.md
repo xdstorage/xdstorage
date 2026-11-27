@@ -67,8 +67,35 @@
 - **`explain` is tx-free by design, documented** — the one facade method that works
   without a transaction (the plan is static index metadata; GUIDE § Query plans +
   EMBEDDING), pinned by the property estate.
-
+- **`IXdFileStorage.backupTo(Path)` — a backup that stands on its own**
+  ([15](docs/tasks/2.2.0/15-backup-api.md)). Closes the storage and copies its folder to a new or
+  empty directory, rewriting the record paths inside the copy to the copy's own location. A
+  folder copied by hand keeps pointing at the original — opened elsewhere it answers with the
+  original's files, or with `null` once the original is gone. The copy passes
+  `XdStorageProvider.verify` and answers every query the source did with the original moved
+  away; reopen the source to keep working. Pinned with four threads committing while the copy
+  is taken: no transaction is cut in half.
+- **`schema-diff` and `migrate` — two command-line tools for the operator**
+  ([17](docs/tasks/2.2.0/17-migration-schema-diff.md)). `XdStorageSchemaDiff` compares the
+  structure two folders store — or a folder's and the live classes — field by field and
+  index by index, as text or `--json`; a folder that stores no structure has nothing to
+  compare, and the tool says so instead of listing its classes as new. `XdStorageMigrate`
+  brings a 1.x folder to the form this library opens by default: `*.json` files (XML under
+  the 1.x name) are renamed to `*.xml` at any depth, every YAML file gets its end-of-file
+  sentinel, and the result is opened with the default configuration and verified;
+  `--dry-run` changes nothing. Both give their verdict as the exit status. EMBEDDING §
+  Schema migration has the contracts.
 ### Changed
+
+- **Supported platforms are stated by what has been run, and Windows joined CI**
+  ([04](docs/tasks/2.2.0/04-os-dependent-paths.md)) — EMBEDDING § Supported platforms now
+  separates tested (Linux x86_64, Temurin 17 and 21) from not tested (macOS; Java 8–11 as
+  runtimes) and from *a CI leg exists* (Windows x86_64: the non-stress suite on
+  `windows-latest`; its first run, 2026-11-27, failed in 25 tests, all three causes in the
+  tests and fixed — the leg keeps reporting only until a run with the fixes is green). The
+  audit of 88 file, charset and lock sites found no OS-dependent code path in the engine;
+  the one debug write that used the platform charset and a hard-coded `/tmp` now writes
+  UTF-8 into the temp directory.
 
 - **The default transaction timeout raised `3000` -> `15000` ms**
   (`defaultTransactionTimeoutMillis`, the no-arg `beginTransaction()`): the first
@@ -96,6 +123,19 @@
   (the R-54 pattern) so honest splitting survives parallel hot-key storms. The two
   duplicate-invariant tests disabled for years because of the overflow («переполнение
   ноды») are re-enabled with their full structural scans green.
+- **A string with a line break no longer corrupts the record, and the text `null` is a string
+  again** ([40](docs/tasks/2.2.0/40-yaml-string-newline-null.md)) — the YAML format is
+  line-based and escaped only the apostrophe: saving any multi-line text wrote a raw line
+  break inside the value, and after the reopen the whole record file was refused as
+  truncated (`… no EOF sentinel … refusing to serve a partial database`); a `char` holding a
+  line break came back as `'`. Separately, the four characters `null` read back as a null
+  field, a null list element, a null map value — and as a map key it dropped the whole entry.
+  A string with a line break is now stored in a line-safe form (double quotes with the
+  escapes `\n`, `\r`, `\"`, `\\`); every other string is written exactly as before, and a
+  folder written by an earlier version reads identically. The commit journal and the
+  search-index journal store their strings through the same rule. Pinned by
+  `XdStorageYamlStringScalarRoundTripTest`, `XdStorageYamlScalarTest`,
+  `XdStorageMultiLineStringReopenTest` and the widened property model.
 
 - **Null map VALUES were silently dropped from persistence** — the unwrap-and-clone
   path dropped the entry before the writer; the YAML writer/reader both encode null
@@ -112,6 +152,25 @@
   empty containers — the write side did not recurse into nested collection/map/array
   blocks). Found by the property campaign, pinned by the container-jungle property +
   the file-truth probe.
+- **`UUID` and `java.time` fields are stored — they were dropped silently at every save**
+  ([41](docs/tasks/2.2.0/41-simple-types-uuid-java-time.md)) — `UUID`, `Instant`, `LocalDate`,
+  `LocalDateTime` and `Duration` were not simple types to the engine: a record with such a
+  field was written **without the field**, with no error, and a search index over one of them
+  produced a tree that could not be read back (`invalid state of database`). They are simple
+  types now, stored in their canonical text forms, and an index over one compares by value
+  (a range over `Instant`s follows time, over `Duration`s — length). A folder written by an
+  earlier version needs no conversion — the values were never in it; the fields read `null`,
+  as before — but an index over such a field in an old folder stays unreadable until its
+  search tree is rebuilt. GUIDE § Field types now lists what a field may hold; adding a
+  type remains an engine change, not an application's.
+- **A parent's commit no longer waits out a nested transaction that runs on another thread**
+  ([12](docs/tasks/2.2.0/12-nested-transactions-load-safety.md)) — a nested transaction is
+  bound to its thread; when a parent committed while its nested transaction was running
+  elsewhere, the parent waited for that transaction's whole timeout (60 s in the stress
+  shapes), holding its record locks all the while. After 5 seconds the nested transaction is
+  now swept like an abandoned one: rolled back, and the parent with it. The feature's NOT
+  RECOMMENDED status is unchanged — lifting it or deprecating the API is the maintainer's
+  decision; the design note and the evidence are in the task file.
 
 ## [2.1.1] — 2026-11-22
 

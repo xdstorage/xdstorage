@@ -21,7 +21,7 @@ new test. Read [references/coverage-methodology.md](references/coverage-methodol
 before compiling a coverage report. Read [references/house-rules.md](references/house-rules.md)
 for the hard-won gotchas. Read
 [references/general-recommendations.md](references/general-recommendations.md) for the
-abstract, project-portable principles (R1–R12) behind all of these — reason from it
+abstract, project-portable principles (R1–R13) behind all of these — reason from it
 whenever the situation is not covered by the house-specific files. For the
 property-based tests (jqwik), the red-pin triage ladders, the honest-pin format, and
 the harness lifecycle patterns, read

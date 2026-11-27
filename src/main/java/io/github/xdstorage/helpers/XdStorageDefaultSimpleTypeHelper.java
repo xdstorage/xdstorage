@@ -7,7 +7,12 @@ import io.github.xdstorage.utils.XdStorageObjectUtils;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Date;
+import java.util.UUID;
 
 /**
  * The engine's built-in {@link IXdStorageSimpleTypeHelper}: classifies simple values,
@@ -32,7 +37,17 @@ public class XdStorageDefaultSimpleTypeHelper implements IXdStorageSimpleTypeHel
 
     @Override
     public boolean isSimpleType(final Class<?> cl, final Object object) {
-        return cl == Class.class || cl == Date.class || cl.isEnum() || XdStorageObjectUtils.isSimpleType(cl, object);
+        return cl == Class.class || cl == Date.class || cl == UUID.class
+                || isJavaTimeSimple(cl)
+                || cl.isEnum() || XdStorageObjectUtils.isSimpleType(cl, object);
+    }
+
+    /** UUID + the decided java.time set — stored as their canonical ISO-8601 strings. */
+    private static boolean isJavaTimeSimple(final Class<?> cl) {
+        return Instant.class.isAssignableFrom(cl)
+                || LocalDate.class.isAssignableFrom(cl)
+                || LocalDateTime.class.isAssignableFrom(cl)
+                || Duration.class.isAssignableFrom(cl);
     }
 
     @Override
@@ -70,6 +85,16 @@ public class XdStorageDefaultSimpleTypeHelper implements IXdStorageSimpleTypeHel
             return value;
         if (cl == Date.class)
             return new Date(Long.valueOf(value));
+        if (cl == UUID.class)
+            return UUID.fromString(value);
+        if (Instant.class.isAssignableFrom(cl))
+            return Instant.parse(value);
+        if (LocalDate.class.isAssignableFrom(cl))
+            return LocalDate.parse(value);
+        if (LocalDateTime.class.isAssignableFrom(cl))
+            return LocalDateTime.parse(value);
+        if (Duration.class.isAssignableFrom(cl))
+            return Duration.parse(value);
         if (cl.isEnum()) {
             try {
                 final Method m = cl.getMethod("valueOf", String.class);

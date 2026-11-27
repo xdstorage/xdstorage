@@ -134,6 +134,14 @@ public class XdStorageTransaction implements IXdStorageTransaction {
     private static final long INTERNAL_SWEEP_GRACE_MILLIS = 500;
 
     /**
+     * 2.2.0/12: how long a parent's commit waits for a nested transaction that runs on
+     * ANOTHER thread and is still inside its own timeout, before sweeping it. A cross-thread
+     * nested transaction is outside the thread-bound contract; this bound keeps the parent
+     * from holding its record locks for the nested transaction's whole timeout.
+     */
+    private static final long CROSS_THREAD_ABANDON_MILLIS = 5000;
+
+    /**
      * R-45: serial коммита ЭТОЙ транзакции (0 = не коммитится). Резервируется ОДИН на всю
      * транзакцию ДО начала фаз коммита: все ее записи получают один и тот же номер, поэтому
      * читатель со снапшотом >= serial видит ЛИБО все эффекты транзакции, ЛИБО ни одного —
@@ -330,6 +338,23 @@ public class XdStorageTransaction implements IXdStorageTransaction {
                                 internal.markRollbackOnly(sweepSite, null);
                             }
                             manager.registerRollbackOnlyTransaction(internal);
+                            swept = true;
+                        }
+                        // 2.2.0/12: what is left here is a nested transaction on ANOTHER thread that
+                        // is still inside its own timeout (the same-thread and the expired cases are
+                        // handled above). A parent that commits while its nested transaction runs
+                        // elsewhere is outside the thread-bound contract; waiting out the nested
+                        // transaction's whole timeout (60 s in the stress shapes) held the parent's
+                        // record locks all that time. Past CROSS_THREAD_ABANDON_MILLIS it is swept
+                        // like the abandoned cases — cascaded, so the parent is marked too.
+                        if (ageMillis > CROSS_THREAD_ABANDON_MILLIS && !internal.isRollbackOnly()) {
+                            log.warn("Parent transaction {} force-sweeps internal transaction {} running on "
+                                    + "another thread (age {} ms > {} ms, inside its own timeout {} ms)",
+                                    transactionId, internalId, ageMillis, CROSS_THREAD_ABANDON_MILLIS,
+                                    internal.getTimeout());
+                            internal.markSelfAndChildrenRollbackOnlyCascaded(
+                                    "parent force-sweep of a cross-thread internal tx " + internalId,
+                                    null, this.transactionId);
                             swept = true;
                         }
                     }

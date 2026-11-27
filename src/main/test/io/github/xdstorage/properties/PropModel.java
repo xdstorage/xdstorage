@@ -1,12 +1,17 @@
 package io.github.xdstorage.properties;
 
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.UUID;
 
 /**
  * PROPTEST: the SEED-BASED model — every entity is a pure function of its integer seed
@@ -14,11 +19,12 @@ import java.util.Random;
  * field-by-field comparator is the integrity gate (a property that cannot prove it
  * loaded the right data proves nothing — the house rule).
  *
- * <p>The value ranges avoid the known text-format edges ON PURPOSE (disclosed): strings
- * are single-line (the YAML block format is line-based — a newline-in-string round trip
- * is a format-capability question, not an invariant), doubles are finite (NaN/Infinity
- * have no YAML scalar form), map KEYS are non-null (the documented behavior: null map
- * keys are dropped on clone and skipped on read — pinned separately in Этап 2).
+ * <p>The value ranges avoid the known text-format edges ON PURPOSE (disclosed): doubles are
+ * finite (NaN/Infinity have no YAML scalar form), map KEYS are non-null (the documented
+ * behavior: null map keys are dropped on clone and skipped on read — pinned separately in
+ * Этап 2). Strings, on the contrary, deliberately CONTAIN what the format used to lose
+ * (YAMLSTR, docs/tasks/2.2.0/40): line breaks, tabs, backslashes and the four characters
+ * {@code null} — as field values, list elements, map keys and map values.
  */
 public final class PropModel {
 
@@ -57,18 +63,32 @@ public final class PropModel {
         e.setTags(listOfStrings(rnd, rnd.nextInt(5)));
         e.setMeta(mapOfStrings(rnd, rnd.nextInt(4)));
         e.setLabels(stringArray(rnd, rnd.nextInt(4)));
+        e.setUuid(UUID.fromString(uuidString(rnd)));
+        final long epoch = Math.abs(rnd.nextLong() % 4_000_000_000_000L);
+        e.setInstant(Instant.ofEpochMilli(epoch));
+        e.setLocalDate(LocalDate.ofEpochDay(Math.abs(rnd.nextLong() % 50_000) - 25_000));
+        e.setLocalDateTime(LocalDateTime.ofEpochSecond(epoch, 0, java.time.ZoneOffset.UTC));
+        final long dur = Math.abs(rnd.nextLong() % 10_000_000_000L) + 1L; // at least 1ns
+        e.setDuration(Duration.ofMillis(dur));
         if (rnd.nextBoolean()) {
             e.setNested(new PropNested(string(rnd, "nested"), rnd.nextLong(), longList(rnd, rnd.nextInt(4))));
         }
         // else: the nested field stays null — the honest-null round trip
     }
 
+    /** Line breaks, a tab and a backslash are part of the alphabet on purpose (YAMLSTR, task 40). */
+    private static final String ALPHABET = "abcXYZ019 _-.,:;!?()[]{}'\"+=%@#$ъЙЖёФЫв \n\r\t\\";
+
     private static String string(final Random rnd, final String prefix) {
-        final String alphabet = "abcXYZ019 _-.,:;!?()[]{}'\"+=%@#$ъЙЖёФЫв ";
+        // YAMLSTR (docs/tasks/2.2.0/40): the literal "null" — it used to read back as a null
+        final int pick = rnd.nextInt(40);
+        if (pick == 0) {
+            return "null";
+        }
         final int len = rnd.nextInt(40);
         final StringBuilder sb = new StringBuilder(len);
         for (int i = 0; i < len; i++) {
-            sb.append(alphabet.charAt(rnd.nextInt(alphabet.length())));
+            sb.append(ALPHABET.charAt(rnd.nextInt(ALPHABET.length())));
         }
         return sb.length() == 0 ? prefix : sb.toString();
     }
@@ -99,6 +119,10 @@ public final class PropModel {
         for (int i = 0; i < size; i++) {
             map.put("k" + i + string(rnd, ""), rnd.nextInt(6) == 0 ? null : string(rnd, "v"));
         }
+        if (size > 0) {
+            // YAMLSTR (docs/tasks/2.2.0/40): the STRING "null" as a key — the entry used to be dropped
+            map.put("null", string(rnd, "v"));
+        }
         return map;
     }
 
@@ -108,6 +132,19 @@ public final class PropModel {
             arr[i] = string(rnd, "lbl");
         }
         return arr;
+    }
+
+    /** Generate a valid UUID string from the seed. */
+    private static String uuidString(final Random rnd) {
+        final StringBuilder sb = new StringBuilder(36);
+        for (int i = 0; i < 36; i++) {
+            if (i == 8 || i == 13 || i == 18 || i == 23) {
+                sb.append('-');
+            } else {
+                sb.append("0123456789abcdef".charAt(rnd.nextInt(16)));
+            }
+        }
+        return sb.toString();
     }
 
     /** The field-by-field integrity gate: both sides are built from the same seed. */
@@ -166,6 +203,22 @@ public final class PropModel {
                 problems.add("nested.flags: " + expected.getNested().getFlags() + " vs " + actual.getNested()
                         .getFlags());
             }
+        }
+        // Simple types: UUID + java.time — must round-trip via canonical string forms
+        if (!eq(expected.getUuid(), actual.getUuid())) {
+            problems.add("uuid: " + expected.getUuid() + " vs " + actual.getUuid());
+        }
+        if (!eq(expected.getInstant(), actual.getInstant())) {
+            problems.add("instant: " + expected.getInstant() + " vs " + actual.getInstant());
+        }
+        if (!eq(expected.getLocalDate(), actual.getLocalDate())) {
+            problems.add("localDate: " + expected.getLocalDate() + " vs " + actual.getLocalDate());
+        }
+        if (!eq(expected.getLocalDateTime(), actual.getLocalDateTime())) {
+            problems.add("localDateTime: " + expected.getLocalDateTime() + " vs " + actual.getLocalDateTime());
+        }
+        if (!eq(expected.getDuration(), actual.getDuration())) {
+            problems.add("duration: " + expected.getDuration() + " vs " + actual.getDuration());
         }
         if (!problems.isEmpty()) {
             throw new AssertionError(what + " diverges on seed " + expected.getId() + ": " + problems);

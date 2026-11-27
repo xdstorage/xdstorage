@@ -193,6 +193,30 @@ text. When a snapshot is unavoidable, date it. Every time you check a skill clai
 against the repo, that check either confirmed it (do nothing) or found drift (fix it
 now, in this sitting).
 
+## R13. Green on one OS is green on one OS
+
+**Principle.** A suite that runs on several CI legs must be written against the file
+system and the JVM the test can SEE, not against the habits of the OS it was written
+on: the separator is `Path`'s business, a lock is the OS's business, and a thread is
+identified by what it ran, not by its name.
+
+**Why.** The XdStorage suite went from green to 25 red the first time the same
+commit ran on Windows (2026-11-27) — with no engine defect among them. Three test
+habits, each invisible on Linux: copying or dumping the whole folder of an OPEN
+storage, lock file included (POSIX locks are advisory and the read succeeds; Windows
+refuses it); spelling `/` as the separator in a `contains`/`split`/expected string;
+and judging every thread of the JVM by a name prefix that is not unique per instance.
+The class order differs between OSes, too, which turns "another test left something
+open" into an order-dependent failure.
+
+**How to apply.** Spell expectations as paths (`Paths.get(...)`), or normalize
+(`toString().replace('\\', '/')`) before a string comparison. Never read a locked
+file from a test fixture: copy around it, through the repo's helper. Ask a thread
+about itself from inside the task it ran. And when a leg on another OS goes red,
+reproduce the mechanism at home before fixing — an emulation of the OS semantics
+(for the mandatory lock: a held file made unreadable) turns "Windows only" into a
+red/green pair you can actually run.
+
 ---
 
 **Cross-references:** the XdStorage-specific instantiations —
