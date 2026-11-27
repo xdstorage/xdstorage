@@ -11,15 +11,12 @@ import net.jqwik.api.lifecycle.AfterTry;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.stream.Stream;
+import io.github.xdstorage.helpers.StorageFolderCopy;
 
 
 /**
@@ -103,18 +100,9 @@ public class PropJournalEquivalenceTest {
         return state;
     }
 
+    /** The crash proxy: a copy taken while the storage is open; the folder lock's file stays behind. */
     private static void copyTree(final File from, final File to) throws IOException {
-        try (final Stream<Path> walk = Files.walk(from.toPath())) {
-            for (final Path src : (Iterable<Path>) walk::iterator) {
-                final Path dest = to.toPath().resolve(from.toPath().relativize(src).toString());
-                if (Files.isDirectory(src)) {
-                    Files.createDirectories(dest);
-                } else {
-                    Files.createDirectories(dest.getParent());
-                    Files.copy(src, dest, StandardCopyOption.REPLACE_EXISTING);
-                }
-            }
-        }
+        StorageFolderCopy.copy(from.toPath(), to.toPath());
     }
 
     private static void assertEqualsMaps(final Map<String, String> expected, final Map<String, String> actual, final

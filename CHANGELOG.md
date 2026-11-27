@@ -91,10 +91,11 @@
   ([04](docs/tasks/2.2.0/04-os-dependent-paths.md)) — EMBEDDING § Supported platforms now
   separates tested (Linux x86_64, Temurin 17 and 21) from not tested (macOS; Java 8–11 as
   runtimes) and from *a CI leg exists* (Windows x86_64: the non-stress suite on
-  `windows-latest`, reporting-only until its first triage). The audit of 88 file, charset
-  and lock sites found no OS-dependent code path in the engine; the one debug write that
-  used the platform charset and a hard-coded `/tmp` now writes UTF-8 into the temp
-  directory.
+  `windows-latest`; its first run, 2026-11-27, failed in 25 tests, all three causes in the
+  tests and fixed — the leg keeps reporting only until a run with the fixes is green). The
+  audit of 88 file, charset and lock sites found no OS-dependent code path in the engine;
+  the one debug write that used the platform charset and a hard-coded `/tmp` now writes
+  UTF-8 into the temp directory.
 
 - **The default transaction timeout raised `3000` -> `15000` ms**
   (`defaultTransactionTimeoutMillis`, the no-arg `beginTransaction()`): the first

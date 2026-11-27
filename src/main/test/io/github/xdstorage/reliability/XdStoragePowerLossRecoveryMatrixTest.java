@@ -17,8 +17,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Collection;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import io.github.xdstorage.helpers.StorageFolderCopy;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -64,18 +64,9 @@ public class XdStoragePowerLossRecoveryMatrixTest {
                 storage.save(ship(i), tx);
             }
             storage.commitTransaction(tx);
+            // the folder lock's file stays behind: it is held while the storage is open
             final Path artifact = tempDir.resolve("built-" + tag);
-            try (Stream<Path> walk = Files.walk(live)) {
-                for (final Path src : walk.collect(Collectors.toList())) {
-                    final Path dest = artifact.resolve(live.relativize(src).toString());
-                    if (src.toFile().isDirectory()) {
-                        Files.createDirectories(dest);
-                    } else {
-                        Files.createDirectories(dest.getParent());
-                        Files.copy(src, dest, StandardCopyOption.REPLACE_EXISTING);
-                    }
-                }
-            }
+            StorageFolderCopy.copy(live, artifact);
             return artifact;
         } finally {
             storage.shutdown();
@@ -93,17 +84,7 @@ public class XdStoragePowerLossRecoveryMatrixTest {
 
     private Path copyOf(final Path original, final String tag) throws Exception {
         final Path copy = tempDir.resolve(tag);
-        try (Stream<Path> walk = Files.walk(original)) {
-            for (final Path src : walk.collect(Collectors.toList())) {
-                final Path dest = copy.resolve(original.relativize(src).toString());
-                if (src.toFile().isDirectory()) {
-                    Files.createDirectories(dest);
-                } else {
-                    Files.createDirectories(dest.getParent());
-                    Files.copy(src, dest, StandardCopyOption.REPLACE_EXISTING);
-                }
-            }
-        }
+        StorageFolderCopy.copy(original, copy);
         return copy;
     }
 

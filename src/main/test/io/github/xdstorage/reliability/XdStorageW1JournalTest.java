@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.stream.Stream;
+import io.github.xdstorage.helpers.StorageFolderCopy;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -142,21 +143,8 @@ public class XdStorageW1JournalTest {
                 storage.save(new BenchmarkEntity("t-2", "beta"), tx);
                 tx.commit();
 
-                try (Stream<Path> walk = Files.walk(dir)) {
-                    walk.forEach(source -> {
-                        try {
-                            final Path target = copy.resolve(dir.relativize(source).toString());
-                            if (source.toFile().isDirectory()) {
-                                Files.createDirectories(target);
-                            } else {
-                                Files.createDirectories(target.getParent());
-                                Files.copy(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                            }
-                        } catch (final java.io.IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
-                }
+                // the folder lock's file stays behind: it is held while the storage is open
+                StorageFolderCopy.copy(dir, copy);
             } finally {
                 storage.shutdown();
                 storage = null;

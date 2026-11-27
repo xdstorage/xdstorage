@@ -11,12 +11,11 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.CRC32;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import io.github.xdstorage.helpers.StorageFolderCopy;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -69,17 +68,8 @@ public class XdStorageVerifyTest {
         final IXdFileStorage storage = open(live, "verify-live-" + tag + "-" + System.nanoTime());
         saveEntities(storage, 5);
         final Path copy = tempDir.resolve("crash-" + tag);
-        try (final Stream<Path> walk = Files.walk(live)) {
-            for (final Path src : walk.collect(Collectors.toList())) {
-                final Path dest = copy.resolve(live.relativize(src).toString());
-                if (src.toFile().isDirectory()) {
-                    Files.createDirectories(dest);
-                } else {
-                    Files.createDirectories(dest.getParent());
-                    Files.copy(src, dest, StandardCopyOption.REPLACE_EXISTING);
-                }
-            }
-        }
+        // the crash proxy: copied while the storage is open; the folder lock's file stays behind
+        StorageFolderCopy.copy(live, copy);
         storage.shutdown();
         return copy;
     }
@@ -156,17 +146,7 @@ public class XdStorageVerifyTest {
     public void truncatedBaseDetected() throws Exception {
         final Path dir = buildGreenFolder("trunc", 5);
         final Path copy = tempDir.resolve("copy-trunc");
-        try (final Stream<Path> walk = Files.walk(dir)) {
-            for (final Path src : walk.collect(Collectors.toList())) {
-                final Path dest = copy.resolve(dir.relativize(src).toString());
-                if (src.toFile().isDirectory()) {
-                    Files.createDirectories(dest);
-                } else {
-                    Files.createDirectories(dest.getParent());
-                    Files.copy(src, dest, StandardCopyOption.REPLACE_EXISTING);
-                }
-            }
-        }
+        StorageFolderCopy.copy(dir, copy);
         final byte[] all = Files.readAllBytes(findDataBase(copy));
         Files.write(findDataBase(copy), java.util.Arrays.copyOf(all, all.length * 6 / 10));
 
@@ -241,17 +221,7 @@ public class XdStorageVerifyTest {
         final Path five = buildGreenFolder("five", 5);
         final Path four = buildGreenFolder("four", 4);
         final Path copy = tempDir.resolve("copy-mismatch");
-        try (final Stream<Path> walk = Files.walk(five)) {
-            for (final Path src : walk.collect(Collectors.toList())) {
-                final Path dest = copy.resolve(five.relativize(src).toString());
-                if (src.toFile().isDirectory()) {
-                    Files.createDirectories(dest);
-                } else {
-                    Files.createDirectories(dest.getParent());
-                    Files.copy(src, dest, StandardCopyOption.REPLACE_EXISTING);
-                }
-            }
-        }
+        StorageFolderCopy.copy(five, copy);
         // the hand edit: the base silently loses one object (a valid, sentinel-carrying file
         // that simply disagrees with the index)
         Files.write(findDataBase(copy), Files.readAllBytes(findDataBase(four)));

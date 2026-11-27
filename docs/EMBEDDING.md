@@ -245,8 +245,10 @@ copy: object counts, load-by-id, indexed EQUALS and range queries across all sto
 - The `.xdstorage.lock` FILE travels with the backup and is harmless — a clean `shutdown()`
   releases the OS file lock; the copy re-acquires its own. (A stale lock file from an unclean
   shutdown is equally harmless — also pinned by the test.) What must NOT be copied is an
-  **open** folder: the exclusive OS lock blocks same-machine copies, and a copied-while-open
-  folder has no defined content state.
+  **open** folder: a copied-while-open folder has no defined content state, and on Windows
+  the copy does not even complete — the lock on `.xdstorage.lock` is mandatory there, and no
+  other handle reads that file until the storage is closed. On Linux and macOS the lock is
+  advisory and such a copy succeeds, which makes the undefined state easier to miss.
 - No export/import step, no format conversion — the copy IS a restorable backup. For
   scheduled backups: close (or snapshot from a second machine while the first is closed),
   `cp -r`, reopen.
@@ -341,7 +343,7 @@ Stated as what has been **run**, not what is expected to work.
 | Platform | Status |
 |---|---|
 | Linux x86_64 | **Tested.** The full-suite gate and the nightly ×3 run on it (`ubuntu-latest`), on Temurin 17 and 21; the benchmark figures in BENCHMARKS.md come from a Linux box. |
-| Windows x86_64 | **A CI leg runs the non-stress suite on `windows-latest`** (`ci.yml`, job `windows`, since 2.2.0). Until its result is green and triaged ([task 04](tasks/2.2.0/04-os-dependent-paths.md)), treat Windows as *expected to work, not verified*. |
+| Windows x86_64 | **A CI leg runs the non-stress suite on `windows-latest`** (`ci.yml`, job `windows`, since 2.2.0). Its first run (2026-11-27) came back 1746 run, 25 failed — every failure in the tests themselves: the folder lock's file copied while the storage was open, `/` spelled as the separator, a thread check over the whole JVM ([the triage](tasks/2.2.0/04-os-dependent-paths.md)). The engine showed no Windows defect in that run. The fixes are in; until a run with them is green, treat Windows as *expected to work, not verified*. |
 | macOS | **Not tested.** No CI leg runs there. |
 | Java 8–11 runtimes | **Not tested by CI.** The bytecode is `release=8` and uses only the Java 8 platform API (H-5), but the suite runs on 17 and 21 only. |
 

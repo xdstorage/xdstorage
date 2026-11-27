@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.stream.Stream;
+import io.github.xdstorage.helpers.StorageFolderCopy;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -81,22 +82,9 @@ public class XdStorageIndexJournalTest {
         }
     }
 
+    /** The crash proxy: a copy taken while the storage is open; the folder lock's file stays behind. */
     private void copyFolder(final Path from, final Path to) throws IOException {
-        try (Stream<Path> walk = Files.walk(from)) {
-            walk.forEach(source -> {
-                try {
-                    final Path target = to.resolve(from.relativize(source).toString());
-                    if (Files.isDirectory(source)) {
-                        Files.createDirectories(target);
-                    } else {
-                        Files.createDirectories(target.getParent());
-                        Files.copy(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                    }
-                } catch (final IOException e) {
-                    throw new RuntimeException(e);
-                }
-            });
-        }
+        StorageFolderCopy.copy(from, to);
     }
 
     @Test

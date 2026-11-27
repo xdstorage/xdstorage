@@ -2,7 +2,7 @@
 
 These are the hard-won rules from the 2.1.0/2.2.0 trains. Each exists because
 something broke. They instantiate the abstract principles in
-[general-recommendations.md](general-recommendations.md) (R1–R12) for this
+[general-recommendations.md](general-recommendations.md) (R1–R13) for this
 repository — when a case isn't covered here, reason from those.
 
 ## 1. Verification
@@ -135,6 +135,17 @@ Every policy test class MUST have exactly 14 tests (the FK-6 pattern × 4 polici
   excludes the stress/integration tags and the documented-flaky families
 - `gh` CLI is not installed locally — issues-sync runs on push
 - `docs/tasks/discovery.md` is the maintainer's planning input
+- CI has three legs on the same commit: `gate` and `jdk21` (`ubuntu-latest`), and
+  `windows` (`windows-latest`, the non-stress suite, since 2.2.0). A test is green
+  when all three are — a red `windows` leg is triaged in
+  `docs/tasks/2.2.0/04-os-dependent-paths.md`
+- **Windows facts for tests** (the first run, 2026-11-27: 25 red, all in the tests):
+  the `.xdstorage.lock` of an open storage cannot be read or copied there (the lock
+  is mandatory; on Linux it is advisory) — copy a storage folder with
+  `io.github.xdstorage.helpers.StorageFolderCopy.copy(from, to)`, which leaves that
+  file out, and skip it in any file dump; a `Path` says `\` there, so never spell
+  `/` as the separator; worker names (`xdstorage-worker-N`) are per storage, so a
+  daemon check looks at the thread that ran the storage's own task
 
 ## 5. The release gate
 

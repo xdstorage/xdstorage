@@ -342,16 +342,22 @@ grouping is tags, not layout.
     never have run (PowerShell against `/tmp`, and a JVM does not start with a `-Xlog`
     file whose directory is missing). Merged — five merges and the cherry-pick — then one
     fix commit per task: `684efd2` 04, `2eb8be8` 12, `ea7a7e4` 41, `4da7dd4` 17,
-    `5246879` 15. **Status after:** 15, 17, 40, 41 done; 04 open on one point (the Windows
-    result — the leg runs on the pull request, nothing is triaged yet); 12 open on one
-    decision (lift NOT RECOMMENDED or deprecate — the design note is written, and the
+    `5246879` 15. **Status after:** 15, 17, 40, 41 done; 04 open on one point (the second
+    Windows run — the first, on the pull request, 2026-11-27: 1746 run, 25 red, all three
+    causes in the tests and fixed; a Linux emulation of the mandatory lock reproduces 21 of
+    them on the old tree and none on the fixed one; the triage is in the task file); 12 open
+    on one decision (lift NOT RECOMMENDED or deprecate — the design note is written, and the
     isolation stress test turned out to be in every suite since `59ff544`, not excluded
     as FLAKY.md said until now). **Findings that outlive the wave:** (a) a storage folder
     names its files by the path it was opened with — a copy made by hand is tied to the
     original's path (EMBEDDING § Backup and restore; `backupTo` rewrites it); (b) 2.1.x
     saved a `UUID` / `java.time` field not at all and made an index over one unreadable;
     (c) the engine stores a class's structure only after `executeStructureUpdate`, so a
-    schema diff of an ordinary folder has nothing to compare. Gate on `parallel-work`:
+    schema diff of an ordinary folder has nothing to compare; (d) the folder lock is
+    mandatory on Windows — no other handle reads `.xdstorage.lock` while the storage is
+    open — and a test suite that copies an open folder, spells `/` as the separator or
+    judges threads by name is green on Linux and red there (the junit-tester skill's R13).
+    Gate on `parallel-work`:
     `clean test -Pquick-gate` **1746/0f/0e/7 skipped ×3, consecutive**, BUILD SUCCESS, 0
     checkstyle violations (`main`: 1360). The push and the pull request are the maintainer's.
 

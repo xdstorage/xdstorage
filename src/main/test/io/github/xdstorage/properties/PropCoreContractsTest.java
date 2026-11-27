@@ -109,6 +109,11 @@ public class PropCoreContractsTest {
                 final File root = dir;
                 try (final java.util.stream.Stream<Path> walk = java.nio.file.Files.walk(root.toPath())) {
                     for (final Path p2 : (Iterable<Path>) walk.filter(java.nio.file.Files::isRegularFile)::iterator) {
+                        // the folder lock's file is held while the storage is open: Windows refuses to read it
+                        if (p2.getFileName().toString().equals(
+                                io.github.xdstorage.utils.XdStorageFolderLock.LOCK_FILE_NAME)) {
+                            continue;
+                        }
                         final String content = new String(java.nio.file.Files.readAllBytes(p2),
                                 java.nio.charset.StandardCharsets.UTF_8);
                         System.out.println("[PT-FK][file] " + root.toPath().relativize(p2) + " (" + content.length() +
