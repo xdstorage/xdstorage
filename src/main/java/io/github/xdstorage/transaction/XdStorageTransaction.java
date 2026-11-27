@@ -133,11 +133,11 @@ public class XdStorageTransaction implements IXdStorageTransaction {
     /** R-40: запас сверх таймаута внутренней tx, после которого родитель принудительно ее sweeping-откатывает. */
     private static final long INTERNAL_SWEEP_GRACE_MILLIS = 500;
 
-    /** R-40 (task 12 fix): grace сверх таймаута parent-а, после которого родитель
-     * принудительно sweep-ит внутреннюю tx на ДРУГОМ потоке (которая не истекла, не
-     * брошена на текущем потоке, но уже 5+ секунд — значит, скорее всего, stuck/abandoned).
-     * Это закрывает gap: parent вызвал commit, а nested на другом воркере всё ещё «running»
-     * (timeout=60s, exception не дошёл до scope exit) → parent ждёт вечно без этого.
+    /**
+     * 2.2.0/12: how long a parent's commit waits for a nested transaction that runs on
+     * ANOTHER thread and is still inside its own timeout, before sweeping it. A cross-thread
+     * nested transaction is outside the thread-bound contract; this bound keeps the parent
+     * from holding its record locks for the nested transaction's whole timeout.
      */
     private static final long CROSS_THREAD_ABANDON_MILLIS = 5000;
 
@@ -340,18 +340,20 @@ public class XdStorageTransaction implements IXdStorageTransaction {
                             manager.registerRollbackOnlyTransaction(internal);
                             swept = true;
                         }
-                        // R-40 (task 12 fix): cross-thread + not-expired + too old → force-sweep.
-                        // Закрывает gap: parent вызвал commit, а nested на другом потоке всё ещё
-                        // «running» (timeout=60s, exception не дошёл до scope exit) → parent ждёт
-                        // вечно. С threshold 5s: если nested > 5s — считаем abandoned.
-                        // (ageMillis уже объявлена выше, используем ту же)
-                        final long crossAgeMillis = (System.nanoTime() - internal.getTimestart()) / 1_000_000;
+                        // 2.2.0/12: what is left here is a nested transaction on ANOTHER thread that
+                        // is still inside its own timeout (the same-thread and the expired cases are
+                        // handled above). A parent that commits while its nested transaction runs
+                        // elsewhere is outside the thread-bound contract; waiting out the nested
+                        // transaction's whole timeout (60 s in the stress shapes) held the parent's
+                        // record locks all that time. Past CROSS_THREAD_ABANDON_MILLIS it is swept
+                        // like the abandoned cases — cascaded, so the parent is marked too.
                         if (ageMillis > CROSS_THREAD_ABANDON_MILLIS && !internal.isRollbackOnly()) {
-                            log.warn("Parent transaction {} force-sweeps abandoned internal transaction {} " +
-                                    "(cross-thread, age {} ms > {} ms) — no timeout, no current-thread binding",
-                                    transactionId, internalId, ageMillis, CROSS_THREAD_ABANDON_MILLIS);
+                            log.warn("Parent transaction {} force-sweeps internal transaction {} running on "
+                                    + "another thread (age {} ms > {} ms, inside its own timeout {} ms)",
+                                    transactionId, internalId, ageMillis, CROSS_THREAD_ABANDON_MILLIS,
+                                    internal.getTimeout());
                             internal.markSelfAndChildrenRollbackOnlyCascaded(
-                                    "parent force-sweep of abandoned cross-thread internal tx " + internalId,
+                                    "parent force-sweep of a cross-thread internal tx " + internalId,
                                     null, this.transactionId);
                             swept = true;
                         }

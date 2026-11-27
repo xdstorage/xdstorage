@@ -381,12 +381,12 @@ try {
 ```
 
 > **Nested transactions (`beginTransaction(parentTx, timeout)`) are NOT RECOMMENDED for
-> load-heavy use.** A nested rollback correctly does not poison the parent (downward-only
-> cascade), the cross-thread abandon sweep gap is fixed (2.2.0, task 12: 5-second sweep),
-> and mid-commit poisoning is guarded (2.1.0, task 45). The remaining throughput envelope
-> (per-record YAML floor ~20–50 ms, commit-lock queue) is an architectural limitation of
-> the suspension model, not a correctness defect. Prefer flat transactions with explicit
-> compensating code.
+> load-heavy use** — a status decision that stands until [task 12](tasks/2.2.0/12-nested-transactions-load-safety.md)
+> is closed. A nested rollback does not poison the parent (downward-only cascade), and
+> mid-commit poisoning is guarded (2.1.0, task 45). A nested transaction is bound to the
+> thread that began it: a parent's commit does not wait longer than 5 seconds for one left
+> running on another thread — it is rolled back, and the parent with it (2.2.0). Prefer
+> flat transactions with explicit compensating code.
 
 Semantics:
 

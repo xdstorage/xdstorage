@@ -32,12 +32,20 @@ tests (20 classes × 10 consecutive surefire passes, 2026-10-19 night).
 | `BTreeResourceCacheIntegrationTest.testIntegration_HeavyParallelLoad_NoDeadlocksOrTimeouts` (@Tag integration) | 15 workers on one index tree: retry-budget exhaustion + latch timeouts on the hot node (id 15) | open — same family; the failures are lock-contention backpressure, no structure corruption reported. **Green ×3 in the 2.1.0 RC protocol (2026-11-22, the full suite incl. this class)** — the row stays open as the load-specific watch, not a release blocker |
 | `XdStorageBTreeDuplicateInvariantTest.testConcurrentDuplicateInsertAndTargetedDeleteIsThreadSafe` | the concurrent targeted delete of a VERIFIED-EXISTING duplicate pair threw `"does not exists"` (hot_0/payload_0_6) — the silent-wrong-result class under full parallelism (200 deletes / 4 hot keys) | 1 occurrence on the CI 2-vCPU runner (2026-11-23, the gate leg; **the jdk21 leg passed the identical 1358 suite simultaneously** — the race evidence); 0/3 locally on the 24-thread box | **open — task 32 DUPRACE** (the targeted-delete descent race; the deterministic repro required, the probabilistic CI run cannot gate) |
 
-## Excluded by decision (2026-10-26, maintainer)
+## Excluded by decision (2026-10-26, maintainer) — RE-INCLUDED 2026-11-21
+
+**Both classes run again in every suite — the default run, `-Pquick-gate` and the nightly —
+since `59ff544` (TREEOVERLAY, task 53: "stress family 6/7 green") removed their `<exclude>`
+entries from the pom.** The rows below keep the decision and what was known then; any text
+elsewhere that still calls them excluded is stale. Observed on one machine on 2026-11-27,
+full-suite runs: `XdStorageFacadeStressTest` 26/26 green;
+`XdStorageNestedTransactionIsolationStressTest` 25 green, 1 red — in the one run that shared
+the box with a second Maven build — and 10/10 isolated on `main`.
 
 | Test class | Signature | Decision |
 |------------|-----------|----------|
-| `XdStorageNestedTransactionIsolationStressTest` (@Tag stress) | the nested commit/rollback machinery is critical under load (latch cascades, zombie sweeps) | excluded from the gate/release profiles **and the nightly** (ci.yml `-Dtest='!…'`); task 12 fixed the cross-thread abandon gap (`CROSS_THREAD_ABANDON_MILLIS=5000` + force-sweep), the remaining reds are throughput-bound (per-record YAML floor ~20–50 ms); the feature is documented NOT RECOMMENDED (EMBEDDING/GUIDE/CHANGELOG) |
-| `XdStorageFacadeStressTest` (@Tag stress) | the facade load flow: the historical families (hot-node latches, retry budgets, validator divergence) | excluded from the gate/release profiles **and the nightly**; 2.2.0 task 13 = the failure-cause investigation + the performance improvement plan |
+| `XdStorageNestedTransactionIsolationStressTest` (@Tag stress) | the nested commit/rollback machinery is critical under load (latch cascades, zombie sweeps) | excluded 2026-11-08 (2c43b8c) → **re-included 2026-11-21 (`59ff544`)**. 2.2.0 task 12 closed one more gap (a nested transaction running on another thread is swept after 5 s instead of holding its parent for the whole timeout); the feature's NOT RECOMMENDED status is the maintainer's call (EMBEDDING/GUIDE/CHANGELOG) |
+| `XdStorageFacadeStressTest` (@Tag stress) | the facade load flow: the historical families (hot-node latches, retry budgets, validator divergence) | excluded 2026-11-08 (2c43b8c) → **re-included 2026-11-21 (`59ff544`)**; 2.2.0 task 13 stays the record of the load investigation |
 
 ## Conventions
 
@@ -98,11 +106,11 @@ tests (20 classes × 10 consecutive surefire passes, 2026-10-19 night).
   the live sibling); the merge record-cleanup is idempotent for same-transaction
   tombstones (the in-memory unlink is what matters); the leaf-list race caught as the
   same stale-descent signal.
-- **Gate policy:** `FacadeStress` and `NestedIsolation` are excluded from the
-  gate/default run per the status decision 2c43b8c (the throughput envelope, R-STORM-
-  ENVELOPE above) — the pom's default surefire config now mirrors the quick-gate/
-  nightly/release policy. Their correctness coverage lives in the invariant tests; the
-  envelope belongs to 2.2.0 task 10.
+- **Gate policy (at the time):** `FacadeStress` and `NestedIsolation` were excluded from
+  the gate/default run per the status decision 2c43b8c (the throughput envelope, R-STORM-
+  ENVELOPE above); their correctness coverage lives in the invariant tests; the envelope
+  belongs to 2.2.0 task 10. **Superseded 2026-11-21 (`59ff544`): both are back in every
+  suite — see "Excluded by decision" above.**
 - **Evidence:** BTreeTargetedDeleteStress 5/5 green; BTreeStress 8/8 green (isolated);
   the full gate (951 tests): **0 failures ×3 consecutive runs, BUILD SUCCESS ×3.**
 

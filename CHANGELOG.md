@@ -4,13 +4,6 @@
 
 ### Fixed
 
-- **Nested-transaction cross-thread abandon gap (task 12):** a parent `commitTransaction`
-  could wait forever (`skipOrWaitForInternalTransactions` infinite loop) on a nested tx
-  that was "running" on another thread but never finished (exception didn't reach scope
-  exit, timeout far in the future). Added `CROSS_THREAD_ABANDON_MILLIS = 5000` + force-sweep
-  in `skipOrWaitForInternalTransactions`: abandoned nested txs on other threads older than
-  5 seconds are marked rollback-only and swept, unblocking the parent. Tested by the new
-  `XdStorageNestedTransactionLoadSafetyTest` (10 scenarios).
 - **The concurrent targeted delete of a duplicate pair no longer throws "does not
   exists" for an existing pair** (the DUPRACE race: the targeted-delete descent vs a
   concurrent sibling's borrow/merge — the miss now re-descends via the retry loop when
@@ -154,6 +147,14 @@
   empty containers — the write side did not recurse into nested collection/map/array
   blocks). Found by the property campaign, pinned by the container-jungle property +
   the file-truth probe.
+- **A parent's commit no longer waits out a nested transaction that runs on another thread**
+  ([12](docs/tasks/2.2.0/12-nested-transactions-load-safety.md)) — a nested transaction is
+  bound to its thread; when a parent committed while its nested transaction was running
+  elsewhere, the parent waited for that transaction's whole timeout (60 s in the stress
+  shapes), holding its record locks all the while. After 5 seconds the nested transaction is
+  now swept like an abandoned one: rolled back, and the parent with it. The feature's NOT
+  RECOMMENDED status is unchanged — lifting it or deprecating the API is the maintainer's
+  decision; the design note and the evidence are in the task file.
 
 ## [2.1.1] — 2026-11-22
 

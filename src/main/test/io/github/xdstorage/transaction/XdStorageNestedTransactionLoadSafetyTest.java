@@ -3,7 +3,6 @@ package io.github.xdstorage.transaction;
 import io.github.xdstorage.IXdFileStorage;
 import io.github.xdstorage.XdStorageProvider;
 import io.github.xdstorage.entities.XdPlanet;
-import io.github.xdstorage.exceptions.XdStorageException;
 import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import org.junit.jupiter.api.*;
 
@@ -92,7 +91,8 @@ public class XdStorageNestedTransactionLoadSafetyTest {
                     IXdStorageTransaction nestedTx = storage.beginTransaction(parentTx, 60_000L);
                     XdPlanet planet = new XdPlanet();
                     planet.setName("Nested_" + workerId + "_long");
-                    try { storage.save(planet, nestedTx); } catch (Throwable t) {} // swallow connection exceptions in lambda
+                    // connection exceptions in the lambda are swallowed on purpose
+                    try { storage.save(planet, nestedTx); } catch (Throwable t) {} //NOPMD
                     nestedStarted.countDown();
                     parentCommitted.await(WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
                     storage.rollbackTransaction(nestedTx);
@@ -232,7 +232,8 @@ public class XdStorageNestedTransactionLoadSafetyTest {
     @Test
     @DisplayName("Scenario 5: isTransactionBoundToCurrentThread after commit")
     public void testStaleEntryRace() throws Exception {
-        IXdStorageTransaction nestedTx = storage.beginTransaction(storage.getTransactionManager().getCurrentTransaction(), 5000L);
+        IXdStorageTransaction nestedTx = storage.beginTransaction(
+                storage.getTransactionManager().getCurrentTransaction(), 5000L);
         XdPlanet p = new XdPlanet();
         p.setName("StaleEntry_" + System.nanoTime());
         storage.save(p, nestedTx);

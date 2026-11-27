@@ -53,14 +53,16 @@ current code, stated so embedding surprises are design-time, not production-time
   the stored data intact; the retry pattern is a fresh read in a new transaction. Staged-but-
   aborted foreign work does not trigger false conflicts (the semantics are content-based).
 - Nested transactions: `beginTransaction(parentTx, timeout)`; a nested rollback does not poison the
-  parent (downward-only rollback-only cascade). **NOT RECOMMENDED for load-heavy use**: the
-  nested commit/rollback machinery is a known critical-under-load path (abandoned-nested
-  latch cascades, zombie sweeps, mid-commit poisoning — see the transaction-failure
-  diagnostics). The cross-thread abandoned-nested sweep gap was fixed in 2.2.0
-  (task 12: `CROSS_THREAD_ABANDON_MILLIS = 5000` + force-sweep in `skipOrWaitForInternalTransactions`).
-  The remaining throughput envelope (per-record YAML floor ~20–50 ms, commit-lock queue depth)
-  is an architectural limitation of the suspension model, not a correctness defect.
-  Prefer flat transactions with explicit compensating code.
+  parent (downward-only rollback-only cascade). **NOT RECOMMENDED for load-heavy use** — the
+  status decision of 2026-10-26 stands until [task 12](tasks/2.2.0/12-nested-transactions-load-safety.md)
+  is closed (lifted or deprecated); see the transaction-failure diagnostics for the failure
+  families. Two rules a caller meets: a nested transaction is bound to the thread that began
+  it, and a parent's commit does not wait out a nested transaction left running on ANOTHER
+  thread — after 5 seconds that transaction is rolled back, and the parent with it (2.2.0; a
+  nested transaction abandoned on its own thread, or past its timeout, is swept as before).
+  The isolation stress test of the machinery (`XdStorageNestedTransactionIsolationStressTest`,
+  8 workers with 100 ms budgets) runs in the default suite. Prefer flat transactions with
+  explicit compensating code.
 - **Abandoned top-level transactions are NOT force-swept at `beginTransaction`** (the
   ZOMBIELATCH decision, docs/tasks/2.1.0/36-zombie-latch-purge): a worker that swallows a
   failure without commit/rollback leaves its transaction latched until the lazy timeout
