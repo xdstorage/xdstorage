@@ -347,6 +347,22 @@ the swap may lose that file. Filesystems without rename support (FAT, exFAT) the
 the crash-safety contract of § Files and durability for portability; keep the storage folder
 on one that supports it (NTFS, ext4, APFS).
 
+### Field types and their stored form
+
+GUIDE § Field types lists what a field may hold; this is the same list as it meets the disk
+and an upgrade.
+
+| Type | Stored as | A folder written before 2.2.0 |
+|---|---|---|
+| primitives and wrappers, `Number` (`BigDecimal`, `BigInteger`, …), `String`, `Character`, `Boolean` | text | reads as before |
+| `java.util.Date`, `java.lang.Class`, enums | epoch milliseconds, class name, constant name | reads as before |
+| `UUID`, `Instant`, `LocalDate`, `LocalDateTime`, `Duration` | their `toString()` forms (canonical UUID; ISO-8601) | **the field was not written at all** — a save dropped it silently; it reads `null`, as it did before |
+| an index over one of the five | — | **the search tree is unreadable** (`invalid state of database`), before and after the upgrade. With the storage closed, remove the index's two tree files (`indexes/XdStorageBTree/XdStorageBTree-<Class>-<index>.yaml`, `…-key_<index>.yaml`); the index answers empty from then on — `executeStructureUpdate` does not repair it. Run `verify` afterwards. |
+| any other class | a child object or a reference | reads as before |
+
+Adding a simple type is an engine change (`XdStorageObjectUtils.isSimpleType` and
+`XdStorageDefaultSimpleTypeHelper`); applications cannot register one.
+
 ### On-disk format compatibility
 
 The format generation is recorded per storage folder in `.xdstorage.meta`

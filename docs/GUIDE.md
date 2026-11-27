@@ -98,6 +98,53 @@ runtime wrapper classes per entity (see [Concurrency model](#concurrency-model-a
   `String` ids (see [Identifier generation](#identifier-generation-and-observers)).
 - Child objects referenced by fields follow their **own** class policy.
 
+### Field types — what a field may hold
+
+A field is stored in one of three ways, decided by its declared type:
+
+| The field's type | Stored as |
+|---|---|
+| A **simple type** (the table below) | one scalar value, in its text form |
+| A collection or map of simple types (`List`, `Set`, `Collection`, `Map`, arrays) | a list / map of those scalars |
+| Anything else — another entity class | a child object or a reference, by that class's own policy (§ Storage policies) |
+
+**Simple types** and the text form they take on disk:
+
+| Type | Text form on disk | Since |
+|---|---|---|
+| `String`, `char` / `Character`, `boolean` / `Boolean` | as is | |
+| `byte`, `short`, `int`, `long`, `float`, `double` and their wrappers; `BigDecimal`, `BigInteger` and any other `Number` | decimal text | |
+| `java.util.Date` | epoch milliseconds | |
+| `java.lang.Class` | the class name | |
+| an `enum` | the constant's name — a renamed constant no longer resolves | |
+| `java.util.UUID` | the canonical form, `a1b2c3d4-e5f6-7890-abcd-ef1234567890` | 2.2.0 |
+| `java.time.Instant` | ISO-8601 in UTC, `2026-01-01T00:00:00Z` (the fraction of a second only when it is not zero) | 2.2.0 |
+| `java.time.LocalDate`, `java.time.LocalDateTime` | ISO-8601, `2026-01-01`, `2026-01-01T00:00:00` | 2.2.0 |
+| `java.time.Duration` | ISO-8601, `PT1H30M` | 2.2.0 |
+
+A field of one of these types can carry a search index, and the index compares by value:
+a range over `Instant`s follows time and a range over `Duration`s follows length, not the
+order of their text forms.
+
+**Not simple types** — `LocalTime`, `OffsetTime`, `OffsetDateTime`, `ZonedDateTime`, `Year`
+and the rest of `java.time` are beans to the engine and do not round-trip as fields. Store
+them as `String`, `Instant` or `LocalDateTime` until they are added.
+
+**Folders written before 2.2.0.** `UUID` and `java.time` fields were not simple types then:
+a save wrote the record **without them** — no error, the value was lost — and an index over
+such a field produced a search tree that could not be read back (`invalid state of database`).
+Nothing in such a folder needs converting, because the values were never written; the fields
+read as `null`, as they did before. An index over one of these fields in an old folder stays
+unreadable until you remove its two tree files with the storage closed
+(`indexes/XdStorageBTree/XdStorageBTree-<Class>-<index>.yaml` and the matching
+`…-key_<index>.yaml`); the engine then answers from an empty index, and `executeStructureUpdate`
+does **not** do this for you — it finds nothing to update.
+
+**Your own types.** There is no supported way to add a simple type from an application: the
+predicate the engine uses (`XdStorageObjectUtils.isSimpleType`) is fixed, and the
+`IXdStorageSimpleTypeHelper` that turns a value into text and back is engine-internal. A type
+you need belongs in the table above — ask for it, or store the field as `String`.
+
 ### Storage policies — `@XdStorageObjectPolicy`
 
 | Policy | Meaning |

@@ -147,6 +147,17 @@
   empty containers — the write side did not recurse into nested collection/map/array
   blocks). Found by the property campaign, pinned by the container-jungle property +
   the file-truth probe.
+- **`UUID` and `java.time` fields are stored — they were dropped silently at every save**
+  ([41](docs/tasks/2.2.0/41-simple-types-uuid-java-time.md)) — `UUID`, `Instant`, `LocalDate`,
+  `LocalDateTime` and `Duration` were not simple types to the engine: a record with such a
+  field was written **without the field**, with no error, and a search index over one of them
+  produced a tree that could not be read back (`invalid state of database`). They are simple
+  types now, stored in their canonical text forms, and an index over one compares by value
+  (a range over `Instant`s follows time, over `Duration`s — length). A folder written by an
+  earlier version needs no conversion — the values were never in it; the fields read `null`,
+  as before — but an index over such a field in an old folder stays unreadable until its
+  search tree is rebuilt. GUIDE § Field types now lists what a field may hold; adding a
+  type remains an engine change, not an application's.
 - **A parent's commit no longer waits out a nested transaction that runs on another thread**
   ([12](docs/tasks/2.2.0/12-nested-transactions-load-safety.md)) — a nested transaction is
   bound to its thread; when a parent committed while its nested transaction was running

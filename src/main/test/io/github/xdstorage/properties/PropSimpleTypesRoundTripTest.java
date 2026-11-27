@@ -4,6 +4,7 @@ import io.github.xdstorage.IXdFileStorage;
 import io.github.xdstorage.IXdStoragePredicate;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import io.github.xdstorage.XdStorageProvider;
+import io.github.xdstorage.entities.PropSimpleTypesEntity;
 
 import java.io.File;
 import java.time.Duration;
@@ -139,36 +140,6 @@ public class PropSimpleTypesRoundTripTest {
         } finally {
             storage.shutdown();
         }
-    }
-
-    /** Entity with simple types: UUID, Instant, LocalDate, LocalDateTime, Duration. */
-    @io.github.xdstorage.annotations.XdStorageObjectPolicy(policy = io.github.xdstorage.XdStoragePolicy.StoreAsClassObjects)
-    public static class PropSimpleTypesEntity {
-        @io.github.xdstorage.annotations.XdStorageObjectId
-        private String id;
-        private UUID uuid;
-        private Instant instant;
-        private LocalDate localDate;
-        private LocalDateTime localDateTime;
-        private Duration duration;
-
-        public String getId() { return id; }
-        public void setId(final String id) { this.id = id; }
-
-        public UUID getUuid() { return uuid; }
-        public void setUuid(final UUID uuid) { this.uuid = uuid; }
-
-        public Instant getInstant() { return instant; }
-        public void setInstant(final Instant instant) { this.instant = instant; }
-
-        public LocalDate getLocalDate() { return localDate; }
-        public void setLocalDate(final LocalDate localDate) { this.localDate = localDate; }
-
-        public LocalDateTime getLocalDateTime() { return localDateTime; }
-        public void setLocalDateTime(final LocalDateTime localDateTime) { this.localDateTime = localDateTime; }
-
-        public Duration getDuration() { return duration; }
-        public void setDuration(final Duration duration) { this.duration = duration; }
     }
 
     private void assertSimpleTypeEqual(final PropSimpleTypesEntity a, final PropSimpleTypesEntity b,
