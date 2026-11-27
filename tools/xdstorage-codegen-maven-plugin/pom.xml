@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  FP-3 (docs/tasks/2.2.0/08): the build-time wrapper generation as a Maven plugin.
+
+  A STANDALONE module, like examples/quickstart: the library's pom is a single-module
+  `jar` project and Maven 3 refuses <modules> there. The plugin carries NO dependency on
+  the engine — at build time of an application it finds the engine on the application's
+  compile classpath and drives the generator of THAT engine by name, so the wrappers are
+  always made by the engine version the application runs.
+
+  Built against the oldest Maven the library supports (3.6.3), Java 8 bytecode: the plugin
+  loads in any of them. Same version number as the engine it ships with.
+
+      (repository root)  mvn install -DskipTests            # the engine into the local repository
+      (here)             mvn verify                         # build + the plugin's own test
+      (consumer)         io.github.xdstorage:xdstorage-codegen-maven-plugin:generate-wrappers
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>io.github.xdstorage</groupId>
+    <artifactId>xdstorage-codegen-maven-plugin</artifactId>
+    <version>2.2.0</version>
+    <packaging>maven-plugin</packaging>
+    <name>XdStorage Codegen Maven Plugin</name>
+    <description>Generates the XdStorage wrapper classes while the application is built, so the
+        application runs on a JRE and needs no writable working directory</description>
+    <url>https://github.com/xdstorage/xdstorage</url>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>ewgeny</id>
+            <name>Evgeny Korolev</name>
+            <email>e-korolev@rambler.ru</email>
+            <roles>
+                <role>architect</role>
+                <role>developer</role>
+                <role>maintainer</role>
+            </roles>
+        </developer>
+    </developers>
+
+    <scm>
+        <url>https://github.com/xdstorage/xdstorage</url>
+        <connection>scm:git:https://github.com/xdstorage/xdstorage.git</connection>
+        <developerConnection>scm:git:git@github.com:xdstorage/xdstorage.git</developerConnection>
+        <tag>HEAD</tag>
+    </scm>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <project.build.outputTimestamp>2026-11-22T06:00:00Z</project.build.outputTimestamp>
+        <maven.api.version>3.6.3</maven.api.version>
+        <maven.plugin.tools.version>3.13.1</maven.plugin.tools.version>
+        <junit.version>5.11.4</junit.version>
+    </properties>
+
+    <dependencies>
+        <!-- Maven's own API: provided by the Maven that runs the plugin. -->
+        <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-plugin-api</artifactId>
+            <version>${maven.api.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-core</artifactId>
+            <version>${maven.api.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.maven.plugin-tools</groupId>
+            <artifactId>maven-plugin-annotations</artifactId>
+            <version>${maven.plugin.tools.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- tests: the plugin is driven against the engine it ships with -->
+        <dependency>
+            <groupId>io.github.xdstorage</groupId>
+            <artifactId>xdstorage</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <release>8</release>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.0.0-M4</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-plugin-plugin</artifactId>
+                <version>${maven.plugin.tools.version}</version>
+                <configuration>
+                    <skipErrorNoDescriptorsFound>true</skipErrorNoDescriptorsFound>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>mojo-descriptor</id>
+                        <goals>
+                            <goal>descriptor</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- The house style gate (task 2.2.0/34), same ruleset and same warnings-first
+                 policy as the library; the module sits two levels down, so the path is spelled
+                 out. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <version>3.3.1</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.puppycrawl.tools</groupId>
+                        <artifactId>checkstyle</artifactId>
+                        <version>10.12.4</version>
+                    </dependency>
+                </dependencies>
+                <configuration>
+                    <configLocation>${project.basedir}/../../checkstyle.xml</configLocation>
+                    <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                    <consoleOutput>true</consoleOutput>
+                    <failOnViolation>false</failOnViolation>
+                    <violationSeverity>warning</violationSeverity>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>checkstyle-gate</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -76,13 +76,17 @@ One name per concept, used across README, GUIDE, DECISION-GUIDE, EMBEDDING and C
 - **Structure updates** — registered updaters migrate persisted structures (e.g. rebuild a search index after
   its annotation changed) via `executeStructureUpdate`.
 - **Pure Java** — bytecode stays Java 8 compatible; the tested runtimes are JDK 17 (the
-  full-suite gate) and JDK 21 (the CI leg and the canonical-baseline runtime); logging via
+  full-suite gate) and JDK 21 (the CI leg and the canonical-baseline runtime); a **JRE** runs it
+  too when the wrapper classes are generated at build time
+  ([EMBEDDING § Running on a JRE](EMBEDDING.md#running-on-a-jre)); logging via
   SLF4J — the API jar is the only logging artifact (no backend, no configuration ships in the library).
 
 ## Defining the data model
 
-Entities are ordinary JavaBeans. XdStorage reads the class structure once, caches the metadata, and generates
-runtime wrapper classes per entity (see [Concurrency model](#concurrency-model-and-internals)).
+Entities are ordinary JavaBeans. XdStorage reads the class structure once, caches the metadata, and uses a
+generated wrapper class per entity — generated at build time when the application ships them, otherwise
+compiled at runtime (see [Concurrency model](#concurrency-model-and-internals) and
+[EMBEDDING § Codegen requirements](EMBEDDING.md#codegen-requirements)).
 
 ### Rules for every entity
 
@@ -907,9 +911,13 @@ storage policy.
   writers measure **121–158 tx/s (p99 84–113 ms)** on the heavy indexed shape, where 2.0.x decayed
   to ~1 tx/s through lock-timeout cycles. First-committer-wins is re-validated at commit time
   (§ [Transactions](#transactions)) — the convoy fix did not reopen the lost-update window.
-- **Runtime code generation.** For each entity class the storage generates wrapper classes at first use:
+- **Wrapper code generation.** For each entity class the storage needs generated wrapper classes:
   an *observable* wrapper (write-through + deferred-id observation) and an *unmodifiable* wrapper (the
-  snapshot view handed to readers). This is why entities must be top-level classes with full getters/setters.
+  snapshot view handed to readers). They come from the application's own classes when they were generated
+  at build time (EMBEDDING § Running on a JRE — checked by a fingerprint of the class and the engine
+  version); otherwise the engine compiles them at first use, which takes a JDK and a writable working
+  directory — and when neither is possible, opening the storage fails by name instead of degrading.
+  This is why entities must be top-level classes with full getters/setters.
 - **Worker threads.** Each storage instance owns a fixed thread pool (default 15, `workerPoolSize`) of named
   `xdstorage-worker-N` threads used for parallel resource I/O during load/commit, the timeout sweeper and
   triggers. Threads are non-daemon by default (pre-config behavior); with

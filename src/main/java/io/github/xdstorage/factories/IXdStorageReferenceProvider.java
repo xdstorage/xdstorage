@@ -39,8 +39,10 @@ public interface IXdStorageReferenceProvider {
      * @param storage     the storage the transaction runs against
      * @param transaction the transaction scoping the registration
      * @return the canonical wrapper for the pair (never {@code null})
-     * @throws XdStorageException when the wrapper cannot be instantiated, its generation
-     *         degrades to a dummy, or registration fails
+     * @throws XdStorageException when the wrapper cannot be instantiated, the class resolves
+     *         to the dummy wrapper (a self-referencing generation on this thread), or
+     *         registration fails; a runtime that can deliver no wrapper class at all fails
+     *         earlier, with {@code XdStorageWrapperGenerationException
      */
     IXdStorageSimpleWrapper createAndRegisterReference(Class<?> cl, XdStorageObjectIdField idField, Object objectId,
             IXdStorage storage, IXdStorageTransaction transaction) throws XdStorageException;

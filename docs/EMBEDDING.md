@@ -93,23 +93,135 @@ current code, stated so embedding surprises are design-time, not production-time
   and whose transaction completed is reclaimed by the GC, so the registry no longer
   survives `storage.shutdown()` with dead entries (the historical WeakHashMap leaked
   because its values strongly referenced their keys).
-- The generated-class loader is a static `URLClassLoader` over `./gencode` — **created relative to
-  the process working directory at first use and pinned for the JVM's life**. App-server redeploys
-  that expect classloader isolation will not work with engine-generated wrappers.
+- The runtime-generated-class loader is a static `URLClassLoader` over `./gencode` — **created
+  relative to the process working directory when the first wrapper is compiled at runtime, and
+  pinned for the JVM's life**; it is never created when the wrappers were generated at build
+  time (§ Running on a JRE). App-server redeploys that expect classloader isolation do not work
+  with runtime-generated wrappers; build-time wrappers are ordinary classes of the
+  application's own loader and are reloaded with it.
 
 ## Codegen requirements
 
-- The engine generates wrapper classes **at runtime** via the system Java compiler: a **JDK is
-  required at runtime — a JRE silently degrades to dummy wrappers** (broken equals/hashCode; an
-  ERROR is logged once, the failure is cached for the JVM lifetime, there is no retry).
-- The write target `./gencode/` must be **writable**; a read-only working directory has the same
-  permanent-dummy-wrapper failure mode.
+Every entity class gets a generated **wrapper** — the subclass that gives it transactional
+access, lazy loading and a working `equals`/`hashCode`. The engine cannot work without one, and
+takes it from the first of these paths that delivers it:
+
+1. **Build-time wrappers** (since 2.2.0) — generated while the application is built into its
+   own classes, found through `META-INF/xdstorage/aot-wrappers.properties`. No compiler and no
+   directory to write: the application runs on a **JRE** and from a **read-only working
+   directory** (§ Running on a JRE).
+2. **Runtime generation** — the system Java compiler of a **JDK**, when a wrapper is first
+   needed, into `./gencode/` under the process working directory, which must be **writable**.
+   (In the quickstart that is the first *load* — the first save compiles nothing; BENCHMARKS
+   § Cold start.)
+3. **Neither**: opening a storage fails with `XdStorageRuntimeException` naming the cause and
+   the fix — before the storage folder is locked or touched. Nothing degrades silently: until
+   2.2.0 a JRE or a read-only working directory went on with *dummy* wrappers behind one ERROR
+   line (broken `equals`/`hashCode`).
+
+A build-time wrapper is accepted only if it was generated for the class **as it is loaded
+now**: the generator records a fingerprint of the class and the engine version next to every
+wrapper, and the engine checks it when it takes the wrapper. One that does not match is
+*stale* — the class or the engine changed after the last build. On a JDK the engine compiles a
+fresh wrapper and logs one WARN; on a JRE the first use of the class fails with the same
+exception, naming the stale wrapper. Either way: **rebuild the application**.
+
+What the entity classes themselves must satisfy is unchanged:
+
 - Every persisted field follows **JavaBeans**: a getter AND a setter. A field that has a
   getter but no setter (a common slip on generated/Lombok-annotated collections) is **dropped
   from persistence with a WARN** — it is never written and never restored; nothing round-trips.
   The engine logs the drop once per class at metadata load; check the WARN before assuming a
   collection "did not save".
 - Entity classes must be **top-level** (nested classes cannot be compiled on JDK 9+).
+
+## Running on a JRE
+
+Since 2.2.0 ([task 2.2.0/08](tasks/2.2.0/08-fp3-jre-aot.md)). Three steps: generate the wrappers
+when the application is built, ship a runtime without the compiler, run. The quickstart does
+all three without Docker in
+[`examples/quickstart/run-on-jre.sh`](../examples/quickstart/run-on-jre.sh) — the demo runs from
+a read-only working directory, and inside a sandbox whose whole root filesystem is read-only —
+and packages the same steps in its `Dockerfile`.
+
+### 1. Generate the wrappers at build time — Maven
+
+```xml
+<plugin>
+    <groupId>io.github.xdstorage</groupId>
+    <artifactId>xdstorage-codegen-maven-plugin</artifactId>
+    <version>2.2.0</version>                 <!-- the engine's version -->
+    <executions>
+        <execution>
+            <goals>
+                <goal>generate-wrappers</goal> <!-- bound to the process-classes phase -->
+            </goals>
+        </execution>
+    </executions>
+</plugin>
+```
+
+The goal scans the application's classes **and its whole compile classpath** — the engine's own
+classes are entities too — and writes three wrapper classes per entity plus the manifest into
+`target/classes`, so they end up inside the application jar. It uses the generator of the
+engine version the application depends on (the plugin carries no engine of its own).
+
+| Parameter | Property | Default | Meaning |
+|---|---|---|---|
+| `classesDirectory` | — | `${project.build.outputDirectory}` | scanned; where the wrappers and the manifest go |
+| `additionalRoots` | — | — | more directories and jars to scan for entity classes |
+| `release` | `xdstorage.codegen.release` | `maven.compiler.release`, else `8` | the Java release the wrappers are compiled for |
+| `skip` | `xdstorage.codegen.skip` | `false` | skip the generation |
+
+A wrapper compiled for 8 runs on every later Java. The goal is incremental: a wrapper whose
+class and engine version are unchanged is not written again (≈ 0.17 s against ≈ 0.7 s cold for
+the quickstart — BENCHMARKS § Cold start).
+
+The plugin is published under the engine's version. Until a release carries it, build it from
+the repository: `mvn install -DskipTests` in the root, then
+`mvn -f tools/xdstorage-codegen-maven-plugin/pom.xml install`.
+
+### Other build tools — the command line
+
+```bash
+java -cp <xdstorage.jar and its dependencies> io.github.xdstorage.tools.GenerateWrappers \
+     --release 8 --output <classes directory> <classes directory> <the engine's jar and every jar that holds entities>
+```
+
+In Gradle, a `JavaExec` task after `classes` with `classpath = sourceSets.main.runtimeClasspath`
+and those arguments (`sourceSets.main.output.classesDirs` + the runtime classpath entries as the
+roots). Exit status 1 is a usage error, 2 a failed generation; the stdout line carries the
+counts.
+
+### 2. A runtime without the compiler
+
+A jlink image of the modules the engine and its dependencies need at runtime (the list
+`run-on-jre.sh` links):
+
+```
+jlink --add-modules java.base,java.logging,java.management,java.naming,java.transaction.xa,java.xml,java.sql,jdk.unsupported \
+      --strip-debug --no-header-files --no-man-pages --output target/jre
+```
+
+Add whatever your own dependencies need (a logging backend may ask for more modules). A vendor
+JRE works the same — any runtime in which `jdk.compiler` is absent. Verified on a jlink image
+of OpenJDK 21; the bytecode is `release=8`.
+
+### 3. Run
+
+`java -cp <application jar:dependencies> …` — nothing special about it. The working directory
+may be read-only; the storage folder must be writable, as always.
+
+### What you will see when a wrapper is missing
+
+| Situation | On a JDK | On a JRE |
+|---|---|---|
+| no wrapper for the class | compiled when first needed (in the quickstart: at the first load), into `./gencode` | **the open fails**: "… no pre-generated wrapper is on the classpath and this runtime has no Java compiler … Fix: generate the wrappers at build time with the xdstorage-codegen Maven plugin (docs/EMBEDDING.md, Running on a JRE), or run on a JDK." |
+| the wrapper is stale | one WARN, compiled when first needed | **the first use of the class fails**: "… it is STALE — generated for fingerprint …, the class as loaded has … Fix: rebuild the application to refresh the wrappers (a clean build), or run on a JDK." |
+| `./gencode` cannot be created | **the open fails**: "… the working directory is not writable. Fix: generate the wrappers at build time …, or start the application from a writable working directory." | never reached — no directory is needed |
+
+The exception is the cause of the engine's regular `XdStorageRuntimeException`; its message is
+repeated on the outermost line, where a log shows it.
 
 ## Files and durability
 
@@ -360,7 +472,7 @@ E-6: what "supported" means, stated up front so upgrades are design-time decisio
 | Artifact | Requirement |
 |---|---|
 | Library bytecode | Java **8** (`release=8`, platform API pinned — H-5) |
-| Runtime | any JRE/JDK 8+ **for the bytecode** — but see the codegen requirement above: wrapper generation needs a **JDK at runtime** until FP-3 (AOT) ships |
+| Runtime | any JRE/JDK 8+ **for the bytecode**. A **JDK** when the engine generates the wrappers itself (§ Codegen requirements); with build-time wrappers a **JRE** is enough (§ Running on a JRE — verified on a jlink image of OpenJDK 21) |
 | Building XdStorage itself | JDK **17+**, Maven **3.6.3+** (enforced) |
 | CI / tested runtimes | Temurin **17** (the full-suite gate + the nightly ×3) and Temurin **21** (the quick-gate profile on pushes/PRs + the full suite nightly — JDK21, task 27); 21 is also the canonical-baseline runtime. Bytecode stays `release=8` either way |
 

@@ -72,6 +72,21 @@
 
 ### Added
 
+- **The wrapper classes can be generated while the application is built — run on a JRE,
+  from a read-only working directory** ([08](docs/tasks/2.2.0/08-fp3-jre-aot.md), FP-3).
+  `xdstorage-codegen-maven-plugin` (`generate-wrappers`, bound to `process-classes`; the
+  standalone module `tools/xdstorage-codegen-maven-plugin`) and the command-line
+  `io.github.xdstorage.tools.GenerateWrappers` write three wrappers per entity class into
+  the application's own classes with a manifest — the engine's own entity classes included
+  — and the engine takes them from there: no compiler, no `./gencode`. A build-time wrapper
+  is accepted only for the class as it is loaded (a fingerprint of the class and the engine
+  version, checked when the wrapper is taken); a stale one is compiled over on a JDK and
+  named on a JRE. The quickstart runs the whole story without Docker (`run-on-jre.sh`: 39
+  wrappers inside the jar, a jlink image without the compiler, `QUICKSTART-OK` from a
+  read-only working directory and inside a sandbox whose whole root is read-only) and
+  packages it in a `Dockerfile`. Measured, one variable (BENCHMARKS § Cold start): a
+  process that saves and reads once takes 2.0× longer without build-time wrappers
+  (491 → 246 ms) — the javac bill sits on the first *load*; the first save is unchanged.
 - **The property-based testing estate** ([03](docs/tasks/2.2.0/03-property-based-tests.md)):
   7 jqwik classes / 13 properties over the engine invariants — CRUD round-trips ×3
   storage policies, B+Tree random operation sequences (the observable contract + the
@@ -106,6 +121,17 @@
   Schema migration has the contracts.
 ### Changed
 
+- **A runtime that can deliver no wrapper class refuses to open a storage — by name, at
+  startup** ([08](docs/tasks/2.2.0/08-fp3-jre-aot.md)). Until 2.2.0 a JRE died in an unnamed
+  `NoClassDefFoundError: javax/tools/…` at the first use of a class, and a read-only working
+  directory went on with *dummy* wrappers behind one ERROR line (broken
+  `equals`/`hashCode`). Now `newOrGetFileStorage` fails with `XdStorageRuntimeException`
+  carrying the cause and the fix — "no pre-generated wrapper is on the classpath and this
+  runtime has no Java compiler …", "the working directory is not writable …", "… it is
+  STALE …" — before the storage folder is locked. The check compiles nothing, so a JDK
+  without build-time wrappers works exactly as before; `./gencode` is created when a
+  storage is opened (it is the runtime path's own precondition) instead of when the
+  generator class is loaded, and never when the wrappers were generated at build time.
 - **Supported platforms are stated by what has been run, and Windows joined CI**
   ([04](docs/tasks/2.2.0/04-os-dependent-paths.md)) — EMBEDDING § Supported platforms now
   separates tested (Linux x86_64, Temurin 17 and 21) from not tested (macOS; Java 8–11 as

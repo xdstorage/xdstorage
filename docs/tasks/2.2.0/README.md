@@ -93,7 +93,9 @@ The evaluation-finding mapping (what went where):
 - §3.3.7 the serialization defects → already fixed 23.11 (2.1.2; the evaluation acknowledges).
 - §3.3.8 UUID/java.time → task 41.
 - §3.3.9 the trust boundary + XXE → tasks 36/37.
-- §3.3.10 the JDK/CWD coupling → task 08 (confirmed + the CWD design constraint).
+- §3.3.10 the JDK/CWD coupling → task 08 (confirmed + the CWD design constraint;
+  LANDED 2026-11-27 — build-time wrappers through a standalone plugin module; the demo
+  proven on a jlink image in a read-only sandbox, the container image itself not built).
 - §3.3.11 the journal replay → task 06 (amended).
 - §3.3.12 the inverted lazy-getter checks → task 35.
 - §3.3.13 the stderr in verify() → task 43 (+ 34's ban unblocked).

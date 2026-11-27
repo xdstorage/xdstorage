@@ -393,6 +393,53 @@ as such):
   disk-backed write throughput around 10⁴ ops/s (Stack Overflow, 2014, a single anecdote — the
   weakest of the four; treat MapDB as 10³–10⁵ ops/s by mode).
 
+#### Cold start — the wrappers compiled at runtime vs generated at build time (FP-3 A/B, task 08)
+
+*Recorded 2026-11-27 on one box (Ryzen 9 5900X, NVMe; load average 1.3 at the start and 1.6 at
+the end — an idle IDE and an idle Maven fork are the only neighbours), OpenJDK 21.0.7. Not a JMH
+estate: a shell-timed process, read as an A/B on ONE variable, not as an absolute.*
+
+**The question** (MASTER-PLAN Step 3 — "cold-start first-save measured before/after"): what
+does the engine pay at startup when it compiles the wrapper classes itself, and what changes
+when they were generated at build time?
+
+**One variable.** The application is the quickstart's jar, built twice from the same sources:
+without the build-time generation (0 wrapper classes inside) and with it (39 = 13 entity
+classes × 3 kinds). Every run is a fresh JVM, a fresh working directory and a fresh storage
+folder; the application opens a storage, saves 5 customers and 10 accounts in one transaction,
+commits, loads one customer by id, shuts down. 25 runs per arm, interleaved A → B → C, after
+one untimed warm-up pass per arm (the page cache is the only thing it warms).
+
+| Arm | Where the wrappers come from | Process wall, ms — median [p25..p75] | `main` → first commit, ms | first commit → first load, ms | `./gencode` |
+|---|---|---:|---:|---:|---|
+| A | compiled by the engine when first needed (JDK 21) | **491** [483..508] | 176 [170..181] | **233** | created, 25/25 |
+| B | generated at build time (the same JDK 21) | **246** [243..251] | 175 [172..181] | 2 | never, 25/25 |
+| C | generated at build time (a jlink image, no compiler) | 275 [268..280] | 194 [190..202] | 2 | never, 25/25 |
+
+**Reading it, honestly:**
+
+- **The first save does not change** — 176 against 175 ms. The write path needs no compiled
+  wrapper: the javac bill of the runtime codegen lands on the **first load** (+231 ms there),
+  so the process that saves *and reads once* takes **2.0× longer** without build-time wrappers
+  (491 → 246 ms). "Cold-start first save" is flat by measurement; the win is the first read
+  and the time to a usable state.
+- Arm C is the only way a runtime without the compiler can run at all — without build-time
+  wrappers the engine refuses to open a storage, by name
+  ([08](tasks/2.2.0/08-fp3-jre-aot.md)). Its wall time is 12% above the JDK's for the same
+  application (275 against 246 ms; `main` → open is 118 ms against 84–93 ms).
+- The startup check of task 08 (the wrapper supply is verified when a storage is opened)
+  compiles nothing: `main` → open is 84 ms in A and 93 ms in B (medians of 10 phase-timed runs).
+
+**At build time** the generation of the quickstart's 39 wrappers takes **0.70 s cold**
+(697–732 ms over 5 runs — a whole extra JVM, 342 classes scanned on the compile classpath) and
+**0.17 s on an incremental build** (161–186 ms: all 13 entity classes already current, nothing
+written). `examples/quickstart/run-on-jre.sh` builds the same jar; the command-line generator
+(`io.github.xdstorage.tools.GenerateWrappers`) prints its own counts.
+
+**A trap found while measuring.** A wall-clock A/B alone would have put the javac cost on the
+first save — the process takes 245 ms longer either way. The phase probe (`main` → open →
+saved → committed → loaded) is what placed it on the load. Measure phases, not labels.
+
 ---
 
 ## Historical sections (pre-canonical conditions — kept as labeled history)
@@ -602,3 +649,6 @@ documented 127.3 ± 24.6 — same band, no write-path regression.
    by name until `shutdown()`; stale on-disk data poisons caches — see R-50).
 5. Search-engine entities must be **top-level classes** (wrapper codegen cannot resolve
    `Outer$Inner` binary names in generated source).
+6. **Runtime wrapper codegen is not paid by the first save** — the write path needs no
+   compiled wrapper; the first *load* pays it (+231 ms in the quickstart). A wall-clock A/B
+   cannot tell the two apart: time the phases (§ Cold start, task 08).

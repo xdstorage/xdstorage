@@ -38,7 +38,7 @@ public class XdStorageException extends Exception {
      * @param cause   the underlying cause
      */
     public XdStorageException(final String message, final Throwable cause) {
-        super(message, cause);
+        super(XdStorageWrapperGenerationException.withHint(message, cause), cause);
     }
 
     /** Creates an exception with a message.
@@ -54,6 +54,6 @@ public class XdStorageException extends Exception {
      * @param cause the underlying cause
      */
     public XdStorageException(final Throwable cause) {
-        super(cause);
+        super(XdStorageWrapperGenerationException.withHint(cause == null ? null : cause.toString(), cause), cause);
     }
 }

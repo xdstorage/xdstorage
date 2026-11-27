@@ -6,9 +6,10 @@ package io.github.xdstorage.code;
  * flag persisted alongside the object, and the per-wrapper lock that generated
  * load-by-get accessors hold during lazy loading.
  *
- * <p>Implementations are produced at runtime by {@code XdStorageSimpleWrapperClassCodeGenerator};
- * {@code XdStorageDummySimpleWrapper} is the degraded stand-in used when no runtime
- * Java compiler is available. The reference flag is volatile in generated subclasses;
+ * <p>Implementations are produced by {@code XdStorageSimpleWrapperClassCodeGenerator} — at
+ * build time into the application's classes, or at runtime; {@code XdStorageDummySimpleWrapper}
+ * is the stand-in used only where a wrapper's generation is in progress on this thread.
+ * The reference flag is volatile in generated subclasses;
  * the lock methods delegate to a per-wrapper {@code ReentrantLock}.
  * Engine-internal — not part of the public API.</p>
  */
