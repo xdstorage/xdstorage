@@ -67,7 +67,7 @@ already covers.
       a field may hold, the simple types and their text form, what is not simple, the
       pre-2.2.0 note, the extension answer) and EMBEDDING § Field types and their stored
       form (the same list as it meets the disk and an upgrade).
-- [ ] The property estate + the quick-gate ×3 green.
+- [x] The property estate + the quick-gate ×3 green — `clean test -Pquick-gate` **1746/0f/0e/7 skipped ×3, consecutive, BUILD SUCCESS**, 0 checkstyle violations, on a quiet box (2026-11-27, branch `parallel-work` — the six parallel-work branches merged; `main` is 1360).
 
 ## Design decisions
 

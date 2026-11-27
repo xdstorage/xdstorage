@@ -59,7 +59,11 @@ level); the format swap (a YAML-library migration is nobody's decision today).
       **13/0f/0e ×3** (PropCrudRoundTripTest is the class that consumes the model).
 - [x] The docs note the compatibility rule for pre-2.2.0 folders.
 - [x] The quick-gate ×3 green: **1731/0f/0e/7 skipped ×3, consecutive, BUILD SUCCESS**, on a
-      quiet box (1391 + the 340 pins of this task).
+      quiet box (1391 + the 340 pins of this task). The same commit cherry-picked onto
+      `parallel-work` (2026-11-27): **1746/0f/0e/7 skipped ×3, consecutive** there. The
+      `parallel-work-40` branch's own fix for this task was not merged: it escaped `\n` and
+      `\0` inside single-quoted scalars and so read a stored backslash pair as one and
+      `\0` as a line break — corrupting every earlier folder that held one.
 
 Estimate: ~1–2 sessions.
 

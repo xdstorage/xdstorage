@@ -48,7 +48,7 @@ Estimate: ~1–2 sessions for audit + first Windows triage.
       what has been RUN (Linux x86_64, Temurin 17 and 21) and what has not (macOS;
       Windows until the leg is green; Java 8–11 as runtimes).
 - [x] CHANGELOG updated — under `[Unreleased]`, Changed.
-- [ ] Quick-gate ×3 green.
+- [x] Quick-gate ×3 green — on Linux, `clean test -Pquick-gate` **1746/0f/0e/7 skipped ×3, consecutive, BUILD SUCCESS**, 0 checkstyle violations, on a quiet box (2026-11-27, branch `parallel-work` — the six parallel-work branches merged; `main` is 1360). The Windows run is the line above.
 
 ## Audit results (2026-11-25, re-checked 2026-11-27)
 

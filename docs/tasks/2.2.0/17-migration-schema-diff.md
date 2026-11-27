@@ -63,7 +63,7 @@ data transformation scripts beyond the declared structure update (the existing
       `verify` verdict is WARNINGS for the marker alone.
 - [x] Dry-run prints the plan without touching the folder (byte-identical) — pinned: a
       snapshot of every file before and after is equal.
-- [ ] Full suite green ×2; EMBEDDING/GUIDE updated — the docs are.
+- [x] Full suite green ×2; EMBEDDING/GUIDE updated — the docs are; `clean test -Pquick-gate` **1746/0f/0e/7 skipped ×3, consecutive, BUILD SUCCESS**, 0 checkstyle violations, on a quiet box (2026-11-27, branch `parallel-work` — the six parallel-work branches merged; `main` is 1360).
 
 Estimate: ~1–2 sessions.
 

@@ -56,7 +56,7 @@ follow-ups if demanded); the CLI wrapper (task 16 consumes this API).
       every policy and index kind, **with the source folder moved away first**, and no file
       of the copy naming the source.
 - [x] EMBEDDING.md + CHANGELOG backup sections updated; CHANGELOG "Added".
-- [ ] Full suite green ×2 (BUILD SUCCESS verdict).
+- [x] Full suite green ×2 (BUILD SUCCESS verdict) — `clean test -Pquick-gate` **1746/0f/0e/7 skipped ×3, consecutive, BUILD SUCCESS**, 0 checkstyle violations, on a quiet box (2026-11-27, branch `parallel-work` — the six parallel-work branches merged; `main` is 1360).
 
 Estimate: ~2–3 sessions (the consistency contract is the design half).
 

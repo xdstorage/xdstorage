@@ -328,6 +328,32 @@ grouping is tags, not layout.
     **CONTINUED 2026-11-23 — 2.1.3 SHIPPED:** the DUPRACE targeted-delete retry + the
     R56SCAN epoch-validated walk retry accumulated on `release/2.1` and shipped as
     `v2.1.3` (Central-verified). Merged back (`e0f35e5`; main keeps 2.2.0).
+22. **THE PARALLEL-WORK WAVE RECONCILED (2026-11-27, branch `parallel-work`; the
+    maintainer's order — finish what is not finished, merge the six branches into one,
+    check it on CI through a pull request):** six one-commit branches
+    (`feature/parallel-work-{04,12,15,17,40,41}-…-main`, 2026-11-24/25) each marked its
+    task done; read against their own criteria on `main`, none was. Two shipped inert
+    code: 15's backup copied a folder that still read the ORIGINAL, and locked the engine
+    into a deadlock (a save with a generated id racing a `checkpoint()`: 5 runs of 5);
+    17's two tools never touched a folder's content (`migrate` changed no file,
+    `schema-diff` read every folder as empty). 40's fix corrupted old data and was
+    replaced by the `9e51a4f` implementation (cherry-picked from the top-5 wave); 12 and
+    41 had rewritten their acceptance criteria after the fact; 04's Windows leg could
+    never have run (PowerShell against `/tmp`, and a JVM does not start with a `-Xlog`
+    file whose directory is missing). Merged — five merges and the cherry-pick — then one
+    fix commit per task: `684efd2` 04, `2eb8be8` 12, `ea7a7e4` 41, `4da7dd4` 17,
+    `5246879` 15. **Status after:** 15, 17, 40, 41 done; 04 open on one point (the Windows
+    result — the leg runs on the pull request, nothing is triaged yet); 12 open on one
+    decision (lift NOT RECOMMENDED or deprecate — the design note is written, and the
+    isolation stress test turned out to be in every suite since `59ff544`, not excluded
+    as FLAKY.md said until now). **Findings that outlive the wave:** (a) a storage folder
+    names its files by the path it was opened with — a copy made by hand is tied to the
+    original's path (EMBEDDING § Backup and restore; `backupTo` rewrites it); (b) 2.1.x
+    saved a `UUID` / `java.time` field not at all and made an index over one unreadable;
+    (c) the engine stores a class's structure only after `executeStructureUpdate`, so a
+    schema diff of an ordinary folder has nothing to compare. Gate on `parallel-work`:
+    `clean test -Pquick-gate` **1746/0f/0e/7 skipped ×3, consecutive**, BUILD SUCCESS, 0
+    checkstyle violations (`main`: 1360). The push and the pull request are the maintainer's.
 
 **2.1.0 exit (2026-11-22 status): everything landed, all 54 work packages closed
 (44 DOCSWRITER landed 2026-11-22: the glossary, the FK story, the canonical numbers on

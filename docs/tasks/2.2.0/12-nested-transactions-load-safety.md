@@ -114,7 +114,7 @@ Changing flat-transaction semantics; the facade load investigation (task 13 of t
       it is not excluded (since `59ff544`) and it passes (the record above); the rework
       behind a flag that scope item 2 assumed was not needed.
 - [ ] If DEPRECATE: the deprecation documented across EMBEDDING/GUIDE/CHANGELOG.
-- [ ] Full suite green ×2 (BUILD SUCCESS verdict).
+- [x] Full suite green ×2 (BUILD SUCCESS verdict) — `clean test -Pquick-gate` **1746/0f/0e/7 skipped ×3, consecutive, BUILD SUCCESS**, 0 checkstyle violations, on a quiet box (2026-11-27, branch `parallel-work` — the six parallel-work branches merged; `main` is 1360).
 
 **What remains is one decision:** lift the NOT RECOMMENDED status (B) or deprecate the API
 (C). Whichever is chosen closes this task; the texts for both are one edit each.
