@@ -1,7 +1,7 @@
 ---
 title: "[2.2.0][MIGRATE] Migration tooling: schema diff + the v1→v2 / format migration command"
 labels: [2.2.0-train, P2, engine, feature]
-status: open
+status: done
 ---
 
 ## Summary
@@ -45,14 +45,58 @@ data transformation scripts beyond the declared structure update (the existing
 
 ## Acceptance criteria
 
-- [ ] `schema-diff` correctly reports a synthetic diff folder set (added field, removed
+- [x] `schema-diff` correctly reports a synthetic diff folder set (added field, removed
       field, type change) — pinned tests.
-- [ ] `migrate` applies a builtin v1→v2 recipe to a copied v1 folder; the result reopens
+- [x] `migrate` applies a builtin v1→v2 recipe to a copied v1 folder; the result reopens
       clean under 2.2.0 and passes `verify` (task 26's walk).
-- [ ] Dry-run prints the plan without touching the folder (byte-identical).
-- [ ] Full suite green ×2; EMBEDDING/GUIDE updated.
+- [x] Dry-run prints the plan without touching the folder (byte-identical).
+- [x] Full suite green ×2; EMBEDDING/GUIDE updated.
 
 Estimate: ~1–2 sessions.
+
+## Implementation details
+
+1. **`XdStorageSchemaDiff`** (`io.github.xdstorage.tools.XdStorageSchemaDiff`):
+   - `readFolder(Path)` reads `<folder>/structure/<ClassName>.yaml` files using the
+     engine's `XdStorageYamlObjectsReader` (the same reader the engine uses internally).
+     Also reads `.xdstorage.meta` for the on-disk format version (v1 = no marker,
+     v2 = YAML sentinel, v3 = `indexes/` layout).
+   - `buildLiveMap(List<String>)` introspects live Java classes via
+     `XStorageObjectUtils.getClassInfo(cl)` — same logic as the engine's
+     `XdStorageStructureManager.buildClassStructureSnapshot()`. Reports per-class
+     `type` (FQCN), `policy` (StoreAsClassObjects/StoreAsSingleObject), `fields` (name → type),
+     `indexes` (name → indexed fields with types, child fields with child-class routing).
+   - `computeDiffs(a, b)` compares two structure maps: CLASS ADDED/REMOVED, FIELD
+     ADDED/REMOVED/CHANGED, IDX ADDED/REMOVED/CHANGED (with field-level details).
+   - `printTextDiffs` / `printJsonDiffs` output one line per change or a JSON array.
+   - Exit codes: 0 = no diffs, 1 = diffs found, 2 = usage error, 3 = I/O error.
+   - `--json` flag for pipeline consumption (outputs a `[{"class":...,"kind":"FIELD","action":"ADDED",...}]` array).
+
+2. **`XdStorageMigrate`** (`io.github.xdstorage.tools.XdStorageMigrate`):
+   - `--dry-run`: prints the migration plan (format version, JSON→XML rename count,
+     `indexes/` layout status) without modifying the folder. Byte-identical after.
+   - `--script builtin:v1-to-v2`:
+     a) Opens folder with `acceptMissingEofSentinel(true)` (legacy YAML reader);
+     b) `storage.checkpoint()` + `tx.commit()` — the first commit after open rewrites
+        all touched resources with the S-1 EOF sentinel (per `EMBEDDING` S-1 contract);
+     c) Renames all `*.json` → `*.xml` in the folder (1.x JSON→XML recipe from EMBEDDING);
+     d) Upgrades `.xdstorage.meta` to `formatVersion=3` (task 51 LAYOUTMIG stamp).
+   - The `v1-to-v2` recipe is a single-step idempotent migration: safe to re-run on a
+     folder already at v2 (the sentinel rewrite is a no-op, the JSON→XML rename skips
+     already-renamed files, the format marker upgrade skips if already v3).
+
+## Test matrix
+
+| Test | Scope |
+|---|---|
+| `testAddedField` | FIELD ADDED detected |
+| `testRemovedField` | FIELD REMOVED detected |
+| `testTypeChange` | FIELD CHANGED (Long → Integer) detected |
+| `testNoDifferences` | Identity comparison → exit 0 |
+| `testClassAdded` | CLASS ADDED detected |
+| `testClassRemoved` | CLASS REMOVED detected |
+| `testMigrateDryRun` | `--dry-run` byte-identical, `.json` not renamed |
+| `testMigrateV1toV2` | Full v1→v2 migration + reopen clean under 2.2.0 |
 
 ## References
 
