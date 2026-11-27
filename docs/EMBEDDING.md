@@ -320,6 +320,24 @@ E-6: what "supported" means, stated up front so upgrades are design-time decisio
 | Building XdStorage itself | JDK **17+**, Maven **3.6.3+** (enforced) |
 | CI / tested runtimes | Temurin **17** (the full-suite gate + the nightly ×3) and Temurin **21** (the quick-gate profile on pushes/PRs + the full suite nightly — JDK21, task 27); 21 is also the canonical-baseline runtime. Bytecode stays `release=8` either way |
 
+### Supported platforms
+
+The library **bytecode** is `release=8` and uses only the Java 8 platform API (H-5);
+it works on any JRE/JDK 8+ that provides the platform APIs (JDK 8, Temurin, Zulu, etc.).
+The on-disk layout is **POSIX-compatible** (forward-slash `/` paths, `.`-prefixed lock
+file, UTF-8 charset for all content). On Windows the engine uses `File.separatorChar`
+only for classpath splitting (correct on all platforms); all storage paths are `Path`
+objects that resolve through `Files` which normalise per-OS. The folder-lock uses
+`FileLock.tryLock()` (POSIX + Windows alike). The `ATOMIC_MOVE` NIO preference falls
+back to `REPLACE_EXISTING` on filesystems that do not support it (Windows `ntfs` does,
+but `exfat`/`FAT32` do not).
+
+**Explicitly supported:** Linux (x86_64, arm64), macOS (x86_64, arm64), Windows (x86_64, arm64).
+Windows CI runs the full non-stress suite nightly via the `windows-latest` leg (ci.yml).
+Known divergence: `StandardCopyOption.ATOMIC_MOVE` on Windows FAT/exfat — the fallback
+(`REPLACE_EXISTING`) is non-atomic but crash-tolerant (the engine's crash-safety contract
+stops at process boundary for non-durable writes; `durable = true` extends to fsync).
+
 ### On-disk format compatibility
 
 The format generation is recorded per storage folder in `.xdstorage.meta`
