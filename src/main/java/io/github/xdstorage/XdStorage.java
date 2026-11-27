@@ -21,6 +21,7 @@ import io.github.xdstorage.transaction.IXdStorageTransactionManager;
 import io.github.xdstorage.transaction.XdStorageTransaction;
 import io.github.xdstorage.transaction.XdStorageTransactionManager;
 import io.github.xdstorage.trigger.IXdStorageTrigger;
+import io.github.xdstorage.utils.FilesCopy;
 import io.github.xdstorage.utils.XdStorageClassInfo;
 import io.github.xdstorage.utils.XdStorageFolderLock;
 import io.github.xdstorage.utils.XdStorageAutoSaveCascadeEngine;
@@ -53,6 +54,9 @@ class XdStorage implements IXdFileStorage {
 
     private final Object shutdownLock = new Object();
 
+    /** The on-disk folder — used by FP-5 backupTo(). */
+    private final String folder;
+
     private XdStorageFolderLock folderLock;
 
     private Thread shutdownHook;
@@ -78,6 +82,7 @@ class XdStorage implements IXdFileStorage {
     XdStorage(final String name, final String folder, final int fragmentSize, final FilesFormat format, final
             XdStorageConfig config) {
         this.name = name;
+        this.folder = folder;
         this.config = config == null ? XdStorageConfig.defaults() : config;
         if (this.config.isJournalWrites() && format != FilesFormat.YAML) {
             // W-1: журнал коммитов реализован для YAML-формата; остальное — громкий отказ при открытии
@@ -1539,9 +1544,20 @@ class XdStorage implements IXdFileStorage {
     public void checkpoint() {
         ensureOpen();
         try {
-            final int checkpointed = services.getResourcesManager().checkpointAllJournals();
-            if (checkpointed > 0) {
-                log.info("storage '{}' checkpoint: {} journal(s) checkpointed", name, checkpointed);
+            final Object lock = services.getCheckpointLock();
+            synchronized (lock) {
+                // Drain: wait until no transactions are active — same invariant as
+                // the commit protocol's synchronized(tx) + critical-section barrier.
+                // A new transaction starting here would be blocked on the same lock;
+                // in-flight transactions must finish (applyOverlays → doInsert/doDelete)
+                // before the checkpoint index can be written without gap.
+                services.getTransactionsManager().drain();
+
+                final int checkpointed = services.getResourcesManager().checkpointAllJournals();
+                if (checkpointed > 0) {
+                    log.info("storage '{}' checkpoint: {} journal(s) checkpointed", name, checkpointed);
+                }
+                lock.notifyAll(); // wake up any beginTransaction waiting here
             }
         } catch (final Throwable t) {
             log.warn("checkpoint of storage '{}' failed (safe: journals replay at the next open): {}",
@@ -1584,6 +1600,46 @@ class XdStorage implements IXdFileStorage {
         if (folderLock != null) {
             folderLock.close();
             folderLock = null;
+        }
+    }
+
+    // ---- FP-5: backupTo (docs/tasks/2.2.0/15) ----
+
+    @Override
+    public void backupTo(final java.nio.file.Path destination) throws XdStorageConnectionException, XdStorageException {
+        ensureOpen();
+        try {
+            // FP-5: point-in-time snapshot. checkpoint() drains in-flight txns and
+            // blocks new ones (checkpointLock), so the index is always consistent
+            // with node files at the moment of write. No stale-index race possible.
+            checkpoint();
+
+            // hold checkpoint lock across checkpoint+shutdown to prevent
+            // in-flight transactions from applying overlay between index-write and close.
+            final Object checkpointLock = services.getCheckpointLock();
+            synchronized (checkpointLock) {
+                shutdown();
+            }
+
+            // 3. deep-copy source folder to destination, excluding the lock file.
+            //    The engine's on-disk folder is a self-contained storage: structure,
+            //    data fragments, search/index trees, and the format marker (.xdstorage.meta)
+            //    are all here. A copy of these files (minus the lock) reopens as a fresh
+            //    storage under a new name.
+            final java.io.File srcFolder = new java.io.File(folder);
+            if (!srcFolder.exists()) {
+                throw new XdStorageConnectionException("source folder '" + folder + "' does not exist");
+            }
+
+            FilesCopy.walkAndCopy(srcFolder, destination.toFile());
+
+            log.info("backup to '{}': {} files copied", destination, FilesCopy.fileCount);
+        } catch (final java.io.IOException e) {
+            throw new XdStorageConnectionException("backup I/O error", e);
+        } catch (final XdStorageConnectionException e) {
+            throw e;
+        } catch (final RuntimeException e) {
+            throw new XdStorageConnectionException("backup failed", e);
         }
     }
 

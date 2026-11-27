@@ -67,6 +67,13 @@
 - **`explain` is tx-free by design, documented** — the one facade method that works
   without a transaction (the plan is static index metadata; GUIDE § Query plans +
   EMBEDDING), pinned by the property estate.
+- **`IXdFileStorage.backupTo(Path)` (FP-5, docs/tasks/2.2.0/15):** a programmatic
+  backup API — consistent point-in-time copy of a live storage folder into a destination
+  directory. Internally: checkpoint all journals → shut down the storage → deep-copy all
+  files (minus `.xdstorage.lock`) → the destination is a self-contained storage folder.
+  The copy passes `XdStorageProvider.verify(destination)` verdict OK and answers the same
+  queries as the source. Pinned by `XdStorageBackupToTest` (reliability suite, 4 tests).
+  Out of scope: incremental/delta backups, compression/encryption, scheduled backups.
 
 ### Changed
 

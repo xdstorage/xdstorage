@@ -240,6 +240,33 @@ copy: object counts, load-by-id, indexed EQUALS and range queries across all sto
   scheduled backups: close (or snapshot from a second machine while the first is closed),
   `cp -r`, reopen.
 
+- **Programmatic backup** (FP-5, 2.2.0, docs/tasks/2.2.0/15): `IXdFileStorage.backupTo(Path)
+  —` a consistent point-in-time copy of a storage folder into a destination directory.
+  The method internally checkpoints all journals, shuts the storage down, and deep-copies
+  every file (minus `.xdstorage.lock`) to the destination. The destination is a
+  self-contained storage folder openable under a new name. The produced copy passes
+  `XdStorageProvider.verify(destination)` verdict OK. The executable proof: `XdStorageBackupToTest`
+  (reliability suite). Out of scope: incremental/delta backups, compression/encryption,
+  scheduled backups.
+
+  ```java
+  // 1. build content...
+  // 2. backupTo: the method shut downs the source internally
+  storage.backupTo(Paths.get("/data/backups/snapshot-2026-11-24"));
+  // 3. verify (optional but recommended)
+  XdStorageProvider.verify(Paths.get("/data/backups/snapshot-2026-11-24")); // OK
+  // 4. open the copy
+  IXdFileStorage copy = XdStorageProvider.newOrGetFileStorage("snapshot-name", "/data/backups/snapshot-2026-11-24", 128);
+  ```
+
+  **Consistency contract:** the source is quiesced at the backup point (all committed
+  fragments are on disk via atomic-rename write-outs). No in-flight uncommitted changes
+  can leak into the copy. A backup of an OPEN storage is unsupported — the caller must
+  ensure the source is idle or let `backupTo` shut it down internally.
+
+- `verify(folder)` (task 26) is the acceptance instrument — run it against every produced
+  backup folder before trusting its content.
+
 ## Observability
 
 - Logging: the library logs through **SLF4J** (`org.slf4j.Logger`). The jar ships **no logging

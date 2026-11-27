@@ -35,6 +35,7 @@ public class XdStorageTransactionManagerTest {
         when(mockServices.getExecutor()).thenReturn(testExecutor);
         when(mockServices.getCloner()).thenReturn(mockCloner);
         when(mockServices.getTriggersManager()).thenReturn(mockTriggers);
+        when(mockServices.getCheckpointLock()).thenReturn(new Object());
 
         txManager = new XdStorageTransactionManager(mockServices);
     }

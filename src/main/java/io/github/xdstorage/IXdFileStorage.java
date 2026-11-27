@@ -7,6 +7,7 @@ import io.github.xdstorage.structure.update.IXdStorageStructureUpdater;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
 import io.github.xdstorage.utils.XdStorageVersion;
 
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 
@@ -228,4 +229,34 @@ public interface IXdFileStorage extends IXdStorage {
     @SuppressWarnings("unchecked")
     <T> void watch(Class<T> cl, IXdStorageWatcher<T> watcher, IXdStorageTransaction transaction) throws
             XdStorageException, XdStorageConnectionException;
+
+    /**
+     * FP-5 (docs/tasks/2.2.0/15): consistent backup of the storage's on-disk folder
+     * to a {@code destination} directory. Produces a self-contained storage folder
+     * (own format marker, all data/index/structure files) openable under a different
+     * name via {@link XdStorageProvider#newOrGetFileStorage(String, String, int)}.
+     *
+     * <p><b>Consistency contract:</b> the method shuts the storage down first
+     * (ensuring all pending journal writes are checkpointed and flushed), then
+     * deep-copies every file from the source folder to {@code destination}, excluding
+     * the OS-lock file {@code .xdstorage.lock}. The destination folder is a consistent
+     * point-in-time copy — its content equals the committed state at the moment
+     * shutdown completed. A backup of an OPEN (non-shutdown) storage is unsupported;
+     * the caller must {@link #shutdown()} first. The engine's atomic-rename write-outs
+     * guarantee that every committed fragment is on disk after shutdown; no in-flight
+     * uncommitted changes can leak into the copy.
+     *
+     * <p><b>Acceptance:</b> the produced destination passes
+     * {@link XdStorageProvider#verify(java.nio.file.Path)} verdict OK and answers
+     * the same queries as the source (task-19 walkthrough shape).
+     *
+     * <p>Out of scope: incremental/delta backups, compression/encryption, scheduling;
+     * the CLI wrapper (task 16) consumes this API.
+     *
+     * @param destination the target directory (created if absent; must be writable)
+     * @throws XdStorageConnectionException on any storage-level I/O failure
+     * @throws XdStorageException           when the storage is already shut down
+     * @see XdStorageProvider#verify(java.nio.file.Path) the post-backup integrity gate
+     */
+    void backupTo(Path destination) throws XdStorageConnectionException, XdStorageException;
 }
