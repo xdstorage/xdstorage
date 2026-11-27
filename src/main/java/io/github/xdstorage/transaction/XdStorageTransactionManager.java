@@ -189,15 +189,6 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
     @Override
     public XdStorageTransaction beginTransaction(final XdStorageTransaction transaction, long timeout) {
         final String currentThreadId = getCurrentThreadId();
-
-        // FP-5: block new transactions while checkpoint() holds the checkpointLock.
-        // This mirrors the commit protocol's synchronized(tx) barrier: no new work
-        // can be queued during the point-in-time snapshot window.
-        final Object lock = services.getCheckpointLock();
-        synchronized (lock) {
-            // checkpoint is active — wait (spins) until checkpoint releases
-        }
-
         final XdStorageTransaction newTransaction;
         final String newTransactionId = generateTransactionId();
 
@@ -528,24 +519,5 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
     private static String getCurrentThreadId() {
         final Thread thread = Thread.currentThread();
         return thread.getName() + thread.getId();
-    }
-
-    @Override
-    public void drain() {
-        while (true) {
-            long totalActive = 0;
-            for (final AtomicLong c : transactionActiveThreadsCounter.values()) {
-                totalActive += c.get();
-            }
-            if (totalActive == 0) {
-                return;
-            }
-            try {
-                Thread.sleep(10);
-            } catch (final InterruptedException ignored) {
-                Thread.interrupted();
-                return;
-            }
-        }
     }
 }

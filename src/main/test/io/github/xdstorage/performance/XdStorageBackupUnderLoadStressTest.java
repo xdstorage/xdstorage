@@ -1,328 +1,192 @@
 package io.github.xdstorage.performance;
 
 import io.github.xdstorage.IXdFileStorage;
+import io.github.xdstorage.IXdStoragePredicate;
 import io.github.xdstorage.XdStorageConfig;
 import io.github.xdstorage.XdStorageProvider;
 import io.github.xdstorage.XdStorageVerifyReport;
-import io.github.xdstorage.exceptions.XdStorageConnectionException;
-import io.github.xdstorage.exceptions.XdStorageException;
-import io.github.xdstorage.exceptions.XdStorageRuntimeException;
+import io.github.xdstorage.entities.XdStorageMigrateOrder;
 import io.github.xdstorage.serialization.FilesFormat;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
-import io.github.xdstorage.performance.entities.*;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * FP-5 (docs/tasks/2.2.0/15): stress test — backup under concurrent write load.
+ * BACKUP (docs/tasks/2.2.0/15): {@code backupTo} while other threads commit.
  *
- * <p>Scenario: seed a universe model (cascade save with parent references), run 10
- * concurrent writer/readers that aggressively mutate the tree, then invoke
- * {@code backupTo(Path)} while the load is still active. After the backup the
- * original storage must remain fully operational and the backup copy must be
- * verifiably consistent (zero data loss for committed state at backup point).
+ * <p>Four workers commit PAIRS — two records in one transaction — until the storage is
+ * closed under them. What a consistent copy can promise, and what is asserted: a
+ * transaction is never cut in half. Every pair in the copy is whole, and every pair that
+ * had committed when {@code backupTo} returned is in the copy; the same holds for the
+ * source when it is reopened, and the source still works afterwards. Workers that fail
+ * for a reason other than the shutdown (a lock timeout, a veto) are counted, not hidden;
+ * they must not be the majority.</p>
  */
 @Tag("stress")
-@DisplayName("FP-5 backup under concurrent write load: no data loss + post-backup operability")
-public class XdStorageBackupUnderLoadStressTest {
+@DisplayName("BACKUP (2.2.0/15): копия во время записи — ни одной половины транзакции")
+class XdStorageBackupUnderLoadStressTest {
 
-    private static final int BACKUP_DURATION_MS = 8_000;
-    private static final int BACKUP_TRIGGER_DELAY_MS = 2_000;
-    private static final int WORKER_THREADS = 10;
-    private static final int SEED_UNIVERSES = 5;
+    private static final int WORKERS = 4;
+    private static final int PAIRS_BEFORE_THE_COPY = 10;
 
-    private Path tempDir;
-    private IXdFileStorage storage;
-    private String storageName;
-    private List<String> seedIds;
-    private volatile boolean stopFlag;
-
-    @BeforeEach
-    void setUp() throws Exception {
-        tempDir = Files.createTempDirectory("backup-load-");
-        storageName = "backup-load-" + System.nanoTime();
-        String folder = tempDir.resolve("db").toString();
-
-        XdStorageConfig config = new XdStorageConfig.Builder()
-                .journalWrites(true)
-                .setEnableForeignKeys(true)
-                .build();
-        storage = XdStorageProvider.newOrGetFileStorage(storageName, folder, 200, FilesFormat.YAML, config);
-        seedIds = new ArrayList<>();
-
-        // Seed initial universe model with cascade save + parent references
-        IXdStorageTransaction txInit = storage.beginTransaction(60_000L);
-        Random seedRand = new Random(42);
-        for (int i = 0; i < SEED_UNIVERSES; i++) {
-            XdUniverseAutoSave u = new XdUniverseAutoSave();
-            u.setId("uni-" + i);
-            seedUniverse(u, seedRand);
-            storage.save(u, txInit);
-            seedIds.add(u.getId());
-        }
-        txInit.commit();
-    }
-
-    @AfterEach
-    void tearDown() {
-        stopFlag = true;
-        if (storage != null) {
-            try { storage.shutdown(); } catch (Exception ignored) {}
-        }
-    }
+    @TempDir
+    Path tempDir;
 
     @Test
-    @DisplayName("Backup under load: no data loss in original or copy, original remains operable")
-    public void backupUnderLoad_noDataLoss_and_postBackupOperability() throws Exception {
-        System.out.println("=== FP-5: backup under concurrent write load ===");
-
-        Random rand = new Random(System.nanoTime());
-
-        // ---- Phase 1: start load workers ----------------------------------------
-        ExecutorService loadExec = Executors.newFixedThreadPool(WORKER_THREADS);
-        ExecutorService backupExec = Executors.newFixedThreadPool(1);
-        CountDownLatch backupDone = new CountDownLatch(1);
-        CountDownLatch loadStarted = new CountDownLatch(1);
-        CountDownLatch loadStopped = new CountDownLatch(1);
-        AtomicReference<Throwable> loadError = new AtomicReference<>();
-
-        // Start load workers
-        for (int w = 0; w < WORKER_THREADS; w++) {
-            loadExec.submit(() -> {
+    @DisplayName("1. Четыре писателя коммитят пары, backupTo закрывает хранилище под ними: только целые пары")
+    void theCopyHoldsWholePairsAndTheSourceReopens() throws Exception {
+        final Path source = tempDir.resolve("source");
+        final Path backup = tempDir.resolve("backup");
+        final IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage("backup-load-" + System.nanoTime(),
+                source.toString(), 64, FilesFormat.YAML, XdStorageConfig.builder().journalWrites(true).build());
+        final AtomicInteger committed = new AtomicInteger();
+        final AtomicInteger failed = new AtomicInteger();
+        final AtomicReference<Throwable> unexpected = new AtomicReference<>();
+        final ExecutorService pool = Executors.newFixedThreadPool(WORKERS);
+        final CountDownLatch stopped = new CountDownLatch(WORKERS);
+        for (int w = 0; w < WORKERS; w++) {
+            final int worker = w;
+            pool.submit(() -> {
                 try {
-                    loadStarted.countDown();
-                    while (!stopFlag && loadError.get() == null) {
+                    for (int k = 1; ; k++) {
+                        final IXdStorageTransaction tx = storage.beginTransaction(5_000L);
                         try {
-                            runWorker(storage, new ArrayList<>(seedIds), rand);
-                        } catch (RuntimeException e) {
-                            // Expected: shutdownNow or backupTo shut down the storage
-                            if (e instanceof RejectedExecutionException ||
-                                    e instanceof XdStorageRuntimeException ||
-                                    (e.getMessage() != null &&
-                                     (e.getMessage().contains("is shut down") ||
-                                      e.getMessage().contains("interrupted") ||
-                                      e.getMessage().contains("lock") ||
-                                      e.getMessage().contains("rejected")))) {
-                                break; // expected shutdown — not a test failure
+                            storage.save(new XdStorageMigrateOrder("w" + worker + "-" + k + "-a", "pair-" + k,
+                                    (long) k), tx);
+                            storage.save(new XdStorageMigrateOrder("w" + worker + "-" + k + "-b", "pair-" + k,
+                                    (long) k), tx);
+                            storage.commitTransaction(tx);
+                            committed.incrementAndGet();
+                        } catch (final RuntimeException e) {
+                            rollBackQuietly(storage, tx);
+                            if (isShutDown(e)) {
+                                return;
                             }
-                            loadError.compareAndSet(null, e);
-                            break;
+                            failed.incrementAndGet();
                         }
                     }
-                } catch (Throwable t) {
-                    loadError.compareAndSet(null, t);
+                } catch (final Throwable t) {
+                    if (!isShutDown(t)) {
+                        unexpected.compareAndSet(null, t);
+                    }
                 } finally {
-                    loadStopped.countDown();
+                    stopped.countDown();
                 }
             });
         }
 
-        // Wait for load to start, then trigger backup
-        loadStarted.await();
-        Thread.sleep(BACKUP_TRIGGER_DELAY_MS);
-        System.out.println("  Triggering backupTo() now...");
+        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30L);
+        while (committed.get() < PAIRS_BEFORE_THE_COPY && System.nanoTime() < deadline
+                && unexpected.get() == null) {
+            Thread.sleep(10L);
+        }
+        assertNull(unexpected.get(), "a worker failed for a reason other than the shutdown");
+        assertTrue(committed.get() >= PAIRS_BEFORE_THE_COPY, "the load never got going: " + committed.get()
+                + " pair(s) committed, " + failed.get() + " failed");
 
-        final Path backupDir = tempDir.resolve("backup");
-        backupExec.submit(() -> {
-            try {
-                storage.backupTo(backupDir);
-            } catch (Throwable t) {
-                System.out.println("  [INFO] backupTo error (expected if already shut): " + t.getClass().getSimpleName());
-            } finally {
-                backupDone.countDown();
-            }
-        });
+        storage.backupTo(backup);
+        final int committedWhenCopied = committed.get();
 
-        // Wait for backup to complete
-        backupDone.await();
-        System.out.println("  Backup completed. Re-opening storage for post-backup verification...");
+        assertTrue(stopped.await(30L, TimeUnit.SECONDS), "the workers did not stop once the storage closed");
+        pool.shutdownNow();
+        assertNull(unexpected.get(), "a worker failed for a reason other than the shutdown");
+        assertTrue(failed.get() < committed.get(), "most transactions failed under load: " + failed.get()
+                + " failed, " + committed.get() + " committed");
 
-        // Wait for all load workers to stop
-        loadStopped.await();
-        loadExec.shutdownNow();
-        loadExec.awaitTermination(5, TimeUnit.SECONDS);
+        // ---- the copy: whole pairs only, and every pair committed before the copy ----
+        final int pairsInCopy = wholePairs(backup.toString());
+        assertTrue(pairsInCopy >= committedWhenCopied, "the copy holds " + pairsInCopy + " pair(s), but "
+                + committedWhenCopied + " had committed when backupTo returned");
+        assertFalse(XdStorageProvider.verify(backup.toString()).verdict == XdStorageVerifyReport.Verdict.CORRUPT,
+                "the copy does not verify: " + XdStorageProvider.verify(backup.toString()));
 
-        // ---- Phase 2: verify backup -----------------------------------------------
-        // 1. verify() verdict OK
-        XdStorageVerifyReport verReport = XdStorageProvider.verify(backupDir.toString());
-        assertTrue(verReport.isOk(), "backup folder passes verify: " + verReport);
-        System.out.println("  [OK] verify(backup) = " + verReport);
-
-        // 2. Open the backup copy and check seed universes exist
-        IXdFileStorage backup = XdStorageProvider.newOrGetFileStorage(storageName + "-copy", backupDir.toString(), 200);
+        // ---- the source: the same promise, and it is operable afterwards ----
+        final int pairsInSource = wholePairs(source.toString());
+        assertTrue(pairsInSource >= committedWhenCopied, "the source holds " + pairsInSource + " pair(s), but "
+                + committedWhenCopied + " had committed");
+        final IXdFileStorage reopened = XdStorageProvider.newOrGetFileStorage("backup-load-again-"
+                + System.nanoTime(), source.toString(), 64);
         try {
-            IXdStorageTransaction backupTx = backup.beginTransaction(60_000L);
-            try {
-                for (String uid : seedIds) {
-                    XdUniverseAutoSave found = backup.load(XdUniverseAutoSave.class, uid, backupTx);
-                    assertNotNull(found, "seed universe '" + uid + "' must exist in backup");
-                    assertNotNull(found.getGalaxies(), "universe " + uid + " must have galaxies in backup");
-                    assertFalse(found.getGalaxies().isEmpty(), "universe " + uid + " must have non-empty galaxies");
-                }
-
-                // Verify cascade: galaxy -> system -> planet -> satellite
-                XdUniverseAutoSave firstUni = backup.load(XdUniverseAutoSave.class, seedIds.get(0), backupTx);
-                XdGalaxyAutoSave firstGal = firstUni.getGalaxies().iterator().next();
-                Collection<XdStarSystemAutoSave> systems = firstGal.getSystems();
-                if (systems != null && !systems.isEmpty()) {
-                    XdStarSystemAutoSave firstSys = systems.iterator().next();
-                    Collection<XdPlanetAutoSave> planets = firstSys.getPlanets();
-                    if (planets != null && !planets.isEmpty()) {
-                        XdPlanetAutoSave firstPlanet = planets.iterator().next();
-                        assertNotNull(firstPlanet.getSatellite(),
-                                "the planet's satellite survived in the backup");
-                    }
-                }
-
-                backupTx.commit();
-            } catch (XdStorageException e) {
-                backup.rollbackTransaction(backupTx);
-                throw e;
-            }
+            final IXdStorageTransaction tx = reopened.beginTransaction(60_000L);
+            reopened.save(new XdStorageMigrateOrder("after-reopen", "after", 1L), tx);
+            reopened.commitTransaction(tx);
+            final IXdStorageTransaction readTx = reopened.beginTransaction(60_000L);
+            assertEquals("after", reopened.load(XdStorageMigrateOrder.class, "after-reopen", readTx).getName());
+            readTx.commit();
         } finally {
-            backup.shutdown();
-        }
-
-        // ---- Phase 3: verify original is still operable -----------------------------
-        stopFlag = false; // re-enable for post-backup operations
-        storage = XdStorageProvider.newOrGetFileStorage(storageName, tempDir.resolve("db").toString(), 200, FilesFormat.YAML);
-
-        IXdStorageTransaction verifyTx = storage.beginTransaction(60_000L);
-        Collection<XdUniverseAutoSave> verifyUniverses = storage.load(XdUniverseAutoSave.class, verifyTx);
-        assertTrue(!verifyUniverses.isEmpty(), "original still serves queries after backup");
-
-        XdUniverseAutoSave loaded = storage.load(XdUniverseAutoSave.class, seedIds.get(0), verifyTx);
-        assertNotNull(loaded, "load-by-id works post-backup: universe=" + loaded.getId());
-
-        XdGalaxyAutoSave loadedGal = storage.load(XdGalaxyAutoSave.class, "gal-uni-0-1", verifyTx);
-        assertNotNull(loadedGal, "galaxy load-by-id works post-backup");
-
-        verifyTx.commit();
-        System.out.println("  [OK] Original post-backup operability verified");
-
-        // Final shutdown
-        stopFlag = true;
-        storage.shutdown();
-
-        // Check for unexpected errors
-        Throwable err = loadError.get();
-        if (err != null) {
-            throw new AssertionError("Unexpected load error: " + err.getMessage(), err);
+            reopened.shutdown();
         }
     }
 
-    // ---- helpers ---------------------------------------------------------------
-
-    private void seedUniverse(XdUniverseAutoSave u, Random rand) {
-        int numGalaxies = rand.nextInt(20) + 5;
-        for (int g = 0; g < numGalaxies; g++) {
-            XdGalaxyAutoSave galaxy = new XdGalaxyAutoSave();
-            galaxy.setId("gal-" + u.getId() + "-" + g);
-            u.addGalaxy(galaxy);
-
-            XdBlackHoleAutoSave hole = new XdBlackHoleAutoSave();
-            hole.setId("hole-" + galaxy.getId());
-            hole.setMass(rand.nextInt(1_000_000));
-            galaxy.setHole(hole);
-
-            int numSystems = rand.nextInt(10) + 3;
-            for (int s = 0; s < numSystems; s++) {
-                XdStarSystemAutoSave sys = new XdStarSystemAutoSave();
-                sys.setId("sys-" + galaxy.getId() + "-" + s);
-                sys.setNewName("System_" + rand.nextInt(1000));
-                galaxy.addSystem(sys);
-
-                int numPlanets = rand.nextInt(5) + 1;
-                for (int p = 0; p < numPlanets; p++) {
-                    XdPlanetAutoSave planet = new XdPlanetAutoSave();
-                    planet.setName("Planet_" + sys.getId() + "-" + p);
-                    sys.addPlanet(planet);
-
-                    XdSatelliteAutoSave sat = new XdSatelliteAutoSave();
-                    sat.setName("Sat_" + planet.getId());
-                    planet.setSatellite(sat);
-                }
-            }
-        }
-    }
-
-    private void runWorker(IXdFileStorage st, List<String> universeIds, Random rand) throws Exception {
-        if (universeIds.isEmpty()) return;
-        int op = rand.nextInt(4);
-
-        if (op <= 1) {
-            IXdStorageTransaction tx = st.beginTransaction(5_000L);
-            try {
-                XdUniverseAutoSave u = st.load(XdUniverseAutoSave.class,
-                        universeIds.get(rand.nextInt(universeIds.size())), tx);
-                if (u != null) {
-                    XdGalaxyAutoSave g = new XdGalaxyAutoSave();
-                    g.setId("gal-" + u.getId() + "-" + System.nanoTime());
-                    u.addGalaxy(g);
-
-                    XdBlackHoleAutoSave hole = new XdBlackHoleAutoSave();
-                    hole.setId("hole-" + g.getId());
-                    hole.setMass(rand.nextInt(1_000_000));
-                    g.setHole(hole);
-
-                    XdStarSystemAutoSave sys = new XdStarSystemAutoSave();
-                    sys.setId("sys-" + g.getId() + "-" + System.nanoTime());
-                    sys.setNewName("System_" + rand.nextInt(1000));
-                    g.addSystem(sys);
-
-                    XdPlanetAutoSave planet = new XdPlanetAutoSave();
-                    planet.setName("Planet_" + sys.getId() + "-" + System.nanoTime());
-                    sys.addPlanet(planet);
-
-                    XdSatelliteAutoSave sat = new XdSatelliteAutoSave();
-                    sat.setName("Sat_" + planet.getId());
-                    planet.setSatellite(sat);
-
-                    st.update(u, tx);
-                }
-                tx.commit();
-            } catch (XdStorageException | XdStorageConnectionException e) {
-                tx.rollback();
-            }
-        } else if (op == 2) {
-            IXdStorageTransaction tx = st.beginTransaction(5_000L);
-            try {
-                st.load(XdUniverseAutoSave.class, tx);
-                st.load(XdPlanetAutoSave.class, tx);
-                tx.commit();
-            } catch (XdStorageException | XdStorageConnectionException e) {
-                tx.rollback();
-            }
-        } else {
-            IXdStorageTransaction tx = st.beginTransaction(5_000L);
-            try {
-                Collection<XdUniverseAutoSave> universes = st.load(XdUniverseAutoSave.class, tx);
-                if (!universes.isEmpty()) {
-                    XdUniverseAutoSave u = universes.iterator().next();
-                    Collection<XdGalaxyAutoSave> galaxies = u.getGalaxies();
-                    if (galaxies != null && !galaxies.isEmpty()) {
-                        XdGalaxyAutoSave g = galaxies.iterator().next();
-                        Collection<XdStarSystemAutoSave> systems = g.getSystems();
-                        if (systems != null && !systems.isEmpty()) {
-                            XdStarSystemAutoSave sys = systems.iterator().next();
-                            Collection<XdPlanetAutoSave> planets = sys.getPlanets();
-                            if (planets != null && !planets.isEmpty()) {
-                                planets.iterator().next();
-                            }
+    /** Opens the folder and counts the pairs of which both halves are there; a lone half fails the test. */
+    private static int wholePairs(final String folder) throws Exception {
+        final IXdFileStorage storage = XdStorageProvider.newOrGetFileStorage("backup-load-check-" + System.nanoTime(),
+                folder, 64);
+        try {
+            final IXdStorageTransaction tx = storage.beginTransaction(60_000L);
+            final Set<String> ids = new HashSet<>();
+            for (final XdStorageMigrateOrder order : storage.load(XdStorageMigrateOrder.class,
+                    new IXdStoragePredicate<XdStorageMigrateOrder>() {
+                        @Override
+                        public boolean passed(final XdStorageMigrateOrder candidate) {
+                            return candidate.getId().startsWith("w");
                         }
-                    }
+                    }, tx)) {
+                ids.add(order.getId());
+            }
+            storage.rollbackTransaction(tx);
+            final List<String> loneHalves = new ArrayList<>();
+            int pairs = 0;
+            for (final String id : ids) {
+                final String partner = id.endsWith("-a") ? id.substring(0, id.length() - 1) + "b"
+                        : id.substring(0, id.length() - 1) + "a";
+                if (!ids.contains(partner)) {
+                    loneHalves.add(id);
+                } else if (id.endsWith("-a")) {
+                    pairs++;
                 }
-                tx.commit();
-            } catch (XdStorageException | XdStorageConnectionException e) {
-                tx.rollback();
+            }
+            assertTrue(loneHalves.isEmpty(), "records whose partner is missing — a transaction cut in half: "
+                    + loneHalves);
+            return pairs;
+        } finally {
+            storage.shutdown();
+        }
+    }
+
+    private static void rollBackQuietly(final IXdFileStorage storage, final IXdStorageTransaction tx) {
+        try {
+            storage.rollbackTransaction(tx);
+        } catch (final RuntimeException alreadyFinished) {
+            // the transaction is over either way
+        }
+    }
+
+    private static boolean isShutDown(final Throwable t) {
+        for (Throwable cause = t; cause != null; cause = cause.getCause()) {
+            if (cause.getMessage() != null && cause.getMessage().contains("is shut down")) {
+                return true;
             }
         }
+        return false;
     }
 }

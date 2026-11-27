@@ -231,32 +231,33 @@ public interface IXdFileStorage extends IXdStorage {
             XdStorageException, XdStorageConnectionException;
 
     /**
-     * FP-5 (docs/tasks/2.2.0/15): consistent backup of the storage's on-disk folder
-     * to a {@code destination} directory. Produces a self-contained storage folder
-     * (own format marker, all data/index/structure files) openable under a different
-     * name via {@link XdStorageProvider#newOrGetFileStorage(String, String, int)}.
+     * FP-5 (docs/tasks/2.2.0/15): copies this storage's folder to a {@code destination}
+     * directory that opens as a storage of its own — under any name, anywhere — and holds
+     * what was committed when the copy was taken.
      *
-     * <p><b>Consistency contract:</b> the method shuts the storage down first
-     * (ensuring all pending journal writes are checkpointed and flushed), then
-     * deep-copies every file from the source folder to {@code destination}, excluding
-     * the OS-lock file {@code .xdstorage.lock}. The destination folder is a consistent
-     * point-in-time copy — its content equals the committed state at the moment
-     * shutdown completed. A backup of an OPEN (non-shutdown) storage is unsupported;
-     * the caller must {@link #shutdown()} first. The engine's atomic-rename write-outs
-     * guarantee that every committed fragment is on disk after shutdown; no in-flight
-     * uncommitted changes can leak into the copy.
+     * <p><b>The copy is self-contained.</b> A storage folder names its own files by path
+     * (the id index points at the file of every record), so a folder copied by hand still
+     * reads the ORIGINAL's files. {@code backupTo} rewrites those paths to the copy's own
+     * location: the copy answers the same queries whether or not the original still exists.
+     * It passes {@link XdStorageProvider#verify(java.nio.file.Path)}.
      *
-     * <p><b>Acceptance:</b> the produced destination passes
-     * {@link XdStorageProvider#verify(java.nio.file.Path)} verdict OK and answers
-     * the same queries as the source (task-19 walkthrough shape).
+     * <p><b>The contract is a quiesced copy.</b> The call shuts this storage down — its
+     * shutdown checkpoint moves every committed change into the base files — and then
+     * copies the folder (without the lock file). Nothing can be committed through this
+     * instance afterwards: open the folder again with
+     * {@link XdStorageProvider#newOrGetFileStorage(String, String, int)} to keep working.
+     * A commit that was in flight when the copy was taken is cut the way a crash cuts it;
+     * its journal replays when either folder is next opened.
      *
-     * <p>Out of scope: incremental/delta backups, compression/encryption, scheduling;
-     * the CLI wrapper (task 16) consumes this API.
+     * <p>{@code destination} must be a new or an empty directory outside the storage folder.
+     * When the copy fails, a destination the call created is removed again.
      *
-     * @param destination the target directory (created if absent; must be writable)
-     * @throws XdStorageConnectionException on any storage-level I/O failure
+     * <p>Out of scope: incremental or scheduled backups, compression, encryption; the CLI
+     * wrapper is task 16.
+     *
+     * @param destination where the copy goes — new or empty
+     * @throws XdStorageConnectionException when the folder cannot be copied
      * @throws XdStorageException           when the storage is already shut down
-     * @see XdStorageProvider#verify(java.nio.file.Path) the post-backup integrity gate
      */
     void backupTo(Path destination) throws XdStorageConnectionException, XdStorageException;
 }

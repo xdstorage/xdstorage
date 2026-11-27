@@ -236,6 +236,12 @@ plain file operations, open the copy** under a new storage name. Every read answ
 copy: object counts, load-by-id, indexed EQUALS and range queries across all storage policies
 (the executable proof: `XdStorageBackupRestoreWalkthroughTest` in the reliability suite).
 
+- **A copy made by hand is tied to the original's PATH.** The id index names the file of
+  every record by the path the storage's folder was opened with. Restoring a copy to the SAME
+  path is a full restore. Opening a copy at ANOTHER path while the original still exists reads
+  the ORIGINAL's files; with the original gone, it answers `null` for records that sit in its
+  own `data/`. (The executable proof above restores next to the original — which is why it
+  passes.) For a copy that stands anywhere, use `backupTo` below.
 - The `.xdstorage.lock` FILE travels with the backup and is harmless — a clean `shutdown()`
   releases the OS file lock; the copy re-acquires its own. (A stale lock file from an unclean
   shutdown is equally harmless — also pinned by the test.) What must NOT be copied is an
@@ -245,29 +251,32 @@ copy: object counts, load-by-id, indexed EQUALS and range queries across all sto
   scheduled backups: close (or snapshot from a second machine while the first is closed),
   `cp -r`, reopen.
 
-- **Programmatic backup** (FP-5, 2.2.0, docs/tasks/2.2.0/15): `IXdFileStorage.backupTo(Path)
-  —` a consistent point-in-time copy of a storage folder into a destination directory.
-  The method internally checkpoints all journals, shuts the storage down, and deep-copies
-  every file (minus `.xdstorage.lock`) to the destination. The destination is a
-  self-contained storage folder openable under a new name. The produced copy passes
-  `XdStorageProvider.verify(destination)` verdict OK. The executable proof: `XdStorageBackupToTest`
-  (reliability suite). Out of scope: incremental/delta backups, compression/encryption,
-  scheduled backups.
+- **Programmatic backup** (FP-5, 2.2.0, docs/tasks/2.2.0/15):
+  `IXdFileStorage.backupTo(Path)` — a copy that stands on its own and holds what was committed
+  when it was taken.
 
   ```java
-  // 1. build content...
-  // 2. backupTo: the method shut downs the source internally
-  storage.backupTo(Paths.get("/data/backups/snapshot-2026-11-24"));
-  // 3. verify (optional but recommended)
-  XdStorageProvider.verify(Paths.get("/data/backups/snapshot-2026-11-24")); // OK
-  // 4. open the copy
-  IXdFileStorage copy = XdStorageProvider.newOrGetFileStorage("snapshot-name", "/data/backups/snapshot-2026-11-24", 128);
+  storage.backupTo(Paths.get("/data/backups/snapshot-2026-11-27"));   // closes `storage`
+  XdStorageProvider.verify(Paths.get("/data/backups/snapshot-2026-11-27"));  // OK
+  IXdFileStorage copy = XdStorageProvider.newOrGetFileStorage("snapshot",
+          "/data/backups/snapshot-2026-11-27", 128);
+  IXdFileStorage live = XdStorageProvider.newOrGetFileStorage("live", "/data/live-db", 128);  // keep working
   ```
 
-  **Consistency contract:** the source is quiesced at the backup point (all committed
-  fragments are on disk via atomic-rename write-outs). No in-flight uncommitted changes
-  can leak into the copy. A backup of an OPEN storage is unsupported — the caller must
-  ensure the source is idle or let `backupTo` shut it down internally.
+  **The contract.** The call closes the source — its shutdown checkpoint puts every committed
+  change into the base files — then copies the folder, without the lock file, and rewrites the
+  record paths inside the copy to the copy's own location. So the copy answers the same
+  queries whether or not the original exists, and passes `XdStorageProvider.verify`. Reopen
+  the source to keep working. The destination must be a new or an empty directory outside the
+  storage folder; one the call created is removed again if the copy fails. A commit that was
+  in flight when the copy was taken is cut between its journal appends — the state a crash at
+  that instant leaves, with the same limits for a commit spanning several classes.
+
+  The executable proofs: `XdStorageBackupToTest` (every policy and index kind answered from
+  the copy with the source moved away; a relative source folder; the refusals) and
+  `XdStorageBackupUnderLoadStressTest` (the copy taken while four threads commit — no
+  transaction is cut in half). Out of scope: incremental or scheduled backups, compression,
+  encryption.
 
 - `verify(folder)` (task 26) is the acceptance instrument — run it against every produced
   backup folder before trusting its content.

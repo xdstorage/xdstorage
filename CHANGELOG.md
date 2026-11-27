@@ -67,13 +67,14 @@
 - **`explain` is tx-free by design, documented** — the one facade method that works
   without a transaction (the plan is static index metadata; GUIDE § Query plans +
   EMBEDDING), pinned by the property estate.
-- **`IXdFileStorage.backupTo(Path)` (FP-5, docs/tasks/2.2.0/15):** a programmatic
-  backup API — consistent point-in-time copy of a live storage folder into a destination
-  directory. Internally: checkpoint all journals → shut down the storage → deep-copy all
-  files (minus `.xdstorage.lock`) → the destination is a self-contained storage folder.
-  The copy passes `XdStorageProvider.verify(destination)` verdict OK and answers the same
-  queries as the source. Pinned by `XdStorageBackupToTest` (reliability suite, 4 tests).
-  Out of scope: incremental/delta backups, compression/encryption, scheduled backups.
+- **`IXdFileStorage.backupTo(Path)` — a backup that stands on its own**
+  ([15](docs/tasks/2.2.0/15-backup-api.md)). Closes the storage and copies its folder to a new or
+  empty directory, rewriting the record paths inside the copy to the copy's own location. A
+  folder copied by hand keeps pointing at the original — opened elsewhere it answers with the
+  original's files, or with `null` once the original is gone. The copy passes
+  `XdStorageProvider.verify` and answers every query the source did with the original moved
+  away; reopen the source to keep working. Pinned with four threads committing while the copy
+  is taken: no transaction is cut in half.
 - **`schema-diff` and `migrate` — two command-line tools for the operator**
   ([17](docs/tasks/2.2.0/17-migration-schema-diff.md)). `XdStorageSchemaDiff` compares the
   structure two folders store — or a folder's and the live classes — field by field and

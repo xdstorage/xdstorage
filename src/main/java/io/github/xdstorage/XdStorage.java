@@ -14,6 +14,10 @@ import io.github.xdstorage.search.query.XdStorageSearchQuery;
 import io.github.xdstorage.serialization.FilesFormat;
 import io.github.xdstorage.services.XdStorageServicesLocator;
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.stream.Stream;
 
 import io.github.xdstorage.structure.update.IXdStorageStructureUpdater;
 import io.github.xdstorage.transaction.IXdStorageTransaction;
@@ -1544,20 +1548,9 @@ class XdStorage implements IXdFileStorage {
     public void checkpoint() {
         ensureOpen();
         try {
-            final Object lock = services.getCheckpointLock();
-            synchronized (lock) {
-                // Drain: wait until no transactions are active — same invariant as
-                // the commit protocol's synchronized(tx) + critical-section barrier.
-                // A new transaction starting here would be blocked on the same lock;
-                // in-flight transactions must finish (applyOverlays → doInsert/doDelete)
-                // before the checkpoint index can be written without gap.
-                services.getTransactionsManager().drain();
-
-                final int checkpointed = services.getResourcesManager().checkpointAllJournals();
-                if (checkpointed > 0) {
-                    log.info("storage '{}' checkpoint: {} journal(s) checkpointed", name, checkpointed);
-                }
-                lock.notifyAll(); // wake up any beginTransaction waiting here
+            final int checkpointed = services.getResourcesManager().checkpointAllJournals();
+            if (checkpointed > 0) {
+                log.info("storage '{}' checkpoint: {} journal(s) checkpointed", name, checkpointed);
             }
         } catch (final Throwable t) {
             log.warn("checkpoint of storage '{}' failed (safe: journals replay at the next open): {}",
@@ -1606,40 +1599,44 @@ class XdStorage implements IXdFileStorage {
     // ---- FP-5: backupTo (docs/tasks/2.2.0/15) ----
 
     @Override
-    public void backupTo(final java.nio.file.Path destination) throws XdStorageConnectionException, XdStorageException {
+    public void backupTo(final Path destination) throws XdStorageConnectionException, XdStorageException {
         ensureOpen();
+        final File source = new File(folder).getAbsoluteFile();
+        final Path target = destination.toAbsolutePath().normalize();
+        if (target.startsWith(source.toPath().toAbsolutePath().normalize())) {
+            throw new XdStorageRuntimeException("the backup destination " + destination + " is inside the storage"
+                    + " folder " + folder + " — the copy would copy itself");
+        }
+        final boolean fresh = !Files.exists(target);
+        if (!fresh) {
+            if (!Files.isDirectory(target)) {
+                throw new XdStorageRuntimeException("the backup destination " + destination + " exists and is not"
+                        + " a directory");
+            }
+            try (Stream<Path> entries = Files.list(target)) {
+                if (entries.findAny().isPresent()) {
+                    throw new XdStorageRuntimeException("the backup destination " + destination + " exists and is"
+                            + " not empty — a backup goes into a new or an empty directory");
+                }
+            } catch (final IOException e) {
+                throw new XdStorageConnectionException("the backup destination " + destination + " cannot be read",
+                        e);
+            }
+        }
+        // The quiesced copy — the consistency contract task 15 chose. Closing the storage is
+        // what makes it a point in time: the shutdown checkpoint moves every committed change
+        // into the base files, and nothing writes to the folder afterwards. A commit that was
+        // in flight is cut the way a crash cuts it — its journal replays at the next open.
+        shutdown();
         try {
-            // FP-5: point-in-time snapshot. checkpoint() drains in-flight txns and
-            // blocks new ones (checkpointLock), so the index is always consistent
-            // with node files at the moment of write. No stale-index race possible.
-            checkpoint();
-
-            // hold checkpoint lock across checkpoint+shutdown to prevent
-            // in-flight transactions from applying overlay between index-write and close.
-            final Object checkpointLock = services.getCheckpointLock();
-            synchronized (checkpointLock) {
-                shutdown();
+            final int copied = FilesCopy.copyStorage(source.toPath(), target, folder, target.toString());
+            log.info("storage '{}': backup into {} ({} file(s))", name, target, copied);
+        } catch (final IOException | RuntimeException failure) {
+            if (fresh) {
+                FilesCopy.deleteRecursively(target);
             }
-
-            // 3. deep-copy source folder to destination, excluding the lock file.
-            //    The engine's on-disk folder is a self-contained storage: structure,
-            //    data fragments, search/index trees, and the format marker (.xdstorage.meta)
-            //    are all here. A copy of these files (minus the lock) reopens as a fresh
-            //    storage under a new name.
-            final java.io.File srcFolder = new java.io.File(folder);
-            if (!srcFolder.exists()) {
-                throw new XdStorageConnectionException("source folder '" + folder + "' does not exist");
-            }
-
-            FilesCopy.walkAndCopy(srcFolder, destination.toFile());
-
-            log.info("backup to '{}': {} files copied", destination, FilesCopy.fileCount);
-        } catch (final java.io.IOException e) {
-            throw new XdStorageConnectionException("backup I/O error", e);
-        } catch (final XdStorageConnectionException e) {
-            throw e;
-        } catch (final RuntimeException e) {
-            throw new XdStorageConnectionException("backup failed", e);
+            throw new XdStorageConnectionException("backup of storage '" + name + "' into " + destination + " failed:"
+                    + " " + failure.getMessage(), failure);
         }
     }
 

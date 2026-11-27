@@ -80,11 +80,4 @@ public interface IXdStorageTransactionManager<T extends IXdStorageTransaction> {
      * @param transaction the transaction to mark
      */
     void registerRollbackOnlyTransaction(T transaction);
-
-    /**
-     * Default no-op for external implementations. Concrete manager overrides this.
-     */
-    default void drain() {
-        // no-op: external implementations don't need drain
-    }
 }
