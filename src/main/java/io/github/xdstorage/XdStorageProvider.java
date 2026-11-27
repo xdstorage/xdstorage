@@ -3,10 +3,13 @@ package io.github.xdstorage;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 
+import io.github.xdstorage.object.XdStorageIdentifiableObject;
 import io.github.xdstorage.serialization.FilesFormat;
 import io.github.xdstorage.utils.XdStorageAtomicFile;
 import io.github.xdstorage.utils.XdStorageFolderLock;
+import io.github.xdstorage.exceptions.XdStorageRuntimeException;
 import io.github.xdstorage.utils.XdStorageFormatMeta;
+import io.github.xdstorage.utils.XdStorageProxyCompilationEngine;
 import io.github.xdstorage.utils.XdStorageVersion;
 
 import java.io.File;
@@ -189,6 +192,23 @@ public class XdStorageProvider {
     }
 
     /**
+     * FP-3 (docs/tasks/2.2.0/08): a storage cannot work without wrapper classes, so their
+     * supply is checked at STARTUP — for the engine's own record base class, which every
+     * storage needs. Until 2.2.0 a runtime that could deliver none (a JRE, a read-only
+     * working directory) went on with the dummy wrappers behind one log line; now the
+     * refusal comes when the storage is opened, by name, with the way out — before the
+     * folder is locked or touched. The check compiles nothing: on a JDK without build-time
+     * wrappers the wrappers are still generated at the first use of a class, as before.
+     */
+    private static void ensureWrapperSupply() {
+        try {
+            XdStorageProxyCompilationEngine.ensureWrapperSupply(XdStorageIdentifiableObject.class);
+        } catch (final XdStorageRuntimeException e) {
+            throw new XdStorageRuntimeException("XdStorage cannot open a storage here", e);
+        }
+    }
+
+    /**
      * Opens (or returns the already-open) storage: YAML format (the engine default) with
      * an explicit fragment size and configuration — see
      * {@link #newOrGetFileStorage(String, String)}.
@@ -220,8 +240,10 @@ public class XdStorageProvider {
      *               {@link XdStorageConfig#defaults()}
      * @return the open storage under this name
      * @throws io.github.xdstorage.exceptions.XdStorageRuntimeException when the folder
-     *         cannot be locked, the on-disk format is newer than this library, or the
-     *         format/config combination is illegal
+     *         cannot be locked, the on-disk format is newer than this library, the
+     *         format/config combination is illegal — or when this runtime can deliver no
+     *         wrapper class at all (no pre-generated wrapper, and no compiler or nowhere to
+     *         compile one; docs/EMBEDDING.md § Codegen requirements)
      */
     public static IXdFileStorage newOrGetFileStorage(final String name, final String folder, final int fragmentSize,
                                                      final FilesFormat format, final XdStorageConfig config) {
@@ -232,6 +254,7 @@ public class XdStorageProvider {
             try {
                 storage = storages.get(name);
                 if (storage == null) {
+                    ensureWrapperSupply();
                     // S-3: эксклюзивная блокировка каталога (между процессами и инстансами JVM).
                     // Checked-исключение в сигнатуру добавить нельзя (ломает API): занятый каталог
                     // = unchecked XdStorageFolderLock.XdStorageInUseException, IOError = unchecked обертка

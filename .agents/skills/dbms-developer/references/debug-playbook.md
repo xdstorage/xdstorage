@@ -137,3 +137,32 @@ collapse), FK-independent** (the id-index change-slot choke).
 8. **An idempotent update never rewrites the id→fragment routing** — the index
    journal stays empty and its checkpoint never fires; the index base converts at
    the file level (readData → the records → the codec).
+9. **A wall-clock A/B cannot tell "first save" from "first load"** (FP-3, task
+   08): the runtime wrapper codegen is NOT paid by the write path — the first
+   save compiled nothing, the first LOAD paid the javac bill (+231 ms). The
+   phase probe (`main` → open → saved → committed → loaded) placed the cost; a
+   total-time measurement alone would have filed it under the save. Time the
+   phases, not the label — and check the phase before moving a cost "earlier"
+   (a startup check that compiled the probe class would have put the bill on
+   the first save).
+
+## 9. The task-08 trap registry (the JRE/AOT wave, 2026-11-27)
+
+1. **`Throwable(String, Throwable)` with a NULL cause blocks `initCause`**: the
+   field is assigned unconditionally, so a later `initCause(error)` throws
+   `IllegalStateException: Can't overwrite cause` — and THAT exception replaced
+   the real failure on its way out. Pass the cause through the constructor.
+2. **`getDeclaredMethods()` order is unspecified AND differs between a JDK and a
+   jlink image** — a digest keyed on reflection order called a good wrapper
+   stale on the image. Sort everything that enters a fingerprint.
+3. **33 source files in the tree are CRLF or mixed** (`XdStorageSearchIndex`,
+   `XdStorageIdentifiableObject`, `XdStorageSearchKeyIndexRecord`, the two dummy
+   wrappers, …): a text-mode rewrite (python `open(...).read()`/`write()`, or
+   `newline=""` forgotten) flips every line ending — `git diff --stat` showed
+   123 changed lines for a 3-line javadoc edit. Check `git diff --stat` after
+   every scripted edit; edit bytes, or the Edit tool.
+4. **`-release` is not a `JavaCompiler.getTask` option** (`--release` is); the
+   compiler reports it as IllegalArgumentException only at `getTask`.
+5. **Maven 3 refuses `<modules>` in a `jar` project** ("Aggregator projects
+   require 'pom' as packaging") — a reactor module needs the root to be `pom`.
+   A plugin that must not restructure the library ships standalone.

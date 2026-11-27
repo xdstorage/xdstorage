@@ -2,6 +2,7 @@ package io.github.xdstorage.code;
 
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
+import io.github.xdstorage.exceptions.XdStorageWrapperGenerationException;
 import io.github.xdstorage.object.XdStorageIdentifiableObject;
 
 import javax.tools.*;
@@ -20,12 +21,14 @@ import java.util.Map;
  * {@code ./gencode} that is pinned for the JVM's lifetime. The loader also bridges in
  * the code sources of the entity hierarchy so application-loaded entities stay linkable.
  *
- * <p>A JDK is required at runtime: on a JRE (no system compiler), or when compilation
- * or loading fails, the generation methods log the loss and return an empty map, and
- * callers degrade to the dummy wrappers with broken {@code equals}/{@code hashCode} —
- * degradation is reported once in the log, cached for the JVM lifetime and never retried.
- * All public entry points are {@code synchronized}, so generation is thread-safe by
- * mutual exclusion. Engine-internal — not part of the public API.</p>
+ * <p>This is the RUNTIME half of wrapper generation and the fallback of the build-time one
+ * (FP-3, docs/tasks/2.2.0/08): {@link XdStorageProxyCompilationEngine} first looks for a
+ * wrapper generated while the application was built. A JDK is required for this half — on
+ * a runtime without a compiler, or when compilation or loading fails, the generation
+ * methods throw {@link io.github.xdstorage.exceptions.XdStorageWrapperGenerationException}
+ * (until 2.2.0 they logged the loss and returned an empty map, and callers went on with the
+ * dummy wrappers). All public entry points are {@code synchronized}, so generation is
+ * thread-safe by mutual exclusion. Engine-internal — not part of the public API.</p>
  */
 public class XdStorageClassGenerator {
 
@@ -35,24 +38,55 @@ public class XdStorageClassGenerator {
 
     private static final Logger log = LoggerFactory.getLogger(XdStorageClassGenerator.class);
     private static final String CODE_DIRECTORY = "gencode";
-    private static final String CLASSES_PACKAGE = "io.github.xdstorage.code";
+    static final String CLASSES_PACKAGE = "io.github.xdstorage.code";
 
     // АРХИТЕКТУРНОЕ ИСПРАВЛЕНИЕ: Выносим URLClassLoader в единое статическое переиспользуемое поле СУБД!
     // Это полностью пресекает утечки памяти в Metaspace JVM и ликвидирует взаимные дедлоки
     // параллельных потоков при иерархическом вызове Class.forName()!
-    private static final BridgingURLClassLoader sharedClassLoader;
+    /**
+     * FP-3 (docs/tasks/2.2.0/08): the directory and the loader appear only when the RUNTIME
+     * path is actually taken. An application whose wrappers were generated at build time
+     * never gets here, so it never needs a writable working directory. (Until 2.2.0 the
+     * static initializer created {@value CODE_DIRECTORY} the moment this class was loaded.)
+     */
+    private static volatile BridgingURLClassLoader sharedClassLoader;
 
-    static {
-        try {
-            final File path = new File(CODE_DIRECTORY, CLASSES_PACKAGE.replace('.', '/'));
-            if (!path.exists()) {
-                path.mkdirs();
+    private static BridgingURLClassLoader sharedClassLoader() {
+        BridgingURLClassLoader loader = sharedClassLoader;
+        if (loader == null) {
+            synchronized (XdStorageClassGenerator.class) {
+                loader = sharedClassLoader;
+                if (loader == null) {
+                    ensureCodeDirectory();
+                    try {
+                        loader = new BridgingURLClassLoader(
+                                new URL[]{new File(CODE_DIRECTORY).toURI().toURL()},
+                                XdStorageClassGenerator.class.getClassLoader());
+                        sharedClassLoader = loader;
+                    } catch (final IOException | RuntimeException e) {
+                        throw new RuntimeException("Критическая ошибка инициализации транзакционного ClassLoader СУБД ("
+                                + CODE_DIRECTORY + " under " + new File(".").getAbsolutePath() + ")", e);
+                    }
+                }
             }
-            sharedClassLoader = new BridgingURLClassLoader(
-                    new URL[]{new File(CODE_DIRECTORY).toURI().toURL()},
-                    XdStorageClassGenerator.class.getClassLoader());
-        } catch (Exception e) {
-            throw new RuntimeException("Критическая ошибка инициализации транзакционного ClassLoader СУБД", e);
+        }
+        return loader;
+    }
+
+    /**
+     * The directory the runtime compilation writes to ({@value CODE_DIRECTORY}). Checked
+     * BEFORE the compiler runs: in a read-only working directory the compiler would fail
+     * on its first write with a "could not create parent directories" diagnostic — true,
+     * but it names the symptom and not the way out. Until 2.2.0 this case degraded to the
+     * dummy wrappers behind one log line.
+     *
+     * @throws XdStorageWrapperGenerationException when the directory cannot be created
+     */
+    public static void ensureCodeDirectory() {
+        final File path = new File(CODE_DIRECTORY, CLASSES_PACKAGE.replace('.', '/'));
+        if (!path.exists() && !path.mkdirs() && !path.exists()) {
+            throw XdStorageWrapperGenerationException.noWritableDirectory(path,
+                    new IOException("cannot create " + path));
         }
     }
 
@@ -62,20 +96,52 @@ public class XdStorageClassGenerator {
      * infrastructure base class, the generic one for entity classes.
      *
      * @param cl the class to wrap
-     * @return the loaded generated class keyed by {@code cl}; empty when no system
-     *         compiler is available, compilation fails or loading fails
+     * @return the loaded generated class keyed by {@code cl}
      * @throws IOException propagated from the compilation task
+     * @throws io.github.xdstorage.exceptions.XdStorageWrapperGenerationException when this
+     *         runtime has no compiler, or the wrapper does not compile or load
      */
     public static synchronized Map<Class<?>, Class<?>> generateUnmodifiableWrapper(final Class<?> cl) throws IOException
             {
         final Map<String, String> generatedCode = new HashMap<>();
+        unmodifiableWrapperSource(cl, generatedCode);
+        return compileGeneratedClassesCode(cl, generatedCode);
+    }
+
+    /**
+     * Generates only the SOURCE of the unmodifiable wrapper subclass — what the build-time
+     * generator compiles where the application is built ({@link XdStorageAotWrapperGenerator}).
+     *
+     * @param cl the class to wrap
+     * @param generatedCode accumulator map keyed by fully-qualified generated class name
+     */
+    public static void unmodifiableWrapperSource(final Class<?> cl, final Map<String, String> generatedCode) {
         if (cl == XdStorageIdentifiableObject.class) {
             new XdStorageUnmodifiableXdStorageObjectWrapperClassCodeGenerator().generate(CLASSES_PACKAGE, cl,
                     generatedCode);
         } else {
             new XdStorageUnmodifiableWrapperClassCodeGenerator().generate(CLASSES_PACKAGE, cl, generatedCode);
         }
-        return compileGeneratedClassesCode(cl, generatedCode);
+    }
+
+    /**
+     * Generates only the SOURCE of the simple (lazy-loading) wrapper subclass.
+     *
+     * @param cl the entity class to wrap
+     * @param generatedCode accumulator map keyed by fully-qualified generated class name
+     */
+    public static void simpleWrapperSource(final Class<?> cl, final Map<String, String> generatedCode) {
+        new XdStorageSimpleWrapperClassCodeGenerator().generate(CLASSES_PACKAGE, cl, generatedCode);
+    }
+
+    /**
+     * Generates only the SOURCE of the id-observable wrapper subclass.
+     *
+     * @param cl the entity class to wrap
+     * @param generatedCode accumulator map keyed by fully-qualified generated class name
+     */
+    public static void observableWrapperSource(final Class<?> cl, final Map<String, String> generatedCode) {
+        new XdStorageObservableWrapperClassCodeGenerator().generate(CLASSES_PACKAGE, cl, generatedCode);
     }
 
     /**
@@ -83,13 +149,14 @@ public class XdStorageClassGenerator {
      * given class.
      *
      * @param cl the entity class to wrap
-     * @return the loaded generated class keyed by {@code cl}; empty when no system
-     *         compiler is available, compilation fails or loading fails
+     * @return the loaded generated class keyed by {@code cl}
      * @throws IOException propagated from the compilation task
+     * @throws io.github.xdstorage.exceptions.XdStorageWrapperGenerationException when this
+     *         runtime has no compiler, or the wrapper does not compile or load
      */
     public static synchronized Map<Class<?>, Class<?>> generateSimpleWrapper(final Class<?> cl) throws IOException {
         final Map<String, String> generatedCode = new HashMap<>();
-        new XdStorageSimpleWrapperClassCodeGenerator().generate(CLASSES_PACKAGE, cl, generatedCode);
+        simpleWrapperSource(cl, generatedCode);
         return compileGeneratedClassesCode(cl, generatedCode);
     }
 
@@ -98,13 +165,15 @@ public class XdStorageClassGenerator {
      * class used by the observer service for deferred-id notification.
      *
      * @param cl the entity class to wrap
-     * @return the loaded generated class keyed by {@code cl}; empty when no system
-     *         compiler is available, compilation fails or loading fails
+     * @return the loaded generated class keyed by {@code cl}
      * @throws IOException propagated from the compilation task
+     * @throws io.github.xdstorage.exceptions.XdStorageWrapperGenerationException when this
+     *         runtime has no compiler, or the wrapper does not compile or load
      */
-    public static synchronized Map<Class<?>, Class<?>> generateObservableWrapper(final Class<?> cl) throws IOException {
+    public static synchronized Map<Class<?>, Class<?>> generateObservableWrapper(final Class<?> cl) throws
+            IOException {
         final Map<String, String> generatedCode = new HashMap<>();
-        new XdStorageObservableWrapperClassCodeGenerator().generate(CLASSES_PACKAGE, cl, generatedCode);
+        observableWrapperSource(cl, generatedCode);
         return compileGeneratedClassesCode(cl, generatedCode);
     }
 
@@ -112,12 +181,11 @@ public class XdStorageClassGenerator {
             generatedCode) throws IOException {
         final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         if (compiler == null) {
-            // SILENT-LOSS BARRIER: без компилятора (JRE) сгенерированные обертки не создаются,
-            // движок уходит в dummy-обертки с поврежденными equals/hashCode — молчать нельзя.
-            log.error("No system Java compiler available (running on a JRE?) — wrapper generation for {} "
-                    + "silently degrades to dummy wrappers (broken equals/hashCode contracts!)", cl.getName());
-            return new HashMap<>();
+            // FP-3 (docs/tasks/2.2.0/08): until 2.2.0 this logged one ERROR and went on with
+            // the dummy wrappers; without a wrapper the engine is not usable — say so, loudly.
+            throw io.github.xdstorage.exceptions.XdStorageWrapperGenerationException.noCompiler(cl);
         }
+        ensureCodeDirectory();
 
         final DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
         final XdStorageJavaSourceFromString[] files = new XdStorageJavaSourceFromString[generatedCode.size()];
@@ -140,8 +208,9 @@ public class XdStorageClassGenerator {
         if (!success) {
             // SILENT-LOSS BARRIER: ошибка компиляции обертки раньше проглатывалась — движок
             // уходил в dummy-обертки без единого следа в логе. Печатаем диагностику компилятора.
-            log.error("Wrapper compilation FAILED for {} ({} files): {}", cl.getName(), generatedCode.size(),
-                    diagnostics.getDiagnostics());
+            final String report = "the wrapper source for " + cl.getName() + " was generated but did not compile ("
+                    + generatedCode.size() + " file(s)): " + diagnostics.getDiagnostics();
+            log.error(report);
             if (Boolean.getBoolean("xdstorage.dump.gencode")) {
                 generatedCode.forEach((name, source) -> {
                     try {
@@ -153,39 +222,40 @@ public class XdStorageClassGenerator {
                     }
                 });
             }
+            throw new io.github.xdstorage.exceptions.XdStorageWrapperGenerationException(report);
         }
-        if (success) {
-            try {
-                // BUG-A/B: make the entity's own code source linkable through the shared loader
-                // BEFORE the generated wrapper loads — the wrapper's supertype IS the entity.
-                for (Class<?> c = cl; c != null && c != Object.class; c = c.getSuperclass()) {
-                    try {
-                        final java.security.CodeSource source = c.getProtectionDomain().getCodeSource();
-                        if (source != null && source.getLocation() != null) {
-                            sharedClassLoader.addURL(source.getLocation());
-                        }
-                    } catch (final Exception e) {
-                        log.debug("cannot bridge code source of {} into the shared loader", c.getName(), e);
+        try {
+            // BUG-A/B: make the entity's own code source linkable through the shared loader
+            // BEFORE the generated wrapper loads — the wrapper's supertype IS the entity.
+            for (Class<?> c = cl; c != null && c != Object.class; c = c.getSuperclass()) {
+                try {
+                    final java.security.CodeSource source = c.getProtectionDomain().getCodeSource();
+                    if (source != null && source.getLocation() != null) {
+                        sharedClassLoader().addURL(source.getLocation());
                     }
+                } catch (final Exception e) {
+                    log.debug("cannot bridge code source of {} into the shared loader", c.getName(), e);
                 }
-                final Map<Class<?>, Class<?>> result = new HashMap<>();
-                for (final Map.Entry<String, String> entry : generatedCode.entrySet()) {
-                    // Используем наш единый разделяемый sharedClassLoader СУБД
-                    Class<?> clazz = Class.forName(entry.getKey(), true, sharedClassLoader);
-                    // SILENTFAIL (docs/tasks/2.1.0/35): ключом служит КЛАСС, КОТОРЫЙ
-                    // обертывает сгенерированный класс (его суперкласс), а не сущность-заказчик:
-                    // прежний result.put(cl, clazz) затирал ключ один раз за сгенерированный
-                    // класс, и мульти-классовый граф генерации терял все классы, кроме
-                    // последнего загруженного.
-                    final Class<?> wrapped = clazz.getSuperclass() != null ? clazz.getSuperclass() : cl;
-                    result.put(wrapped, clazz);
-                }
-                return result;
-            } catch (ClassNotFoundException e) {
-                log.error("cannot load generated class", e);
             }
+            final Map<Class<?>, Class<?>> result = new HashMap<>();
+            for (final Map.Entry<String, String> entry : generatedCode.entrySet()) {
+                // Используем наш единый разделяемый sharedClassLoader СУБД
+                Class<?> clazz = Class.forName(entry.getKey(), true, sharedClassLoader());
+                // SILENTFAIL (docs/tasks/2.1.0/35): ключом служит КЛАСС, КОТОРЫЙ
+                // обертывает сгенерированный класс (его суперкласс), а не сущность-заказчик:
+                // прежний result.put(cl, clazz) затирал ключ один раз за сгенерированный
+                // класс, и мульти-классовый граф генерации терял все классы, кроме
+                // последнего загруженного.
+                final Class<?> wrapped = clazz.getSuperclass() != null ? clazz.getSuperclass() : cl;
+                result.put(wrapped, clazz);
+            }
+            return result;
+        } catch (ClassNotFoundException | LinkageError e) {
+            final String report = "the wrapper for " + cl.getName()
+                    + " compiled at runtime but cannot be loaded: " + e;
+            log.error(report, e);
+            throw new io.github.xdstorage.exceptions.XdStorageWrapperGenerationException(report, e);
         }
-        return new HashMap<>();
     }
 
     /**

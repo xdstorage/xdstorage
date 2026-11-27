@@ -119,3 +119,30 @@ tests (20 classes × 10 consecutive surefire passes, 2026-10-19 night).
 - **Fix:** the budget corrected to the documented 15000 ms (the queue of a 12-deep
   hot-key collision plus the disk spikes fits comfortably). Green ×3 isolated,
   957/0/0 ×2 full suites.
+
+## 2026-11-27: CrashAndPurge — one red in the top-5 wave's gate, NOT attributed (task 08)
+
+- **Signature (quick-gate run 2 of 3 on the task-08 tree, a quiet box):**
+  `XdStorageCrashAndPurgeStressTest.testScenario1_PowerLossAndSubsequentPurge` —
+  "Утечка! Найдены остаточные XdGalaxy!" after a purge that skipped **84**
+  subtrees/records as "crash residue"; every skip was
+  `XdStorageException: cannot load by reference object of class …XdPlanet…SimpleWrapper
+  with id N` — a dangling child reference left by the hard `shutdownNow()` cut (the
+  mechanism of task 2.1.0/35). Runs 1 and 3 of the same gate skipped 3 and 0 and passed.
+- **The residue is timing-dependent, and the failure sat at a level no other run
+  reached:** in every other full-suite run of this wave the skip count was ≤ 28 (13 runs
+  on the tree WITHOUT task 08: 0–28; 2 runs with it: 3 and 0); the failing run skipped
+  84 in three purge rounds.
+- **Not reproduced in isolation, on either tree:** 15/15 passes WITHOUT task 08
+  (`850ab69`, skips 0–30) and 15/15 WITH it (0–22); pinned to one CPU core — more
+  residue — 3/3 and 3/3 (skips up to 45 and 35).
+- **Status — NOT A/B-proven pre-existing, and not shown to be a regression.** By code
+  reading the purge path (the reference loads, the lazy-load rollback-only mark) is
+  untouched by task 08, and the wrapper classes load and work in every run; the only
+  evidence of a difference is that the single red fell inside 3 runs on the new tree
+  against 0 in 13 on the old one — not significant at these counts. What would settle
+  it: the nightly ×3 rate watch, or a reproduction of the ≥ 80-skip residue outside the
+  full suite.
+- **Not quarantined.** The scenario is the release-gate proof that a post-crash purge
+  returns the folder to empty; a red here must be read (which class stayed, how many
+  skips), not retried blind.

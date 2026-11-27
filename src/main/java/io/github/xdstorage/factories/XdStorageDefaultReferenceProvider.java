@@ -55,8 +55,8 @@ public class XdStorageDefaultReferenceProvider implements IXdStorageReferencePro
     /**
      * Creates and memoizes the canonical wrapper for the (class, id) pair — under a
      * per-class lock when a concurrent registration is possible — or returns the
-     * already-registered one. A wrapper whose generation degraded to a dummy is treated as
-     * an explicit, diagnosable failure.
+     * already-registered one. A class that resolves to the dummy wrapper (a self-referencing
+     * generation on this thread) is an explicit, diagnosable failure.
      *
      * @param cl          the entity class of the object
      * @param idField     the id-field accessor used to stamp the id into the new wrapper
@@ -64,8 +64,9 @@ public class XdStorageDefaultReferenceProvider implements IXdStorageReferencePro
      * @param storage     the storage the transaction runs against
      * @param transaction the transaction scoping the registration
      * @return the canonical wrapper for the pair (never {@code null})
-     * @throws XdStorageException when the wrapper cannot be instantiated, its generation
-     *         degraded to a dummy, or registration failed
+     * @throws XdStorageException when the wrapper cannot be instantiated, the class resolves
+     *         to the dummy wrapper (a self-referencing generation on this thread), or
+     *         registration failed
      */
     @Override
     public IXdStorageSimpleWrapper createAndRegisterReference(final Class<?> cl, final XdStorageObjectIdField idField,
@@ -92,13 +93,15 @@ public class XdStorageDefaultReferenceProvider implements IXdStorageReferencePro
                         final IXdStorageSimpleWrapper tmp = XdStorageObjectUtils.wrapAsSimpleObject(cl.newInstance(),
                                 storage, transaction);
                         // КАНОНИЧЕСКОЕ ИСПРАВЛЕНИЕ (покрыто тестами поискового движка): null-обертка
-                        // (деградация генерации в dummy — JRE без компилятора или класс вне classpath
-                        // рантайм-компилятора) раньше писалась в CHM как null-значение и рвала чтение
-                        // NPE внутри ConcurrentHashMap.put. Теперь отказ - явная диагностируемая ошибка.
+                        // (обертка класса — dummy: генерация этого класса уже идет на данном потоке,
+                        // самоссылающийся граф сущностей) раньше писалась в CHM как null-значение и рвала
+                        // чтение NPE внутри ConcurrentHashMap.put. Теперь отказ - явная диагностируемая
+                        // ошибка. (До 2.2.0 dummy был и деградацией при отсутствии компилятора — JRE;
+                        // с задачей 08 такой деградации нет: движок отказывает по имени.)
                         if (tmp == null) {
                             throw new XdStorageException("cannot create simple wrapper reference for "
-                                    + cl.getName() + " (wrapper generation degraded to dummy: check system compiler " +
-                                            "availability)");
+                                    + cl.getName() + " (the wrapper class is the DUMMY: the generation of this "
+                                    + "class is in progress on this thread — a self-referencing entity graph)");
                         }
                         idField.set(tmp, objectId);
                         transactionClassReferences.put(objectId, tmp);

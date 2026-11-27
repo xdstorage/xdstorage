@@ -61,7 +61,10 @@ public final class XdStorageObjectUtils {
      * {@code true} when the entity class has a REAL (non-dummy) generated wrapper — i.e.
      * the wrap will succeed — and {@code true} also on any probe failure ("assume
      * wrappable"). {@code false} only when the proxy engine answered with the DUMMY
-     * wrapper (compilation failed). MSGHYGIENE (docs/tasks/2.1.0/39): the polarity was
+     * wrapper (compilation failed). FP-3 (docs/tasks/2.2.0/08): a class for which NO wrapper
+     * can be obtained at all (no pre-generated one, no compiler) is not "assume wrappable" —
+     * the generation exception passes through, as it does from the wrap itself.
+     * MSGHYGIENE (docs/tasks/2.1.0/39): the polarity was
      * re-verified against the generated {@code isDummyUnmodifiableWrapper} marker
      * (real wrapper = {@code false}) — the name reads true=wrappable and is CORRECT;
      * the confusing part was the double negation in the implementation, not the name.
@@ -74,6 +77,8 @@ public final class XdStorageObjectUtils {
             final Class<?> w = XdStorageProxyCompilationEngine.getClassUnmodifiableWrapper(getEntityClass(object
                     .getClass()));
             return !((Boolean) XdStorageProxyCompilationEngine.getCheckingWrappableMethod(w).invoke(w));
+        } catch (final io.github.xdstorage.exceptions.XdStorageWrapperGenerationException unavailable) {
+            throw unavailable;
         } catch (Exception e) { return true; }
     }
 
@@ -92,6 +97,8 @@ public final class XdStorageObjectUtils {
             return (IXdStorageIdObservableWrapper) XdStorageProxyCompilationEngine.getClassObservableWrapper(object
                     .getClass())
                     .getConstructor(object.getClass()).newInstance(object);
+        } catch (final io.github.xdstorage.exceptions.XdStorageWrapperGenerationException unavailable) {
+            throw unavailable;    // FP-3: no wrapper at all is not "not wrappable" — it is loud
         } catch (Exception e) { return null; }
     }
 
@@ -209,6 +216,8 @@ public final class XdStorageObjectUtils {
             if ((Boolean) XdStorageProxyCompilationEngine.getCheckingWrappableMethod(w).invoke(w)) return null;
             return (TObject) w.getConstructor(Object.class, toWrapCl, IXdStorage.class, IXdStorageTransaction.class)
                     .newInstance(parent, object, storage, transaction);
+        } catch (final io.github.xdstorage.exceptions.XdStorageWrapperGenerationException unavailable) {
+            throw unavailable;    // FP-3: no wrapper at all is not "not wrappable" — it is loud
         } catch (Exception e) { return null; }
     }
 

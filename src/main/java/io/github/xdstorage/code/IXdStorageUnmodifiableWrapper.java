@@ -6,9 +6,10 @@ package io.github.xdstorage.code;
  * infrastructure base class via {@code XdStorageUnmodifiableXdStorageObjectWrapperClassCodeGenerator}).
  * Generated mutators reject or roll back any modification attempt.
  *
- * <p>Implementations are produced at runtime by the unmodifiable code generators;
- * {@code XdStorageDummyUnmodifiableWrapper} is the degraded stand-in used when no
- * runtime Java compiler is available. Stateless per instance.
+ * <p>Implementations are produced by the unmodifiable code generators — at build time into
+ * the application's classes, or at runtime; {@code XdStorageDummyUnmodifiableWrapper} is
+ * the stand-in used only where a wrapper's generation is in progress on this thread.
+ * Stateless per instance.
  * Engine-internal — not part of the public API.</p>
  */
 public interface IXdStorageUnmodifiableWrapper {

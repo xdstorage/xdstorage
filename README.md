@@ -93,6 +93,11 @@ no logging backend ships, bind your own):
 
 The latest main is built from source with `mvn install`.
 
+On a JDK the engine compiles the wrapper classes it needs itself (when each entity class is
+first used, into `./gencode`). To run on a **JRE**, or from a read-only working directory,
+generate them while the application is built — the `xdstorage-codegen-maven-plugin` does it
+([EMBEDDING § Running on a JRE](docs/EMBEDDING.md#running-on-a-jre)).
+
 ## What's new in 2.1.0
 
 - **Concurrent writes unlocked.** Index mutations stage per-transaction and apply at commit
@@ -140,8 +145,11 @@ The latest main is built from source with `mvn install`.
 - **Multiple processes** must share one store (a folder is exclusively locked) → Chronicle Map, or put a
   server in front.
 - You need **SQL, joins, analytics or full-text search** → H2 / SQLite / Lucene.
-- You run **JRE-only containers or Graal native-image** — runtime wrapper code generation needs a JDK
-  (build-time generation is on the roadmap).
+- You run **Graal native-image** — not tested: the wrappers can be generated at build time since
+  2.2.0, which removes the compiler from the picture, but the native-image leg has not been run
+  ([2.2.0/08](docs/tasks/2.2.0/08-fp3-jre-aot.md)). **JRE-only containers are fine**: generate the
+  wrappers at build time and no JDK is needed at runtime
+  ([EMBEDDING § Running on a JRE](docs/EMBEDDING.md#running-on-a-jre)).
 - You require multi-year vendor-support guarantees — a young single-maintainer project; judge the
   1,300+-test suite, the published benchmark runs and the known-flakes documentation on their merits.
 
