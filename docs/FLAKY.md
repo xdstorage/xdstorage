@@ -183,7 +183,7 @@ the box with a second Maven build — and 10/10 isolated on `main`.
   index resources always did), the shutdown refuses new writes and waits for the ones in
   flight, and the transaction's own `commit()` is refused after the shutdown too.
 
-## 2026-11-28 (later): two stress reds in the SHUTCKPT gate — one race in the lock's own timeout message (FIXED)
+## 2026-11-28 (later): three stress reds in the SHUTCKPT gates — one race in the lock's own timeout message (FIXED), two ledgered families
 
 - **Signature.** Two reds in 8 in-suite runs on the task-51 tree, in two ledgered
   contention families: `XdStorageBTreeTargetedDeleteStressTest` — "Конфликт блокировок MVCC:
@@ -204,6 +204,18 @@ the box with a second Maven build — and 10/10 isolated on `main`.
 - **Fix:** each message reads the holder once (`final Thread holder = writeLockThread;`).
   Not pinned: a check-then-act on a volatile field has no seam, and a probabilistic pin
   would be a flake by construction.
+- **The third red, another ledgered family:**
+  `XdStorageCrashAndPurgeStressTest.testScenario1_PowerLossAndSubsequentPurge` (run 2 of the
+  final gate) — "Утечка! Найдены остаточные XdGalaxy!" after 74 skips as crash residue. The
+  signature the top-5 wave ledgered (its section of 2026-11-27, on `feature/2.2.0-top5`:
+  one red with 84 skips, every other run ≤ 28). Read across 22 in-suite runs of this
+  session, old and new trees alike: the test takes 3 s plus 15 s per record-lock wait it
+  times out, the same on every tree; the residue is 0–35 where it passes, 84 on the top-5
+  tree and 74 on this one where it fails. The shutdown's new wait logged nothing — it never
+  ran out. Not attributed; not quarantined.
+- **The count, as it is:** three reds in 11 in-suite runs of the task-51 trees, in three
+  families; 0 in 8 on the trees before it in this session; and in the older runs 2 in 11 —
+  the NPE of `t35-quickgate-1` and the residue of `t08-quickgate-2`.
 - **What remains is the ledgered family itself:** under a full suite the 100 ms MVCC budget
   of a hot record times out — backpressure, counted, not red. And read this before trusting
   the targeted-delete storm's green: in every run of this session, on every tree,

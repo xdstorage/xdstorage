@@ -17,6 +17,12 @@
   call — it used to run a whole commit into the shut storage. Found by the Windows leg
   (`XdStorageBackupUnderLoadStressTest`, one committed pair of sixteen missing from a
   backup copy); pinned by `XdStorageShutdownCheckpointRaceTest`.
+- **A lock wait that timed out under load is reported as the lock conflict it is, no longer
+  as a `NullPointerException`** — `XdStorageReadWriteLock` read its holder field twice while
+  building the timeout message, and a holder that released the lock between the two reads
+  turned the message into an NPE ([51](docs/tasks/2.2.0/51-shutdown-checkpoint-commit-race.md),
+  found on the way). Two stress families read that NPE as an anomaly and went red; the
+  timeout itself — backpressure under the suite's load — is unchanged.
 - **The concurrent targeted delete of a duplicate pair no longer throws "does not
   exists" for an existing pair** (the DUPRACE race: the targeted-delete descent vs a
   concurrent sibling's borrow/merge — the miss now re-descends via the retry loop when
