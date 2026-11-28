@@ -179,10 +179,12 @@ public class XdStorageReadWriteLock {
             if (elapsed >= timeout) {
                 io.github.xdstorage.metrics.XdStorageMetrics.engineEvents()
                         .increment(io.github.xdstorage.metrics.XdStorageMetrics.LOCK_ACQUISITION_TIMEOUTS);
+                // ONE read of the holder: it is volatile, and the holder may release it while the
+                // message is built — a second read then turned this timeout into a NullPointerException
+                final Thread holder = writeLockThread;
                 log.error("Write-lock acquisition failed after {} ms (holder thread: {}, tx: {}){} — timeout or " +
                         "leaked write-lock",
-                        elapsed / 1_000_000, writeLockThread, transaction != null ? transaction.getTransactionId() :
-                                null,
+                        elapsed / 1_000_000, holder, transaction != null ? transaction.getTransactionId() : null,
                         describeLockState());
                 throw new XdStorageRuntimeException("Конфликт блокировок MVCC: Ресурс монопольно занят на запись " +
                         "другим потоком. Превышен таймаут ожидания: " + timeout / 1_000_000 + " мс");
@@ -214,14 +216,15 @@ public class XdStorageReadWriteLock {
             if (elapsed >= timeout) {
                 io.github.xdstorage.metrics.XdStorageMetrics.engineEvents()
                         .increment(io.github.xdstorage.metrics.XdStorageMetrics.LOCK_ACQUISITION_TIMEOUTS);
+                // ONE read of the holder — see lockWrite
+                final Thread holder = writeLockThread;
                 log.error("Read-lock acquisition failed after {} ms (holder thread: {}, tx: {}){} — timeout or " +
                         "leaked write-lock",
-                        elapsed / 1_000_000, writeLockThread, transaction != null ? transaction.getTransactionId() :
-                                null,
+                        elapsed / 1_000_000, holder, transaction != null ? transaction.getTransactionId() : null,
                         describeLockState());
                 throw new XdStorageRuntimeException("Конфликт блокировок MVCC: Ресурс заблокирован чужой " +
                         "WRITE-блокировкой (держатель: "
-                        + (writeLockThread != null ? writeLockThread.getName() : "null") +
+                        + (holder != null ? holder.getName() : "null") +
                                 "). Превышен таймаут ожидания: " + timeout / 1_000_000 + " мс");
             }
             Thread.sleep(Math.min(sleepStep, timeout - elapsed));
@@ -236,7 +239,8 @@ public class XdStorageReadWriteLock {
      */
     private String describeLockState() {
         final StringBuilder sb = new StringBuilder(" state=[writeHolder=");
-        sb.append(writeLockThread == null ? "null" : writeLockThread.getName());
+        final Thread holder = writeLockThread;   // one read — see lockWrite
+        sb.append(holder == null ? "null" : holder.getName());
         sb.append(", writeCount=").append(writeLocksCounter.get());
         sb.append(", readers={");
         boolean first = true;

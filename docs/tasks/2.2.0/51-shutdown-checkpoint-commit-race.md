@@ -85,6 +85,25 @@ of the same tree: 3 green, 2 red — both in ledgered stress families and both o
 lock's own timeout message (a `NullPointerException` where the lock conflict belongs), older
 than this task and fixed by the next commit; FLAKY.md 2026-11-28 has the reading.
 
+## Found on the way — the lock's own timeout message
+
+Two of the eight in-suite gate runs of this fix went red in ledgered stress families, with
+one signature between them: `NullPointerException: Cannot invoke "java.lang.Thread.getName()"
+because "this.writeLockThread" is null`, from the message `XdStorageReadWriteLock` builds
+when a wait times out. The holder field is volatile; the message read it twice ("not null?
+then `getName()`") and the holder released the lock in between. What should have been the
+lock conflict — which both storms classify as backpressure — left as an NPE, which they
+classify as an anomaly. Older than this task: the same NPE reddened `t35-quickgate-1` of
+the top-5 wave (2026-11-24). Fixed in this branch's second commit: each message reads the
+holder once. Not pinned — a check-then-act on a volatile field has no seam. The
+backpressure itself stays what it was.
+
+**The gate of the branch with both fixes.** `clean test -Pquick-gate`
+**1749/0f/0e/7 ×3, consecutive, BUILD SUCCESS**, and `clean verify` once green, 0 checkstyle
+violations, on a quiet box. Three runs before those, on the same code: two green, one red in
+`XdStorageCrashAndPurgeStressTest` — a residue of 74, the family the top-5 wave ledgered (84
+on `t08-quickgate-2`); FLAKY.md has the reading across the trees.
+
 ## Not changed
 
 - The id-index and search-index checkpoints: already guarded, the pins above cover them

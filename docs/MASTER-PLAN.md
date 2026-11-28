@@ -378,6 +378,9 @@ grouping is tags, not layout.
     in the engine — red 3/3 before, green 3/3 after. **The lesson:** a red that appears
     only on the slower runner is not a flake until the mechanism is reproduced; three
     Windows runs cost two portability rounds of the tests and found one engine race.
+    **Found on the way (same branch, its own commit):** the lock's timeout message read
+    its holder twice and turned a lock timeout into a `NullPointerException` — the red of
+    two stress families since the baseline; one read now.
 
 **2.1.0 exit (2026-11-22 status): everything landed, all 54 work packages closed
 (44 DOCSWRITER landed 2026-11-22: the glossary, the FK story, the canonical numbers on
