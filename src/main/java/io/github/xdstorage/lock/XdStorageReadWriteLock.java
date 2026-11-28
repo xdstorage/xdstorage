@@ -74,6 +74,16 @@ public class XdStorageReadWriteLock {
     }
 
     /**
+     * The CURRENT thread's read-lock hold count on this latch.
+     *
+     * @return the calling thread's reader count ({@code 0} when it holds none)
+     */
+    public int readHoldCount() {
+        final AtomicLong counter = readLocksCounters.get(Thread.currentThread());
+        return counter == null ? 0 : (int) Math.min(counter.get(), Integer.MAX_VALUE);
+    }
+
+    /**
      * Non-blocking write acquisition: succeeds when no other thread holds the write lock and the
      * reader map is empty or contains only the calling thread (lone-reader upgrade). Reentrant:
      * every success increments the calling thread's writer count.

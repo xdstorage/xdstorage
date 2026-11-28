@@ -159,6 +159,15 @@
   turned the message into an NPE ([51](docs/tasks/2.2.0/51-shutdown-checkpoint-commit-race.md),
   found on the way). Two stress families read that NPE as an anomaly and went red; the
   timeout itself — backpressure under the suite's load — is unchanged.
+- **The B+tree read latch can no longer leak through a walk-throw, structurally** — the
+  long-standing R-35 "open" hole (a tree-read-latch leak when a descent throws before
+  its lock-coupling point) was audited with deterministic probes and found COVERED at
+  HEAD by piecemeal guards; the stale "open" comment is retired, and the three tree
+  walk entries (`find`, the range walk, the key-type restore) now carry a
+  release-on-unwind delta guard (`readHoldCount`) that enforces the release-on-throw
+  invariant structurally — a future walk reshuffle cannot silently reopen the hole.
+  Pinned by `XdStorageBTreeReadLatchLeakTest` ×4 (the corrupt-node walks leave the
+  tree writable from another thread) ([38](docs/tasks/2.2.0/38-find-readlock-leak.md)).
 - **The FK/multi-index lookups no longer scan the whole tree** — `find` on a
   multiple-key B+tree ran a full leaf-chain walk (O(all pairs)) per lookup; the keyed
   descent (`O(log n + d)`: the first separator `>= key` lands at the leftmost subtree

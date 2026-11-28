@@ -1,7 +1,7 @@
 ---
 title: "[2.2.0][LKLEAK] The B+tree find leaks the tree read latch when the descent throws before the coupling point (R-35)"
 labels: [2.2.0-train, P1, engine, bug]
-status: open
+status: done (2026-11-28: the audit — the named hole covered at HEAD (the stale R-35 comment); the structural release-on-unwind delta guard landed at all three tree entries + the pins ×4; full suite 1833/0f/0e)
 ---
 
 ## Summary
@@ -44,10 +44,10 @@ migration or be folded into it, the design notes says which).
 
 ## Acceptance criteria
 
-- [ ] The repro red-before / green-after; the tree provably writable post-exception.
-- [ ] The design decision recorded (which option, why the others lost).
-- [ ] The sibling-entry audit result recorded.
-- [ ] The btree estate ×3 + the invariant suite + the quick-gate ×3 green.
+- [x] The repro red-before / green-after — AMENDED by the audit (2026-11-28): red-before NOT producible at HEAD (the piecemeal guards already cover — the probes prove it); the pins lock the observable contract + the structural guard enforces it; the tree provably writable post-exception (×4 pins).
+- [x] The design decision recorded (option (b), the delta guard; why (a)/(c) lost — the PROGRESS block).
+- [x] The sibling-entry audit result recorded (the per-entry table — the PROGRESS block).
+- [x] The btree estate ×3 + the invariant suite + the FULL suite 1833/0f/0e green.
 
 Estimate: ~1–2 sessions.
 
@@ -57,3 +57,50 @@ Estimate: ~1–2 sessions.
 - `XdStorageBTree.java:1494–1531` — the find entry, the R-35/R-36/R-54 comment block
 - Task 23 R56SCAN (the double-release lesson that constrains the fix)
 - Task 01 consistency-core (the lock-primitive migration neighbor)
+
+## PROGRESS (2026-11-28): the audit executed — the named hole is COVERED at HEAD; the fix = the structural guard
+
+### The audit result (scope item 3, per entry)
+
+| Entry | The throw-before-coupling window | The verdict |
+|---|---|---|
+| `findPhysical` → `node.find` | NOTHING runs between the tree `lockRead` and hop-1's `finally { toUnlock.unlockRead(); }` (only the root-null check with its own unlock) — the window is EMPTY by construction | covered (hop-1's finally is unconditional — even a `tryLockRead` throw releases the tree latch) |
+| `tree.read()` (the task-23 epoch walk) → `node.read` | the parity barrier CAN throw at iteration 1 (previous = the tree) and at iteration k (previous = the k−1 node); `current.lockRead()` (timeout) throws outside the inner try | covered by the TRANSFER DISCIPLINE: the outer `finally` releases `previous` (the tree at iteration 1), the inner catch releases `current`; **verified empirically** — the corrupt-first-leaf and corrupt-second-leaf probes leave the tree writable from another thread |
+| `tree.restoreSearchKeyTypes` → `node.restoreSearchKeyTypes` | the same walk structure | covered the same way — the probe confirms |
+| the task-32 delete chain walk | write locks with the `deepUnlock`-in-finally discipline | a different lock family, covered; no read-latch exposure |
+
+**THE HONEST VERDICT (corrects the intake's premise):** the "throw before the coupling
+point leaks the tree read latch" defect is NOT REPRODUCIBLE at HEAD — red-before cannot
+be produced even via the corrupt-node path (the deterministic probes:
+XdStorageBTreeReadLatchLeakTest, all arms green on the pre-fix code; the writer from a
+SECOND thread succeeds — the same thread would mask the leak via the lone-reader
+upgrade). The guards grew piecemeal (R-33/R-38/R-59 reworks) and the R-35 "open"
+comment went STALE — it described a hole that the reworks had already closed, while
+PROHIBITING the honest entry-level try/finally (the double-release concern was real).
+
+**The residual risk that made this task worth landing anyway:** the discipline is
+INVISIBLE and UNENFORCED — nothing but scattered finallys prevents the next walk
+reshuffle (R-59 already reshaped these methods once) from silently reopening the hole.
+
+### The fix (option (b) of the scope — decided with the evidence)
+
+- `XdStorageReadWriteLock.readHoldCount()` — the current thread's reader count accessor
+  (the counters already existed; the map lookup only);
+- the release-on-unwind DELTA guard at all three tree entries (`findPhysical`'s retry
+  loop, `read()`'s epoch loop, `restoreSearchKeyTypes`): snapshot `holdsBefore` before
+  `lockRead`, on unwind release iff `readHoldCount() > holdsBefore` — exact under any
+  reentrancy, double-release impossible (the walk consumed its acquire → no-op). The
+  stale R-35 comment replaced by the invariant description;
+- the option (a) lost: threading a held-latch obligation through every node walk's
+  exceptional paths = invasive across many methods, easy to get wrong again; the option
+  (c) lost: the walks legitimately do IO before the coupling (cannot be non-throwing).
+- **The task-01 compatibility:** the guard uses only the readable hold count — any
+  lock primitive with hold accounting (the task-01 migration target) carries it as-is.
+
+### The gates
+
+- [x] the deterministic pins ×4 (XdStorageBTreeReadLatchLeakTest: the corrupt first
+      leaf, the corrupt second leaf, the restore walk, the viewer throw after the
+      coupling — each asserts the tree stays writable from ANOTHER thread);
+- [x] the btree + properties estate ×3 green (rounds silent);
+- [x] the FULL suite **1833/0f/0e/7sk BUILD SUCCESS** (DOCSLINT included).
