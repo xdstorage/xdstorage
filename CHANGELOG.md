@@ -1,5 +1,19 @@
 
 
+## [2.1.4] — unreleased
+
+### Fixed
+
+- **The B+tree read latch can no longer leak through a walk-throw, structurally** — the
+  long-standing R-35 "open" hole (a tree-read-latch leak when a descent throws before
+  its lock-coupling point) was audited with deterministic probes and found COVERED at
+  HEAD by piecemeal guards; the stale "open" comment is retired, and the three tree
+  walk entries (`find`, the range walk, the key-type restore) now carry a
+  release-on-unwind delta guard (`readHoldCount`) that enforces the release-on-throw
+  invariant structurally — a future walk reshuffle cannot silently reopen the hole.
+  Pinned by `XdStorageBTreeReadLatchLeakTest` ×4 (the corrupt-node walks leave the
+  tree writable from another thread).
+
 ## [2.1.3] — 2026-11-23
 
 ### Fixed

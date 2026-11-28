@@ -1479,39 +1479,48 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
         long backoffMillis = 1L;
         do {
             retryFind.set(false);
+            // LKLEAK (2.2.0/38, R-35 resolved): the release-on-unwind DELTA guard — the
+            // node descent releases the latch at its coupling (hop-1's unconditional
+            // finally), so a naive try/finally would double-release (the R56SCAN lesson);
+            // the delta guard releases ONLY when the descent did not consume its acquire
+            // (a throw before the coupling) — exact under any reentrancy. The stale
+            // R-35 "open" comment retired (the audit: covered at HEAD; the guards grew
+            // piecemeal); the guard makes the invariant STRUCTURAL.
+            final int holdsBefore = lock.readHoldCount();
             lockRead(transaction);
-            // ВНИМАНИЕ (R-35): read-лок релизится самим node-спуском (lock-coupling —
-            // XdStorageBTreeNode.find вызывает tree.unlockRead на точке сцепления).
-            // Внешний try/finally здесь дал бы ДВОЙНОЙ unlockRead. Известная дыра:
-            // если спуски бросают ДО точки сцепления — read-лок течет (R-35 open).
-            if (root == null) {
-                unlockRead();
-                return Collections.emptyList();
-            }
-            result = root.find(this, key, storage, transaction, retryFind);
-
-            // R-36/R-54: громкий отказ — ТОЛЬКО когда спуск снова не пробился (retryFind)
-            // И дедлайн истек. Успешный спуск возвращает результат независимо от числа
-            // ретраев (попытечный бюджет умел ронять УСПЕШНУЮ попытку №201).
-            if (retryFind.get()) {
-                if (System.nanoTime() - findDeadlineNanos >= 0) {
-                    io.github.xdstorage.metrics.XdStorageMetrics.engineEvents().increment(io.github.xdstorage.metrics.XdStorageMetrics.FIND_RETRY_BUDGET_EXHAUSTIONS);
-                    log.warn("B+Tree find retry budget exhausted after {} ms for key {} in tree {} — sustained write pressure (operation failed loudly)",
-                            findBudgetMs, key, id);
-                    throw new XdStorageException("find retry budget exhausted by search of idgeneration " + key
-                            + " in " + id + ": устойчивая конкуренция за блокировки ребалансировки");
+            try {
+                if (root == null) {
+                    return Collections.emptyList();
                 }
+                result = root.find(this, key, storage, transaction, retryFind);
 
-                // R-42/R-54: экспоненциальный backoff — без паузы читатель молотит
-                // tryLockRead в цикле, мешая сплитам/джойнам завершиться; растущая пауза
-                // дает мутаторам окно и создает safepoint для диагностики.
-                try {
-                    Thread.sleep(backoffMillis);
-                } catch (final InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new XdStorageException("interrupted during find retry backoff", e);
+                // R-36/R-54: громкий отказ — ТОЛЬКО когда спуск снова не пробился (retryFind)
+                // И дедлайн истек. Успешный спуск возвращает результат независимо от числа
+                // ретраев (попытечный бюджет умел ронять УСПЕШНУЮ попытку №201).
+                if (retryFind.get()) {
+                    if (System.nanoTime() - findDeadlineNanos >= 0) {
+                        io.github.xdstorage.metrics.XdStorageMetrics.engineEvents().increment(io.github.xdstorage.metrics.XdStorageMetrics.FIND_RETRY_BUDGET_EXHAUSTIONS);
+                        log.warn("B+Tree find retry budget exhausted after {} ms for key {} in tree {} — sustained write pressure (operation failed loudly)",
+                                findBudgetMs, key, id);
+                        throw new XdStorageException("find retry budget exhausted by search of idgeneration " + key
+                                + " in " + id + ": устойчивая конкуренция за блокировки ребалансировки");
+                    }
+
+                    // R-42/R-54: экспоненциальный backoff — без паузы читатель молотит
+                    // tryLockRead в цикле, мешая сплитам/джойнам завершиться; растущая пауза
+                    // дает мутаторам окно и создает safepoint для диагностики.
+                    try {
+                        Thread.sleep(backoffMillis);
+                    } catch (final InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new XdStorageException("interrupted during find retry backoff", e);
+                    }
+                    backoffMillis = Math.min(backoffMillis * 2, FIND_RETRY_BACKOFF_MAX_MILLIS);
                 }
-                backoffMillis = Math.min(backoffMillis * 2, FIND_RETRY_BACKOFF_MAX_MILLIS);
+            } finally {
+                if (lock.readHoldCount() > holdsBefore) {
+                    unlockRead();
+                }
             }
         } while (retryFind.get());
         return result == null ? Collections.emptyList() : result;
@@ -1546,14 +1555,20 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
         if (chainStart != null) {
             chainStart = prewarmLeafChain(chainStart, storage, transaction);
         }
-        // the walk's lock-coupling contract (mirror of read()): the TREE read lock is held
-        // on entry and released by the walk itself after the first node lock is taken
+        // the walk's lock-coupling contract (mirror of read()); the LKLEAK delta guard
+        // enforces the release-on-unwind exactly like read()'s epoch loop
+        final int holdsBefore = lock.readHoldCount();
         lockRead(transaction);
-        if (chainStart == null) {
-            unlockRead();
-            return;
+        try {
+            if (chainStart == null) {
+                return;
+            }
+            chainStart.restoreSearchKeyTypes(this, storage, transaction, keyRestorer);
+        } finally {
+            if (lock.readHoldCount() > holdsBefore) {
+                unlockRead();
+            }
         }
-        chainStart.restoreSearchKeyTypes(this, storage, transaction, keyRestorer);
     }
 
     /**
@@ -1607,22 +1622,31 @@ public class XdStorageBTree implements IXdStorageBTreeNode, io.github.xdstorage.
         for (int attempt = 1; ; ++attempt) {
             final long capturedEpoch = structureEpoch;
             // R56SCAN: lockRead + walk (hand-over-hand releases the tree read latch
-            // at the first leaf — NO explicit unlockRead here)
+            // at the first leaf — NO explicit unlockRead here).
+            // LKLEAK (2.2.0/38): instead of trusting the walk's own unwind discipline,
+            // the entry enforces it — the delta guard releases the latch iff the walk
+            // did not consume its acquire (the throw-before-coupling case).
+            final int holdsBefore = lock.readHoldCount();
             lockRead(transaction);
-            if (chainStart == null) {
-                unlockRead();
-                return;
-            }
-            chainStart.read(this, storage, transaction, viewer);
-            if (structureEpoch == capturedEpoch) {
-                return; // the walk traversed a stable structure — the result is valid
-            }
-            if (!(viewer instanceof IXdStorageResetableViewer)) {
-                return; // the legacy viewer: the streamed result stands
-            }
-            ((IXdStorageResetableViewer) viewer).resetForReplay();
-            if (attempt >= 3) {
-                return; // the bounded fallback: accept the last attempt's output
+            try {
+                if (chainStart == null) {
+                    return;
+                }
+                chainStart.read(this, storage, transaction, viewer);
+                if (structureEpoch == capturedEpoch) {
+                    return; // the walk traversed a stable structure — the result is valid
+                }
+                if (!(viewer instanceof IXdStorageResetableViewer)) {
+                    return; // the legacy viewer: the streamed result stands
+                }
+                ((IXdStorageResetableViewer) viewer).resetForReplay();
+                if (attempt >= 3) {
+                    return; // the bounded fallback: accept the last attempt's output
+                }
+            } finally {
+                if (lock.readHoldCount() > holdsBefore) {
+                    unlockRead();
+                }
             }
             chainStart = firstLeaf;
             if (chainStart != null) {
