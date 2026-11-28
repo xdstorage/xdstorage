@@ -104,6 +104,11 @@ references, comments, the word "DOCTYPE" inside DATA); the factory's own propert
 resolver's refusal; the source scan (exactly one `XMLInputFactory.newInstance()` in
 `src/main/java`); the real XML folder (cold reopen, `storage.load`).
 
+**On Windows (2026-11-28, the wave's first Windows run):** the source scan compared
+`sources.relativize(file)` — a `Path`'s spelling, `io\github\…` there — with a
+slash-spelled location, and went red. The location is spelled with `StoragePaths.slashes`
+now.
+
 **The 2.1.x cherry-pick:** the production diff is the reader file alone; CVE-class and
 trivially cherry-pickable — the standing directive says it rides both lines; the 2.1.4 cut is
 the maintainer's call.

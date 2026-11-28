@@ -10,6 +10,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import io.github.xdstorage.helpers.StoragePaths;
+
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
@@ -79,12 +81,14 @@ final class XdStorageCrashedStorages {
         return journals;
     }
 
-    /** The one journal under {@code dir} whose path contains {@code classDir} and whose name
-     * contains {@code namePart}. */
+    /** The one journal under {@code dir} that lies in the {@code classDir} directory and whose
+     * name contains {@code namePart} — matched by the path's names, never by its spelling: the
+     * first Windows run of the wave (2026-11-28) found no journal, because the spelling says
+     * {@code \} there. */
     static Path journal(final Path dir, final String classDir, final String namePart) throws IOException {
         final List<Path> matches = new ArrayList<>();
         for (final Path journal : journalsIn(dir)) {
-            if (journal.toString().contains("/" + classDir + "/") && journal.getFileName().toString()
+            if (StoragePaths.hasElement(journal, classDir) && journal.getFileName().toString()
                     .contains(namePart)) {
                 matches.add(journal);
             }
@@ -105,7 +109,7 @@ final class XdStorageCrashedStorages {
      */
     static Path dataJournal(final Path dir, final String classDir, final String className) throws IOException {
         for (final Path journal : journalsIn(dir)) {
-            if (journal.toString().contains("/" + classDir + "/") && read(journal).contains("class: '" + className
+            if (StoragePaths.hasElement(journal, classDir) && read(journal).contains("class: '" + className
                     + "'")) {
                 return journal;
             }

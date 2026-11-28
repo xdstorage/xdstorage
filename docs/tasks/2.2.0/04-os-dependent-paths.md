@@ -1,7 +1,7 @@
 ---
 title: "[2.2.0][OSPATH] OS-dependent paths: audit, abstract, and test beyond Linux"
 labels: [2.2.0-train, P1, engine, testing]
-status: open (the audit, the platform statement and the Windows CI leg are in; three runs triaged — the first, 25 red, and the second, 1 red, all in the tests; the third, 1 red, the first ENGINE defect of the leg, fixed in task 51; the leg waits for a green run)
+status: open (the audit, the platform statement and the Windows CI leg are in; four runs triaged — the first, 25 red, and the second, 1 red, all in the tests; the third, 1 red, the first ENGINE defect of the leg, fixed in task 51; the fourth, on the top-5 wave's pull request, 8 red in that wave's own tests, fixed in its branch; the leg went green once, on the pull request of the third fix)
 ---
 
 ## Summary
@@ -35,16 +35,21 @@ Estimate: ~1–2 sessions for audit + first Windows triage.
       Windows-divergent) — 88 API sites reviewed (the table below). The audit classifies
       API USE; the OS-semantics questions it cannot answer from the source are listed
       under "What the audit cannot settle" for the Windows triage.
-- [ ] The Windows CI leg (GitHub windows-latest) running the non-stress suite — the
-      `windows` job ran three times. 2026-11-27, commit `6240cad`: 1746 run, 2
+- [x] The Windows CI leg (GitHub windows-latest) running the non-stress suite — the
+      `windows` job ran four times. 2026-11-27, commit `6240cad`: 1746 run, 2
       failures + 23 errors, every one of them in the tests, none in the engine — the
       triage is below and the fixes are in the tree. 2026-11-28, `main` `22ce727` (PR
       #111 merged): **1746 run, 0 failures, 1 error** — a race inside one test, also
       fixed ("The second run" below). 2026-11-28, `main` `8d34020` (that fix merged):
       **1746 run, 1 failure** — the first engine defect the leg found, the shutdown
       checkpoint cutting a commit between its phases ([51](51-shutdown-checkpoint-commit-race.md)),
-      fixed ("The third run" below). It stays `continue-on-error` until a run is green.
-      Done when that run is green.
+      fixed ("The third run" below). 2026-11-28, the pull request of that fix (`3b5b14d`):
+      **1749 run, 0 failures, 0 errors — the first green run of the leg.** 2026-11-28, the
+      top-5 wave's pull request (`91d14af`): **1826 run, 3 failures + 5 errors** — that
+      wave's own tests on Windows for the first time: the separator spelled literally (six)
+      and a directory Windows does not make read-only (two), fixed in that branch ("The
+      fourth run" below). The job keeps `continue-on-error` until the maintainer drops the
+      line.
 - [x] Charset: no `Charset.defaultCharset()` and no default-charset `String`/reader/
       writer constructor in the engine (re-checked 2026-11-27); the one debug write that
       used `String.getBytes()` (`XdStorageClassGenerator`, the `xdstorage.dump.gencode`
@@ -217,6 +222,28 @@ What this run says about the leg: two runs paid for the portability of the tests
 third found an engine race. Hypothesis 1 above ("replacing a file another handle holds
 open") is still not what failed.
 
+### The fourth run (the top-5 wave's pull request, `91d14af`, 2026-11-28) — 8 red, the wave's own tests
+
+After the third fix the leg's run on `fix/windows-backup` (`3b5b14d`) was **green — 1749
+run, 0 failures, 0 errors**, the first. The next run was the top-5 wave's pull request:
+**Tests run: 1826, Failures: 3, Errors: 5, Skipped: 7** — `gate` and `jdk21` green on the
+same commit. None of the eight was among the tests the first triage swept: they are the
+wave's own, written after it and never run on Windows.
+
+| Red | Tests | Cause | Fix |
+|-----|-------|-------|-----|
+| 5 errors | `XdStorageJournalCrashRecoveryTest` (the control, two torn-tail cuts, the mid-file refusal, two batches on one record) | `XdStorageCrashedStorages` found a journal by `toString().contains("/" + classDir + "/")` — no such spelling where the separator is `\` | the lookup by a whole path name, `StoragePaths.hasElement` |
+| 1 failure | `XdStorageXmlExternalEntityHardeningTest.theHardenedFactoryIsTheOnlyParserEntryPoint` | the source location `sources.relativize(file)`, a `Path`'s spelling, compared with `"io/github/…"` | `StoragePaths.slashes` on the location |
+| 2 failures | `XdStorageJreRuntimeTest` — the two read-only working directory runs | `File.setWritable(false, false)` asserted `true`. On Windows it returns `false` for every directory — the JDK's `setPermission0` leaves `FILE_ATTRIBUTE_DIRECTORY` alone (read in the OpenJDK 21 source) — and the attribute would not keep a child from being created there anyway | an assumption, not an assertion: the two runs are skipped on Windows and say why; the scenario is POSIX-only (task 08, Not done) |
+
+What it says about the sweep: a sweep covers the tests that exist when it is made. The
+top-5 wave's tests were written on Linux for a Linux gate; nothing looked at them for the
+other leg before they reached it. `XdStorageTestPortabilityContractTest` now refuses the
+first habit — a path's string form tested against a slash literal — in every gate, before
+the other leg sees it. It was red on this very tree (lines 87 and 108 of
+`XdStorageCrashedStorages`) and is green after the fix. It sees the direct spelling only;
+the source-location comparison above it could not.
+
 ## Changes made
 
 1. **EMBEDDING.md** — § Supported platforms: tested / a CI leg exists / not tested.
@@ -239,14 +266,21 @@ open") is still not what failed.
 8. **`XdStorageRollbackOnlyCauseTest` (2026-11-28, after the second run)** — its capture
    appender keeps the transaction logger's events only, the list is read through a snapshot
    under the appender's lock, and the test counts the events of its own transaction.
+9. **The top-5 wave's tests, after the fourth run (2026-11-28)** — the test helper
+   `StoragePaths` (`slashes`, `hasElement`); `XdStorageCrashedStorages` looks a journal up by
+   a whole path name; the XXE source pin spells its locations with the slash;
+   `XdStorageJreSandbox.run` treats a directory it cannot make read-only as an assumption,
+   not an assertion; and `XdStorageTestPortabilityContractTest` refuses the separator habit
+   in the test sources.
 
 ## Not done
 
-- A green Windows run. The second (`main` `22ce727`) proved the 25 fixes and failed in
-  one more test, a race; the third (`main` `8d34020`) proved that fix and failed in the
-  backup stress test — an engine race, task 51. Everything is proven on Linux (the
-  emulation, the probe, the stress harness, the parked commit) and by reading; only a run
-  proves it on Windows.
+- A green Windows run of the top-5 wave's pull request, with the fixes of the fourth
+  triage in it. The leg itself went green once (`fix/windows-backup`, 1749/0/0/7); the
+  wave's own tests have had one run, the red one. Everything since is proven on Linux and
+  by reading; only a run proves it on Windows.
+- Dropping `continue-on-error: true` from the `windows` job — one line, the maintainer's.
+- The read-only working directory on Windows: skipped there (task 08, Not done).
 - `continue-on-error: true` on the `windows` job — drop it once that run is green.
 - A macOS leg. The platform is listed as not tested; adding a leg is a CI-cost decision
   for the maintainer.

@@ -197,9 +197,15 @@ final class XdStorageJreSandbox {
         final Path working = Files.createDirectories(root.resolve(label));
         final Path data = Files.createDirectories(root.resolve(label + "-data"));
         if (readOnlyWorkingDirectory) {
-            assertTrue(working.toFile().setWritable(false, false), "cannot make " + working + " read-only");
-            assumeTrue(!Files.isWritable(working), "this account writes into read-only directories — "
-                    + "the read-only working directory cannot be set up");
+            // Windows cannot set this scenario up at all: its JDK never marks a directory read-only
+            // (File.setWritable(false) returns false for every directory — WinNTFileSystem's
+            // setPermission0 leaves FILE_ATTRIBUTE_DIRECTORY alone), and the attribute would not
+            // keep a child from being created there anyway. POSIX root writes into read-only
+            // directories as well. Either way the scenario is not set up — skipped, and reported so.
+            final boolean sealed = working.toFile().setWritable(false, false) && !Files.isWritable(working);
+            assumeTrue(sealed, "this platform or account cannot make the working directory read-only"
+                    + " (Windows never marks a directory read-only) — the read-only working directory"
+                    + " cannot be set up");
         }
         try {
             final List<String> command = new ArrayList<>(runtimeCommand);

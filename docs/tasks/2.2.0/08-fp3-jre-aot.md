@@ -191,6 +191,22 @@ dummy's last use. The javadoc of the two dummy classes and of the reference prov
   how it ships to Maven Central is a release-process decision for the maintainer
   (RELEASE-PLAN not amended).
 - **The 2.1.x line.** v2.1.3 lacks all of this; the 2.1.4 question stays with the maintainer.
+- **The read-only working directory on Windows** (2026-11-28, the wave's first Windows run:
+  both read-only runs red). The fixture made the working directory read-only with
+  `File.setWritable(false, false)` and ASSERTED the call's result. On Windows the call
+  returns `false` for every directory — the JDK's `setPermission0` leaves
+  `FILE_ATTRIBUTE_DIRECTORY` alone (read in the OpenJDK 21 source) — and the attribute would
+  not keep a child from being created there anyway. So the scenario cannot be set up that
+  way on Windows at all. `XdStorageJreSandbox.run` now treats it as an ASSUMPTION: the two
+  runs are skipped on Windows and report why; POSIX root, which writes into read-only
+  directories, was skipped by the same assumption before. The engine's behaviour is not in
+  doubt by reading — its one write into the working directory is `./gencode`, and the
+  refusal comes from `ensureCodeDirectory` when `mkdirs()` fails, whatever made it fail — but
+  the proof ran on Linux only. What would run it on Windows: a deny ACE on the directory
+  (`icacls <dir> /deny <user>:(AD,WD)`, removed again in a `finally`), or a regular file
+  named `gencode` in the working directory, which makes the same `mkdirs()` fail — the
+  narrower claim ("the working directory rejects `./gencode`") in exchange for a portable
+  fixture.
 
 ### The pins
 
@@ -198,7 +214,8 @@ dummy's last use. The javadoc of the two dummy classes and of the reference prov
 without wrappers refuses at the open; the JRE with build-time wrappers runs and compiles
 nothing; the JDK with them compiles nothing; a read-only working directory with them works;
 without them the open refuses and names the directory; a stale wrapper on the JRE is refused
-by name; on the JDK it is compiled over), `XdStoragePreGeneratedWrapperTest` (14 — the lookup
+by name; on the JDK it is compiled over — the two read-only runs execute on POSIX and are
+skipped on Windows by an assumption, see Not done), `XdStoragePreGeneratedWrapperTest` (14 — the lookup
 under the application's own loader, no manifest, a kind not generated, a stale record, a
 missing class file, another entity's wrapper, the engine taking all three kinds, the
 incremental run, a changed record regenerated, the isolated path, the scan wrapping entities
