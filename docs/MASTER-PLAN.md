@@ -408,6 +408,15 @@ grouping is tags, not layout.
     throwaway copy of the local repository (the plugin's 7 tests, the quickstart's test,
     `run-on-jre.sh`: 39 wrappers in the jar, the demo from a read-only directory and from a
     read-only root).
+    **The wave's tests on Windows (2026-11-28, the pull request's first run).** After `main`
+    had taken task 51 the leg was green once; then the wave's own tests — never run there —
+    gave 8 red: the separator spelled literally (six) and a directory Windows does not make
+    read-only (two). Fixed in the branch: the helper `StoragePaths`, an assumption for the
+    read-only scenario, and `XdStorageTestPortabilityContractTest`, which refuses the first
+    habit in every gate. Gate of that fix on Linux: `clean test -Pquick-gate`
+    **1829/0f/0e/7 ×3, consecutive** — the wave's 1826 plus the contract and the helper's two
+    tests — and `clean verify` once green, 0 checkstyle violations; the contract was red on
+    the tree before the fix, and the read-only runs execute only here — Windows skips them.
 24. **SHUTCKPT — the shutdown checkpoint cut a commit between its phases (2026-11-28,
     [51](tasks/2.2.0/51-shutdown-checkpoint-commit-race.md); numbered 24: 23 is the
     top-5 wave's, rebased onto this fix):** found by the third run of the Windows

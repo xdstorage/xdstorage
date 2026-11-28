@@ -213,7 +213,9 @@ slower runner finally hit: a test iterating the list of its log-capture appender
 the engine's own sweeper appended to it from a worker thread.
 
 **How to apply.** Spell expectations as paths (`Paths.get(...)`), or normalize
-(`toString().replace('\\', '/')`) before a string comparison. Never read a locked
+(`StoragePaths.slashes(path)`; match a directory by `StoragePaths.hasElement(path, name)` —
+the repo's `XdStorageTestPortabilityContractTest` refuses the raw spelling) before a string
+comparison. Never read a locked
 file from a test fixture: copy around it, through the repo's helper. Ask a thread
 about itself from inside the task it ran. A collection another thread writes is read
 as a snapshot under the writer's lock, and a log capture counts only the events of the

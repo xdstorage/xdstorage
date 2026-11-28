@@ -146,6 +146,19 @@ Every policy test class MUST have exactly 14 tests (the FK-6 pattern × 4 polici
   file out, and skip it in any file dump; a `Path` says `\` there, so never spell
   `/` as the separator; worker names (`xdstorage-worker-N`) are per storage, so a
   daemon check looks at the thread that ran the storage's own task
+- **The read-only working directory is a POSIX-only fixture** (the fourth run, 2026-11-28:
+  2 red): `File.setWritable(false)` returns `false` for every directory on Windows (the
+  JDK's `setPermission0` leaves `FILE_ATTRIBUTE_DIRECTORY` alone), and the attribute would
+  not keep a child from being created there. Set the scenario up behind an ASSUMPTION
+  (`assumeTrue(sealed, reason)`), never an assertion — `XdStorageJreSandbox.run` is the
+  shape.
+- **`XdStorageTestPortabilityContractTest` refuses the separator habit in the test sources**
+  (`path.toString().contains("/…")`, `split("/")`, `indexOf('/')`); it runs on every leg. A
+  path concatenated into an expected string is the one spelling it cannot see — the
+  helpers are `StoragePaths.slashes(path)` and `StoragePaths.hasElement(path, name)`.
+- **A sweep covers the tests that exist when it is made**: tests that arrive from another
+  branch need the same look before the Windows leg sees them (the top-5 wave's tests were
+  written after the first triage and met Windows unlooked-at).
 - **A log capture in a test is a shared collection** (the second Windows run,
   2026-11-28: 1 red): the first `markRollbackOnly` arms the asynchronous rollback
   sweeper, which logs from an `xdstorage-worker-*` thread a moment later; and

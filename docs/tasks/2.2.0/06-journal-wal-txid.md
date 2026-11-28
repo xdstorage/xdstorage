@@ -151,6 +151,12 @@ order), `XdStorageJournalCrashRecoveryTest` (6, on real crash folders: the contr
 cuts, the mid-file refusal, two batches on one record, `verify()` with trailers), and the
 characterization (2).
 
+**On Windows (2026-11-28, the wave's first Windows run):** `XdStorageCrashedStorages` found
+its journals by a spelled separator — `toString().contains("/" + classDir + "/")` — and five
+of the six crash tests went red at the lookup. The lookup is by a whole path name now
+(`StoragePaths.hasElement`). The child process and its kill ran there without a complaint
+(the `@BeforeAll` passed); what follows the lookup had not run there when this was written.
+
 **The gates:** the journal estate (the three classes above + `XdStorageW1JournalTest`,
 `XdStorageCheckpointOnShutdownTest`, `XdStoragePowerLossRecoveryMatrixTest`, `XdStorageVerifyTest`,
 `PropJournalEquivalenceTest`, `serialization.yaml.*Test`) **420/0f/0e ×3**; the quick-gate **1755/0f/0e/7

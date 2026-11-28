@@ -142,7 +142,11 @@ when the application is built, ship a runtime without the compiler, run. The qui
 all three without Docker in
 [`examples/quickstart/run-on-jre.sh`](../examples/quickstart/run-on-jre.sh) — the demo runs from
 a read-only working directory, and inside a sandbox whose whole root filesystem is read-only —
-and packages the same steps in its `Dockerfile`.
+and packages the same steps in its `Dockerfile`. The read-only part of that proof runs on
+Linux only: Windows cannot make a directory read-only through the JDK (`File.setWritable(false)`
+returns `false` for a directory, and the attribute would not stop a child from being created
+there), so the Windows CI leg skips the two tests of the read-only working directory and
+reports them skipped ([task 2.2.0/08](tasks/2.2.0/08-fp3-jre-aot.md), Not done).
 
 ### 1. Generate the wrappers at build time — Maven
 
@@ -483,7 +487,7 @@ Stated as what has been **run**, not what is expected to work.
 | Platform | Status |
 |---|---|
 | Linux x86_64 | **Tested.** The full-suite gate and the nightly ×3 run on it (`ubuntu-latest`), on Temurin 17 and 21; the benchmark figures in BENCHMARKS.md come from a Linux box. |
-| Windows x86_64 | **A CI leg runs the non-stress suite on `windows-latest`** (`ci.yml`, job `windows`, since 2.2.0). Its first run (2026-11-27) came back 1746 run, 25 failed — every failure in the tests themselves: the folder lock's file copied while the storage was open, `/` spelled as the separator, a thread check over the whole JVM ([the triage](tasks/2.2.0/04-os-dependent-paths.md)). The second run (2026-11-28, on `main`) failed in one — a race inside that test, fixed. The engine has shown no Windows defect in either run. Until a run is green, treat Windows as *expected to work, not verified*. |
+| Windows x86_64 | **A CI leg runs the non-stress suite on `windows-latest`** (`ci.yml`, job `windows`, since 2.2.0). Its first run (2026-11-27) came back 1746 run, 25 failed — every failure in the tests themselves: the folder lock's file copied while the storage was open, `/` spelled as the separator, a thread check over the whole JVM ([the triage](tasks/2.2.0/04-os-dependent-paths.md)). The second run (2026-11-28, on `main`) failed in one — a race inside that test, fixed; the third found the one engine defect of the leg so far, the shutdown checkpoint cutting a commit ([task 51](tasks/2.2.0/51-shutdown-checkpoint-commit-race.md)), fixed. The fourth run — the pull request of that fix — was **green: 1749 run, 0 failed**. The fifth, the top-5 wave's pull request, failed in eight of that wave's own tests, never run there before: the separator again (six) and a directory Windows does not make read-only (two — its CI leg skips those two tests); fixed in that branch. Windows is verified as far as that one green run of `main`'s suite; the top-5 wave's tests wait for theirs. |
 | macOS | **Not tested.** No CI leg runs there. |
 | Java 8–11 runtimes | **Not tested by CI.** The bytecode is `release=8` and uses only the Java 8 platform API (H-5), but the suite runs on 17 and 21 only. |
 

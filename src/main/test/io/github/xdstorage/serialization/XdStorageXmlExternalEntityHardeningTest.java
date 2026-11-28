@@ -15,6 +15,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import io.github.xdstorage.helpers.StoragePaths;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -249,7 +251,9 @@ public class XdStorageXmlExternalEntityHardeningTest {
                     final List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
                     for (int i = 0; i < lines.size(); i++) {
                         if (lines.get(i).contains("XMLInputFactory.newInstance(")) {
-                            sites.add(sources.relativize(file) + ":" + (i + 1));
+                            // spelled with the slash whatever the separator is: the expectation
+                            // below is a source location, and on Windows relativize() says backslashes
+                            sites.add(StoragePaths.slashes(sources.relativize(file)) + ":" + (i + 1));
                         }
                     }
                 } catch (final IOException e) {
