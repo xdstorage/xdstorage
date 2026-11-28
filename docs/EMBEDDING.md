@@ -343,7 +343,7 @@ Stated as what has been **run**, not what is expected to work.
 | Platform | Status |
 |---|---|
 | Linux x86_64 | **Tested.** The full-suite gate and the nightly ×3 run on it (`ubuntu-latest`), on Temurin 17 and 21; the benchmark figures in BENCHMARKS.md come from a Linux box. |
-| Windows x86_64 | **A CI leg runs the non-stress suite on `windows-latest`** (`ci.yml`, job `windows`, since 2.2.0). Its first run (2026-11-27) came back 1746 run, 25 failed — every failure in the tests themselves: the folder lock's file copied while the storage was open, `/` spelled as the separator, a thread check over the whole JVM ([the triage](tasks/2.2.0/04-os-dependent-paths.md)). The engine showed no Windows defect in that run. The fixes are in; until a run with them is green, treat Windows as *expected to work, not verified*. |
+| Windows x86_64 | **A CI leg runs the non-stress suite on `windows-latest`** (`ci.yml`, job `windows`, since 2.2.0). Its first run (2026-11-27) came back 1746 run, 25 failed — every failure in the tests themselves: the folder lock's file copied while the storage was open, `/` spelled as the separator, a thread check over the whole JVM ([the triage](tasks/2.2.0/04-os-dependent-paths.md)). The second run (2026-11-28, on `main`) failed in one — a race inside that test, fixed. The engine has shown no Windows defect in either run. Until a run is green, treat Windows as *expected to work, not verified*. |
 | macOS | **Not tested.** No CI leg runs there. |
 | Java 8–11 runtimes | **Not tested by CI.** The bytecode is `release=8` and uses only the Java 8 platform API (H-5), but the suite runs on 17 and 21 only. |
 

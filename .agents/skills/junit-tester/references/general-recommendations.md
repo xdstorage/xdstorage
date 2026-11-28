@@ -207,14 +207,21 @@ storage, lock file included (POSIX locks are advisory and the read succeeds; Win
 refuses it); spelling `/` as the separator in a `contains`/`split`/expected string;
 and judging every thread of the JVM by a name prefix that is not unique per instance.
 The class order differs between OSes, too, which turns "another test left something
-open" into an order-dependent failure.
+open" into an order-dependent failure. The next day, with those 25 fixed, the same leg
+failed in ONE more (2026-11-28) — a race that had been there all along and that the
+slower runner finally hit: a test iterating the list of its log-capture appender while
+the engine's own sweeper appended to it from a worker thread.
 
 **How to apply.** Spell expectations as paths (`Paths.get(...)`), or normalize
 (`toString().replace('\\', '/')`) before a string comparison. Never read a locked
 file from a test fixture: copy around it, through the repo's helper. Ask a thread
-about itself from inside the task it ran. And when a leg on another OS goes red,
-reproduce the mechanism at home before fixing — an emulation of the OS semantics
-(for the mandatory lock: a held file made unreadable) turns "Windows only" into a
+about itself from inside the task it ran. A collection another thread writes is read
+as a snapshot under the writer's lock, and a log capture counts only the events of the
+subject under test (logger name, transaction id) — `Configuration.getLoggerConfig(name)`
+returns the nearest CONFIGURED logger, not the one named. And when a leg on another OS
+goes red, reproduce the mechanism at home before fixing — an emulation of the OS
+semantics (for the mandatory lock: a held file made unreadable) or a diagnostic copy
+that prints what actually crosses the racy window turns "the other OS only" into a
 red/green pair you can actually run.
 
 ---
