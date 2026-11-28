@@ -1,7 +1,7 @@
 ---
 title: "[2.2.0][OSPATH] OS-dependent paths: audit, abstract, and test beyond Linux"
 labels: [2.2.0-train, P1, engine, testing]
-status: open (the audit, the platform statement and the Windows CI leg are in; two runs triaged — the first, 25 red; the second, 1 red — every cause in the tests, every fix in the tree; the leg waits for a green run)
+status: open (the audit, the platform statement and the Windows CI leg are in; three runs triaged — the first, 25 red, and the second, 1 red, all in the tests; the third, 1 red, the first ENGINE defect of the leg, fixed in task 51; the leg waits for a green run)
 ---
 
 ## Summary
@@ -36,11 +36,14 @@ Estimate: ~1–2 sessions for audit + first Windows triage.
       API USE; the OS-semantics questions it cannot answer from the source are listed
       under "What the audit cannot settle" for the Windows triage.
 - [ ] The Windows CI leg (GitHub windows-latest) running the non-stress suite — the
-      `windows` job ran twice. 2026-11-27, commit `6240cad`: 1746 run, 2 failures +
-      23 errors, every one of them in the tests, none in the engine — the triage is
-      below and the fixes are in the tree. 2026-11-28, `main` `22ce727` (PR #111
-      merged): **1746 run, 0 failures, 1 error** — a race inside one test, also fixed
-      ("The second run" below). It stays `continue-on-error` until a run is green.
+      `windows` job ran three times. 2026-11-27, commit `6240cad`: 1746 run, 2
+      failures + 23 errors, every one of them in the tests, none in the engine — the
+      triage is below and the fixes are in the tree. 2026-11-28, `main` `22ce727` (PR
+      #111 merged): **1746 run, 0 failures, 1 error** — a race inside one test, also
+      fixed ("The second run" below). 2026-11-28, `main` `8d34020` (that fix merged):
+      **1746 run, 1 failure** — the first engine defect the leg found, the shutdown
+      checkpoint cutting a commit between its phases ([51](51-shutdown-checkpoint-commit-race.md)),
+      fixed ("The third run" below). It stays `continue-on-error` until a run is green.
       Done when that run is green.
 - [x] Charset: no `Charset.defaultCharset()` and no default-charset `String`/reader/
       writer constructor in the engine (re-checked 2026-11-27); the one debug write that
@@ -195,6 +198,25 @@ Traps of this round:
   repetitions under load hit nothing on Linux; a 50 ms pause inserted where the Windows
   runner paused the thread made the old loop fail 199 times out of 200 (FLAKY.md, 2026-11-28).
 
+### The third run (`main` `8d34020`, 2026-11-28) — 1 red, the first engine defect
+
+Job `windows` on the merge of the second fix: **Tests run: 1746, Failures: 1, Errors: 0,
+Skipped: 7** — the rollback-only race stayed fixed. The one failure:
+`XdStorageBackupUnderLoadStressTest.theCopyHoldsWholePairsAndTheSourceReopens:117` — "the
+copy holds 15 pair(s), but 16 had committed when backupTo returned".
+
+This one is not a habit of the tests. The shutdown checkpoint of a data resource could
+fold its journal while a commit of another thread was between its phases, and delete the
+redo of a commit that then returned success — a committed record gone at the next open.
+The slower runner widened a window that no Linux run had hit. The mechanism, the
+deterministic reproduction and the fix are in
+[task 51](51-shutdown-checkpoint-commit-race.md); why it must not be read as a flake is
+in FLAKY.md.
+
+What this run says about the leg: two runs paid for the portability of the tests, the
+third found an engine race. Hypothesis 1 above ("replacing a file another handle holds
+open") is still not what failed.
+
 ## Changes made
 
 1. **EMBEDDING.md** — § Supported platforms: tested / a CI leg exists / not tested.
@@ -220,10 +242,11 @@ Traps of this round:
 
 ## Not done
 
-- A green Windows run. The second one (`main` `22ce727`) proved the 25 fixes — and
-  failed in one more test, a race, fixed here. Everything is proven on Linux (the
-  emulation, the probe, the stress harness) and by reading; only that run proves it on
-  Windows.
+- A green Windows run. The second (`main` `22ce727`) proved the 25 fixes and failed in
+  one more test, a race; the third (`main` `8d34020`) proved that fix and failed in the
+  backup stress test — an engine race, task 51. Everything is proven on Linux (the
+  emulation, the probe, the stress harness, the parked commit) and by reading; only a run
+  proves it on Windows.
 - `continue-on-error: true` on the `windows` job — drop it once that run is green.
 - A macOS leg. The platform is listed as not tested; adding a leg is a CI-cost decision
   for the maintainer.

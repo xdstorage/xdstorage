@@ -4,6 +4,19 @@
 
 ### Fixed
 
+- **A commit that overlapped a `checkpoint()`, a `shutdown()` or a `backupTo` is no longer
+  lost while it reports success** ([51](docs/tasks/2.2.0/51-shutdown-checkpoint-commit-race.md))
+  — the shutdown checkpoint of a data resource could fold its journal while a commit of
+  another thread was between its phases: the base was written without that transaction
+  and its redo record deleted; the commit returned success, and the record was gone at
+  the next open. The data resource now takes its commit lock before the fold, as the
+  index resources always did. Two more holes of the same edge closed: `shutdown()` let the
+  writes in flight finish before its checkpoint (it waits up to the default transaction
+  timeout; a write still in flight then is cut the way a crash cuts it, with one WARN),
+  and the transaction's own `commit()` is refused after the shutdown like every other
+  call — it used to run a whole commit into the shut storage. Found by the Windows leg
+  (`XdStorageBackupUnderLoadStressTest`, one committed pair of sixteen missing from a
+  backup copy); pinned by `XdStorageShutdownCheckpointRaceTest`.
 - **The concurrent targeted delete of a duplicate pair no longer throws "does not
   exists" for an existing pair** (the DUPRACE race: the targeted-delete descent vs a
   concurrent sibling's borrow/merge — the miss now re-descends via the retry loop when

@@ -64,6 +64,25 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
     // выполняющих операции внутри конкретной транзакции прямо сейчас.
     private final Map<String, AtomicLong> transactionActiveThreadsCounter = new ConcurrentHashMap<>();
 
+    // SHUTCKPT: the writers in flight — the shutdown waits for them (awaitQuiescence). A commit
+    // registers BEFORE it checks that the shutdown has not begun; a save, an update and a delete
+    // register too (the search-index journal is written while a transaction stages its changes,
+    // not at its commit). Both counts at zero after the shutdown began = the folder is quiet.
+    // Until then a commit cut between its phases by the shutdown checkpoint was lost on disk
+    // while it returned success (XdStorageShutdownCheckpointRaceTest).
+    private final java.util.concurrent.atomic.AtomicInteger commitsInFlight =
+            new java.util.concurrent.atomic.AtomicInteger();
+
+    private final java.util.concurrent.atomic.AtomicInteger stagedWritesInFlight =
+            new java.util.concurrent.atomic.AtomicInteger();
+
+    /** The calling thread's place inside a commit: the committing thread and the thread its triggers run on. */
+    private final ThreadLocal<Integer> commitDepth = ThreadLocal.withInitial(() -> 0);
+
+    /** Set by the shutdown the moment it refuses new operations; from then on no commit begins. */
+    private volatile boolean shuttingDown = false;
+
+
     /**
      * Creates a manager with empty transaction registries.
      *
@@ -245,7 +264,88 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
         return new XdStorageTransaction(manager, threadId, globalTransaction, timeout, transactionId);
     }
 
+    /**
+     * Commits the transaction in two phases. The commit counts as IN FLIGHT from here to its
+     * return, triggers included, and is refused once the shutdown has begun — the transaction's
+     * own {@code commit()} ends here too, so it is no way around the closed facade. The
+     * shutdown waits for the commits in flight ({@link #awaitQuiescence}).
+     *
+     * @param transaction the transaction to commit
+     * @throws XdStorageRuntimeException when the storage is shutting down: the transaction is
+     *                                  not committed and nothing is written
+     */
     public void commitTransaction(final XdStorageTransaction transaction) {
+        enterWriter(commitsInFlight);
+        try {
+            if (shuttingDown) {
+                throw new XdStorageRuntimeException("storage is shut down — the transaction "
+                        + transaction.getTransactionId() + " cannot be committed; open a new instance via"
+                        + " XdStorageProvider");
+            }
+            commitTransactionInternal(transaction);
+        } finally {
+            leaveWriter(commitsInFlight);
+        }
+    }
+
+    /**
+     * The shutdown has begun: from now on every commit is refused, and {@link #awaitQuiescence}
+     * is what the shutdown waits on before its checkpoint.
+     */
+    public void shutdownBegan() {
+        shuttingDown = true;
+    }
+
+    /**
+     * A save, an update or a delete registers itself here BEFORE it checks that the storage is
+     * still open: a shutdown that began in between either sees the write and waits for it, or
+     * refuses it — it can no longer miss it. Paired with {@link #leaveStagedWrite()}.
+     */
+    public void enterStagedWrite() {
+        stagedWritesInFlight.incrementAndGet();
+    }
+
+    /** The counterpart of {@link #enterStagedWrite()}: the staging operation has returned. */
+    public void leaveStagedWrite() {
+        stagedWritesInFlight.decrementAndGet();
+    }
+
+    private void enterWriter(final java.util.concurrent.atomic.AtomicInteger counter) {
+        counter.incrementAndGet();
+        commitDepth.set(commitDepth.get() + 1);
+    }
+
+    private void leaveWriter(final java.util.concurrent.atomic.AtomicInteger counter) {
+        commitDepth.set(commitDepth.get() - 1);
+        counter.decrementAndGet();
+    }
+
+    /**
+     * Waits until neither a commit nor a staging write is in flight — for the shutdown, which
+     * must not return under a write it owes an outcome to. Called from INSIDE a commit (a
+     * trigger that shuts the storage down or backs it up), it does not wait: the commit it
+     * belongs to is waiting for that very trigger, and the wait would only run out the clock.
+     *
+     * @param timeoutMillis how long to wait for the writes that are in flight
+     * @return whether the folder went quiet; {@code false} when a write is still in flight or
+     *         the caller is inside a commit
+     * @throws InterruptedException when the waiting thread is interrupted
+     */
+    public boolean awaitQuiescence(final long timeoutMillis) throws InterruptedException {
+        if (commitDepth.get() > 0) {
+            return false;
+        }
+        final long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
+        while (commitsInFlight.get() > 0 || stagedWritesInFlight.get() > 0) {
+            if (System.nanoTime() >= deadline) {
+                return false;
+            }
+            Thread.sleep(1L);
+        }
+        return true;
+    }
+
+    private void commitTransactionInternal(final XdStorageTransaction transaction) {
         if (transaction.isRollbackOnly()) {
             throw XdStorageRollbackOnlyCause.buildFailure(
                     "transaction will be rolled back because it is marked as rollback only",
@@ -355,10 +455,17 @@ public class XdStorageTransactionManager implements IXdStorageTransactionManager
     protected void fireChanges(final Map<Object, XdStorageTransactionResourceChanges> firstPhaseCommittedResources,
             final XdStorageTransaction transaction) {
         final Callable<Boolean> task = () -> {
-            firstPhaseCommittedResources.entrySet().stream().forEach(entry -> {
-                entry.getValue().performTriggers(transaction, services.getTriggersManager());
-            });
-            return true;
+            // the trigger thread is inside the commit too: a shutdown from a trigger must not
+            // wait for the commit that is waiting for this trigger
+            enterWriter(commitsInFlight);
+            try {
+                firstPhaseCommittedResources.entrySet().stream().forEach(entry -> {
+                    entry.getValue().performTriggers(transaction, services.getTriggersManager());
+                });
+                return true;
+            } finally {
+                leaveWriter(commitsInFlight);
+            }
         };
 
         try {

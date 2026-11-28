@@ -525,14 +525,38 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
      * {@code prepared}: a resource never prepared in THIS run has an empty cache and a
      * journal that belongs to the NEXT open's replay — checkpointing it would destroy
      * the base. Atomic vs appends: the whole checkpoint holds the journal's append lock.
+     *
+     * <p><b>And vs a commit between its phases:</b> the resource's commit lock is taken FIRST,
+     * in the order a commit takes its locks (commit, then journal). A commit holds that lock
+     * from before its first append until after its second phase, and in the window between
+     * them its redo is in the journal while the committed view does not know it yet. A fold
+     * in that window wrote a base without the transaction and deleted the redo that held it —
+     * a commit that returned success, gone at the next open ({@code checkpoint()},
+     * {@code shutdown()}, {@code backupTo}; the id-index resource has always taken its lock
+     * here). A held lock means a live commit: the journal stays, and replays at the next open.</p>
      */
     @Override
     public boolean checkpointJournalOnShutdown() {
         if (!journalWrites || journalFile == null || !prepared.get()) {
             return false;
         }
-        synchronized (io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.lockFor(journalFile)) {
-            try {
+        final ReentrantLock commitLock = (ReentrantLock) lock;
+        if (commitLock.isHeldByCurrentThread()) {
+            return false;   // called from inside this thread's own commit: the lock would be reentrant
+        }
+        boolean commitLocked = false;
+        try {
+            commitLocked = commitLock.tryLock(200, java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+        if (!commitLocked) {
+            log.warn("resource {} is busy at shutdown — journal left for replay at the next open", getFileName());
+            return false;
+        }
+        try {
+            synchronized (io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.lockFor(journalFile)) {
                 if (io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.sizeOf(journalFile) == 0) {
                     return false;
                 }
@@ -541,12 +565,14 @@ public class XdStorageResource extends XdStorageAbstractResource implements IXdS
                 writeObjects(cache.readCommittedForCheckpoint());
                 io.github.xdstorage.serialization.yaml.XdStorageYamlCommitJournal.reset(journalFile);
                 return true;
-            } catch (final Throwable e) {
-                // безвредно: журнал остается — реплей при следующем открытии вернет состояние
-                log.warn("resource {} shutdown checkpoint failed (safe: the journal replays at the next open): {}",
-                        getFileName(), e.getMessage());
-                return false;
             }
+        } catch (final Throwable e) {
+            // безвредно: журнал остается — реплей при следующем открытии вернет состояние
+            log.warn("resource {} shutdown checkpoint failed (safe: the journal replays at the next open): {}",
+                    getFileName(), e.getMessage());
+            return false;
+        } finally {
+            commitLock.unlock();
         }
     }
 

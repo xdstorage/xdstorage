@@ -362,6 +362,22 @@ grouping is tags, not layout.
     Gate on `parallel-work`:
     `clean test -Pquick-gate` **1746/0f/0e/7 skipped ×3, consecutive**, BUILD SUCCESS, 0
     checkstyle violations (`main`: 1360). The push and the pull request are the maintainer's.
+24. **SHUTCKPT — the shutdown checkpoint cut a commit between its phases (2026-11-28,
+    [51](tasks/2.2.0/51-shutdown-checkpoint-commit-race.md); numbered 24 because 23 is the
+    top-5 wave's, waiting in its pull request):** found by the third run of the Windows
+    leg on `main` `8d34020` — `XdStorageBackupUnderLoadStressTest`, one committed pair of
+    sixteen missing from a backup copy. The data resource's shutdown checkpoint folded its
+    journal under the append lock only; a commit of another thread between its phases was
+    in neither the base written nor the journal deleted: it returned success and was gone
+    at the next open. `checkpoint()`, `shutdown()` and `backupTo` all run that fold. The
+    index resources had always taken their commit lock there — the data resource had not.
+    **The fix:** the commit lock first, then the journal; the shutdown refuses new writes
+    and waits for the ones in flight (up to the default transaction timeout); the
+    transaction's own `commit()` is refused after the shutdown too. **The proof:** a
+    commit parked between its phases by holding the id-index journal's monitor — no seam
+    in the engine — red 3/3 before, green 3/3 after. **The lesson:** a red that appears
+    only on the slower runner is not a flake until the mechanism is reproduced; three
+    Windows runs cost two portability rounds of the tests and found one engine race.
 
 **2.1.0 exit (2026-11-22 status): everything landed, all 54 work packages closed
 (44 DOCSWRITER landed 2026-11-22: the glossary, the FK story, the canonical numbers on

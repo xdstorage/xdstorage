@@ -69,8 +69,17 @@ Estimate: ~2–3 sessions (the consistency contract is the design half).
 | **close, then copy** | the shutdown checkpoint moves every committed change into the base files; after the close nothing writes to the folder, so the copy is one point in time |
 
 The contract costs the application its open storage: the call closes it, and the caller
-reopens the folder to keep working. A commit in flight when the call lands is cut between
-its journal appends — the state a crash at that instant leaves, torn tails discarded at
+reopens the folder to keep working.
+
+**What "nothing writes after the close" needed (2026-11-28, task 51).** The first version
+of this contract cut a commit in flight "between its journal appends" — and on Windows the
+stress test below lost one committed pair of sixteen in the copy. The cut was not clean:
+the shutdown checkpoint could fold a data journal while the commit was between its phases
+and delete the redo of a commit that then returned success. Now `shutdown()` refuses new
+writes, waits for the ones in flight (up to the default transaction timeout), and only
+then checkpoints; the checkpoint of a busy resource leaves its journal for the next open.
+So a write in flight when the call lands finishes and is in the copy. Only a write still
+in flight when the wait runs out is cut the way a crash cuts it — torn tails discarded at
 the next open, with the same limits for a commit spanning several classes (task 50).
 
 ## Decision 2 — the copy names its own files
@@ -121,7 +130,9 @@ leave the storage open.
 relative source folder; the lock file not copied; the call closes the source; a destination
 inside the folder, a non-empty destination, a shut-down storage — refused; a transaction
 begins while another thread checkpoints. `XdStorageBackupUnderLoadStressTest` (1, the
-concurrency criterion). `XdStorageBackupRestoreWalkthroughTest` (task 19, unchanged — its
+concurrency criterion — the test that found the engine race on Windows, 2026-11-28).
+`XdStorageShutdownCheckpointRaceTest` (task 51, 3): the commit parked between its phases
+against `checkpoint()` and against `shutdown()`, and the late commit refused. `XdStorageBackupRestoreWalkthroughTest` (task 19, unchanged — its
 "copy by hand" proof stands for a restore next to the original; see EMBEDDING).
 
 ## Not done

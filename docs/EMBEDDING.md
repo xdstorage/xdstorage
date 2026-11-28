@@ -14,8 +14,14 @@ current code, stated so embedding surprises are design-time, not production-time
   `XdStorageFolderLock.XdStorageInUseException` (unchecked; the provider API predates the lock and
   cannot add a checked exception).
 - **`shutdown()` is idempotent.** After it every storage call throws
-  `XdStorageRuntimeException("storage ... is shut down")`. In-flight transactions are NOT waited for —
-  quiesce your workers before shutting down.
+  `XdStorageRuntimeException("storage ... is shut down")` — the transaction's own `commit()` too.
+  The shutdown first lets the WRITES in flight finish (commits, and the saves, updates and
+  deletes staging their changes): it waits for them up to the default transaction timeout
+  (15 s) before its checkpoint, so a commit that overlapped the shutdown is in the folder —
+  and never half of it ([task 51](tasks/2.2.0/51-shutdown-checkpoint-commit-race.md)). An
+  open but idle transaction is not waited for: it is refused when it next touches the
+  storage. Quiesce your workers before shutting down all the same — a write still in flight
+  when the wait runs out is cut the way a crash cuts it, and one WARN names the storage.
 - **Threads:** a fixed pool (default 15) of non-daemon `xdstorage-worker-N` threads per storage.
   A forgotten `shutdown()` therefore blocks JVM exit. Options:
   `XdStorageConfig.builder().daemonWorkerThreads(true)` (workers can't block exit) and/or
@@ -270,14 +276,18 @@ copy: object counts, load-by-id, indexed EQUALS and range queries across all sto
   record paths inside the copy to the copy's own location. So the copy answers the same
   queries whether or not the original exists, and passes `XdStorageProvider.verify`. Reopen
   the source to keep working. The destination must be a new or an empty directory outside the
-  storage folder; one the call created is removed again if the copy fails. A commit that was
-  in flight when the copy was taken is cut between its journal appends — the state a crash at
-  that instant leaves, with the same limits for a commit spanning several classes.
+  storage folder; one the call created is removed again if the copy fails. A write in flight
+  when the call lands finishes first — the shutdown waits for it — so the copy holds every
+  transaction that committed before the call returned. Only a write still in flight when
+  that wait runs out (the default transaction timeout) is cut the way a crash cuts it, with
+  the same limits for a commit spanning several classes.
 
   The executable proofs: `XdStorageBackupToTest` (every policy and index kind answered from
-  the copy with the source moved away; a relative source folder; the refusals) and
-  `XdStorageBackupUnderLoadStressTest` (the copy taken while four threads commit — no
-  transaction is cut in half). Out of scope: incremental or scheduled backups, compression,
+  the copy with the source moved away; a relative source folder; the refusals),
+  `XdStorageBackupUnderLoadStressTest` (the copy taken while four threads commit — every
+  pair committed before the call returned is in the copy, no transaction is cut in half)
+  and `XdStorageShutdownCheckpointRaceTest` (a commit parked between its phases against
+  `checkpoint()` and against `shutdown()`). Out of scope: incremental or scheduled backups, compression,
   encryption.
 
 - `verify(folder)` (task 26) is the acceptance instrument — run it against every produced
