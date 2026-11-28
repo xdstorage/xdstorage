@@ -160,3 +160,52 @@ the box with a second Maven build — and 10/10 isolated on `main`.
   once. Old loop: `ConcurrentModificationException` in **199 of 200** (in the 200th the
   cold first worker had not logged yet). Fixed loop, same pause: **0 of 200**. The red is
   the CI run itself; the pair shows the fix removes exactly that failure.
+
+## 2026-11-28 (later): XdStorageBackupUnderLoadStressTest — NOT a flake, an engine defect (FIXED)
+
+- **Signature (CI, `main` `8d34020` — the second fix merged, job `windows`):**
+  `theCopyHoldsWholePairsAndTheSourceReopens:117` — "the copy holds 15 pair(s), but 16 had
+  committed when backupTo returned"; 1 failure in 1746; `gate` and `jdk21` green on the
+  same commit.
+- **It is not a flake, and reading it as one would have hidden a data loss.** The
+  shutdown checkpoint of a DATA resource folded its journal under the append lock only.
+  A commit of another thread that was between its phases — the redo appended, nothing
+  published — was in neither the base the fold wrote nor the journal it deleted: the
+  commit returned success and the record was gone at the next open. `checkpoint()`,
+  `shutdown()` and `backupTo` all run that fold. The window is the other resources'
+  phase-1 appends of the same commit: I/O, so wider on the Windows runner.
+- **Deterministic on Linux, with no seam in the engine:**
+  `XdStorageShutdownCheckpointRaceTest` parks the committing thread inside its id-index
+  append by holding that journal's monitor. Before the fix: the record gone after the
+  reopen; `shutdown()` returned under the commit; `transaction.commit()` after the
+  shutdown wrote 368 bytes into the journal of a shut storage. After: 3/3 green.
+- **Fix:** task 51 — the data resource takes its commit lock before the fold (as the
+  index resources always did), the shutdown refuses new writes and waits for the ones in
+  flight, and the transaction's own `commit()` is refused after the shutdown too.
+
+## 2026-11-28 (later): two stress reds in the SHUTCKPT gate — one race in the lock's own timeout message (FIXED)
+
+- **Signature.** Two reds in 8 in-suite runs on the task-51 tree, in two ledgered
+  contention families: `XdStorageBTreeTargetedDeleteStressTest` — "Конфликт блокировок MVCC:
+  … Превышен таймаут ожидания: 100 мс" from a READER thread (`Write-lock acquisition failed
+  after 103 ms (holder thread: null …)`); `XdStorageNestedTransactionIsolationStressTest` —
+  "Крах транзакционного контракта вложенности" wrapping
+  `NullPointerException: Cannot invoke "java.lang.Thread.getName()" because
+  "this.writeLockThread" is null`, at `XdStorageReadWriteLock.describeLockState:239`.
+- **The cause, found in the lock, not in task 51.** The holder field of
+  `XdStorageReadWriteLock` is volatile. The timeout message read it TWICE — "not null? then
+  `getName()`" — and the holder released the lock between the two reads: what should have
+  been the lock conflict (`XdStorageRuntimeException`, which both storms classify as
+  backpressure) left as a `NullPointerException`, which they classify as an anomaly. The
+  same NPE, from the other message (`lockRead:224`), reddened a run of the top-5 wave on
+  2026-11-24 (`t35-quickgate-1`, 1379/1f); the "holder thread: null" timeout line stands in
+  green runs of every tree since the baseline `d1f36d1`. Task 51 touches no lock; in
+  isolation the targeted-delete storm is 0/20 red on `main` and 0/20 on the task-51 tree.
+- **Fix:** each message reads the holder once (`final Thread holder = writeLockThread;`).
+  Not pinned: a check-then-act on a volatile field has no seam, and a probabilistic pin
+  would be a flake by construction.
+- **What remains is the ledgered family itself:** under a full suite the 100 ms MVCC budget
+  of a hot record times out — backpressure, counted, not red. And read this before trusting
+  the targeted-delete storm's green: in every run of this session, on every tree,
+  "Успешных точечных удалений пар: 0" — each delete is refused as a concurrent modification
+  and skipped, so the test is a readers' storm around one hot record.

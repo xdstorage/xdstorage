@@ -170,3 +170,27 @@ For any failing/disabled pin whose disable-note blames a mechanism.
    permanent pin (it now guards the contract that reshaped the test).
 Case: the W-4 wrapper block (the 2 pins green after setChildren; the diag suite
 pinned the veto contract).
+
+## R-F. A race with no seam in the engine — "как сделать окно детерминированным?"
+
+For a failure that needs another thread to be INSIDE a window the engine opens (a commit
+between its phases, a checkpoint under a fold), on a runner slower than yours.
+
+1. **Read the lock ORDER first.** Which lock is held across the whole critical section
+   (the resource's commit lock: acquisition → both phases) and which only around one
+   step (the journal's append monitor)? The step lock is the one a test can take from
+   outside. In XdStorage every journal append runs under the monitor of the journal
+   file's canonical path — `XdStorageYamlCommitJournal.lockFor(file)` is public.
+2. **Park the thread on that monitor.** A holder thread takes it; the committing thread
+   stops inside that append — after the earlier resources' phase 1, before any phase 2.
+   Verify the park by STATE + TOP FRAME (`BLOCKED`, `XdStorageYamlCommitJournal.append`),
+   never by a sleep.
+3. **Check the precondition on disk** (the earlier journal already grew): the park alone
+   does not prove the order of the phases.
+4. **Do the operation under test, let go, and assert the outcome AFTER A REOPEN** — the
+   record, not the absence of an exception. Three defects of one edge came out of this:
+   the lost commit, the shutdown that returned under it, the unrefused `tx.commit()`.
+5. **Run the SAME test source against the OLD classes** (`mvn test
+   -Dmaven.main.skip=true` over the pre-fix `target/classes`): the pin must be red
+   there and green on the fix.
+Case: task 51 (SHUTCKPT) — a Windows-only red, deterministic on Linux in 1.6 s.

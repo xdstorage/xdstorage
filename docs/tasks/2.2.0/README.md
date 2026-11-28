@@ -32,6 +32,7 @@ as the 2.1.0 train.
 | 31 | [visibility-budget-redesign](visibility-budget-redesign.md) | the infra-visibility wait: poll-and-deadline → commit-notification (the incident: the cold-first-tx codegen exceeded the 3 s cap → serving absent; the interim = the timeout default raised to 15 s) | P2, engine, design | 1–2 sess |
 | 32 | [dupkeys-concurrent-delete-miss](dupkeys-concurrent-delete-miss.md) | the concurrent targeted delete threw "does not exists" for a verified-existing pair — the sound retry predicate + the leaf-chain walk (the duplicate SPAN mechanism, no concurrency needed); the CI ×3 watch stays open | P1, engine, bug | 1 sess |
 | 33 | [leaf-overflow-duplicates](leaf-overflow-duplicates.md) | the duplicate-range terminal leaves grew unbounded (the chain branch mutated nextLeaf, no split check) — the split fires on the mutated leaf + the R-54 deadline budget ported to inserts; the «переполнение ноды» invariants un-disabled | P2, engine, bug | 0.5 sess |
+| 51 | [shutdown-checkpoint-commit-race](51-shutdown-checkpoint-commit-race.md) | SHUTCKPT: the shutdown checkpoint cut a commit between its phases — a commit that returned success was lost at the next open; `shutdown()` returned under a write; `transaction.commit()` was not refused after the shutdown (found by the Windows leg, run 3) | P0, engine, durability, bug | 1 sess |
 
 Gates: the design rounds before 01/05 (the house rule); property tests grow as the core
 changes (03 protects 01); nightly ×3 green is the train's continuous gate.

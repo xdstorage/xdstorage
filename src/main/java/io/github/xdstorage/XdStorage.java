@@ -116,7 +116,13 @@ class XdStorage implements IXdFileStorage {
         this.folderLock = lock;
     }
 
-    /** S-4: громкий отказ после shutdown() вместо сырых RejectedExecutionException в недрах. */
+    /**
+     * S-4: громкий отказ после shutdown() вместо сырых RejectedExecutionException в недрах.
+     *
+     * <p>A method that WRITES calls it after it registered itself as a writer in flight (the
+     * commit and the staging saves/updates/deletes): a shutdown that began in between then
+     * either waits for the write or refuses it, and can no longer return under it.</p>
+     */
     private void ensureOpen() {
         if (closed) {
             throw new XdStorageRuntimeException("storage '" + name +
@@ -278,7 +284,6 @@ class XdStorage implements IXdFileStorage {
     @Override
     public void save(final Object object, final IXdStorageTransaction transaction) throws XdStorageException,
             XdStorageConnectionException {
-        ensureOpen();
         if (object == null)
             throw new XdStorageException("object cannot be null");
         if (transaction == null)
@@ -286,7 +291,10 @@ class XdStorage implements IXdFileStorage {
 
         final XdStorageTransactionManager txManager = (XdStorageTransactionManager) services.getTransactionsManager();
         txManager.incrementActiveThreads(transaction.getTransactionId());
+        txManager.enterStagedWrite();
         try {
+            ensureOpen();   // after the registration above: a shutdown that began in between waits
+                             // for this write, or refuses it
             if (!isTransactionAlive(transaction))
                 throw new XdStorageException("transaction " + transaction.getTransactionId() + " is not alive");
 
@@ -333,6 +341,7 @@ class XdStorage implements IXdFileStorage {
             services.getForeignKeyEngine().process(object, XdStorageForeignKeyObjectChangeType.INSERT, tx);
         } finally {
             txManager.decrementActiveThreads(transaction.getTransactionId());
+            txManager.leaveStagedWrite();
         }
     }
 
@@ -357,7 +366,6 @@ class XdStorage implements IXdFileStorage {
     @Override
     public void save(final Collection<?> objects, final IXdStorageTransaction transaction) throws XdStorageException,
             XdStorageConnectionException {
-        ensureOpen();
         if (objects == null)
             throw new XdStorageException("objects collection cannot be null");
         if (transaction == null)
@@ -365,7 +373,10 @@ class XdStorage implements IXdFileStorage {
 
         final XdStorageTransactionManager txManager = (XdStorageTransactionManager) services.getTransactionsManager();
         txManager.incrementActiveThreads(transaction.getTransactionId());
+        txManager.enterStagedWrite();
         try {
+            ensureOpen();   // after the registration above: a shutdown that began in between waits
+                             // for this write, or refuses it
             if (!isTransactionAlive(transaction))
                 throw new XdStorageException("transaction " + transaction.getTransactionId() + " is not alive");
 
@@ -451,6 +462,7 @@ class XdStorage implements IXdFileStorage {
                     .next().getClass().getSimpleName() : "?", objects.size(), transaction.getTransactionId());
         } finally {
             txManager.decrementActiveThreads(transaction.getTransactionId());
+            txManager.leaveStagedWrite();
         }
     }
 
@@ -1183,7 +1195,6 @@ class XdStorage implements IXdFileStorage {
     @Override
     public void update(final Object object, final IXdStorageTransaction transaction) throws XdStorageException,
             XdStorageConnectionException {
-        ensureOpen();
         if (object == null)
             throw new XdStorageException("object cannot be null");
         if (transaction == null)
@@ -1191,7 +1202,10 @@ class XdStorage implements IXdFileStorage {
 
         final XdStorageTransactionManager txManager = (XdStorageTransactionManager) services.getTransactionsManager();
         txManager.incrementActiveThreads(transaction.getTransactionId());
+        txManager.enterStagedWrite();
         try {
+            ensureOpen();   // after the registration above: a shutdown that began in between waits
+                             // for this write, or refuses it
             if (!isTransactionAlive(transaction))
                 throw new XdStorageException("transaction " + transaction.getTransactionId() + " is not alive");
 
@@ -1235,6 +1249,7 @@ class XdStorage implements IXdFileStorage {
             services.getForeignKeyEngine().process(object, XdStorageForeignKeyObjectChangeType.UPDATE, tx);
         } finally {
             txManager.decrementActiveThreads(transaction.getTransactionId());
+            txManager.leaveStagedWrite();
         }
     }
 
@@ -1259,7 +1274,6 @@ class XdStorage implements IXdFileStorage {
     @Override
     public void update(final Collection<?> objects, final IXdStorageTransaction transaction) throws XdStorageException,
             XdStorageConnectionException {
-        ensureOpen();
         if (objects == null)
             throw new XdStorageException("objects cannot be null");
         if (transaction == null)
@@ -1267,7 +1281,10 @@ class XdStorage implements IXdFileStorage {
 
         final XdStorageTransactionManager txManager = (XdStorageTransactionManager) services.getTransactionsManager();
         txManager.incrementActiveThreads(transaction.getTransactionId());
+        txManager.enterStagedWrite();
         try {
+            ensureOpen();   // after the registration above: a shutdown that began in between waits
+                             // for this write, or refuses it
             if (!isTransactionAlive(transaction))
                 throw new XdStorageException("transaction " + transaction.getTransactionId() + " is not alive");
 
@@ -1346,6 +1363,7 @@ class XdStorage implements IXdFileStorage {
                 throw conExceptions[0];
         } finally {
             txManager.decrementActiveThreads(transaction.getTransactionId());
+            txManager.leaveStagedWrite();
         }
     }
 
@@ -1371,7 +1389,6 @@ class XdStorage implements IXdFileStorage {
     @Override
     public void delete(final Object reference, final IXdStorageTransaction transaction) throws XdStorageException,
             XdStorageConnectionException {
-        ensureOpen();
         if (reference == null)
             throw new XdStorageException("reference cannot be null");
         log.debug("delete {} requested by tx {}", reference.getClass().getSimpleName(), transaction.getTransactionId());
@@ -1380,7 +1397,10 @@ class XdStorage implements IXdFileStorage {
 
         final XdStorageTransactionManager txManager = (XdStorageTransactionManager) services.getTransactionsManager();
         txManager.incrementActiveThreads(transaction.getTransactionId());
+        txManager.enterStagedWrite();
         try {
+            ensureOpen();   // after the registration above: a shutdown that began in between waits
+                             // for this write, or refuses it
             if (!isTransactionAlive(transaction))
                 throw new XdStorageException("transaction " + transaction.getTransactionId() + " is not alive");
 
@@ -1423,6 +1443,7 @@ class XdStorage implements IXdFileStorage {
             services.getForeignKeyEngine().process(reference, XdStorageForeignKeyObjectChangeType.DELETE, tx);
         } finally {
             txManager.decrementActiveThreads(transaction.getTransactionId());
+            txManager.leaveStagedWrite();
         }
     }
 
@@ -1447,7 +1468,6 @@ class XdStorage implements IXdFileStorage {
     @Override
     public void delete(final Collection<?> references, final IXdStorageTransaction transaction) throws
             XdStorageException, XdStorageConnectionException {
-        ensureOpen();
         if (references == null)
             throw new XdStorageException("references collection cannot be null");
         if (transaction == null)
@@ -1455,7 +1475,10 @@ class XdStorage implements IXdFileStorage {
 
         final XdStorageTransactionManager txManager = (XdStorageTransactionManager) services.getTransactionsManager();
         txManager.incrementActiveThreads(transaction.getTransactionId());
+        txManager.enterStagedWrite();
         try {
+            ensureOpen();   // after the registration above: a shutdown that began in between waits
+                             // for this write, or refuses it
             if (!isTransactionAlive(transaction))
                 throw new XdStorageException("transaction " + transaction.getTransactionId() + " is not alive");
 
@@ -1534,6 +1557,7 @@ class XdStorage implements IXdFileStorage {
                 throw conExceptions[0];
         } finally {
             txManager.decrementActiveThreads(transaction.getTransactionId());
+            txManager.leaveStagedWrite();
         }
     }
 
@@ -1560,11 +1584,32 @@ class XdStorage implements IXdFileStorage {
 
     @Override
     public void shutdown() {
+        final XdStorageTransactionManager txManager = (XdStorageTransactionManager) services
+                .getTransactionsManager();
         synchronized (shutdownLock) {
             // S-4: shutdown идемпотентен — повторный вызов (явный + хук) ничего не ломает
             if (closed)
                 return;
             closed = true;
+            txManager.shutdownBegan();
+        }
+        // SHUTCKPT: let the writes already in flight finish — commits, and the saves, updates
+        // and deletes staging their changes. Each registered itself before it checked that the
+        // storage was open, and from here on none begins: these are the last writes the folder
+        // sees. A shutdown that returned under a commit left the folder still being written: the
+        // checkpoint below could cut that commit between its phases, a backup copy taken after it
+        // was not one point in time, and a reopen met the old instance's last appends. A write
+        // still in flight when the wait runs out is cut the way a crash cuts it — the checkpoint
+        // leaves a busy resource's journal alone, and it replays at the next open.
+        final long quietMillis = services.getStorageConfig().getDefaultTransactionTimeoutMillis();
+        try {
+            if (!txManager.awaitQuiescence(quietMillis)) {
+                log.warn("storage '{}': a write is still in flight {} ms after the shutdown began, or the shutdown"
+                        + " was called from inside a commit — the journal of a busy resource is left for the next"
+                        + " open's replay", name, quietMillis);
+            }
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
         if (shutdownHook != null) {
             try {
