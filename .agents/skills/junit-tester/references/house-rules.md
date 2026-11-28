@@ -146,6 +146,17 @@ Every policy test class MUST have exactly 14 tests (the FK-6 pattern × 4 polici
   file out, and skip it in any file dump; a `Path` says `\` there, so never spell
   `/` as the separator; worker names (`xdstorage-worker-N`) are per storage, so a
   daemon check looks at the thread that ran the storage's own task
+- **A log capture in a test is a shared collection** (the second Windows run,
+  2026-11-28: 1 red): the first `markRollbackOnly` arms the asynchronous rollback
+  sweeper, which logs from an `xdstorage-worker-*` thread a moment later; and
+  `config.getLoggerConfig("io.github.xdstorage.transaction.XdStorageTransaction")`
+  is the `io.github.xdstorage` config — every WARN of the engine reaches the appender.
+  Filter by `event.getLoggerName()`, read a snapshot under the appender's lock, count
+  only the events naming the test's own transaction (the shape is in
+  `XdStorageRollbackOnlyCauseTest.ListCaptureAppender`)
+- surefire's class order is the file system's (`runOrder=filesystem`): sorted on NTFS
+  (its documented enumeration — not yet read off a Windows report), hash order on ext4 —
+  `-Dsurefire.runOrder=alphabetical` runs the Windows order on Linux
 
 ## 5. The release gate
 

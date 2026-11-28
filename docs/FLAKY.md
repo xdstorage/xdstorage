@@ -127,3 +127,36 @@ the box with a second Maven build — and 10/10 isolated on `main`.
 - **Fix:** the budget corrected to the documented 15000 ms (the queue of a 12-deep
   hot-key collision plus the disk spikes fits comfortably). Green ×3 isolated,
   957/0/0 ×2 full suites.
+
+## 2026-11-28: XdStorageRollbackOnlyCauseTest — the capture list read while a worker appended (FIXED)
+
+- **Signature (CI, `main` `22ce727` — the first run of the merged `parallel-work`, job
+  `windows`):** `warnLoggedOncePerTransaction_RepeatMarksNotLogged:358 »
+  ConcurrentModificationException` — 1 error in 1746; `gate` and `jdk21` green on the
+  same commit. Never seen on Linux.
+- **Root cause:** a race inside the one test, not between tests, and not OS-specific.
+  The test iterated the appender's `ArrayList` with no lock, while the appender appends
+  under one. And the appender is offered more than it is asked for:
+  `config.getLoggerConfig("…transaction.XdStorageTransaction")` returns the nearest
+  CONFIGURED logger — `io.github.xdstorage`, the whole engine — so every WARN of every
+  thread reaches the list. One does, every time, from another thread: the first
+  `markRollbackOnly` arms the asynchronous rollback sweeper
+  (`XdStorageTransactionManager.registerRollbackOnlyTransaction`), whose WARN is logged
+  from `xdstorage-worker-1` a moment after the mark. Measured in a diagnostic copy with
+  the window widened to 1.5 s: event 0 — the mark, on the test thread; event 1 — the
+  sweeper, on the worker, 12 ms later. The test's loop is a handful of statements; for
+  that append to land inside it the test thread must be preempted right there — which the
+  Windows runner did once. The neighbouring class
+  was suspected first (Windows orders classes alphabetically) and ruled out by the same
+  diagnostic: no foreign thread at the class boundary, no foreign event in the window.
+- **Fix:** the appender keeps the transaction logger's events only; the list is read
+  through `snapshot()` under the appender's lock; the test counts the events of ITS
+  transaction (logger name + transaction id).
+
+  **The proof.** The natural timing reproduces nothing on Linux — the OLD method, 6000
+  repetitions under CPU load (48 spinning threads on 24 cores, `-Xint`), 0 hits — so the
+  interleaving was forced: a diagnostic copy pauses the test thread for 50 ms right after
+  the iterator over the captured events is created, the pause the Windows runner imposed
+  once. Old loop: `ConcurrentModificationException` in **199 of 200** (in the 200th the
+  cold first worker had not logged yet). Fixed loop, same pause: **0 of 200**. The red is
+  the CI run itself; the pair shows the fix removes exactly that failure.

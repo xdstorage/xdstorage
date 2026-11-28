@@ -354,11 +354,11 @@ public class XdStorageRollbackOnlyCauseTest {
             tx.markRollbackOnly("second site", null);
             tx.markRollbackOnly("third site", null);
 
+            // The capture is read as a snapshot, and only the events of THIS transaction count:
+            // the appender is written from other threads too (see the appender).
             long markWarns = 0;
-            for (final LogEvent event : capture.events) {
-                if (event.getMessage() != null
-                        && String.valueOf(event.getMessage().getFormattedMessage())
-                                .contains("marked as rollback only by")) {
+            for (final LogEvent event : capture.snapshot()) {
+                if (isMarkWarningOf(event, tx)) {
                     ++markWarns;
                 }
             }
@@ -372,8 +372,31 @@ public class XdStorageRollbackOnlyCauseTest {
         }
     }
 
-    /** Minimal in-test capture appender (log4j2's ListAppender moved to log4j-core-test). */
+    /** The WARN of the capture contract: the first mark of exactly this transaction. */
+    private static boolean isMarkWarningOf(final LogEvent event, final XdStorageTransaction tx) {
+        return XdStorageTransaction.class.getName().equals(event.getLoggerName()) && event.getMessage() != null
+                && String.valueOf(event.getMessage().getFormattedMessage())
+                        .contains("transaction " + tx.getTransactionId() + " marked as rollback only by ");
+    }
+
+    /**
+     * Minimal in-test capture appender (log4j2's ListAppender moved to log4j-core-test).
+     *
+     * <p>It is offered more than it is asked for. {@code getLoggerConfig(name)} returns the
+     * nearest CONFIGURED logger, and the test configuration names {@code io.github.xdstorage},
+     * not the transaction class — so every WARN of the engine, from any thread, reaches
+     * {@link #append}. The appender keeps the transaction logger's events only. That logger
+     * is the engine's, though, not this test's: the list is still written from other threads,
+     * so it is guarded by a lock and read through {@link #snapshot()}, under the same one.
+     * Unguarded and unfiltered, this test failed on Windows with a
+     * {@link ConcurrentModificationException} (the first run of the merged main, 2026-11-28):
+     * the first {@code markRollbackOnly} arms the asynchronous rollback sweeper, whose WARN —
+     * the transaction manager's logger — was appended from a worker of the storage's pool
+     * while the test thread was iterating the list.</p>
+     */
     private static final class ListCaptureAppender extends AbstractAppender {
+        private static final String CAPTURED_LOGGER = XdStorageTransaction.class.getName();
+
         private final List<LogEvent> events = new ArrayList<>();
 
         private ListCaptureAppender() {
@@ -382,8 +405,18 @@ public class XdStorageRollbackOnlyCauseTest {
 
         @Override
         public void append(final LogEvent event) {
+            if (!CAPTURED_LOGGER.equals(event.getLoggerName())) {
+                return;
+            }
             synchronized (events) {
                 events.add(event.toImmutable());
+            }
+        }
+
+        /** The events captured so far, copied under the lock the appends take. */
+        List<LogEvent> snapshot() {
+            synchronized (events) {
+                return new ArrayList<>(events);
             }
         }
     }

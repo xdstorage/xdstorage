@@ -342,11 +342,13 @@ grouping is tags, not layout.
     never have run (PowerShell against `/tmp`, and a JVM does not start with a `-Xlog`
     file whose directory is missing). Merged — five merges and the cherry-pick — then one
     fix commit per task: `684efd2` 04, `2eb8be8` 12, `ea7a7e4` 41, `4da7dd4` 17,
-    `5246879` 15. **Status after:** 15, 17, 40, 41 done; 04 open on one point (the second
-    Windows run — the first, on the pull request, 2026-11-27: 1746 run, 25 red, all three
-    causes in the tests and fixed; a Linux emulation of the mandatory lock reproduces 21 of
-    them on the old tree and none on the fixed one; the triage is in the task file); 12 open
-    on one decision (lift NOT RECOMMENDED or deprecate — the design note is written, and the
+    `5246879` 15, then the first Windows triage (`04ea507`); merged by PR #111 (`22ce727`).
+    **Status after:** 15, 17, 40, 41 done; 04 open on one point (a green Windows run: the
+    first, 2026-11-27, was 25 red, all three causes in the tests and fixed — a Linux
+    emulation of the mandatory lock reproduces 21 of them on the old tree and none on the
+    fixed one; the second, on `main`, 1 red — a race inside one test, fixed; the triage is
+    in the task file); 12 open on one decision (lift NOT RECOMMENDED or deprecate — the
+    design note is written, and the
     isolation stress test turned out to be in every suite since `59ff544`, not excluded
     as FLAKY.md said until now). **Findings that outlive the wave:** (a) a storage folder
     names its files by the path it was opened with — a copy made by hand is tied to the

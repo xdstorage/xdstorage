@@ -1,7 +1,7 @@
 ---
 title: "[2.2.0][OSPATH] OS-dependent paths: audit, abstract, and test beyond Linux"
 labels: [2.2.0-train, P1, engine, testing]
-status: open (the audit, the platform statement and the Windows CI leg are in; the leg's first run is triaged — 25 red, three causes, all in the tests — and the fixes wait for the second run)
+status: open (the audit, the platform statement and the Windows CI leg are in; two runs triaged — the first, 25 red; the second, 1 red — every cause in the tests, every fix in the tree; the leg waits for a green run)
 ---
 
 ## Summary
@@ -36,10 +36,12 @@ Estimate: ~1–2 sessions for audit + first Windows triage.
       API USE; the OS-semantics questions it cannot answer from the source are listed
       under "What the audit cannot settle" for the Windows triage.
 - [ ] The Windows CI leg (GitHub windows-latest) running the non-stress suite — the
-      `windows` job ran once (2026-11-27, commit `6240cad`): 1746 run, 2 failures +
+      `windows` job ran twice. 2026-11-27, commit `6240cad`: 1746 run, 2 failures +
       23 errors, every one of them in the tests, none in the engine — the triage is
-      below and the fixes are in the tree. It stays `continue-on-error` until a run
-      with the fixes is green. Done when that run is green.
+      below and the fixes are in the tree. 2026-11-28, `main` `22ce727` (PR #111
+      merged): **1746 run, 0 failures, 1 error** — a race inside one test, also fixed
+      ("The second run" below). It stays `continue-on-error` until a run is green.
+      Done when that run is green.
 - [x] Charset: no `Charset.defaultCharset()` and no default-charset `String`/reader/
       writer constructor in the engine (re-checked 2026-11-27); the one debug write that
       used `String.getBytes()` (`XdStorageClassGenerator`, the `xdstorage.dump.gencode`
@@ -51,7 +53,9 @@ Estimate: ~1–2 sessions for audit + first Windows triage.
 - [x] CHANGELOG updated — under `[Unreleased]`, Changed.
 - [x] Quick-gate ×3 green — on Linux, `clean test -Pquick-gate` **1746/0f/0e/7 skipped ×3, consecutive, BUILD SUCCESS**, 0 checkstyle violations, on a quiet box (2026-11-27, branch `parallel-work` — the six parallel-work branches merged; `main` is 1360). Repeated on the tree with the Windows fixes: `clean test -Pquick-gate`
       **1746/0f/0e/7 ×3, consecutive, BUILD SUCCESS**, 0 checkstyle violations, and
-      `clean verify` once green (03:56). The Windows run is the line above.
+      `clean verify` once green (03:56). Once more after the second run's fix: **1746/0f/0e/7
+      ×3, consecutive**, `clean verify` green, and one run in the Windows class order
+      (`-Dsurefire.runOrder=alphabetical`) 1746/0/0/7. The Windows run is the line above.
 
 ## Audit results (2026-11-25, re-checked 2026-11-27)
 
@@ -156,6 +160,41 @@ emulation (write-only instead of no access) behaves identically.
 - **An emulation is exactly as true as its model.** The residual red above was read (and
   its cause found in the engine's own probe), not waved off as noise.
 
+### The second run (`main` `22ce727`, 2026-11-28) — 1 red, a race inside one test
+
+Job `windows` on the merge of PR #111: **Tests run: 1746, Failures: 0, Errors: 1, Skipped:
+7** — the 25 are gone. `gate` and `jdk21` on the same commit: 1746/0/0/7. The one error
+was not in the first run's list because it is a race, not a Windows habit:
+`XdStorageRollbackOnlyCauseTest.warnLoggedOncePerTransaction_RepeatMarksNotLogged:358 »
+ConcurrentModificationException`. The test read its list of captured log events while the
+storage's own sweeper — armed by the test's first `markRollbackOnly` — was appending to it
+from a worker thread; the appender sat on the whole engine's logger config, not the
+transaction logger's (`getLoggerConfig` returns the nearest CONFIGURED logger). The full
+write-up, with the diagnostic that found it, is in FLAKY.md (2026-11-28). The fix is
+test-side again; the engine is untouched.
+
+What this run does not say: that the race is Windows-only. The same interleaving exists
+on Linux — the test thread must be preempted inside a loop of a handful of statements —
+and a slower runner only widens the window.
+
+Traps of this round:
+
+- **A red new to the second run is not new code.** With the 25 out of the way, a race that
+  was there all along got its first chance to be the only red.
+- **The class order is the file system's.** surefire's default `runOrder` is `filesystem`:
+  what `listFiles` returns — sorted on NTFS, hash order on ext4 (the Linux order was read
+  off a run; the Windows one is NTFS's documented enumeration, not read off a report).
+  `-Dsurefire.runOrder=alphabetical` reproduces it on Linux — which here ruled the
+  neighbouring class out instead of in.
+- **A harness must print its own verdict.** Two stress runs through surefire (the old test
+  method, 6000 repetitions under CPU load) ended with the fork exiting, code 0, around
+  repetition 5830 and surefire reporting `Tests run: 0` — no per-repetition result at all
+  (not investigated: a throwaway harness, 50 MB of stdout). The third ran outside surefire,
+  on the test classpath, and printed its own count.
+- **A rare race needs its interleaving forced, not just its stress repeated.** 6000
+  repetitions under load hit nothing on Linux; a 50 ms pause inserted where the Windows
+  runner paused the thread made the old loop fail 199 times out of 200 (FLAKY.md, 2026-11-28).
+
 ## Changes made
 
 1. **EMBEDDING.md** — § Supported platforms: tested / a CI leg exists / not tested.
@@ -175,13 +214,16 @@ emulation (write-only instead of no access) behaves identically.
    and the copy succeeds. The text says both now.
 7. **The junit-tester skill** — R13 ("green on one OS is green on one OS") and the Windows
    facts under § Known environment facts, so the next test is written portable.
+8. **`XdStorageRollbackOnlyCauseTest` (2026-11-28, after the second run)** — its capture
+   appender keeps the transaction logger's events only, the list is read through a snapshot
+   under the appender's lock, and the test counts the events of its own transaction.
 
 ## Not done
 
-- The second Windows run — the one with the fixes. Everything above is proven on Linux
-  (the emulation, the probe) and by reading; only that run proves it on Windows. It also
-  takes the 25 tests further than they have ever gone there: each of them died at its first
-  Windows-specific line, and what follows was reviewed, not run.
+- A green Windows run. The second one (`main` `22ce727`) proved the 25 fixes — and
+  failed in one more test, a race, fixed here. Everything is proven on Linux (the
+  emulation, the probe, the stress harness) and by reading; only that run proves it on
+  Windows.
 - `continue-on-error: true` on the `windows` job — drop it once that run is green.
 - A macOS leg. The platform is listed as not tested; adding a leg is a CI-cost decision
   for the maintainer.
